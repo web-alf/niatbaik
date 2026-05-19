@@ -28,23 +28,26 @@ class PaymentService
             ]);
 
             // Handle referral commission
-            if ($invoice->referred_by && $invoice->referred_by >= 1 && ! $invoice->referral_processed) {
-                $commissionPercent = $settings->fundraiser_commission_percent ?? 0;
-                $commissionAmount = ($campaignReceives * $commissionPercent) / 100;
+            if ($invoice->referred_by && ! $invoice->referral_processed) {
+                $referrer = $invoice->referrer;
+                if ($referrer) {
+                    $commissionPercent = $settings->fundraiser_commission_percent ?? 0;
+                    $commissionAmount = (int) (($campaignReceives * $commissionPercent) / 100);
 
-                Fundraiser::where('user_id', $invoice->referred_by)
-                    ->increment('total_raised', $invoice->subtotal);
+                    Fundraiser::where('user_id', $invoice->referred_by)
+                        ->increment('total_raised', $invoice->subtotal);
 
-                $invoice->referrer?->increment('bonus_balance', $commissionAmount);
+                    $referrer->increment('bonus_balance', $commissionAmount);
 
-                Commission::create([
-                    'user_id' => $invoice->referred_by,
-                    'description' => "Bonus Komisi Dari Donasi {$invoice->donor_name}",
-                    'amount' => $commissionAmount,
-                    'earned_at' => now(),
-                ]);
+                    Commission::create([
+                        'user_id' => $invoice->referred_by,
+                        'description' => "Bonus Komisi Dari Donasi {$invoice->donor_name}",
+                        'amount' => $commissionAmount,
+                        'earned_at' => now(),
+                    ]);
 
-                $campaignReceives -= $commissionAmount;
+                    $campaignReceives -= $commissionAmount;
+                }
                 $invoice->update(['referral_processed' => true]);
             }
 

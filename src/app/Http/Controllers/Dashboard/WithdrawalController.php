@@ -24,7 +24,7 @@ class WithdrawalController extends Controller
     {
         $data = $request->validated();
         $data['user_id'] = auth()->id();
-        $data['status'] = 'Pending';
+        $data['status'] = 'Dalam Antrian';
         $data['requested_at'] = now();
 
         Withdrawal::create($data);

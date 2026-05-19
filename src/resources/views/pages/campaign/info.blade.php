@@ -15,7 +15,7 @@
         <p class="text-sm text-gray-500 mb-8">{{ $update->created_at->format('d M Y') }}</p>
 
         <div class="prose max-w-none">
-            {!! $update->body !!}
+            {!! Str::sanitizeHtml($update->body) !!}
         </div>
     </div>
 </x-app-layout>

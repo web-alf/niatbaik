@@ -9,22 +9,22 @@
                 <div class="space-y-6">
                     <div>
                         <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Judul Campaign</label>
-                        <input type="text" name="title" id="title" value="{{ old('title') }}" required class="w-full rounded-lg border-gray-300 focus:ring-green-500 focus:border-green-500">
+                        <input type="text" name="title" id="title" value="{{ old('title') }}" required class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500">
                         <x-input-error :messages="$errors->get('title')" class="mt-1" />
                     </div>
                     <div>
                         <label for="short_description" class="block text-sm font-medium text-gray-700 mb-1">Deskripsi Singkat</label>
-                        <input type="text" name="short_description" id="short_description" value="{{ old('short_description') }}" class="w-full rounded-lg border-gray-300 focus:ring-green-500 focus:border-green-500">
+                        <input type="text" name="short_description" id="short_description" value="{{ old('short_description') }}" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500">
                         <x-input-error :messages="$errors->get('short_description')" class="mt-1" />
                     </div>
                     <div>
                         <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Deskripsi Lengkap</label>
-                        <textarea name="description" id="description" rows="8" required class="w-full rounded-lg border-gray-300 focus:ring-green-500 focus:border-green-500">{{ old('description') }}</textarea>
+                        <textarea name="description" id="description" rows="8" required class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500">{{ old('description') }}</textarea>
                         <x-input-error :messages="$errors->get('description')" class="mt-1" />
                     </div>
                     <div>
                         <label for="category_id" class="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
-                        <select name="category_id" id="category_id" required class="w-full rounded-lg border-gray-300 focus:ring-green-500 focus:border-green-500">
+                        <select name="category_id" id="category_id" required class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500">
                             <option value="">Pilih Kategori</option>
                             @foreach($categories as $category)
                             <option value="{{ $category->id }}" {{ old('category_id') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
@@ -35,12 +35,12 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                         <div>
                             <label for="target" class="block text-sm font-medium text-gray-700 mb-1">Target Dana (Rp)</label>
-                            <input type="number" name="target" id="target" value="{{ old('target') }}" min="0" class="w-full rounded-lg border-gray-300 focus:ring-green-500 focus:border-green-500">
+                            <input type="number" name="target" id="target" value="{{ old('target') }}" min="0" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500">
                             <x-input-error :messages="$errors->get('target')" class="mt-1" />
                         </div>
                         <div>
                             <label for="duration_days" class="block text-sm font-medium text-gray-700 mb-1">Durasi (hari)</label>
-                            <input type="number" name="duration_days" id="duration_days" value="{{ old('duration_days') }}" min="1" class="w-full rounded-lg border-gray-300 focus:ring-green-500 focus:border-green-500">
+                            <input type="number" name="duration_days" id="duration_days" value="{{ old('duration_days') }}" min="1" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500">
                             <x-input-error :messages="$errors->get('duration_days')" class="mt-1" />
                         </div>
                     </div>

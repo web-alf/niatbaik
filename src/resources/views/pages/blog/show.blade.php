@@ -10,6 +10,6 @@
         @endif
         <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">{{ $post->title }}</h1>
         <p class="text-sm text-gray-500 mb-8">{{ $post->created_at->translatedFormat('d F Y') }}</p>
-        <div class="prose max-w-none">{!! $post->body !!}</div>
+        <div class="prose max-w-none">{!! Str::sanitizeHtml($post->body) !!}</div>
     </div>
 </x-app-layout>

@@ -18,7 +18,7 @@ class IpaymuController extends Controller
             return response()->json(['success' => false], 400);
         }
 
-        $invoice = Invoice::where('is_paid', false)
+        $invoice = Invoice::unpaidActive()
             ->where('pay_code', $sid)
             ->where('type_payment', 'Ipaymu')
             ->first();

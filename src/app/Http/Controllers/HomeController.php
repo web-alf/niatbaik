@@ -15,8 +15,8 @@ class HomeController extends Controller
         return view('pages.home', [
             'slides' => Slide::all(),
             'categories' => Category::all(),
-            'campaigns' => Campaign::where('status', 'Berjalan')->latest()->take(8)->get(),
-            'featured' => Campaign::where('featured', true)->where('status', 'Berjalan')->take(4)->get(),
+            'campaigns' => Campaign::with(['user', 'category'])->where('status', 'Berjalan')->latest()->take(8)->get(),
+            'featured' => Campaign::with(['user', 'category'])->where('featured', true)->where('status', 'Berjalan')->take(4)->get(),
             'posts' => Post::latest()->take(3)->get(),
         ]);
     }

@@ -34,7 +34,7 @@ class DonationForm extends Component
 
         $invoice = Invoice::create([
             'invoice_number' => 'INV-' . strtoupper(Str::random(10)),
-            'user_id' => auth()->id() ?? $this->campaign->user_id,
+            'user_id' => auth()->id(),
             'campaign_id' => $this->campaign->id,
             'subtotal' => $this->amount,
             'unique_amount' => 0,

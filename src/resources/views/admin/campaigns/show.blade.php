@@ -9,7 +9,7 @@
                 @if($campaign->featured)<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Featured</span>@endif
                 @if($campaign->category)<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ $campaign->category->name }}</span>@endif
             </div>
-            <div class="prose max-w-none text-sm">{!! $campaign->description !!}</div>
+            <div class="prose max-w-none text-sm">{!! Str::sanitizeHtml($campaign->description) !!}</div>
         </div>
         <div class="space-y-6">
             <div class="bg-white rounded-lg shadow-md p-6">

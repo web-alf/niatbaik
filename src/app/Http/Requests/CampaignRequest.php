@@ -17,7 +17,7 @@ class CampaignRequest extends FormRequest
             'title' => 'required|string|max:200',
             'short_description' => 'required|string|max:500',
             'description' => 'required|string',
-            'target' => 'required|integer|min:0',
+            'target' => 'required|integer|min:1',
             'duration_days' => 'required|integer|min:1|max:365',
             'unlimited' => 'boolean',
             'category_id' => 'required|exists:categories,id',

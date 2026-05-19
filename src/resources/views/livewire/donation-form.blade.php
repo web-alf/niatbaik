@@ -2,31 +2,31 @@
     <form wire:submit="submit" class="space-y-4">
         <div>
             <label for="name" class="block text-sm font-medium text-gray-700">Nama</label>
-            <input wire:model="name" type="text" id="name" class="mt-1 w-full px-4 py-2 border rounded-lg">
+            <input wire:model="name" type="text" id="name" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
             @error('name') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
         </div>
 
         <div>
             <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-            <input wire:model="email" type="email" id="email" class="mt-1 w-full px-4 py-2 border rounded-lg">
+            <input wire:model="email" type="email" id="email" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
             @error('email') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
         </div>
 
         <div>
             <label for="phone" class="block text-sm font-medium text-gray-700">No. Telepon</label>
-            <input wire:model="phone" type="text" id="phone" class="mt-1 w-full px-4 py-2 border rounded-lg">
+            <input wire:model="phone" type="text" id="phone" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
             @error('phone') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
         </div>
 
         <div>
             <label for="amount" class="block text-sm font-medium text-gray-700">Jumlah Donasi (Rp)</label>
-            <input wire:model="amount" type="number" id="amount" min="10000" class="mt-1 w-full px-4 py-2 border rounded-lg">
+            <input wire:model="amount" type="number" id="amount" min="10000" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
             @error('amount') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
         </div>
 
         <div>
             <label for="message" class="block text-sm font-medium text-gray-700">Pesan (opsional)</label>
-            <textarea wire:model="message" id="message" rows="3" class="mt-1 w-full px-4 py-2 border rounded-lg"></textarea>
+            <textarea wire:model="message" id="message" rows="3" class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"></textarea>
             @error('message') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
         </div>
 

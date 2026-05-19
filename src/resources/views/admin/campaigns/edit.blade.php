@@ -7,7 +7,7 @@
                 <div class="space-y-6">
                     <div>
                         <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                        <select name="status" id="status" required class="w-full rounded-lg border-gray-300 focus:ring-green-500 focus:border-green-500">
+                        <select name="status" id="status" required class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500">
                             @foreach(['Menunggu','Berjalan','Selesai','Ditolak'] as $s)
                             <option value="{{ $s }}" {{ old('status', $campaign->status) === $s ? 'selected' : '' }}>{{ $s }}</option>
                             @endforeach
@@ -15,7 +15,7 @@
                     </div>
                     <div>
                         <label for="category_id" class="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
-                        <select name="category_id" id="category_id" required class="w-full rounded-lg border-gray-300 focus:ring-green-500 focus:border-green-500">
+                        <select name="category_id" id="category_id" required class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500">
                             @foreach($categories as $cat)
                             <option value="{{ $cat->id }}" {{ old('category_id', $campaign->category_id) == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
                             @endforeach

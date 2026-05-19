@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ ($title ?? '') ? ($title . ' - ') : '' }}Admin - {{ config('app.name', 'Yatimpia') }}</title>
+        <title>{{ ($title ?? '') ? ($title . ' - ') : '' }}Admin - {{ config('app.name', 'NiatBaik') }}</title>
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
@@ -26,7 +26,7 @@
                                 </svg>
                             </button>
                             <a href="{{ route('admin.dashboard') }}" class="text-xl font-bold text-white">
-                                {{ config('app.name', 'Yatimpia') }} <span class="text-green-200 text-sm font-normal">Admin</span>
+                                {{ config('app.name', 'NiatBaik') }} <span class="text-green-200 text-sm font-normal">Admin</span>
                             </a>
                         </div>
 

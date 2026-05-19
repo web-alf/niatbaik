@@ -82,4 +82,9 @@ class Invoice extends Model
     {
         return !$this->is_paid && $this->expired_at->isPast();
     }
+
+    public function scopeUnpaidActive($query)
+    {
+        return $query->where('is_paid', false)->where('expired_at', '>=', now());
+    }
 }

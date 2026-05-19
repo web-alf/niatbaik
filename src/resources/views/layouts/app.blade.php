@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ ($title ?? '') ? ($title . ' - ') : '' }}{{ config('app.name', 'Yatimpia') }}</title>
+        <title>{{ ($title ?? '') ? ($title . ' - ') : '' }}{{ config('app.name', 'NiatBaik') }}</title>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
@@ -23,7 +23,7 @@
                     {{-- Logo + Nav Links --}}
                     <div class="flex items-center">
                         <a href="{{ route('home') }}" class="text-xl font-bold text-green-600 shrink-0">
-                            {{ config('app.name', 'Yatimpia') }}
+                            {{ config('app.name', 'NiatBaik') }}
                         </a>
                         <div class="hidden sm:flex sm:items-center sm:ml-8 space-x-6">
                             <a href="{{ route('home') }}" class="text-sm font-medium {{ request()->routeIs('home') ? 'text-green-600' : 'text-gray-600 hover:text-green-600' }} transition">Beranda</a>
@@ -121,8 +121,8 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {{-- About --}}
                     <div>
-                        <h3 class="text-white text-lg font-semibold mb-3">{{ config('app.name', 'Yatimpia') }}</h3>
-                        <p class="text-sm leading-relaxed">Platform donasi online terpercaya untuk membantu anak yatim dan dhuafa di Indonesia.</p>
+                        <h3 class="text-white text-lg font-semibold mb-3">{{ config('app.name', 'NiatBaik') }}</h3>
+                        <p class="text-sm leading-relaxed">Platform crowdfunding untuk kebaikan dan kepedulian sosial.</p>
                     </div>
 
                     {{-- Links --}}
@@ -140,14 +140,14 @@
                     <div>
                         <h3 class="text-white text-lg font-semibold mb-3">Kontak</h3>
                         <ul class="space-y-2 text-sm">
-                            <li>Email: info@yatimpia.com</li>
+                            <li>Email: info@niatbaik.com</li>
                             <li>WhatsApp: +62 812-xxxx-xxxx</li>
                         </ul>
                     </div>
                 </div>
 
                 <div class="border-t border-gray-700 mt-8 pt-6 text-center text-sm">
-                    &copy; {{ date('Y') }} {{ config('app.name', 'Yatimpia') }}. Hak cipta dilindungi.
+                    &copy; {{ date('Y') }} {{ config('app.name', 'NiatBaik') }}. Hak cipta dilindungi.
                 </div>
             </div>
         </footer>

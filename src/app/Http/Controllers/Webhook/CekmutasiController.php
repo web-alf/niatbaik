@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Services\PaymentService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class CekmutasiController extends Controller
 {
@@ -23,14 +24,30 @@ class CekmutasiController extends Controller
 
         foreach ($data as $entry) {
             $amount = (int) ($entry['amount'] ?? 0);
+            $description = $entry['description'] ?? '';
 
-            $invoice = Invoice::where('is_paid', false)
-                ->where('total', $amount)
-                ->first();
+            preg_match('/INV-[A-Z0-9]+/', $description, $matches);
+            $invoiceNumber = $matches[0] ?? null;
+
+            $query = Invoice::where('is_paid', false)
+                ->where('expired_at', '>=', now());
+
+            if ($invoiceNumber) {
+                $query->where('invoice_number', $invoiceNumber);
+            } else {
+                $query->where('total', $amount)->oldest();
+            }
+
+            $invoice = $query->lockForUpdate()->first();
 
             if ($invoice) {
                 $paymentService->processPayment($invoice);
                 $processed[] = $invoice->invoice_number;
+            } else {
+                Log::warning('CekmutasiController: no matching invoice', [
+                    'amount' => $amount,
+                    'invoice_number' => $invoiceNumber,
+                ]);
             }
         }
 

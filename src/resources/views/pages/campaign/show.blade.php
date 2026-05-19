@@ -22,7 +22,7 @@
                     </div>
 
                     <div x-show="tab === 'deskripsi'" class="py-6 prose max-w-none">
-                        {!! $campaign->description !!}
+                        {!! Str::sanitizeHtml($campaign->description) !!}
                     </div>
 
                     <div x-show="tab === 'update'" x-cloak class="py-6">

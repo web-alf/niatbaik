@@ -40,7 +40,7 @@ class CampaignSearch extends Component
         }
 
         return view('livewire.campaign-search', [
-            'campaigns' => $query->latest()->paginate(12),
+            'campaigns' => $query->with(['user', 'category'])->latest()->paginate(12),
             'categories' => Category::all(),
         ]);
     }

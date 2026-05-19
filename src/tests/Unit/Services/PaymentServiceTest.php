@@ -37,7 +37,7 @@ class PaymentServiceTest extends TestCase
     public function test_processes_cekmutasi_credit(): void
     {
         $settings = Setting::create([
-            'site_name' => 'Yatimpia',
+            'site_name' => 'NiatBaik',
             'logo' => 'logo.png',
             'favicon' => 'favicon.ico',
             'primary_color' => '#000000',
@@ -115,7 +115,7 @@ class PaymentServiceTest extends TestCase
     public function test_processes_payment_with_referral_commission(): void
     {
         $settings = Setting::create([
-            'site_name' => 'Yatimpia',
+            'site_name' => 'NiatBaik',
             'logo' => 'logo.png',
             'favicon' => 'favicon.ico',
             'primary_color' => '#000000',

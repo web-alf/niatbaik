@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'force.reset' => \App\Http\Middleware\ForcePasswordReset::class,
         ]);
         $middleware->appendToGroup('web', \App\Http\Middleware\ForcePasswordReset::class);
+        $middleware->validateCsrfTokens(except: ['webhook/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

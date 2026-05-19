@@ -14,7 +14,7 @@ class FundraiserOnlyTest extends TestCase
     {
         $fundraiser = User::factory()->fundraiser()->create();
 
-        $response = $this->actingAs($fundraiser)->get('/fundraiser');
+        $response = $this->actingAs($fundraiser)->get('/dashboard_fundraiser');
 
         $response->assertOk();
     }
@@ -23,7 +23,7 @@ class FundraiserOnlyTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->get('/fundraiser');
+        $response = $this->actingAs($user)->get('/dashboard_fundraiser');
 
         $response->assertRedirect('/');
     }

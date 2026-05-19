@@ -7,14 +7,22 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::middleware(['auth', 'admin'])->prefix('master')->group(function () {
+    Route::get('/', fn () => view('admin.dashboard'))->name('admin.dashboard');
+});
 
 Route::middleware('auth')->group(function () {
+    Route::get('/dashboard', fn () => view('dashboard.home'))->name('dashboard');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+Route::middleware(['auth', 'fundraiser'])->prefix('fundraiser')->group(function () {
+    Route::get('/', fn () => view('fundraiser.dashboard'))->name('fundraiser.dashboard');
+});
+
+Route::get('/force-reset-password', fn () => view('auth.force-reset'))->name('force.reset');
 
 require __DIR__.'/auth.php';

@@ -11,7 +11,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->alias([
+            'admin' => \App\Http\Middleware\AdminOnly::class,
+            'fundraiser' => \App\Http\Middleware\FundraiserOnly::class,
+            'force.reset' => \App\Http\Middleware\ForcePasswordReset::class,
+        ]);
+        $middleware->appendToGroup('web', \App\Http\Middleware\ForcePasswordReset::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

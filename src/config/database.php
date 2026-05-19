@@ -99,6 +99,17 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        'legacy' => [
+            'driver' => 'mysql',
+            'host' => env('LEGACY_DB_HOST', '127.0.0.1'),
+            'port' => env('LEGACY_DB_PORT', '3306'),
+            'database' => env('LEGACY_DB_DATABASE', 'yatimpia_donat'),
+            'username' => env('LEGACY_DB_USERNAME', 'sail'),
+            'password' => env('LEGACY_DB_PASSWORD', 'password'),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DB_URL'),

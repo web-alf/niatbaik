@@ -1,0 +1,914 @@
+[
+  {
+    "number": 1,
+    "name_arabic": "الفاتحة",
+    "name_latin": "Al-Fatihah",
+    "name_translation": "Pembukaan",
+    "verses": 7,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 2,
+    "name_arabic": "البقرة",
+    "name_latin": "Al-Baqarah",
+    "name_translation": "Sapi",
+    "verses": 286,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 3,
+    "name_arabic": "آل عمران",
+    "name_latin": "Ali 'Imran",
+    "name_translation": "Keluarga Imran",
+    "verses": 200,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 4,
+    "name_arabic": "النساء",
+    "name_latin": "An-Nisa'",
+    "name_translation": "Wanita",
+    "verses": 176,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 5,
+    "name_arabic": "المائدة",
+    "name_latin": "Al-Ma'idah",
+    "name_translation": "Hidangan",
+    "verses": 120,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 6,
+    "name_arabic": "الأنعام",
+    "name_latin": "Al-An'am",
+    "name_translation": "Binatang Ternak",
+    "verses": 165,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 7,
+    "name_arabic": "الأعراف",
+    "name_latin": "Al-A'raf",
+    "name_translation": "Tempat Tertinggi",
+    "verses": 206,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 8,
+    "name_arabic": "الأنفال",
+    "name_latin": "Al-Anfal",
+    "name_translation": "Rampasan Perang",
+    "verses": 75,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 9,
+    "name_arabic": "التوبة",
+    "name_latin": "At-Taubah",
+    "name_translation": "Pengampunan",
+    "verses": 129,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 10,
+    "name_arabic": "يونس",
+    "name_latin": "Yunus",
+    "name_translation": "Yunus",
+    "verses": 109,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 11,
+    "name_arabic": "هود",
+    "name_latin": "Hud",
+    "name_translation": "Hud",
+    "verses": 123,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 12,
+    "name_arabic": "يوسف",
+    "name_latin": "Yusuf",
+    "name_translation": "Yusuf",
+    "verses": 111,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 13,
+    "name_arabic": "الرعد",
+    "name_latin": "Ar-Ra'd",
+    "name_translation": "Guruh",
+    "verses": 43,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 14,
+    "name_arabic": "ابراهيم",
+    "name_latin": "Ibrahim",
+    "name_translation": "Ibrahim",
+    "verses": 52,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 15,
+    "name_arabic": "الحجر",
+    "name_latin": "Al-Hijr",
+    "name_translation": "Hijr",
+    "verses": 99,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 16,
+    "name_arabic": "النحل",
+    "name_latin": "An-Nahl",
+    "name_translation": "Lebah",
+    "verses": 128,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 17,
+    "name_arabic": "الإسراء",
+    "name_latin": "Al-Isra'",
+    "name_translation": "Memperjalankan Malam Hari",
+    "verses": 111,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 18,
+    "name_arabic": "الكهف",
+    "name_latin": "Al-Kahf",
+    "name_translation": "Goa",
+    "verses": 110,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 19,
+    "name_arabic": "مريم",
+    "name_latin": "Maryam",
+    "name_translation": "Maryam",
+    "verses": 98,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 20,
+    "name_arabic": "طه",
+    "name_latin": "Taha",
+    "name_translation": "Taha",
+    "verses": 135,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 21,
+    "name_arabic": "الأنبياء",
+    "name_latin": "Al-Anbiya'",
+    "name_translation": "Para Nabi",
+    "verses": 112,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 22,
+    "name_arabic": "الحج",
+    "name_latin": "Al-Hajj",
+    "name_translation": "Haji",
+    "verses": 78,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 23,
+    "name_arabic": "المؤمنون",
+    "name_latin": "Al-Mu'minun",
+    "name_translation": "Orang-Orang Mukmin",
+    "verses": 118,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 24,
+    "name_arabic": "النور",
+    "name_latin": "An-Nur",
+    "name_translation": "Cahaya",
+    "verses": 64,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 25,
+    "name_arabic": "الفرقان",
+    "name_latin": "Al-Furqan",
+    "name_translation": "Pembeda",
+    "verses": 77,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 26,
+    "name_arabic": "الشعراء",
+    "name_latin": "Asy-Syu'ara'",
+    "name_translation": "Para Penyair",
+    "verses": 227,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 27,
+    "name_arabic": "النمل",
+    "name_latin": "An-Naml",
+    "name_translation": "Semut-semut",
+    "verses": 93,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 28,
+    "name_arabic": "القصص",
+    "name_latin": "Al-Qasas",
+    "name_translation": "Kisah-Kisah",
+    "verses": 88,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 29,
+    "name_arabic": "العنكبوت",
+    "name_latin": "Al-'Ankabut",
+    "name_translation": "Laba-Laba",
+    "verses": 69,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 30,
+    "name_arabic": "الروم",
+    "name_latin": "Ar-Rum",
+    "name_translation": "Romawi",
+    "verses": 60,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 31,
+    "name_arabic": "لقمان",
+    "name_latin": "Luqman",
+    "name_translation": "Luqman",
+    "verses": 34,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 32,
+    "name_arabic": "السجدة",
+    "name_latin": "As-Sajdah",
+    "name_translation": "Sajdah",
+    "verses": 30,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 33,
+    "name_arabic": "الأحزاب",
+    "name_latin": "Al-Ahzab",
+    "name_translation": "Golongan Yang Bersekutu",
+    "verses": 73,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 34,
+    "name_arabic": "سبإ",
+    "name_latin": "Saba'",
+    "name_translation": "Saba'",
+    "verses": 54,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 35,
+    "name_arabic": "فاطر",
+    "name_latin": "Fatir",
+    "name_translation": "Maha Pencipta",
+    "verses": 45,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 36,
+    "name_arabic": "يس",
+    "name_latin": "Yasin",
+    "name_translation": "Yasin",
+    "verses": 83,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 37,
+    "name_arabic": "الصافات",
+    "name_latin": "As-Saffat",
+    "name_translation": "Barisan-Barisan",
+    "verses": 182,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 38,
+    "name_arabic": "ص",
+    "name_latin": "Sad",
+    "name_translation": "Sad",
+    "verses": 88,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 39,
+    "name_arabic": "الزمر",
+    "name_latin": "Az-Zumar",
+    "name_translation": "Rombongan",
+    "verses": 75,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 40,
+    "name_arabic": "غافر",
+    "name_latin": "Gafir",
+    "name_translation": "Maha Pengampun",
+    "verses": 85,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 41,
+    "name_arabic": "فصلت",
+    "name_latin": "Fussilat",
+    "name_translation": "Yang Dijelaskan",
+    "verses": 54,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 42,
+    "name_arabic": "الشورى",
+    "name_latin": "Asy-Syura",
+    "name_translation": "Musyawarah",
+    "verses": 53,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 43,
+    "name_arabic": "الزخرف",
+    "name_latin": "Az-Zukhruf",
+    "name_translation": "Perhiasan",
+    "verses": 89,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 44,
+    "name_arabic": "الدخان",
+    "name_latin": "Ad-Dukhan",
+    "name_translation": "Kabut",
+    "verses": 59,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 45,
+    "name_arabic": "الجاثية",
+    "name_latin": "Al-Jasiyah",
+    "name_translation": "Berlutut",
+    "verses": 37,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 46,
+    "name_arabic": "الأحقاف",
+    "name_latin": "Al-Ahqaf",
+    "name_translation": "Bukit Pasir",
+    "verses": 35,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 47,
+    "name_arabic": "محمد",
+    "name_latin": "Muhammad",
+    "name_translation": "Muhammad",
+    "verses": 38,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 48,
+    "name_arabic": "الفتح",
+    "name_latin": "Al-Fath",
+    "name_translation": "Kemenangan",
+    "verses": 29,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 49,
+    "name_arabic": "الحجرات",
+    "name_latin": "Al-Hujurat",
+    "name_translation": "Kamar-Kamar",
+    "verses": 18,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 50,
+    "name_arabic": "ق",
+    "name_latin": "Qaf",
+    "name_translation": "Qaf",
+    "verses": 45,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 51,
+    "name_arabic": "الذاريات",
+    "name_latin": "Az-Zariyat",
+    "name_translation": "Angin yang Menerbangkan",
+    "verses": 60,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 52,
+    "name_arabic": "الطور",
+    "name_latin": "At-Tur",
+    "name_translation": "Bukit Tursina",
+    "verses": 49,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 53,
+    "name_arabic": "النجم",
+    "name_latin": "An-Najm",
+    "name_translation": "Bintang",
+    "verses": 62,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 54,
+    "name_arabic": "القمر",
+    "name_latin": "Al-Qamar",
+    "name_translation": "Bulan",
+    "verses": 55,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 55,
+    "name_arabic": "الرحمن",
+    "name_latin": "Ar-Rahman",
+    "name_translation": "Maha Pengasih",
+    "verses": 78,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 56,
+    "name_arabic": "الواقعة",
+    "name_latin": "Al-Waqi'ah",
+    "name_translation": "Hari Kiamat",
+    "verses": 96,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 57,
+    "name_arabic": "الحديد",
+    "name_latin": "Al-Hadid",
+    "name_translation": "Besi",
+    "verses": 29,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 58,
+    "name_arabic": "المجادلة",
+    "name_latin": "Al-Mujadalah",
+    "name_translation": "Gugatan",
+    "verses": 22,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 59,
+    "name_arabic": "الحشر",
+    "name_latin": "Al-Hasyr",
+    "name_translation": "Pengusiran",
+    "verses": 24,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 60,
+    "name_arabic": "الممتحنة",
+    "name_latin": "Al-Mumtahanah",
+    "name_translation": "Wanita Yang Diuji",
+    "verses": 13,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 61,
+    "name_arabic": "الصف",
+    "name_latin": "As-Saff",
+    "name_translation": "Barisan",
+    "verses": 14,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 62,
+    "name_arabic": "الجمعة",
+    "name_latin": "Al-Jumu'ah",
+    "name_translation": "Jumat",
+    "verses": 11,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 63,
+    "name_arabic": "المنافقون",
+    "name_latin": "Al-Munafiqun",
+    "name_translation": "Orang-Orang Munafik",
+    "verses": 11,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 64,
+    "name_arabic": "التغابن",
+    "name_latin": "At-Tagabun",
+    "name_translation": "Pengungkapan Kesalahan",
+    "verses": 18,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 65,
+    "name_arabic": "الطلاق",
+    "name_latin": "At-Talaq",
+    "name_translation": "Talak",
+    "verses": 12,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 66,
+    "name_arabic": "التحريم",
+    "name_latin": "At-Tahrim",
+    "name_translation": "Pengharaman",
+    "verses": 12,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 67,
+    "name_arabic": "الملك",
+    "name_latin": "Al-Mulk",
+    "name_translation": "Kerajaan",
+    "verses": 30,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 68,
+    "name_arabic": "القلم",
+    "name_latin": "Al-Qalam",
+    "name_translation": "Pena",
+    "verses": 52,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 69,
+    "name_arabic": "الحاقة",
+    "name_latin": "Al-Haqqah",
+    "name_translation": "Hari Kiamat",
+    "verses": 52,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 70,
+    "name_arabic": "المعارج",
+    "name_latin": "Al-Ma'arij",
+    "name_translation": "Tempat Naik",
+    "verses": 44,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 71,
+    "name_arabic": "نوح",
+    "name_latin": "Nuh",
+    "name_translation": "Nuh",
+    "verses": 28,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 72,
+    "name_arabic": "الجن",
+    "name_latin": "Al-Jinn",
+    "name_translation": "Jin",
+    "verses": 28,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 73,
+    "name_arabic": "المزمل",
+    "name_latin": "Al-Muzzammil",
+    "name_translation": "Orang Yang Berselimut",
+    "verses": 20,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 74,
+    "name_arabic": "المدثر",
+    "name_latin": "Al-Muddassir",
+    "name_translation": "Orang Yang Berkemul",
+    "verses": 56,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 75,
+    "name_arabic": "القيامة",
+    "name_latin": "Al-Qiyamah",
+    "name_translation": "Hari Kiamat",
+    "verses": 40,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 76,
+    "name_arabic": "الانسان",
+    "name_latin": "Al-Insan",
+    "name_translation": "Manusia",
+    "verses": 31,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 77,
+    "name_arabic": "المرسلات",
+    "name_latin": "Al-Mursalat",
+    "name_translation": "Malaikat Yang Diutus",
+    "verses": 50,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 78,
+    "name_arabic": "النبإ",
+    "name_latin": "An-Naba'",
+    "name_translation": "Berita Besar",
+    "verses": 40,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 79,
+    "name_arabic": "النازعات",
+    "name_latin": "An-Nazi'at",
+    "name_translation": "Malaikat Yang Mencabut",
+    "verses": 46,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 80,
+    "name_arabic": "عبس",
+    "name_latin": "'Abasa",
+    "name_translation": "Bermuka Masam",
+    "verses": 42,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 81,
+    "name_arabic": "التكوير",
+    "name_latin": "At-Takwir",
+    "name_translation": "Penggulungan",
+    "verses": 29,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 82,
+    "name_arabic": "الإنفطار",
+    "name_latin": "Al-Infitar",
+    "name_translation": "Terbelah",
+    "verses": 19,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 83,
+    "name_arabic": "المطففين",
+    "name_latin": "Al-Mutaffifin",
+    "name_translation": "Orang-Orang Curang",
+    "verses": 36,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 84,
+    "name_arabic": "الإنشقاق",
+    "name_latin": "Al-Insyiqaq",
+    "name_translation": "Terbelah",
+    "verses": 25,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 85,
+    "name_arabic": "البروج",
+    "name_latin": "Al-Buruj",
+    "name_translation": "Gugusan Bintang",
+    "verses": 22,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 86,
+    "name_arabic": "الطارق",
+    "name_latin": "At-Tariq",
+    "name_translation": "Yang Datang Di Malam Hari",
+    "verses": 17,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 87,
+    "name_arabic": "الأعلى",
+    "name_latin": "Al-A'la",
+    "name_translation": "Maha Tinggi",
+    "verses": 19,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 88,
+    "name_arabic": "الغاشية",
+    "name_latin": "Al-Gasyiyah",
+    "name_translation": "Hari Kiamat",
+    "verses": 26,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 89,
+    "name_arabic": "الفجر",
+    "name_latin": "Al-Fajr",
+    "name_translation": "Fajar",
+    "verses": 30,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 90,
+    "name_arabic": "البلد",
+    "name_latin": "Al-Balad",
+    "name_translation": "Negeri",
+    "verses": 20,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 91,
+    "name_arabic": "الشمس",
+    "name_latin": "Asy-Syams",
+    "name_translation": "Matahari",
+    "verses": 15,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 92,
+    "name_arabic": "الليل",
+    "name_latin": "Al-Lail",
+    "name_translation": "Malam",
+    "verses": 21,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 93,
+    "name_arabic": "الضحى",
+    "name_latin": "Ad-Duha",
+    "name_translation": "Duha",
+    "verses": 11,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 94,
+    "name_arabic": "الشرح",
+    "name_latin": "Asy-Syarh",
+    "name_translation": "Lapang",
+    "verses": 8,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 95,
+    "name_arabic": "التين",
+    "name_latin": "At-Tin",
+    "name_translation": "Buah Tin",
+    "verses": 8,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 96,
+    "name_arabic": "العلق",
+    "name_latin": "Al-'Alaq",
+    "name_translation": "Segumpal Darah",
+    "verses": 19,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 97,
+    "name_arabic": "القدر",
+    "name_latin": "Al-Qadr",
+    "name_translation": "Kemuliaan",
+    "verses": 5,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 98,
+    "name_arabic": "البينة",
+    "name_latin": "Al-Bayyinah",
+    "name_translation": "Bukti Nyata",
+    "verses": 8,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 99,
+    "name_arabic": "الزلزلة",
+    "name_latin": "Az-Zalzalah",
+    "name_translation": "Guncangan",
+    "verses": 8,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 100,
+    "name_arabic": "العاديات",
+    "name_latin": "Al-'Adiyat",
+    "name_translation": "Kuda Yang Berlari Kencang",
+    "verses": 11,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 101,
+    "name_arabic": "القارعة",
+    "name_latin": "Al-Qari'ah",
+    "name_translation": "Hari Kiamat",
+    "verses": 11,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 102,
+    "name_arabic": "التكاثر",
+    "name_latin": "At-Takasur",
+    "name_translation": "Bermegah-Megahan",
+    "verses": 8,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 103,
+    "name_arabic": "العصر",
+    "name_latin": "Al-'Asr",
+    "name_translation": "Asar",
+    "verses": 3,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 104,
+    "name_arabic": "الهمزة",
+    "name_latin": "Al-Humazah",
+    "name_translation": "Pengumpat",
+    "verses": 9,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 105,
+    "name_arabic": "الفيل",
+    "name_latin": "Al-Fil",
+    "name_translation": "Gajah",
+    "verses": 5,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 106,
+    "name_arabic": "قريش",
+    "name_latin": "Quraisy",
+    "name_translation": "Quraisy",
+    "verses": 4,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 107,
+    "name_arabic": "الماعون",
+    "name_latin": "Al-Ma'un",
+    "name_translation": "Barang Yang Berguna",
+    "verses": 7,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 108,
+    "name_arabic": "الكوثر",
+    "name_latin": "Al-Kausar",
+    "name_translation": "Pemberian Yang Banyak",
+    "verses": 3,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 109,
+    "name_arabic": "الكافرون",
+    "name_latin": "Al-Kafirun",
+    "name_translation": "Orang-Orang kafir",
+    "verses": 6,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 110,
+    "name_arabic": "النصر",
+    "name_latin": "An-Nasr",
+    "name_translation": "Pertolongan",
+    "verses": 3,
+    "revelation": "Madaniyyah"
+  },
+  {
+    "number": 111,
+    "name_arabic": "المسد",
+    "name_latin": "Al-Lahab",
+    "name_translation": "Api Yang Bergejolak",
+    "verses": 5,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 112,
+    "name_arabic": "الإخلاص",
+    "name_latin": "Al-Ikhlas",
+    "name_translation": "Ikhlas",
+    "verses": 4,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 113,
+    "name_arabic": "الفلق",
+    "name_latin": "Al-Falaq",
+    "name_translation": "Subuh",
+    "verses": 5,
+    "revelation": "Makkiyyah"
+  },
+  {
+    "number": 114,
+    "name_arabic": "الناس",
+    "name_latin": "An-Nas",
+    "name_translation": "Manusia",
+    "verses": 6,
+    "revelation": "Makkiyyah"
+  }
+]

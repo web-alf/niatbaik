@@ -20,8 +20,19 @@ class MigrateLegacy extends Command
 
         $this->info('Starting legacy data migration...');
 
-        // Disable FK checks during migration since we insert with explicit IDs
+        // Disable FK checks and truncate target tables
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
+        $tables = [
+            'categories', 'provinces', 'settings', 'users', 'campaigns',
+            'campaign_updates', 'campaign_funds', 'payment_methods',
+            'bank_accounts', 'invoices', 'donations', 'fundraisers',
+            'fundraiser_clicks', 'commissions', 'withdrawals',
+            'posts', 'pages', 'slides', 'financial_reports',
+        ];
+        foreach ($tables as $t) {
+            DB::table($t)->truncate();
+        }
 
         $steps = [
             'migrateCategories',
@@ -123,7 +134,7 @@ class MigrateLegacy extends Command
             'description' => $row->description ?? '',
             'footer_code' => $row->footer_code ?? '',
             'auto_slide' => $row->auto_slide,
-            'admin_fee' => $row->harga_emas ?? 0,
+            'admin_fee' => 0,
             'fundraiser_commission_percent' => $row->percent_bonus ?? 10,
             'ipaymu_va' => $row->va_ipaymu ?? '',
             'ipaymu_secret' => $row->secret_ipaymu ?? '',
@@ -149,7 +160,15 @@ class MigrateLegacy extends Command
         $rows = $this->legacy()->table('user')->get();
         $this->info("Migrating {$rows->count()} users...");
 
+        $seenEmails = [];
+        $seenPhones = [];
+
         foreach ($rows as $row) {
+            if ($row->id <= 0) {
+                $this->warn("  Skipping user #{$row->id} (invalid ID)");
+                continue;
+            }
+
             $role = 'user';
             if ($row->account_type === 'Master') {
                 $role = 'admin';
@@ -159,11 +178,30 @@ class MigrateLegacy extends Command
 
             $referredBy = (isset($row->id_ref) && $row->id_ref > 0) ? $row->id_ref : null;
 
+            $email = trim($row->email);
+            if (empty($email)) {
+                $email = "legacy_user_{$row->id}@placeholder.local";
+            }
+            if (in_array(strtolower($email), $seenEmails)) {
+                $email = "dup_{$row->id}_" . $email;
+                $this->warn("  Duplicate email for user #{$row->id}, using: {$email}");
+            }
+            $seenEmails[] = strtolower($email);
+
+            $phone = trim($row->phone) ?: null;
+            if ($phone && in_array($phone, $seenPhones)) {
+                $phone = null;
+                $this->warn("  Duplicate phone for user #{$row->id}, set to null");
+            }
+            if ($phone) {
+                $seenPhones[] = $phone;
+            }
+
             DB::table('users')->insert([
                 'id' => $row->id,
-                'name' => $row->name,
-                'email' => $row->email,
-                'phone' => $row->phone ?: null,
+                'name' => $row->name ?: 'User ' . $row->id,
+                'email' => $email,
+                'phone' => $phone,
                 'password' => Hash::make('reset_' . Str::random(16)),
                 'role' => $role,
                 'force_password_reset' => true,
@@ -301,11 +339,19 @@ class MigrateLegacy extends Command
         foreach ($rows as $row) {
             $referredBy = (isset($row->id_ref) && $row->id_ref > 0) ? $row->id_ref : null;
 
+            $userId = $row->id_user > 0 ? $row->id_user : 1;
+            $campaignId = $row->id_project > 0 ? $row->id_project : 1;
+
+            if (!DB::table('users')->where('id', $userId)->exists()) {
+                $this->warn("  Skipping invoice #{$row->id}: user #{$userId} not found");
+                continue;
+            }
+
             DB::table('invoices')->insert([
                 'id' => $row->id,
                 'invoice_number' => $row->invoice,
-                'user_id' => $row->id_user,
-                'campaign_id' => $row->id_project,
+                'user_id' => $userId,
+                'campaign_id' => $campaignId,
                 'payment_method_id' => $row->id_bank > 0 ? $row->id_bank : null,
                 'referred_by' => $referredBy,
                 'subtotal' => $row->sub_total,

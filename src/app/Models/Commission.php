@@ -1,0 +1,28 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Commission extends Model
+{
+    protected $fillable = [
+        'user_id',
+        'description',
+        'amount',
+        'earned_at',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'earned_at' => 'date',
+        ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+}

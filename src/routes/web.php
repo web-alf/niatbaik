@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin;
 use App\Http\Controllers\CalculatorController;
 use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\Dashboard;
@@ -59,7 +60,21 @@ Route::middleware('auth')->group(function () {
 
 // Admin
 Route::middleware(['auth', 'admin'])->prefix('master')->name('admin.')->group(function () {
-    Route::get('/', fn () => view('admin.dashboard'))->name('dashboard');
+    Route::get('/', [Admin\DashboardController::class, 'index'])->name('dashboard');
+    Route::resource('campaigns', Admin\CampaignController::class)->except(['create', 'store']);
+    Route::resource('users', Admin\UserController::class)->except(['create', 'store', 'destroy']);
+    Route::get('invoices', [Admin\InvoiceController::class, 'index'])->name('invoices.index');
+    Route::get('invoices/{invoice}', [Admin\InvoiceController::class, 'show'])->name('invoices.show');
+    Route::resource('banks', Admin\BankController::class);
+    Route::resource('posts', Admin\PostController::class);
+    Route::resource('pages', Admin\PageController::class);
+    Route::resource('slides', Admin\SlideController::class);
+    Route::get('withdrawals', [Admin\WithdrawalController::class, 'index'])->name('withdrawals.index');
+    Route::get('withdrawals/{withdrawal}', [Admin\WithdrawalController::class, 'show'])->name('withdrawals.show');
+    Route::post('withdrawals/{withdrawal}/approve', [Admin\WithdrawalController::class, 'approve'])->name('withdrawals.approve');
+    Route::post('withdrawals/{withdrawal}/reject', [Admin\WithdrawalController::class, 'reject'])->name('withdrawals.reject');
+    Route::get('settings', [Admin\SettingsController::class, 'index'])->name('settings.index');
+    Route::put('settings', [Admin\SettingsController::class, 'update'])->name('settings.update');
 });
 
 // Fundraiser

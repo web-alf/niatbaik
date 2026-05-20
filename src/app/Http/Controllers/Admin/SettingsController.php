@@ -31,7 +31,13 @@ class SettingsController extends Controller
             'smtp_username' => 'nullable|string|max:255',
             'smtp_password' => 'nullable|string|max:255',
             'smtp_encryption' => 'nullable|string|max:10',
+            'admin_fee' => 'nullable|integer|min:0',
+            'fundraiser_commission_percent' => 'nullable|integer|min:0|max:100',
         ]);
+
+        if (empty($data['smtp_password'])) {
+            unset($data['smtp_password']);
+        }
 
         if ($request->hasFile('site_logo')) {
             $data['site_logo'] = $request->file('site_logo')->store('settings', 'public');

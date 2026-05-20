@@ -22,6 +22,7 @@
                         <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">iPaymu</h3>
                         <div class="space-y-4">
                             <div><label for="ipaymu_key" class="block text-sm font-medium text-gray-700 mb-1">API Key</label><input type="text" name="ipaymu_key" id="ipaymu_key" value="{{ old('ipaymu_key', $setting->ipaymu_key ?? '') }}" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500"></div>
+                            <div><label for="ipaymu_secret" class="block text-sm font-medium text-gray-700 mb-1">API Secret</label><input type="password" name="ipaymu_secret" id="ipaymu_secret" value="{{ old('ipaymu_secret', $setting->ipaymu_secret ?? '') }}" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500" placeholder="••••••••"></div>
                             <div><label for="ipaymu_va" class="block text-sm font-medium text-gray-700 mb-1">Virtual Account</label><input type="text" name="ipaymu_va" id="ipaymu_va" value="{{ old('ipaymu_va', $setting->ipaymu_va ?? '') }}" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500"></div>
                             <div><label for="ipaymu_mode" class="block text-sm font-medium text-gray-700 mb-1">Mode</label>
                                 <select name="ipaymu_mode" id="ipaymu_mode" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500">
@@ -41,7 +42,19 @@
                                 <div><label for="smtp_port" class="block text-sm font-medium text-gray-700 mb-1">Port</label><input type="text" name="smtp_port" id="smtp_port" value="{{ old('smtp_port', $setting->smtp_port ?? '') }}" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500"></div>
                             </div>
                             <div><label for="smtp_username" class="block text-sm font-medium text-gray-700 mb-1">Username</label><input type="text" name="smtp_username" id="smtp_username" value="{{ old('smtp_username', $setting->smtp_username ?? '') }}" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500"></div>
+                            <div><label for="smtp_password" class="block text-sm font-medium text-gray-700 mb-1">Password</label><input type="password" name="smtp_password" id="smtp_password" value="" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500" placeholder="Kosongkan jika tidak ingin mengubah"></div>
                             <div><label for="smtp_encryption" class="block text-sm font-medium text-gray-700 mb-1">Encryption</label><input type="text" name="smtp_encryption" id="smtp_encryption" value="{{ old('smtp_encryption', $setting->smtp_encryption ?? '') }}" placeholder="tls/ssl" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500"></div>
+                        </div>
+                    </div>
+
+                    {{-- Fees & Commission --}}
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">Biaya & Komisi</h3>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label for="admin_fee" class="block text-sm font-medium text-gray-700 mb-1">Biaya Admin (Rp)</label><input type="number" name="admin_fee" id="admin_fee" value="{{ old('admin_fee', $setting->admin_fee ?? 0) }}" min="0" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500"></div>
+                                <div><label for="fundraiser_commission_percent" class="block text-sm font-medium text-gray-700 mb-1">Komisi Fundraiser (%)</label><input type="number" name="fundraiser_commission_percent" id="fundraiser_commission_percent" value="{{ old('fundraiser_commission_percent', $setting->fundraiser_commission_percent ?? 0) }}" min="0" max="100" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500"></div>
+                            </div>
                         </div>
                     </div>
 

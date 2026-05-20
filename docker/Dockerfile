@@ -27,7 +27,7 @@ COPY src/public/ public/
 RUN npm run build
 
 # Stage 3: Production runtime
-FROM php:8.3-fpm-alpine AS runtime
+FROM php:8.4-fpm-alpine AS runtime
 
 # Install runtime system deps
 RUN apk add --no-cache \

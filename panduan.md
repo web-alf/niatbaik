@@ -1,360 +1,155 @@
-# Panduan Deploy NiatBaik di VPS (AAPanel)
+# Panduan Deploy NiatBaik di VPS (Docker)
 
 ## Kebutuhan
 
 - VPS Ubuntu 22.04 / 24.04 LTS (minimal 1GB RAM, 1 vCPU)
-- AAPanel sudah terinstal
-- Domain sudah diarahkan ke IP VPS (A record)
+- Docker & Docker Compose sudah terinstal
+- Domain sudah diarahkan ke IP VPS via Cloudflare (proxied)
+- AAPanel (opsional) — hanya untuk monitoring
 
 ---
 
-## 1. Instal AAPanel
+## 1. Instal Docker
 
-Jika AAPanel belum terinstal:
+Jika Docker belum terinstal:
 
 ```bash
-# Ubuntu / Debian
+curl -fsSL https://get.docker.com | sh
+systemctl enable docker
+systemctl start docker
+```
+
+Verifikasi:
+
+```bash
+docker --version
+docker compose version
+```
+
+---
+
+## 2. Instal AAPanel (Opsional — Monitoring Only)
+
+```bash
 wget -O install.sh https://www.aapanel.com/script/install_7.0_en.sh && bash install.sh aapanel
 ```
 
-Setelah instal, catat URL panel, username, dan password yang muncul di terminal.
+Setelah instal:
+- Buka AAPanel di browser
+- **App Store** → instal **Docker Manager** plugin
+- Plugin ini akan menampilkan container Docker yang berjalan
+
+> **Catatan**: Jangan instal Nginx/PHP/MySQL/Redis di AAPanel — semua sudah di Docker.
 
 ---
 
-## 2. Instal Software di AAPanel
-
-Buka AAPanel di browser, lalu ke **App Store** → instal:
-
-| Software       | Versi        | Catatan                    |
-|----------------|--------------|----------------------------|
-| Nginx          | 1.24+        | Pilih Compile Install      |
-| PHP            | 8.3          | **Wajib 8.3+**             |
-| MySQL          | 8.0          | atau 8.4                   |
-| Redis          | 7.x          | untuk session/cache/queue  |
-| phpMyAdmin     | 5.x          | opsional, untuk kelola DB  |
-
-### Instal PHP Extensions
-
-AAPanel → **App Store** → klik **Setting** di PHP 8.3 → tab **Extensions** → instal:
-
-- `redis`
-- `fileinfo`
-- `opcache`
-- `bcmath`
-- `intl`
-- `exif` (opsional, untuk gambar)
-
-### Konfigurasi PHP
-
-Di PHP 8.3 **Setting** → tab **Configuration**:
-
-```
-upload_max_filesize = 10M
-post_max_size = 12M
-max_execution_time = 300
-memory_limit = 256M
-```
-
-### Disable Functions
-
-Di PHP 8.3 **Setting** → tab **Disable Functions** → **hapus** fungsi-fungsi ini dari daftar disabled:
-
-- `putenv`
-- `proc_open`
-- `pcntl_signal`
-- `pcntl_alarm`
-- `pcntl_async_signals`
-
-Fungsi ini dibutuhkan Laravel untuk queue worker dan Artisan.
-
----
-
-## 3. Buat Database
-
-AAPanel → **Database** → **Add Database**:
-
-| Field    | Nilai                    |
-|----------|--------------------------|
-| Name     | `niatbaik`               |
-| Username | `niatbaik`               |
-| Password | *(generate password kuat)* |
-| Encoding | `utf8mb4`                |
-| Access   | `Local`                  |
-
-**Catat password-nya** — nanti dipakai di `.env`.
-
----
-
-## 4. Buat Website di AAPanel
-
-AAPanel → **Website** → **Add Site**:
-
-| Field       | Nilai                                       |
-|-------------|---------------------------------------------|
-| Domain      | `niatbaik.com` (tambahkan `www.niatbaik.com`) |
-| Root Dir    | `/www/wwwroot/niatbaik`                     |
-| PHP Version | PHP-83                                      |
-| Database    | *(sudah dibuat di step 3)*                  |
-
-Setelah dibuat, klik **Settings** pada website → tab **Site Directory**:
-
-- **Running directory**: ubah ke `/src/public`
-- Centang **Anti-cross-site attack (open_basedir)**: **matikan** (bisa konflik dengan Laravel)
-
----
-
-## 5. Clone Repository
-
-SSH ke VPS:
+## 3. Clone Repository
 
 ```bash
-cd /www/wwwroot/niatbaik
+mkdir -p /www/wwwroot
+cd /www/wwwroot
 
-# Hapus file default AAPanel
-rm -f .htaccess 404.html index.html .user.ini
-
-# Clone repo (private — pakai SSH key atau personal access token)
-git clone https://USERNAME:TOKEN@github.com/anrdart/niatbaik.git .
+git clone https://USERNAME:TOKEN@github.com/anrdart/niatbaik.git niatbaik
+cd niatbaik
 ```
 
-> **Tips SSH Key**: Kalau mau pakai SSH key, generate di VPS:
+> **Tips SSH Key**: Generate di VPS:
 > ```bash
 > ssh-keygen -t ed25519 -C "deploy@vps"
 > cat ~/.ssh/id_ed25519.pub
 > ```
 > Tambahkan public key di GitHub → Settings → SSH Keys.
-> Lalu clone pakai: `git clone git@github.com:anrdart/niatbaik.git .`
+> Lalu clone pakai: `git clone git@github.com:anrdart/niatbaik.git niatbaik`
 
 ---
 
-## 6. Instal Dependensi
+## 4. Konfigurasi Environment
 
 ```bash
-cd /www/wwwroot/niatbaik/src
-
-# Instal Composer (jika belum ada)
-curl -sS https://getcomposer.org/installer | php
-mv composer.phar /usr/local/bin/composer
-
-# Instal dependensi PHP
-composer install --no-dev --optimize-autoloader
-
-# Instal Node.js (jika belum ada)
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt install -y nodejs
-
-# Instal & build frontend
-npm ci
-npm run build
+cp src/.env.production src/.env
+nano src/.env
 ```
 
----
-
-## 7. Konfigurasi Environment
-
-```bash
-cd /www/wwwroot/niatbaik/src
-
-# Copy file production
-cp .env.production .env
-```
-
-Edit `.env` — yang **wajib diganti**:
-
-```bash
-nano .env
-```
+Yang **wajib diganti**:
 
 ```env
-# Generate key dulu (step 8), atau isi manual
 APP_URL=https://niatbaik.com
 
-# Sesuaikan dengan database di step 3
 DB_DATABASE=niatbaik
 DB_USERNAME=niatbaik
-DB_PASSWORD=password_dari_step_3
+DB_PASSWORD=GANTI_PASSWORD_DB
 
-# Mail — pakai Gmail App Password
-# Buat di: https://myaccount.google.com/apppasswords
 MAIL_USERNAME=emailkamu@gmail.com
 MAIL_PASSWORD=xxxx_xxxx_xxxx_xxxx
 MAIL_FROM_ADDRESS=noreply@niatbaik.com
 ```
 
+> **Penting**: `DB_HOST=mysql` dan `REDIS_HOST=redis` sudah benar — jangan diubah ke IP. Ini nama container Docker.
+
 ---
 
-## 8. Inisialisasi Aplikasi
+## 5. Build & Jalankan
 
 ```bash
-cd /www/wwwroot/niatbaik/src
+cd /www/wwwroot/niatbaik
+
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Cek status:
+
+```bash
+docker compose -f docker-compose.prod.yml ps
+```
+
+Semua container harus `running` dan `healthy`.
+
+---
+
+## 6. Inisialisasi Aplikasi
+
+```bash
+DC="docker compose -f docker-compose.prod.yml"
 
 # Generate app key
-php artisan key:generate
+$DC exec app php artisan key:generate
 
 # Jalankan migrasi database
-php artisan migrate --force
+$DC exec app php artisan migrate --force
 
-# Link storage (agar upload file bisa diakses publik)
-php artisan storage:link
+# Link storage
+$DC exec app php artisan storage:link
 
-# Optimasi cache untuk production
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-php artisan event:cache
+# Optimasi cache
+$DC exec app php artisan config:cache
+$DC exec app php artisan route:cache
+$DC exec app php artisan view:cache
+$DC exec app php artisan event:cache
 ```
 
 ---
 
-## 9. Set Permission
+## 7. Cloudflare DNS & SSL
+
+1. Login ke Cloudflare
+2. Tambahkan DNS record:
+
+| Type | Name | Content | Proxy |
+|------|------|---------|-------|
+| A | `niatbaik.com` | IP VPS | Proxied (orange) |
+| A | `www` | IP VPS | Proxied (orange) |
+
+3. **SSL/TLS** → pilih mode **Full**
+4. Akses `https://niatbaik.com` — harus sudah jalan
+
+---
+
+## 8. Buat Admin Pertama
 
 ```bash
-cd /www/wwwroot/niatbaik/src
-
-# Set owner ke www (user AAPanel)
-chown -R www:www /www/wwwroot/niatbaik
-chmod -R 755 /www/wwwroot/niatbaik
-chmod -R 775 storage bootstrap/cache
-```
-
----
-
-## 10. Konfigurasi Nginx (AAPanel)
-
-AAPanel → **Website** → klik nama site → **Settings** → tab **Nginx Conf**.
-
-Ganti isi config dengan:
-
-```nginx
-server {
-    listen 80;
-    server_name niatbaik.com www.niatbaik.com;
-    root /www/wwwroot/niatbaik/src/public;
-
-    index index.php index.html;
-
-    charset utf-8;
-    client_max_body_size 10M;
-
-    # Logging AAPanel
-    access_log /www/wwwlogs/niatbaik.com.log;
-    error_log /www/wwwlogs/niatbaik.com.error.log;
-
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
-
-    location = /favicon.ico { access_log off; log_not_found off; }
-    location = /robots.txt  { access_log off; log_not_found off; }
-
-    error_page 404 /index.php;
-
-    location ~ \.php$ {
-        fastcgi_pass unix:/tmp/php-cgi-83.sock;
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
-        include fastcgi_params;
-        fastcgi_read_timeout 300;
-    }
-
-    location ~ /\.(?!well-known).* {
-        deny all;
-    }
-}
-```
-
-> **Catatan**: Path socket PHP bisa berbeda tergantung versi AAPanel:
-> - AAPanel lama: `/tmp/php-cgi-83.sock`
-> - AAPanel baru: `/www/server/php/83/tmp/php-cgi.sock`
->
-> Cek path aktif:
-> ```bash
-> ls /tmp/php-cgi-*.sock /www/server/php/83/tmp/php-cgi.sock 2>/dev/null
-> ```
-
-Klik **Save** lalu **Restart** Nginx di AAPanel.
-
----
-
-## 11. SSL / HTTPS
-
-AAPanel → **Website** → klik nama site → **Settings** → tab **SSL**:
-
-1. Pilih **Let's Encrypt**
-2. Pilih domain: `niatbaik.com` dan `www.niatbaik.com`
-3. Klik **Apply** (pastikan domain sudah pointing ke IP VPS)
-4. Centang **Force HTTPS**
-
----
-
-## 12. Queue Worker (Supervisor)
-
-### Opsi A: AAPanel Supervisor Plugin
-
-AAPanel → **App Store** → cari **Supervisor Manager** → **Install**.
-
-Setelah terinstal, buka Supervisor Manager → **Add Daemon**:
-
-| Field          | Nilai                                                                    |
-|----------------|--------------------------------------------------------------------------|
-| Name           | `niatbaik-worker`                                                        |
-| Run User       | `www`                                                                    |
-| Run Dir        | `/www/wwwroot/niatbaik/src`                                              |
-| Start Command  | `php /www/wwwroot/niatbaik/src/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600` |
-| Processes      | `2`                                                                      |
-
-### Opsi B: Supervisor Manual
-
-Jika plugin tidak tersedia:
-
-```bash
-apt install -y supervisor
-```
-
-Buat file `/etc/supervisor/conf.d/niatbaik-worker.conf`:
-
-```ini
-[program:niatbaik-worker]
-process_name=%(program_name)s_%(process_num)02d
-command=php /www/wwwroot/niatbaik/src/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
-autostart=true
-autorestart=true
-stopasgroup=true
-killasgroup=true
-user=www
-numprocs=2
-redirect_stderr=true
-stdout_logfile=/www/wwwroot/niatbaik/src/storage/logs/worker.log
-stopwaitsecs=3600
-```
-
-```bash
-supervisorctl reread
-supervisorctl update
-supervisorctl start niatbaik-worker:*
-```
-
----
-
-## 13. Cron Job (Task Scheduler)
-
-AAPanel → **Cron** → **Add Cron**:
-
-| Field     | Nilai                                                                    |
-|-----------|--------------------------------------------------------------------------|
-| Type      | Shell Script                                                             |
-| Name      | `NiatBaik Scheduler`                                                     |
-| Period    | Every 1 Minute                                                           |
-| Script    | `cd /www/wwwroot/niatbaik/src && /www/server/php/83/bin/php artisan schedule:run >> /dev/null 2>&1` |
-
-> **Catatan**: Path PHP bisa dicek dengan `which php` atau lihat di AAPanel → App Store → PHP 8.3 → Setting.
-
----
-
-## 14. Buat Admin Pertama
-
-```bash
-cd /www/wwwroot/niatbaik/src
-php artisan tinker
+DC="docker compose -f docker-compose.prod.yml"
+$DC exec app php artisan tinker
 ```
 
 ```php
@@ -373,61 +168,49 @@ Akses admin panel di `https://niatbaik.com/master`.
 
 ## Deploy Update
 
-Setiap ada update kode baru:
+Setiap ada update kode:
 
 ```bash
-cd /www/wwwroot/niatbaik/src
+cd /www/wwwroot/niatbaik
+bash deploy.sh
+```
+
+Atau manual:
+
+```bash
+cd /www/wwwroot/niatbaik
+DC="docker compose -f docker-compose.prod.yml"
 
 git pull origin main
-composer install --no-dev --optimize-autoloader
-npm ci && npm run build
-php artisan migrate --force
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-php artisan event:cache
-
-# Restart queue worker
-supervisorctl restart niatbaik-worker:*
+$DC build
+$DC up -d
+$DC exec app php artisan migrate --force
+$DC exec app php artisan config:cache
+$DC exec app php artisan route:cache
+$DC exec app php artisan view:cache
+$DC exec app php artisan event:cache
+$DC restart worker scheduler
 ```
 
-Atau buat script `/www/wwwroot/niatbaik/deploy.sh`:
+---
 
-```bash
-#!/bin/bash
-set -e
+## Perintah Berguna
 
-cd /www/wwwroot/niatbaik/src
+| Perintah | Fungsi |
+|----------|--------|
+| `$DC ps` | Lihat status semua container |
+| `$DC logs app` | Lihat log PHP-FPM |
+| `$DC logs nginx` | Lihat log Nginx |
+| `$DC logs worker` | Lihat log queue worker |
+| `$DC logs -f app` | Follow log realtime |
+| `$DC exec app sh` | Masuk shell container app |
+| `$DC exec app php artisan tinker` | Jalankan Tinker |
+| `$DC down` | Stop semua container |
+| `$DC up -d` | Start semua container |
+| `$DC restart worker` | Restart queue worker |
+| `$DC build --no-cache` | Rebuild tanpa cache |
 
-echo ">> Pulling latest code..."
-git pull origin main
-
-echo ">> Installing PHP dependencies..."
-composer install --no-dev --optimize-autoloader
-
-echo ">> Building frontend..."
-npm ci && npm run build
-
-echo ">> Running migrations..."
-php artisan migrate --force
-
-echo ">> Caching config..."
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-php artisan event:cache
-
-echo ">> Restarting queue worker..."
-supervisorctl restart niatbaik-worker:*
-
-echo ">> Deploy selesai!"
-```
-
-```bash
-chmod +x /www/wwwroot/niatbaik/deploy.sh
-```
-
-Jalankan: `bash /www/wwwroot/niatbaik/deploy.sh`
+> **Catatan**: `$DC` = `docker compose -f docker-compose.prod.yml`
 
 ---
 
@@ -435,36 +218,51 @@ Jalankan: `bash /www/wwwroot/niatbaik/deploy.sh`
 
 | Masalah | Solusi |
 |---------|--------|
-| 500 error | Cek `storage/logs/laravel.log` — biasanya permission atau `.env` salah |
-| Halaman blank | `php artisan config:clear && php artisan cache:clear` |
-| CSS/JS tidak muncul | Pastikan `npm run build` sudah jalan, cek ada `public/build/manifest.json` |
-| "open_basedir restriction" | Matikan di AAPanel → Website → Settings → Site Directory → uncheck open_basedir |
-| Queue tidak jalan | Cek Supervisor Manager status, cek `storage/logs/worker.log` |
-| Redis error | AAPanel → App Store → Redis → cek status Running |
-| Upload gagal | Cek `client_max_body_size` di Nginx conf, cek `upload_max_filesize` di PHP settings |
-| "putenv() disabled" | AAPanel → PHP Settings → Disable Functions → hapus `putenv` dari daftar |
-| Permission denied | `chown -R www:www /www/wwwroot/niatbaik && chmod -R 775 src/storage src/bootstrap/cache` |
-| PHP socket not found | Cek path: `ls /tmp/php-cgi-*.sock /www/server/php/83/tmp/php-cgi.sock 2>/dev/null` |
-| Artisan command error | Pastikan PHP CLI pakai versi 8.3: `/www/server/php/83/bin/php artisan ...` |
+| 502 Bad Gateway | `$DC logs app` — cek PHP-FPM error. `$DC ps` — pastikan `app` healthy |
+| 500 error | `$DC exec app cat storage/logs/laravel.log` — biasanya .env salah |
+| Container restart loop | `$DC logs <nama>` — cek error. Biasanya DB belum ready |
+| CSS/JS tidak muncul | `$DC build --no-cache` — rebuild frontend assets |
+| Queue tidak jalan | `$DC logs worker` — cek error |
+| Redis error | `$DC ps` — pastikan redis healthy. `$DC restart redis` |
+| Upload gagal | Cek `client_max_body_size` di `docker/nginx/default.conf` |
+| Permission denied (storage) | `$DC exec app chown -R www-data:www-data storage bootstrap/cache` |
+| Database connection refused | Pastikan `DB_HOST=mysql` di `.env` (bukan 127.0.0.1) |
+| Build error (npm) | `$DC build --no-cache` — atau cek `package-lock.json` valid |
+| Disk penuh | `docker system prune -a` — hapus image/container lama |
 
 ---
 
-## Struktur Direktori di VPS
+## Struktur di VPS
 
 ```
-/www/wwwroot/niatbaik/          ← root project (AAPanel site dir)
-├── src/                        ← Laravel app
-│   ├── public/                 ← document root (running directory)
-│   │   ├── build/              ← Vite compiled assets
-│   │   ├── storage → ../storage/app/public
-│   │   └── index.php           ← entry point
-│   ├── storage/
-│   │   ├── app/public/         ← uploaded files
-│   │   ├── logs/               ← laravel.log, worker.log
-│   │   └── framework/          ← cache, sessions, views
-│   ├── .env                    ← konfigurasi aktif
-│   ├── .env.production         ← template production
-│   └── artisan                 ← CLI Laravel
-├── deploy.sh                   ← script deploy otomatis
-└── panduan.md                  ← file ini
+/www/wwwroot/niatbaik/               <- root project
+├── docker/                          <- Docker config
+│   ├── Dockerfile                   <- multi-stage build
+│   ├── nginx/
+│   │   └── default.conf             <- Nginx vhost
+│   └── php/
+│       ├── php.ini                  <- PHP settings
+│       └── opcache.ini              <- OPcache settings
+├── docker-compose.prod.yml          <- production compose
+├── deploy.sh                        <- deploy script
+├── panduan.md                       <- file ini
+└── src/                             <- Laravel app
+    ├── .env                         <- konfigurasi aktif
+    ├── .env.production              <- template
+    └── ...
+```
+
+## Docker Volumes
+
+| Volume | Isi | Persist |
+|--------|-----|---------|
+| `mysql-data` | Database MySQL | Ya |
+| `redis-data` | Redis data | Ya |
+| `app-storage` | Laravel storage (uploads, logs, cache) | Ya |
+| `app-public` | Static files (CSS/JS compiled) | Ya (rebuild saat deploy) |
+
+Untuk backup database:
+```bash
+DC="docker compose -f docker-compose.prod.yml"
+$DC exec mysql mysqldump -u root -p"$DB_PASSWORD" niatbaik > backup.sql
 ```

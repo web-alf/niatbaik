@@ -69,6 +69,7 @@ Route::middleware(['auth', 'admin'])->prefix('master')->name('admin.')->group(fu
     Route::resource('posts', Admin\PostController::class);
     Route::resource('pages', Admin\PageController::class);
     Route::resource('slides', Admin\SlideController::class);
+    Route::resource('categories', Admin\CategoryController::class);
     Route::get('withdrawals', [Admin\WithdrawalController::class, 'index'])->name('withdrawals.index');
     Route::get('withdrawals/{withdrawal}', [Admin\WithdrawalController::class, 'show'])->name('withdrawals.show');
     Route::post('withdrawals/{withdrawal}/approve', [Admin\WithdrawalController::class, 'approve'])->name('withdrawals.approve');

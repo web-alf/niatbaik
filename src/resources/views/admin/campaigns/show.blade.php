@@ -2,7 +2,7 @@
     <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">Detail Campaign</h2></x-slot>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
-            <img src="{{ asset('storage/images/' . $campaign->image) }}" alt="{{ $campaign->title }}" class="w-full h-48 object-cover rounded-lg mb-4">
+            <img src="{{ asset('storage/' . $campaign->image) }}" alt="{{ $campaign->title }}" class="w-full h-48 object-cover rounded-lg mb-4">
             <h1 class="text-xl font-bold text-gray-800 mb-2">{{ $campaign->title }}</h1>
             <div class="flex flex-wrap gap-2 mb-4">
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $campaign->status === 'Berjalan' ? 'bg-green-100 text-green-800' : ($campaign->status === 'Selesai' ? 'bg-blue-100 text-blue-800' : ($campaign->status === 'Ditolak' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')) }}">{{ $campaign->status }}</span>

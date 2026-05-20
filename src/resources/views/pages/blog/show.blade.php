@@ -6,7 +6,7 @@
             Kembali ke Blog
         </a>
         @if($post->image)
-        <img src="{{ asset('storage/images/' . $post->image) }}" alt="{{ $post->title }}" class="w-full h-64 sm:h-80 object-cover rounded-lg mb-6">
+        <img src="{{ asset('storage/' . $post->image) }}" alt="{{ $post->title }}" class="w-full h-64 sm:h-80 object-cover rounded-lg mb-6">
         @endif
         <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">{{ $post->title }}</h1>
         <p class="text-sm text-gray-500 mb-8">{{ $post->created_at->translatedFormat('d F Y') }}</p>

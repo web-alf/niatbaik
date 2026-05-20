@@ -5,7 +5,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {{-- Main Content --}}
             <div class="lg:col-span-2">
-                <img src="{{ asset('storage/images/' . $campaign->image) }}" alt="{{ $campaign->title }}" class="w-full h-64 sm:h-96 object-cover rounded-lg">
+                <img src="{{ asset('storage/' . $campaign->image) }}" alt="{{ $campaign->title }}" class="w-full h-64 sm:h-96 object-cover rounded-lg">
                 <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mt-6">{{ $campaign->title }}</h1>
                 @if($campaign->category)
                 <span class="inline-block mt-2 text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full">{{ $campaign->category->name }}</span>
@@ -30,7 +30,7 @@
                         <div class="border-b border-gray-100 py-4">
                             <div class="flex items-start gap-4">
                                 @if($update->image)
-                                <img src="{{ asset('storage/images/' . $update->image) }}" alt="{{ $update->title }}" class="w-20 h-20 object-cover rounded">
+                                <img src="{{ asset('storage/' . $update->image) }}" alt="{{ $update->title }}" class="w-20 h-20 object-cover rounded">
                                 @endif
                                 <div>
                                     <h4 class="font-semibold text-gray-800">
@@ -96,7 +96,7 @@
                         <p class="text-sm text-gray-500 mb-2">Penggalang Dana</p>
                         <a href="{{ route('organization.show', $campaign->user) }}" class="flex items-center gap-3 hover:bg-gray-50 rounded-lg p-2 -mx-2 transition">
                             @if($campaign->user->image)
-                            <img src="{{ asset('storage/images/' . $campaign->user->image) }}" alt="{{ $campaign->user->name }}" class="w-10 h-10 rounded-full object-cover">
+                            <img src="{{ asset('storage/' . $campaign->user->image) }}" alt="{{ $campaign->user->name }}" class="w-10 h-10 rounded-full object-cover">
                             @else
                             <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
                                 <span class="text-green-600 font-semibold">{{ strtoupper(substr($campaign->user->name, 0, 1)) }}</span>

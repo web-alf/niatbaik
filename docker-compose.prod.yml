@@ -5,6 +5,7 @@ services:
       dockerfile: docker/Dockerfile
       target: runtime
     restart: unless-stopped
+    env_file: ./src/.env
     volumes:
       - ./src/.env:/var/www/html/.env
       - app-storage:/var/www/html/storage
@@ -73,6 +74,7 @@ services:
       dockerfile: docker/Dockerfile
       target: runtime
     restart: unless-stopped
+    env_file: ./src/.env
     command: php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
     volumes:
       - ./src/.env:/var/www/html/.env
@@ -91,6 +93,7 @@ services:
       dockerfile: docker/Dockerfile
       target: runtime
     restart: unless-stopped
+    env_file: ./src/.env
     command: sh -c "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"
     volumes:
       - ./src/.env:/var/www/html/.env

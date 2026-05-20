@@ -93,14 +93,14 @@ MAIL_FROM_ADDRESS=noreply@niatbaik.com
 ```bash
 cd /www/wwwroot/niatbaik
 
-docker compose -f docker-compose.prod.yml build
-docker compose -f docker-compose.prod.yml up -d
+docker compose --env-file src/.env -f docker-compose.prod.yml build
+docker compose --env-file src/.env -f docker-compose.prod.yml up -d
 ```
 
 Cek status:
 
 ```bash
-docker compose -f docker-compose.prod.yml ps
+docker compose --env-file src/.env -f docker-compose.prod.yml ps
 ```
 
 Semua container harus `running` dan `healthy`.
@@ -110,7 +110,7 @@ Semua container harus `running` dan `healthy`.
 ## 6. Inisialisasi Aplikasi
 
 ```bash
-DC="docker compose -f docker-compose.prod.yml"
+DC="docker compose --env-file src/.env -f docker-compose.prod.yml"
 
 # Generate app key
 $DC exec app php artisan key:generate
@@ -148,7 +148,7 @@ $DC exec app php artisan event:cache
 ## 8. Buat Admin Pertama
 
 ```bash
-DC="docker compose -f docker-compose.prod.yml"
+DC="docker compose --env-file src/.env -f docker-compose.prod.yml"
 $DC exec app php artisan tinker
 ```
 
@@ -179,7 +179,7 @@ Atau manual:
 
 ```bash
 cd /www/wwwroot/niatbaik
-DC="docker compose -f docker-compose.prod.yml"
+DC="docker compose --env-file src/.env -f docker-compose.prod.yml"
 
 git pull origin main
 $DC build
@@ -263,6 +263,6 @@ $DC restart worker scheduler
 
 Untuk backup database:
 ```bash
-DC="docker compose -f docker-compose.prod.yml"
+DC="docker compose --env-file src/.env -f docker-compose.prod.yml"
 $DC exec mysql mysqldump -u root -p"$DB_PASSWORD" niatbaik > backup.sql
 ```

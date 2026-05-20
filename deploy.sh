@@ -2,7 +2,7 @@
 set -e
 
 COMPOSE_FILE="docker-compose.prod.yml"
-DC="docker compose -f $COMPOSE_FILE"
+DC="docker compose --env-file src/.env -f $COMPOSE_FILE"
 
 cd "$(dirname "$0")"
 

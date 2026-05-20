@@ -137,11 +137,10 @@ $DC exec app php artisan event:cache
 
 | Type | Name | Content | Proxy |
 |------|------|---------|-------|
-| A | `niatbaik.com` | IP VPS | Proxied (orange) |
-| A | `www` | IP VPS | Proxied (orange) |
+| A | `myfund` | IP VPS | Proxied (orange) |
 
 3. **SSL/TLS** → pilih mode **Full**
-4. Akses `https://niatbaik.com` — harus sudah jalan
+4. Akses `https://myfund.niatbaik.org` — harus sudah jalan
 
 ---
 
@@ -155,14 +154,14 @@ $DC exec app php artisan tinker
 ```php
 $user = \App\Models\User::create([
     'name' => 'Admin',
-    'email' => 'admin@niatbaik.com',
-    'password' => bcrypt('GANTI_PASSWORD_ADMIN'),
+    'email' => 'admin@myfund.niatbaik.org',
+    'password' => bcrypt('#MakinBaik2030'),
     'role' => 'admin',
     'email_verified_at' => now(),
 ]);
 ```
 
-Akses admin panel di `https://niatbaik.com/master`.
+Akses admin panel di `https://myfund.niatbaik.org/master`.
 
 ---
 

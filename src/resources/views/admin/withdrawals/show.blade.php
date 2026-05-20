@@ -12,7 +12,7 @@
                 @if($withdrawal->completed_at)<div class="flex justify-between px-4 py-3"><span class="text-gray-500">Selesai</span><span>{{ $withdrawal->completed_at->format('d M Y') }}</span></div>@endif
             </div>
 
-            @if($withdrawal->status === 'Menunggu' || $withdrawal->status === 'Pending')
+            @if($withdrawal->status === 'Dalam Antrian')
             <div class="flex gap-3">
                 <form method="POST" action="{{ route('admin.withdrawals.approve', $withdrawal) }}">@csrf
                     <button type="submit" class="bg-green-600 text-white rounded-lg px-6 py-2 font-medium hover:bg-green-700 transition">Setujui</button>

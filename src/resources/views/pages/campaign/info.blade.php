@@ -8,7 +8,7 @@
         </a>
 
         @if($update->image)
-        <img src="{{ asset('storage/images/' . $update->image) }}" alt="{{ $update->title }}" class="w-full h-64 sm:h-80 object-cover rounded-lg mb-6">
+        <img src="{{ asset('storage/' . $update->image) }}" alt="{{ $update->title }}" class="w-full h-64 sm:h-80 object-cover rounded-lg mb-6">
         @endif
 
         <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">{{ $update->title }}</h1>

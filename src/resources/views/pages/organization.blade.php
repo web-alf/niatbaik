@@ -4,7 +4,7 @@
         <div class="bg-white rounded-lg shadow-md p-6 mb-8">
             <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
                 @if($user->image)
-                <img src="{{ asset('storage/images/' . $user->image) }}" alt="{{ $user->name }}" class="w-24 h-24 rounded-full object-cover">
+                <img src="{{ asset('storage/' . $user->image) }}" alt="{{ $user->name }}" class="w-24 h-24 rounded-full object-cover">
                 @else
                 <div class="w-24 h-24 rounded-full bg-green-100 flex items-center justify-center">
                     <span class="text-green-600 text-3xl font-bold">{{ strtoupper(substr($user->name, 0, 1)) }}</span>

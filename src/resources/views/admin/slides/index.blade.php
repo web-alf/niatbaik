@@ -9,7 +9,7 @@
         @foreach($slides as $s)
         <div class="bg-white rounded-lg shadow-md overflow-hidden">
             @if($s->image)
-            <img src="{{ asset('storage/images/' . $s->image) }}" alt="Slide" class="w-full h-40 object-cover">
+            <img src="{{ asset('storage/' . $s->image) }}" alt="Slide" class="w-full h-40 object-cover">
             @else
             <div class="w-full h-40 bg-gray-200 flex items-center justify-center"><span class="text-gray-400">No Image</span></div>
             @endif

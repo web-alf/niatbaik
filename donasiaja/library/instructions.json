@@ -1,0 +1,1638 @@
+[
+      {
+        "pg": "general",
+        "method": "instant",
+        "payment": "ovo",
+        "title": "Pembayaran via OVO",
+        "steps": [
+          "Masuk ke aplikasi OVO Anda yang telah mendukung QRIS",
+          "Pindai/Scan QR Code yang tersedia",
+          "Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai",
+          "Selesaikan proses pembayaran Anda",
+          "Transaksi selesai. Simpan bukti pembayaran Anda"
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "instant",
+        "payment": "dana",
+        "title": "Pembayaran via QRIS (DANA)",
+        "steps": [
+          "Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS",
+          "Pindai/Scan QR Code yang tersedia",
+          "Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai",
+          "Selesaikan proses pembayaran Anda",
+          "Transaksi selesai. Simpan bukti pembayaran Anda"
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "instant",
+        "payment": "dana",
+        "title": "Pembayaran via QRIS (Mobile)",
+        "steps": [
+          "Download QR Code pada invoice",
+          "Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS",
+          "Upload QR Code yang telah di download tadi",
+          "Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai",
+          "Selesaikan proses pembayaran Anda",
+          "Transaksi selesai. Simpan bukti pembayaran Anda"
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "instant",
+        "payment": "qris",
+        "title": "Pembayaran via QRIS",
+        "steps": [
+            "Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS",
+            "Pindai/Scan QR Code yang tersedia",
+            "Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai",
+            "Selesaikan proses pembayaran Anda",
+            "Transaksi selesai. Simpan bukti pembayaran Anda"
+          ]
+      },
+      {
+        "pg": "general",
+        "method": "instant",
+        "payment": "qris",
+        "title": "Pembayaran via QRIS (Mobile)",
+        "steps": [
+          "Download QR Code pada invoice",
+          "Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS",
+          "Upload QR Code yang telah di download tadi",
+          "Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai",
+          "Selesaikan proses pembayaran Anda",
+          "Transaksi selesai. Simpan bukti pembayaran Anda"
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "instant",
+        "payment": "shopeepay",
+        "title": "Pembayaran via QRIS",
+        "steps": [
+            "Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS",
+            "Pindai/Scan QR Code yang tersedia",
+            "Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai",
+            "Selesaikan proses pembayaran Anda",
+            "Transaksi selesai. Simpan bukti pembayaran Anda"
+          ]
+      },
+      {
+        "pg": "general",
+        "method": "instant",
+        "payment": "shopeepay",
+        "title": "Pembayaran via QRIS (ShopeePay)",
+        "steps": [
+          "Download QR Code pada invoice",
+          "Masuk ke aplikasi dompet digital ShopeePay",
+          "Upload QR Code yang telah di download tadi",
+          "Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai",
+          "Selesaikan proses pembayaran Anda",
+          "Transaksi selesai. Simpan bukti pembayaran Anda"
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "instant",
+        "payment": "linkaja",
+        "title": "Pembayaran via QRIS",
+        "steps": [
+            "Masuk ke aplikasi dompet digital Anda yang telah mendukung QRIS",
+            "Pindai/Scan QR Code yang tersedia",
+            "Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai",
+            "Selesaikan proses pembayaran Anda",
+            "Transaksi selesai. Simpan bukti pembayaran Anda"
+          ]
+      },
+      {
+        "pg": "general",
+        "method": "instant",
+        "payment": "linkaja",
+        "title": "Pembayaran via QRIS (LinkAja)",
+        "steps": [
+          "Download QR Code pada invoice",
+          "Masuk ke aplikasi dompet digital LinkAja",
+          "Upload QR Code yang telah di download tadi",
+          "Akan muncul detail transaksi. Pastikan data transaksi sudah sesuai",
+          "Selesaikan proses pembayaran Anda",
+          "Transaksi selesai. Simpan bukti pembayaran Anda"
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "transfer",
+        "payment": "alfamart",
+        "title": "Pembayaran via ALFAMART",
+        "steps": [
+          "Datang ke Alfamart",
+          "Sampaikan ke kasir ingin melakukan pembayaran Plasamall",
+          "Berikan kode bayar (<b>{payment_number}</b>) ke kasir",
+          "Bayar sesuai jumlah yang diinfokan oleh kasir",
+          "Simpan struk bukti pembayaran Anda"
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "transfer",
+        "payment": "alfamidi",
+        "title": "Pembayaran via ALFAMIDI",
+        "steps": [
+          "Datang ke Alfamidi",
+          "Sampaikan ke kasir ingin melakukan pembayaran Plasamall",
+          "Berikan kode bayar (<b>{payment_number}</b>) ke kasir",
+          "Bayar sesuai jumlah yang diinfokan oleh kasir",
+          "Simpan struk bukti pembayaran Anda"
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "transfer",
+        "payment": "indomaret",
+        "title": "Pembayaran via INDOMARET",
+        "steps": [
+          "Datang ke gerai Indomaret",
+          "Sampaikan ke kasir ingin melakukan pembayaran <b>Linkita</b>",
+          "Berikan kode bayar (<b>{payment_number}</b>) ke kasir",
+          "Bayar sesuai jumlah yang diinfokan oleh kasir",
+          "Simpan struk bukti pembayaran Anda"
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "transfer",
+        "payment": "bsi",
+        "title": "Byond by BSI",
+        "steps": [
+          "Buka aplikasi BYOND By BSI kemudian pilih menu <b>Transfer</b>",
+          "Transfer to <b>New Account</b>",
+          "Pilih <b>Bank Syariah Indonesia</b>.",
+          "Input nomor Rekening berikut ini: <b>{payment_number}</b>",
+          "Pastikan jumlah transfernya sudah sesuai: <b>{nominal}</b>",
+          "Masukkan PIN BSI Mobile.",
+          "Transaksi selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "transfer",
+        "payment": "bsi",
+        "title": "BSI Mobile",
+        "steps": [
+          "Buka aplikasi BSI Mobile.",
+          "Pilih menu Transfer.",
+          "Pilih Transfer antar Rekening BSI.",
+          "Tap Pilih Rekening Debet.",
+          "Kemudian tap Pilih Tujuan Transfer, silahkan pilih ke rekening BSI sendiri atau BSI orang lain.",
+          "Masukan nomor rekening tujuan transfer: <b>{payment_number}</b>.",
+          "Masukan jumlah uang atau nominal yang akan kamu transfer sesama BSI.",
+          "Tap Selanjutnya.",
+          "Masukan PIN BSI Mobile.",
+          "Jika transfer ke sesama BSI berhasil maka akan muncul bukti transfer BSI Mobile."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "transfer",
+        "payment": "bca",
+        "title": "BCA Mobile",
+        "steps": [
+          "Buka BCA mobile.",
+          "Masukkan Kode Akses.",
+          "Pilih menu m-Transfer.",
+          "Klik Antar Rekening di Daftar Transfer.",
+          "Daftarkan Nomor Rekening Tujuan.",
+          "Kembali ke menu Transfer.",
+          "Klik Antar Rekening di Transfer.",
+          "Pilih Daftar Rekening: <b>{payment_number}</b>.",
+          "Masukkan nominal transfer BCA: <b>{nominal}</b>.",
+          "Klik Send.",
+          "Masukkan PIN Mobile BCA.",
+          "Tunggu transfer BCA berhasil."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "transfer",
+        "payment": "bca",
+        "title": "ATM BCA",
+        "steps": [
+          "Datang ke ATM BCA terdekat.",
+          "Masukkan kartu ATM BCA ke mesin.",
+          "Isi PIN ATM.",
+          "Klik Menu Transaksi Lainnya.",
+          "Klik menu Transfer dan Ke Rek BCA.",
+          "Masukkan nomor rekening BCA: <b>{payment_number}</b>.",
+          "Masukkan nominal transfer BCA: <b>{nominal}</b>.",
+          "Klik Ya saat konfirmasi.",
+          "Tunggu bukti transfer BCA muncul."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "transfer",
+        "payment": "mandiri",
+        "title": "Livin Mandiri",
+        "steps": [
+          "Login ke Livin Mandiri Anda",
+          "Pilih menu <b>Transfer</b> lalu klik tombol <b>Transfer ke Penerima Baru</b>",
+          "Masukkan Nomor Rekening (<b>{payment_number}</b>) lalu klik tombol <b>Lanjutkan</b>",
+          "Nanti akan muncul <b>{payment_account}</b> lalu klik tombol <b>Lanjutkan</b>",
+          "Masukkan Nominal (<b>{nominal}</b>) lalu klik </b>Lanjutkan</b>",
+          "Periksa aplikasi Mandiri Online di ponsel Anda untuk menyelesaikan persetujuan transaksi",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "transfer",
+        "payment": "mandiri",
+        "title": "ATM Mandiri",
+        "steps": [
+          "Datang ke mesin ATM Bank Mandiri.",
+          "Masukan kartu ATM Mandiri ke mesin atm.",
+          "Pilih bahasa Indonesia lalu masukan 6 digit PIN.",
+          "Pilih menu Transaksi Lainnya.",
+          "Pilih menu Transfer.",
+          "Pilih Ke Rekening Mandiri.",
+          "Masukkan nomor rekening Bank Mandiri: <b>{payment_number}.</b>",
+          "Masukan jumlah nominal transfer Bank Mandiri: <b>{nominal}</b>.",
+          "Pilih Benar.",
+          "Klik YA pada halaman konfirmasi."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "permata",
+        "title": "Mobile Banking Permata",
+        "steps": [
+          "Login ke Mobile Banking Permata",
+          "Pilih menu Pembayaran Tagihan",
+          "Pilih menu Virtual Account",
+          "Masukkan Nomor Virtual Account : <b>{payment_number}</b>",
+          "Periksa informasi pembayaran, pastikan nama dan jumlah tagihan benar",
+          "Apabila sudah sesuai, masukkan TOKEN",
+          "Transaksi Anda selesai, simpan bukti transaksi"
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "permata",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Permata Bank (<b>013</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bni",
+        "title": "ATM BNI",
+        "steps": [
+          "Kunjungi ATM BNI terdekat.",
+          "Masukan Kartu ATM dengan benar.",
+          "Pilih bahasa Indonesia atau English.",
+          "Lalu Input PIN ATM dan klik Benar.",
+          "Selanjutnya pilih Menu Lain > Transfer.",
+          "Nanti akan muncul pilihan dari rekening mana, dan pilih Rekening Tabungan.",
+          "Berikutnya pilih ke Rekening BNI > Masukan Nomor Rekening Tujuan <b>{payment_number}</b>.",
+          "Lalu masukan Jumlah Nominal Transfer klik",
+          "Dan pilih 'Benar' lagi.",
+          "Nanti muncul tampilan konfirmasi nomor dan nama pemilik rekening. Jika sudah benar pilih 'Benar' lagi.",
+          "Tunggu sampai transaksi selesai dan bukti struknya keluar."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bni",
+        "title": "BNI Mobile Banking",
+        "steps": [
+          "Login ke BNI Mobile.",
+          "Masukkan UserID dan MPIN.",
+          "Klik menu Transfer.",
+          "Klik Antar BNI.",
+          "Tekan Input Baru.",
+          "Masukkan rekening tujuan: <b>{payment_number}</b>.",
+          "Masukkan nominal transfer BNI.",
+          "Klik Selanjutnya.",
+          "Masukkan password.",
+          "Klik Lanjut"
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bri",
+        "title": "ATM BRI",
+        "steps": [
+          "Datang ke ATM BRI terdekat.",
+          "Masukkan kartu ATM BRI ke mesin.",
+          "Pilih bahasa Indonesia.",
+          "Isi PIN ATM.",
+          "Klik Menu Transaksi Lainnya.",
+          "Klik menu Transfer.",
+          "Masukkan kode 002 + nomor rekening BRI <b>{payment_number}</b>.",
+          "Masukkan nominal transfer BRI.",
+          "Klik Benar saat konfirmasi.",
+          "Masukkan nomor referensi.",
+          "Klik Ya.",
+          "Pilih rekening Tabungan atau Giro.",
+          "Tunggu bukti transfer BRI muncul."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bri",
+        "title": "Aplikasi BRImo",
+        "steps": [
+          "Buka BRI mobile.",
+          "Masukkan USER ID dan Password.",
+          "Pilih menu Transfer.",
+          "Klik Tambah Daftar Baru.",
+          "Pilih Bank BRI.",
+          "Masukan nomor rekening BRI: <b>{payment_number}</b>.",
+          "Klik Lanjutkan.",
+          "Masukan nominal transfer BRI.",
+          "Klik Transfer.",
+          "Periksa transfer BRI dari nama dan jumlah uang.",
+          "Klik Transfer.",
+          "Terakhir masukan PIN BRImo."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bank_btn",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Tabungan Negara / BTN (<b>200</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "btpn",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Tabungan Pensiunan Nasional / BTPN (<b>213</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bukopin",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Bukopin (<b>441</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "cimb_niaga",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank CIMB Niaga (<b>022</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "mega",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Mega (<b>426</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "danamon",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Danamon (<b>011</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bag",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Artha Graha International (<b>037</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "citi_bank",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Citibank (<b>031</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "citibank",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Citibank (<b>031</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bsi",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Syariah Indonesia (<b>451</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bca_syariah",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank BCA Syariah (<b>536</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "cimb_niaga_syariah",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank CIMB Niaga Syariah (<b>022</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bank_bjb_syariah",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank BJB Syariah (<b>425</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bank_jateng_syariah",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Jateng Syariah (<b>725</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "muamalat",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Muamalat (<b>147</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bank_bjb",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank BJB (<b>110</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bank_dki",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank DKI (<b>111</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bank_jateng",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Jateng (<b>113</b>) beserta nomor rekening yang dituju <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bank_jatim",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Jatim (<b>114</b>) beserta nomor rekening Bank Jatim tujuan <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bank_sulselbar",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Sulselbar (<b>126</b>) beserta nomor rekening Bank Jatim tujuan <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "bank_nagari",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Nagari (<b>118</b>) beserta nomor rekening Bank Jatim tujuan <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "maybank",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Maybank (<b>016</b>) beserta nomor rekening Bank Jatim tujuan <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "sinarmas",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Sinarmas (<b>153</b>) beserta nomor rekening Bank Jatim tujuan <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "general",
+        "method": "va",
+        "payment": "sampoerna",
+        "title": "ATM",
+        "steps": [
+          "Datang ke ATM terdekat pilihanmu.",
+          "Masukkan kartu ATM dan PIN ke dalam mesin ATM.",
+          "Pilih bahasa yang ingin digunakan.",
+          "Pilih menu Transfer kemudian menu transfer antarbank.",
+          "Masukkan kode transfer Bank Sahabat Sampoerna (<b>523</b>) beserta nomor rekening Bank Jatim tujuan <b>{payment_number}</b>.",
+          "Masukkan nominal uang yang akan ditransfer lalu pilih Lanjutkan.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "ipaymu",
+        "method": "va",
+        "payment": "mandiri",
+        "title": "Internet Banking Livin",
+        "steps": [
+          "Login ke Livin Mandiri Anda",
+          "Pilih menu <b>Transfer</b> lalu klik tombol <b>Transfer ke Penerima Baru</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>) lalu klik tombol <b>Lanjutkan</b>",
+          "Nanti akan muncul a.n <b>iPaymu</b> lalu klik tombol <b>Lanjutkan</b>",
+          "Masukkan Nominal (<b>{nominal}</b>) lalu klik </b>Lanjutkan</b>",
+          "Periksa aplikasi Mandiri Online di ponsel Anda untuk menyelesaikan persetujuan transaksi",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "bca",
+        "title": "BCA Mobile",
+        "steps": [
+          "Login pada aplikasi BCA mobile",
+          "Pilih <b>m-BCA</b> masukkan kode akses m-BCA",
+          "Pilih <b>m-Transfer</b>",
+          "Pilih <b>BCA Virtual Account</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>) lalu klik <b>OK</b>",
+          "Masukkan pin m-BCA",
+          "Pembayaran Selesai"
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "bca",
+        "title": "ATM BCA",
+        "steps": [
+          "Masukkan kartu ATM BCA & PIN",
+          "Pilih menu <b>Transaksi Lainnya > Transfer > Ke Rekening BCA Virtual Account</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Di halaman konfirmasi, pastikan detail pembayaran sudah sesuai seperti Nomor VA",
+          "Input nominal (<b>{nominal}</b>) yang harus dibayar",
+          "Jika sudah benar, klik <b>Ya</b>",
+          "Simpan struk transaksi sebagai bukti pembayaran"
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "mandiri",
+        "title": "Mandiri Livin",
+        "steps": [
+          "Login ke Livin Mandiri Anda",
+          "Pilih menu <b>Bayar</b> kemudian Ketik <b>DOKU Merchant</b> atau <b>89022</b></b>",
+          "Masukkan Nomor Virtual Account (<b>{payment_number}</b>) lalu klik tombol <b>Lanjutkan</b>",
+          "Masukkan Nominal pembayaran (<b>{nominal}</b>) lalu klik </b>Lanjutkan</b>",
+          "Kemudian masukkan PIN dan Konfirmasi",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "mandiri",
+        "title": "ATM Mandiri",
+        "steps": [
+          "Masukkan kartu ATM & isi PIN ATM Anda",
+          "Pilih menu <b>Bayar/Beli</b> lalu pilih menu <b>Multipayment</b>",
+          "Input kode perusahaan Bank Mandiri <b>89022</b> tekan Benar",
+          "Input nomor virtual account (<b>{payment_number}</b>) kemudian tekan Benar",
+          "Pilih Nomor <b>1</b> atau sesuai tagihan yang akan dibayar lalu tekan <b>YA</b>",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {     
+        "pg": "flip",
+        "method": "va",
+        "payment": "bni",
+        "title": "Internet Banking",
+        "steps": [
+          "Login ke internet banking Bank BNI Anda",
+          "Pilih menu <b>Transaksi</b> lalu klik menu <b>Virtual Account Billing</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>) lalu pilih <b>Rekening Debit</b>",
+          "Detail transaksi akan ditampilkan, pastikan data sudah sesuai",
+          "Masukkan respon key BNI appli 2",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "bni",
+        "title": "ATM BNI",
+        "steps": [
+          "Masukkan kartu Anda",
+          "Pilih Bahasa",
+          "Masukkan PIN ATM Anda",
+          "Kemudian, pilih <b>Menu Lainnya</b>",
+          "Pilih <b>Transfer</b> dan pilih jenis rekening yang akan digunakan (Contoh: Dari rekening Tabungan)",
+          "Pilih <b>Virtual Account Billing</b>. Masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Tagihan yang harus dibayarkan akan muncul pada layar konfirmasi",
+          "Konfirmasi, apabila telah selesai, lanjutkan transaksi",
+          "Transaksi Anda telah selesai"
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "bri",
+        "title": "Aplikasi BRImo",
+        "steps": [
+          "Login ke aplikasi BRImo Anda",
+          "Pilih menu <b>BRIVA</b>",
+          "Input Nomor VA (<b>{payment_number}</b>) lalu klik <b>Lanjut</b>",
+          "Masukkan nominal pembayaran",
+          "Input <b>PIN</b> dan Konfirmasi",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "bri",
+        "title": "ATM BRI",
+        "steps": [
+          "Lakukan pembayaran melalui ATM Bank BRI",
+          "Pilih menu <b>Transaksi Lain > Pembayaran > Lainnya > Pilih BRIVA</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Pilih <b>Ya</b> untuk memproses pembayaran",
+          "Transaksi selesai."
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "permata",
+        "title": "Permata Mobile Banking",
+        "steps": [
+          "Masukan User ID & Password > Pilih Pembayaran Tagihan",
+          "Pilih virtual account > Input nomor virtual account (<b>{payment_number}</b>)",
+          "Input nominal pembayaran",
+          "Apabila data sudah sesuai masukan otentikasi transaksi/Token",
+          "Transaksi selesai."
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "permata",
+        "title": "ATM Permata",
+        "steps": [
+          "Masukkan <b>PIN</b>",
+          "Pilih menu <b>Transaksi Lainnya</b>",
+          "Pilih menu <b>Pembayaran</b>",
+          "Pilih menu <b>Pembayaran Lainnya</b>",
+          "Pilih menu <b>Virtual Account</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>) lalu tekan <b>Benar</b>",
+          "Pilih rekening yang menjadi sumber dana yang akan didebet",
+          "Tekan <b>Ya</b> untuk konfirmasi transaksi"
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "bsi",
+        "title": "BYOND by BSI",
+        "steps": [
+          "Buka aplikasi BYOND By BSI kemudian pilih menu Transfer.",
+          "Pilih menu <b>Pay & Buy</b>",
+          "Pilih <b>Virtual Account</b>.",
+          "Input nomor Virtual Account berikut ini: (<b>6059{payment_number}</b>)",
+          "Pastikan jumlah transfernya sudah sesuai: (<b>{nominal}</b>)",
+          "Masukkan PIN BSI Mobile.",
+          "Transaksi selesai."
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "bsi",
+        "title": "BSI Mobile",
+        "steps": [
+          "Buka aplikasi BSI Mobile.",
+          "Pilih menu <b>Pembayaran</b>.",
+          "Pilih opsi <b>E-commerce</b>.",
+          "Pilih merchant <b>DOKU</b>.",
+          "Pilih nomor rekening Anda.",
+          "Masukkan Nomor Pembayaran: (<b>{payment_number}</b>).",
+          "Masukkan PIN BSI Mobile Anda.",
+          "Transaksi selesai."
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "cimb_niaga",
+        "title": "Internet Banking",
+        "steps": [
+          "Login ke CIMB clicks",
+          "Pilih menu <b>Bayar Tagihan/Pay Bills</b>",
+          "Pilih <b>Rekening Sumber/Source Account</b> dan jenis Pembayaran/Payment Type > Virtual Account",
+          "Masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Nomor, nama virtual account dan jumlah billing ditampilkan pada layar",
+          "Masukkan 6 digit mPIN dan tekan tombol <b>Submit</b>",
+          "Konfirmasi pembayaran ditampilkan pada layar"
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "cimb_niaga",
+        "title": "Mobile Banking",
+        "steps": [
+          "Login ke Go Mobile",
+          "Pilih menu <b>Transfer</b>",
+          "Pilih Transfer <b>to Other CIMB Niaga Account</b>",
+          "Pilih rekening sumber Anda",
+          "Pilih CASA dan masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Masukkan Nominal (<b>{nominal}</b>)",
+          "Masukkan Mobile Banking PIN",
+          "konfirmasi pembayaran ditampilkan pada layar"
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "cimb_niaga",
+        "title": "ATM CIMB",
+        "steps": [
+          "Masukkan Kartu ATM dan PIN CIMB Toppers",
+          "Pilih menu <b>Pembayaran > Lanjut > Virtual Account</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Pilih rekening debit",
+          "Nomor, nama virtual account dan jumlah billing ditampilkan pada layar",
+          "Pilih <b>OK</b> untuk melakukan pembayaran",
+          "Konfirmasi pembayaran ditampilkan pada layar"
+        ]
+      },
+      {
+        "pg": "flip",
+        "method": "va",
+        "payment": "danamon",
+        "title": "Danamon Mobile",
+        "steps": [
+          "Akses D-mobile melalui smartphone.",
+          "Pilih menu <b>Pembayaran </b>> <b>Lainnya.</b>",
+          "Pilih > <b>Virtual Account</b>.",
+          "Masukan nomor Virtual Account: (<b>{payment_number}</b>) lalu pilih <b>Benar</b>.",
+          "Masukkan mPIN Anda untuk konfirmasi.",
+          "Transaksi Anda selesai."
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "mandiri",
+        "title": "Internet Banking Livin",
+        "steps": [
+          "Login ke internet banking Anda",
+          "Pilih menu <b>Bayar</b> lalu klik menu <b>E-Commerce</b>",
+          "Masukkan Kode <b>89039 (Plink Pay)</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Masukkan Nominal (<b>{nominal}</b>)",
+          "Detail transaksi akan ditampilkan, pastikan data sudah sesuai",
+          "Klik tombol <b>Konfirmasi</b>",
+          "Periksa aplikasi Mandiri Online di ponsel Anda untuk menyelesaikan persetujuan transaksi",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "mandiri",
+        "title": "ATM Mandiri",
+        "steps": [
+          "Masukkan kartu ATM & isi PIN ATM Anda",
+          "Pilih menu <b>Bayar/Beli</b> lalu pilih menu <b>Lainnya</b>",
+          "Pilih lagi menu <b>Lainnya</b>",
+          "Pilih menu <b>Multi Payment</b>",
+          "Masukkan kode <b>89039 (Plink Pay)</b> lalu tekan <b>Benar</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Detail transaksi akan ditampilkan, pastikan data sudah sesuai",
+          "Tekan <b>1</b> lalu tekan <b>YA</b>",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {     
+        "pg": "tripay",
+        "method": "va",
+        "payment": "bni",
+        "title": "Internet Banking",
+        "steps": [
+          "Login ke internet banking Bank BNI Anda",
+          "Pilih menu <b>Transaksi</b> lalu klik menu <b>Virtual Account Billing</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>) lalu pilih <b>Rekening Debit</b>",
+          "Detail transaksi akan ditampilkan, pastikan data sudah sesuai",
+          "Masukkan respon key BNI appli 2",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "bni",
+        "title": "ATM BNI",
+        "steps": [
+          "Masukkan kartu Anda",
+          "Pilih Bahasa",
+          "Masukkan PIN ATM Anda",
+          "Kemudian, pilih <b>Menu Lainnya</b>",
+          "Pilih <b>Transfer</b> dan pilih jenis rekening yang akan digunakan (Contoh: Dari rekening Tabungan)",
+          "Pilih <b>Virtual Account Billing</b>. Masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Tagihan yang harus dibayarkan akan muncul pada layar konfirmasi",
+          "Konfirmasi, apabila telah selesai, lanjutkan transaksi",
+          "Transaksi Anda telah selesai"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "bri",
+        "title": "Internet Banking",
+        "steps": [
+          "Login ke internet banking Bank BRI Anda",
+          "Pilih menu <b>Pembayaran</b> lalu klik menu <b>BRIVA</b>",
+          "Pilih rekening sumber dan masukkan Kode Bayar (<b>{payment_number}</b>) lalu klik <b>Kirim</b>",
+          "Detail transaksi akan ditampilkan, pastikan data sudah sesuai",
+          "Masukkan nominal pembayaran",
+          "Klik <b>Lanjutkan</b>",
+          "Masukkan kata sandi ibanking lalu klik <b>Request</b> untuk mengirim m-PIN ke nomor HP Anda",
+          "Periksa HP Anda dan masukkan m-PIN yang diterima lalu klik <b>Kirim</b>",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "bri",
+        "title": "Aplikasi BRImo",
+        "steps": [
+          "Login ke aplikasi BRImo Anda",
+          "Pilih menu <b>BRIVA</b>",
+          "Pilih sumber dana dan masukkan Nomor Pembayaran (<b>{payment_number}</b>) lalu klik <b>Lanjut</b>",
+          "Klik <b>Lanjut</b>",
+          "Detail transaksi akan ditampilkan, pastikan data sudah sesuai",
+          "Masukkan nominal pembayaran",
+          "Klik <b>Lanjutkan</b>",
+          "Klik <b>Konfirmasi</b>",
+          "Klik <b>Lanjut</b>",
+          "Masukkan kata sandi ibanking Anda",
+          "Klik <b>Lanjut</b>",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "bri",
+        "title": "ATM BRI",
+        "steps": [
+          "Lakukan pembayaran melalui ATM Bank BRI",
+          "Pilih menu <b>Transaksi Lain > Pembayaran > Lainnya > Pilih BRIVA</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Pilih <b>Ya</b> untuk memproses pembayaran"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "bca",
+        "title": "Internet Banking",
+        "steps": [
+          "Login ke internet banking klikbca Anda",
+          "Pilih menu <b>Transfer Dana</b> lalu pilih <b>Transfer ke BCA Virtual Account</b>",
+          "Pilih <b>Dari Rekening</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>) lalu klik <b>Lanjutkan</b>",
+          "Detail transaksi akan ditampilkan, pastikan data sudah sesuai lalu masukkan respon <b>Key BCA Appli 1</b>",
+          "Klik <b>Kirim</b>",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "bca",
+        "title": "Mobile Banking",
+        "steps": [
+          "Login pada aplikasi BCA mobile",
+          "Pilih <b>m-BCA</b> masukkan kode akses m-BCA",
+          "Pilih <b>m-Transfer</b>",
+          "Pilih <b>BCA Virtual Account</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>) lalu klik <b>OK</b>",
+          "Konfirmasi no virtual account dan rekening pendebetan",
+          "Periksa kembalian rincian pembayaran anda, lalu klik <b>Ya</b>",
+          "Masukkan pin m-BCA",
+          "Pembayaran Selesai"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "bca",
+        "title": "ATM BCA",
+        "steps": [
+          "Masukkan kartu ATM BCA & PIN",
+          "Pilih menu <b>Transaksi Lainnya > Transfer > Ke Rekening BCA Virtual Account</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Di halaman konfirmasi, pastikan detail pembayaran sudah sesuai seperti Nomor VA, Nama, Produk dan Total Tagihan",
+          "Jika sudah benar, klik <b>Ya</b>",
+          "Simpan struk transaksi sebagai bukti pembayaran"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "muamalat",
+        "title": "Internet Banking",
+        "steps": [
+          "Login ke IB Muamalat",
+          "Pilih menu <b>Payment</b>",
+          "pilih rekening Anda dan pilih <b>Virtual Account</b> pada bill type",
+          "masukkan Nomor Va (<b>{payment_number}</b>)",
+          "Klik <b>Next</b>",
+          "Periksa kembali jumlah pembayaran",
+          "Apabila sudah sesuai, Masukkan mPasscode lalu klik <b>SUBMIT</b> jika setuju dengan informasi pembayaran",
+          "Transaksi Anda selesai. Silahkan cetak bukti transaksi"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "muamalat",
+        "title": "M-Banking",
+        "steps": [
+          "Login ke Mobile Banking Muamalat",
+          "Pilih menu <b>Pembayaran</b>",
+          "masukkan Nomor Va (<b>{payment_number}</b>), klik <b>Proses</b>",
+          "Periksa kembali jumlah pembayaran",
+          "Apabila sudah sesuai, masukkan Kode Verifikasi lalu klik <b>Proses</b> jika sudah setuju dengan informasi pembayaran",
+          "Transaksu Anda selesai, Simpan struk sebagai bukti transaksi"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "muamalat",
+        "title": "ATM Muamalat",
+        "steps": [
+          "Masukkan kartu ATM, lalu input PIN Anda",
+          "Pilih menu <b>Transaksi Lain</b>",
+          "Pilih menu <b>Pembayaran</b> kemudian pilih menu <b>Virtual Account</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Tekan <b>Bayar</b> jika setuju dengan informasi pembayaran",
+          "Periksa kembali jumlah Tagihan",
+          "Apabila sudah sesuai, tekan <b>Benar</b>, lalu tekan <b>Bayar</b>",
+          "Simpan struk ATM sebagai bukti pembayaran"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "permata",
+        "title": "Internet Banking",
+        "steps": [
+          "Login ke internet banking Bank Permata Anda",
+          "Pilih menu <b>Pembayaran</b> lalu klik menu <b>Pembayaran Tagihan</b>",
+          "Pilih menu <b>Virtual Account</b>",
+          "Pilih <b>Rekening Asal</b> lalu centang <b>Masukkan Daftar Tagihan Baru</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>) lalu klik <b>Lanjutkan</b>",
+          "Detail transaksi akan ditampilkan, pastikan data sudah sesuai lalu klik <b>Lanjutkan</b>",
+          "Masukkan <b>SMS Token</b> Permata, lalu klik <b>Lanjutkan</b>",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "permata",
+        "title": "ATM Permata",
+        "steps": [
+          "Masukkan <b>PIN</b>",
+          "Pilih menu <b>Transaksi Lainnya</b>",
+          "Pilih menu <b>Pembayaran</b>",
+          "Pilih menu <b>Pembayaran Lainnya</b>",
+          "Pilih menu <b>Virtual Account</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>) lalu tekan <b>Benar</b>",
+          "Pilih rekening yang menjadi sumber dana yang akan didebet",
+          "Tekan <b>Ya</b> untuk konfirmasi transaksi"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "cimb_niaga",
+        "title": "Internet Banking",
+        "steps": [
+          "Login ke CIMB clicks",
+          "Pilih menu <b>Bayar Tagihan/Pay Bills</b>",
+          "Pilih <b>Rekening Sumber/Source Account</b> dan jenis Pembayaran/Payment Type > Virtual Account",
+          "Masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Nomor, nama virtual account dan jumlah billing ditampilkan pada layar",
+          "Masukkan 6 digit mPIN dan tekan tombol <b>Submit</b>",
+          "Konfirmasi pembayaran ditampilkan pada layar"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "cimb_niaga",
+        "title": "Mobile Banking",
+        "steps": [
+          "Login ke Go Mobile",
+          "Pilih menu <b>Transfer</b>",
+          "Pilih Transfer <b>to Other CIMB Niaga Account</b>",
+          "Pilih rekening sumber Anda",
+          "Pilih CASA dan masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Masukkan Nominal (<b>{nominal}</b>)",
+          "Masukkan Mobile Banking PIN",
+          "konfirmasi pembayaran ditampilkan pada layar"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "cimb_niaga",
+        "title": "ATM CIMB",
+        "steps": [
+          "Masukkan Kartu ATM dan PIN CIMB Toppers",
+          "Pilih menu <b>Pembayaran > Lanjut > Virtual Account</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>)",
+          "Pilih rekening debit",
+          "Nomor, nama virtual account dan jumlah billing ditampilkan pada layar",
+          "Pilih <b>OK</b> untuk melakukan pembayaran",
+          "Konfirmasi pembayaran ditampilkan pada layar"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "maybank",
+        "title": "Internet Banking",
+        "steps": [
+          "Login ke internet banking Maybank Anda",
+          "Pilih menu <b>Transfer</b> lalu pilih <b>Maybank Virtual Account</b>",
+          "Pilih <b>Rekening Sumber</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>) dan jumlah pembayaran (<b>{nominal}</b>) lalu klik <b>Lanjutkan</b>",
+          "Detail transaksi akan ditampilkan, pastikan data sudah sesuai lalu klik <b>Lanjutkan</b>",
+          "Masukkan <b>SMS Token</b> lalu klik <b>Lanjutkan</b>",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "maybank",
+        "title": "ATM Maybank",
+        "steps": [
+          "Pilih menu <b>Transfer</b>",
+          "Pilih <b>Virtual Account</b>",
+          "Masukkan nomor Virtual Account (<b>{payment_number}</b>) dan jumlah yang harus dibayar (<b>{nominal}</b>)",
+          "Pilih <b>Ya</b>",
+          "Detail transaksi akan ditampilkan, pastikan data sudah sesuai lalu pilih <b>YA</b>",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "sampoerna",
+        "title": "Internet Banking",
+        "steps": [
+          "Login ke internet banking Anda",
+          "Pilih menu <b>Transfer Dana</b> lalu pilih <b>Transfer ke Rekening Bank Sahabat Sampoerna</b>",
+          "Masukkan Nomor VA (<b>{payment_number}</b>) lalu klik <b>Lanjutkan</b>",
+          "Masukkan nominal pembayaran lalu klik <b>Lanjutkan</b>",
+          "Detail transaksi akan ditampilkan, pastikan data sudah sesuai lalu masukkan <b>token ibanking</b> Anda",
+          "Klik <b>Kirim</b>",
+          "Transaksi sukses, simpan bukti transaksi Anda"
+        ]
+      },
+      {
+        "pg": "tripay",
+        "method": "va",
+        "payment": "bsi",
+        "title": "BSI Mobile",
+        "steps": [
+          "Masuk ke aplikasi BSI Mobile Anda",
+          "Pilih menu <b>Bayar</b>",
+          "Pilih menu <b>Institusi</b>",
+          "Pada opsi Nama Institusi, pilih <b>9042 Win Pay</b>",
+          "Masukkan kode bayar (<b>{payment_number}</b>)",
+          "Klik <b>Selanjutnya</b>",
+          "Masukkan PIN Anda",
+          "Klik <b>Selanjutnya</b>",
+          "Akan ditampikan detail transaksi, pastikan sudah sesuai",
+          "Klik <b>Selanjutnya</b>",
+          "Transaksi selesai, simpan bukti pembayaran Anda"
+        ]
+      },
+      {
+        "pg": "ipaymu",
+        "method": "va",
+        "payment": "bsi",
+        "title": "BSI Mobile",
+        "steps": [
+          "Pilih Menu Payment / Pembayaran",
+          "Pilih Institusi",
+          "Masukkan kode institusi: 9042",
+          "Masukkan no VA pembayaran : <b>{payment_number}</b> Anda tanpa diikuti kode institusi, lalu klik setuju",
+          "Tekan tombol Selanjutnya, Kemudian tampil informasi data transaksi anda, pastikan kembali nama tujuan dan jumlah pembayaran sesuai tagihan Anda, lalu klik Selanjutnya",
+          "Masukan PIN",
+          "Tekan tombol Selanjutnya untuk Submit",
+          "Akan keluar bukti transaksi jika berhasil"
+        ]
+      },
+      {
+        "pg": "ipaymu",
+        "method": "va",
+        "payment": "bni",
+        "title": "BNI Mobile Banking",
+        "steps": [
+          "Pilih menu Transfer",
+          "Pilih menu Virtual Account Billing kemudian pilih Rekening Debet",
+          "Masukkan nomor Virtual Account <b>{payment_number}</b> tertuju pada menu input baru",
+          "Tagihan yang harus dibayarkan akan muncul pada layar konfirmasi",
+          "Konfirmasi transaksi dan masukkan Password Transaksi.",
+          "Transaksi selesai"
+        ]
+      },
+      {
+        "pg": "ipaymu",
+        "method": "va",
+        "payment": "bri",
+        "title": "Mobile Banking BRI",
+        "steps": [
+          "Login ke Mobile Banking BRI.",
+          "Pilih menu Pembayaran",
+          "Pilih menu BRIVA",
+          "Masukkan Nomor Virtual Account <b>{payment_number}</b>, tekan BENAR",
+          "Periksa kembali informasi pembayaran dan jumlah tagihan",
+          "Apabila sudah sesuai, masukkan PIN",
+          "Transaksi Anda selesai, simpan bukti transaksi."
+        ]
+      },
+      {
+        "pg": "ipaymu",
+        "method": "va",
+        "payment": "cimb",
+        "title": "Go Mobile CIMB Niaga",
+        "steps": [
+          "Pilih menu Trasnfer",
+          "Pilih Transfer ke Rekening CIMB Niaga lainya",
+          "Pilih sumber rekening Anda: Rekening Ponsel atau Rekening Tabungan & Koran",
+          "Masukan nomor Virtual Account <b>{payment_number}</b> tertuju",
+          "Masukan jumlah pembayaran sesuai dengan tagihan",
+          "Masukan Pin Mobile Banking Anda",
+          "Konfirmasi pembayaran ditampilkan pada layar"
+        ]
+      },
+      {
+        "pg": "ipaymu",
+        "method": "va",
+        "payment": "bag",
+        "title": "ATM Artha Graha",
+        "steps": [
+          "Pilih Menu pembayaran",
+          "Pembayaran lainnya",
+          "Virtual Account",
+          "Masukan nomor VA : <b>{payment_number}</b> anda yang tertera",
+          "Masukan tagihan nominal pembayaran",
+          "Tekan yes",
+          "Berhasil"
+        ]
+      },
+      {
+        "pg": "ipaymu",
+        "method": "va",
+        "payment": "permata",
+        "title": "Mobile Banking Permata",
+        "steps": [
+          "Login ke Mobile Banking Permata",
+          "Pilih menu Pembayaran Tagihan",
+          "Pilih menu Virtual Account",
+          "Masukkan Nomor Virtual Account : <b>{payment_number}</b>",
+          "Periksa informasi pembayaran, pastikan nama dan jumlah tagihan benar",
+          "Apabila sudah sesuai, masukkan TOKEN",
+          "Transaksi Anda selesai, simpan bukti transaksi."
+        ]
+      },
+      {
+        "pg": "ipaymu",
+        "method": "va",
+        "payment": "bca",
+        "title": "Mobile Banking BCA",
+        "steps": [
+          "Login ke Mobile Banking BCA.",
+          "Pilih menu m-BCA, masukkan kode akses m-BCA",
+          "Pilih m-TRANSFER kemudian BCA Virtual Account",
+          "Masukkan Nomor Virtual Account : <b>{payment_number}</b>, tekan SEND",
+          "Periksa kembali informasi pembayaran, nama dan jumlah tagihan",
+          "Apabila sudah sesuai klik OK, masukkan PIN",
+          "Transaksi Anda selesai, simpan bukti transaksi"
+        ]
+      },
+      {
+        "pg": "ipaymu",
+        "method": "transfer",
+        "payment": "indomaret",
+        "title": "Indomaret",
+        "steps": [
+          "Menuju Kasir Indomaret",
+          "Buka SMS atau Email konfirmasi pembelian yang dikirimkan iPaymu",
+          "Informasikan kepada kasir ingin melakukan pembayaran tagihan LINKITA",
+          "Sebutkan KODE PEMBAYARAN : <b>{payment_number}</b> yang diinformasikan di SMS/Email/WA dari iPaymu",
+          "Kasir akan menginformasikan nilai tagihan",
+          "Pastikan nilai tagihan sesuai dengan transaksi Anda",
+          "Bayarkan tagihan tersebut + fee admin Indomaret",
+          "Transaksi selesai"
+        ]
+      },
+      {
+        "pg": "ipaymu",
+        "method": "transfer",
+        "payment": "alfamart",
+        "title": "Indomaret",
+        "steps": [
+          "Menuju Kasir Alfamart, Alfamidi atau Lawson",
+          "Buka SMS/Email/WA konfirmasi pembelian yang dikirimkan iPaymu",
+          "Informasikan kepada kasir ingin melakukan pembayaran tagihan PLASAMAL",
+          "Sebutkan KODE PEMBAYARAN : <b>{payment_number}</b> yang diinformasikan di SMS/Email dari iPaymu",
+          "Kasir akan menginformasikan nilai tagihan",
+          "Pastikan nilai tagihan sesuai dengan transaksi Anda",
+          "Bayarkan tagihan tersebut + fee admin Alfamart, Alfamidi, atau Lawson",
+          "Transaksi selesai"
+        ]
+      },
+      {
+        "pg": "midtrans",
+        "method": "va",
+        "payment": "mandiri",
+        "title": "Internet Banking Livin",
+        "steps": [
+          "Login ke aplikasi Livin Mandiri",
+          "Pilih menu <b>Bayar</b>",
+          "Lalu di kolom penyedia jasa, search atau ketikkan: <b>Midtrans</b>",
+          "Pilih Midtrans",
+          "Masukkan kode bayar: <b>{payment_number}</b>, lalu pilih <b>Lanjutkan</b>",
+          "Setelah itu Lanjut Bayar dan Transaksi selesai."
+        ]
+      },
+      {
+        "pg": "midtrans",
+        "method": "va",
+        "payment": "mandiri",
+        "title": "ATM Mandiri",
+        "steps": [
+          "Select Pay/Buy on the main menu.",
+          "Select Others.",
+          "Select Multi Payment.",
+          "Insert company code <b>70012</b>.",
+          "Insert Virtual Account number <b>{payment_number}</b>, then confirm.",
+          "Payment complete."
+        ]
+      },
+      {
+        "pg": "midtrans",
+        "method": "va",
+        "payment": "bca",
+        "title": "ATM BCA",
+        "steps": [
+          "Select other transactions on the main menu.",
+          "Select transfer.",
+          "Select to BCA virtual account.",
+          "Insert BCA Virtual account number <b>{payment_number}</b>.",
+          "Insert the payable amount, then confirm.",
+          "Payment complete"
+        ]
+      },
+      {
+        "pg": "midtrans",
+        "method": "va",
+        "payment": "bca",
+        "title": "Klik BCA",
+        "steps": [
+          "Select fund transfer.",
+          "Select transfer to BCA virtual account.",
+          "Insert BCA virtual account number <b>{payment_number}</b>.",
+          "Insert the payable amount, then confirm.",
+          "Payment complete."
+        ]
+      },
+      {
+        "pg": "midtrans",
+        "method": "va",
+        "payment": "bca",
+        "title": "m-BCA",
+        "steps": [
+          "Select m-Transfer.",
+          "Select BCA virtual account.",
+          "Insert BCA virtual account number <b>{payment_number}</b>.",
+          "Insert the payable amount, then confirm.",
+          "Payment complete."
+        ]
+      },
+      {
+        "pg": "midtrans",
+        "method": "va",
+        "payment": "bni",
+        "title": "ATM BNI",
+        "steps": [
+          "Select others on the main menu.",
+          "Select transfer.",
+          "Select to BNI account.",
+          "Insert the payment account number <b>{payment_number}</b>.",
+          "Insert the payable amount, then confirm.",
+          "Payment complete."
+        ]
+      },
+      {
+        "pg": "midtrans",
+        "method": "va",
+        "payment": "bni",
+        "title": "Mobile Banking",
+        "steps": [
+          "Select transfer.",
+          "Select virtual account billing.",
+          "Select the debit account you want to use.",
+          "Insert the virtual account number <b>{payment_number}</b>, then confirm.",
+          "Payment complete."
+        ]
+      },
+      {
+        "pg": "midtrans",
+        "method": "va",
+        "payment": "bni",
+        "title": "Internet Banking",
+        "steps": [
+          "Select transaction, then transfer administration info.",
+          "Select set destination account.",
+          "Insert account info, then Confirm.",
+          "Select transfer, then transfer to BNI account.",
+          "Insert payment details <b>{payment_number}</b>, then confirm.",
+          "Payment complete."
+        ]
+      },
+      {
+        "pg": "midtrans",
+        "method": "va",
+        "payment": "permata",
+        "title": "ATM Permata/ ALTO",
+        "steps": [
+          "Select other transactions on the main menu.",
+          "Select payment.",
+          "Select other payments.",
+          "Select virtual account.",
+          "Insert virtual account number <b>{payment_number}</b>, then confirm.",
+          "Payment complete."
+        ]
+      },
+      {
+        "pg": "remitcepat",
+        "method": "va",
+        "payment": "bsi",
+        "title": "Byond by BSI",
+        "steps": [
+          "Buka aplikasi BYOND By BSI kemudian pilih menu <b>Bayar dan Beli</b>.",
+          "Pilih <b>Lembaga</b>.",
+          "Search dengan Ketik <b>Remitcepat</b>.",
+          "Input nomor Rekening berikut ini: <b>{payment_number}</b>",
+          "Pastikan jumlah transfernya sesuai: <b>{nominal}</b>",
+          "Masukkan PIN Byond.",
+          "Transaksi selesai."
+        ]
+      },
+      {
+        "pg": "remitcepat",
+        "method": "va",
+        "payment": "bsi",
+        "title": "BSI Mobile",
+        "steps": [
+          "Login ke BSI Mobile, pilih menu <b>Bayar</b>",
+          "Pilih <b>Institusi</b>",
+          "Masukkan kode akses BSI Mobile",
+          "Masukkan kode institusi <b>1705</b> atau <b>1706</b> pada Nama Institusi maka akan tampil pilihan Remitcepat",
+          "Masukan nomor Virtual Account: <b>{payment_number}</b>, kemudian klik SELANJUTNYA",
+          "Masukkan nominal pembayaran: <b>{nominal}</b>, lalu klik SELANJUTNYA",
+          "Masukan PIN, lalu klik SELANJUTNYA",
+          "Pembayaran BERHASIL, transaksi selesai."
+        ]
+      },
+      {
+        "pg": "remitcepat",
+        "method": "va",
+        "payment": "bsi",
+        "title": "Livin Mandiri",
+        "steps": [
+          "Login ke Livin' by Mandiri, pilih menu <b>Transfer Rupiah</b>",
+          "Klik tombol Transfer ke Penerima Baru",
+          "Pilih Bank BSI lalu input nomor Virtual Account: <b>9001705{payment_number}</b>, kemudian klik Lanjutkan",
+          "Cek detail penerima, pastikan tujuan pembayaran dan detail lainnya sudah benar, jika sudah klik Lanjutkan",
+          "Input nominal: <b>{nominal}</b> dan pilih metode transfer <b>Transfer Online</b>, kemudian klik Lanjutkan",
+          "Konfirmasi transfer, apabila sudah sesuai klik Lanjut Transfer",
+          "Masukan PIN",
+          "Transfer berhasil, proses pembayaran selesai simpan atau cetak bukti pembayaran"
+        ]
+      }
+]

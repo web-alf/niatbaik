@@ -18,14 +18,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         @forelse($campaigns as $campaign)
-        {{-- Placeholder: replace with <x-campaign-card :campaign="$campaign" /> --}}
-        <div class="border rounded-lg p-4 shadow-sm">
-            <h3 class="font-semibold text-lg mb-2">{{ $campaign->title }}</h3>
-            <p class="text-gray-600 text-sm mb-3">{{ Str::limit($campaign->short_description, 100) }}</p>
-            <div class="text-sm text-gray-500">
-                Target: Rp {{ number_format($campaign->target, 0, ',', '.') }}
-            </div>
-        </div>
+        <x-campaign-card :campaign="$campaign" />
         @empty
         <div class="col-span-full text-center text-gray-500 py-8">
             Tidak ada kampanye ditemukan.

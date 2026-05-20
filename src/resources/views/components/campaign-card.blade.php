@@ -1,6 +1,6 @@
 @props(['campaign'])
 <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-    <img src="{{ asset('storage/images/' . $campaign->image) }}" alt="{{ $campaign->title }}" class="w-full h-48 object-cover" loading="lazy">
+    <img src="{{ asset('storage/' . $campaign->image) }}" alt="{{ $campaign->title }}" class="w-full h-48 object-cover" loading="lazy">
     <div class="p-4">
         @if($campaign->category)
             <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">{{ $campaign->category->name }}</span>

@@ -51,7 +51,7 @@
                     @if($campaign->image)
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Gambar Saat Ini</label>
-                        <img src="{{ asset('storage/images/' . $campaign->image) }}" alt="{{ $campaign->title }}" class="w-32 h-32 object-cover rounded-lg">
+                        <img src="{{ asset('storage/' . $campaign->image) }}" alt="{{ $campaign->title }}" class="w-32 h-32 object-cover rounded-lg">
                     </div>
                     @endif
                     <div>

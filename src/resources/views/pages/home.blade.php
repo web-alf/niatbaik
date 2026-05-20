@@ -9,7 +9,7 @@
                 @foreach($slides as $slide)
                 <li class="splide__slide">
                     <a href="{{ $slide->link ?? '#' }}">
-                        <img src="{{ asset('storage/images/' . $slide->image) }}" alt="Slide" class="w-full h-64 sm:h-80 md:h-96 object-cover">
+                        <img src="{{ asset('storage/' . $slide->image) }}" alt="Slide" class="w-full h-64 sm:h-80 md:h-96 object-cover">
                     </a>
                 </li>
                 @endforeach

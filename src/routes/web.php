@@ -19,7 +19,7 @@ Route::get('/', HomeController::class)->name('home');
 Route::get('/search/{category?}', [CampaignController::class, 'search'])->name('search');
 Route::get('/donasi/{campaign:slug}', [CampaignController::class, 'show'])->name('campaign.show');
 Route::get('/donasi-info/{update}', [CampaignController::class, 'info'])->name('campaign.info');
-Route::get('/organitation/{user}', [OrganizationController::class, 'show'])->name('organization.show');
+Route::get('/organization/{user}', [OrganizationController::class, 'show'])->name('organization.show');
 Route::get('/blogs', [PostController::class, 'index'])->name('posts.index');
 Route::get('/blog/{post:slug}', [PostController::class, 'show'])->name('posts.show');
 Route::get('/page/{page:slug}', [PageController::class, 'show'])->name('pages.show');

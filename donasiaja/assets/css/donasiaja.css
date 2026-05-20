@@ -1,0 +1,1310 @@
+/* donasiaja 2.2.5 */
+html {background: #EDF0F5;transition: all .35s ease;}body {background: #EDF0F5;color: #23374d;font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;margin: 2em auto;padding:0;max-width: 520px;-webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.13);box-shadow:none;margin-top: 0;}h1 {clear: both;color: #23374d;font-size: 24px;padding: 0;}ul li {margin-bottom: 10px;font-size: 14px ;}a {color: #0073aa;}a:hover,a:active {color: #006799;}a:focus {color: #124964;-webkit-box-shadow:0 0 0 1px #5b9dd9,0 0 2px 1px rgba(30, 140, 190, 0.8);box-shadow:0 0 0 1px #5b9dd9,0 0 2px 1px rgba(30, 140, 190, 0.8);outline: none;}.button {background: #f7f7f7;border: 1px solid #ccc;color: #555;display: inline-block;text-decoration: none;font-size: 13px;line-height: 2;height: 28px;margin: 0;padding: 0 10px 1px;cursor: pointer;-webkit-border-radius: 3px;-webkit-appearance: none;border-radius: 3px;white-space: nowrap;-webkit-box-sizing: border-box;-moz-box-sizing:    border-box;box-sizing:         border-box;-webkit-box-shadow: 0 1px 0 #ccc;box-shadow: 0 1px 0 #ccc;vertical-align: top;}.button.button-large {height: 30px;line-height: 2.15384615;padding: 0 12px 2px;}.button:hover,.button:focus {background: #fafafa;border-color: #999;color: #23282d;}.button:focus {border-color: #5b9dd9;-webkit-box-shadow: 0 0 3px rgba(0, 115, 170, 0.8);box-shadow: 0 0 3px rgba(0, 115, 170, 0.8);outline: none;}.button:active {background: #eee;border-color: #999;-webkit-box-shadow: inset 0 2px 5px -3px rgba(0, 0, 0, 0.5);box-shadow: inset 0 2px 5px -3px rgba(0, 0, 0, 0.5);}
+    
+    .whatsapp-float {
+      position: fixed;
+      width: 60px;
+      height: 60px;
+      bottom: 20px;
+      right: 20px;
+      background-color: #25d366;
+      color: #FFF;
+      border-radius: 50%;
+      text-align: center;
+      font-size: 30px;
+      box-shadow: 2px 2px 3px #999;
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      transition: bottom 0.4s ease, background-color 0.3s ease, transform 0.3s ease;
+    }
+    .whatsapp-float:hover {
+      background-color: #0fee62;
+    }
+    .whatsapp-float:hover .chat-bubble {
+      color: #0fee62;
+    }
+
+    .whatsapp-icon {
+      width: 30px;
+      height: 30px;
+      filter: brightness(0) invert(1); /* ubah jadi putih */
+      transition: filter 0.3s ease;
+    }
+
+    .chat-bubble {
+      position: absolute;
+      bottom: 70px; /* posisi di atas ikon */
+      right: 0;
+      background-color: #333;
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 10px 10px 0px 10px;
+      font-size: 13px;
+      white-space: nowrap;
+      box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+      transition: color 0.3s ease;
+    }
+
+    .chat-bubble::after {
+      content: "";
+      position: absolute;
+      bottom: -6px;
+      right: 10px;
+      border-width: 6px;
+      border-style: solid;
+      border-color: #333 transparent transparent transparent;
+    }
+
+    @media only screen and (max-width:768px) {
+        .whatsapp-float {
+        bottom: 90px;
+      }
+    }
+
+    .section-box {
+      padding: 1em 1.2em;
+      background: #fff;
+      margin: 1em auto;
+      max-width: 520px;
+      border-radius: 2px;
+      box-shadow: 0 6px 24px rgba(164, 192, 217, 0.25);
+      -webkit-box-shadow: 0 6px 24px rgba(164, 192, 217, 0.25);
+      -moz-box-shadow: 0 6px 24px rgba(164, 192, 217, 0.25);
+    }
+    .section-box.main-box{
+      padding: 1em 1.5em;
+    }
+    .section-image {
+      background: #fff;
+      margin-bottom: -1em;
+      box-shadow: 0 6px 24px rgba(164, 192, 217, 0.25);
+      -webkit-box-shadow: 0 6px 24px rgba(164, 192, 217, 0.25);
+      -moz-box-shadow: 0 6px 24px rgba(164, 192, 217, 0.25);
+    }
+    .section-image img {
+      width: 520px;
+    }
+    .section-button {
+      margin-top: 40px;
+      margin-bottom: 10px;
+    }
+    .section-box .title h1 {
+      font-size: 21px;
+      line-height: 1.4;
+      margin-top: 0;
+    }
+    .section-box h2, .section-box h3 {
+      font-size: 18px;
+      line-height: 1.5;
+      margin-top: 5px;
+    }
+    .section-box p, .section-box ol {
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .section-box ul li {
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 0;
+    }
+    .section-box.flying-button {
+      position: fixed;
+      width: 482px;
+      bottom: 0;
+      margin-bottom: 0;
+    }
+    .section-box.box-powered {
+      
+    }
+
+    .section-box.box-footer {
+      margin-bottom: 50px;
+      background: none;
+      box-shadow: none;
+    }
+
+    #header-title {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      padding-right: 0;
+      padding-left: 0;
+      margin-top: 0px;
+      border-radius: 0;
+      height: 20px;
+      /*background: #ffffff4f;*/
+      background: transparent;
+      transition: all 0.35s ease 0s;
+      background-image: linear-gradient(to top, rgba(255,255,255,0.1), rgba(0,0,0,.2));
+    }
+    #header-title.flying-header {
+      display: inline !important;
+      background: #ffffffe3;
+      z-index: 999;
+    }
+    #header-title span {
+      margin-left: 25px;
+      margin-right: 10px;
+    }
+    #header-title span img {
+      width: 18px;
+      filter: brightness(0) invert(1);
+      position: absolute;
+    }
+    #header-title.flying-header span img {
+      width: 18px;
+      filter: brightness(0) invert(0.2);
+    }
+    #header-title .nav-icon {
+      float: left;
+    }
+    #header-title .campaign-header-title {
+      display: none;
+    }
+    #header-title .campaign-header-title.show-title {
+      display: inline;
+      word-break: break-word;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -moz-box-orient: vertical;
+      -ms-box-orient: vertical;
+      box-orient: vertical;
+      -webkit-line-clamp: 1;
+      -moz-line-clamp: 1;
+      -ms-line-clamp: 1;
+      line-clamp: 1;
+      overflow: hidden;
+      position: absolute;
+      margin-left: 60px;
+      margin-top: 0px;
+    }
+    #header-title .campaign-header-title2.show-title {
+      display: inline;
+      word-break: break-word;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -moz-box-orient: vertical;
+      -ms-box-orient: vertical;
+      box-orient: vertical;
+      -webkit-line-clamp: 1;
+      -moz-line-clamp: 1;
+      -ms-line-clamp: 1;
+      line-clamp: 1;
+      overflow: hidden;
+      position: absolute;
+      margin-left: 60px;
+      margin-top: 0px;
+    }
+    .d_map img {
+      filter: brightness(0) invert(0.9);
+      width: 16px;
+      margin-right: 5px;
+    }
+    .d_map span {
+      font-size: 13px;
+      position: absolute;
+      color: #a3aab0;
+    }
+
+    .donation_box {
+      font-family: "Lato", FontAwesome, lato, sans-serif !important;
+      margin: 0 auto;
+      background:#f4f8fd;
+      padding: 15px 5px;
+      margin-top: 20px;
+      border-radius: 6px;
+    }
+    .donation_box2 {
+      font-family: "Lato", FontAwesome, lato, sans-serif !important;
+      margin: 0 auto;
+      padding: 10px 0px;
+      margin-top: 20px;
+    }
+    .donation_box2 .d_total {
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .donation_box2 .d_target {
+      font-size: 11px;
+      margin-left: 4px;
+    }
+    .donation_box2 .d_target_graph {
+      float: left;
+      padding-top: 8px;
+      font-size: 12px;
+    }
+
+    .donation_box2 .d_target_graph span {
+      position: absolute;
+      margin-top: 1px;
+    }
+
+    .donation_box2 .d_date {
+      float: right;
+      padding-top: 8px;
+      font-size: 12px;
+    }
+    .donation_box2 .d_donatur {
+      float: left;
+      padding-top: 8px;
+      font-size: 12px;
+    }
+    .donation_box2 .d_date img, .donation_box2 .d_donatur img, .donation_box2 .d_target_graph img {
+      width: 12px;
+      margin-right: 6px;
+      margin-top: 1px;
+    }
+    .donation_box2 .d_date img {
+      position: absolute;
+      margin-left: -20px;
+      margin-top: -1px;
+    }
+
+    .donation_count, .donation_box2 .d_total, .donation_box2 .d_target, .donation_box2 .d_date, .donation_box2 .d_donatur {
+      color: #23374d;
+    }
+
+    .donation_progress {
+      background: #EEF4F9;
+      width: 100%;
+      height: 10px;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+    .donation_progress .count_progress {
+      font-size: 10px;
+      color: #fff;
+      padding-top: 5px;
+      padding-left: 5px;
+      float: right;
+      padding-right: 8px;
+    }
+    .donation_progress_bar {
+      background: #67d02c;
+      height: 10px;
+      border-radius: 4px;
+      background-image: linear-gradient(to right, #fae15a, #69c828);
+    }
+    .donation_progress_bar.full_green {
+      background-image: linear-gradient(to right, #fae15a, #69c828);
+      
+    }
+
+    .donation_box.black .donation_button button.load_data_donatur, .donation_box.black .donation_button button.load_doa_donatur, .donation_box.black .donation_button button.load_fundraiser, .donation_box.black .donation_button button.load_fundraiser {
+      border-radius: 40px;
+      border: 1px solid #dbe0e5;
+      color: #fff;
+      padding: 0 3rem !important;
+      margin-top: 5px;
+    }
+
+    .donation_count {
+      font-weight: bold;
+      padding:10px 20px;
+    }
+
+    .donation_inner_box {
+      background: #FFFFFF;
+      border: 1px solid #e2ebf4;
+      padding:18px 20px;
+      color: #23374d;
+      margin: 10px 20px;
+      border-radius: 4px;
+    }
+    .donation_name {
+      font-size: 15px;
+      font-weight: bold;
+      color: #393e46;
+    }
+    .donation_name .dashicons {
+      font-size: 13px;
+      padding-top: 2px;
+    }
+
+    .donation_total {
+      font-size: 14px;
+      font-weight: bold;
+      color: #23374d;
+      line-height: 1.5;
+      font-weight:400;
+      margin-top:5px;
+    }
+    .donation_time {
+      font-size: 11px;
+      color: #23374d;
+      float: right;
+      font-weight: 300;
+    }
+    .donation_comment {
+      font-size: 13px;
+      color: #23374d;
+      font-weight: 400;
+      line-height:1.6;
+      margin-top:10px;
+    }
+    .donation_love {
+      padding-top: 20px;
+      width: 160px;
+      cursor: pointer;
+    }
+    .donation_love img {
+      width:21px;position:absolute;margin-top: -5px;
+    }
+    .donation_love .total_love {
+      margin-left:28px;font-size:12px;
+    }
+    .donation_button {
+      text-align: center;
+      margin: 20px 0 20px 0;
+    }
+    .donation_button button {
+      background: #393e46 !important;
+      color: #ffffff;
+      font-size: 12px !important;
+      padding: 0.5rem 4rem !important;
+      letter-spacing: .2px;
+      border-radius: 4px;
+      border: none;
+      box-shadow: 0px 5px 5px 0 rgba(0,0,0,.1) !important;
+      height: 45px !important;
+    }
+    .donation_button button:hover {
+      background: #222831 !important;
+      text-decoration: none;
+      box-shadow: 0px 5px 5px 0 rgba(0,0,0,.2) !important;
+    }
+
+  /*   .donation_button button.load_doa_donatur {
+      border-radius: 40px;
+      border: 1px solid #dbe0e5;
+      color: #474b53;
+      padding: 0 2.5rem !important;
+      height: 42px !important;
+      font-size: 11px !important;
+    } */
+
+    .loadmore_info {
+      font-size: 11px;
+      padding: 10px 0px;
+      display: none;
+    }
+    .donation_button_now, .donation_button_now2, .donation_button_now3, .donation_button_now4, .donation_button_share, .donation_button_fundraiser {
+      display: inline-block;
+      border: 0px none;
+      font-weight: bold;
+      line-height: normal;
+      text-align: center;
+      vertical-align: middle;
+      cursor: pointer;
+      transition: all 0.35s ease 0s;
+      text-decoration: none;
+      border-radius: 4px;
+      width: 100%;
+      padding: 12px 15px;
+      font-size: 16px;
+      background-color: rgb(220, 50, 100);
+      color: rgb(255, 255, 255);
+      border: 2px solid rgb(220, 50, 100);
+      height: 47px;
+    }
+    .donation_button_now {
+      box-shadow: 0 4px 4px rgba(169, 194, 215, 0.63);
+    }
+    .donation_button_now:hover {
+      box-shadow: 0 8px 8px rgba(169, 194, 215, 0.63);
+    }
+    .button-disabled .donation_button_now, .button-disabled .donation_button_now2, .button-disabled .donation_button_now3, .button-disabled .donation_button_now4 {
+      background-color: #c8d0dd;
+      border: 2px solid #c8d0dd;
+      cursor: default;
+      box-shadow: none;
+    }
+    .button-disabled .donation_button_now:hover, .button-disabled .donation_button_now2:hover, .button-disabled .donation_button_now3:hover, .button-disabled .donation_button_now4:hover {
+      background-color: #c8d0dd;
+      border: 2px solid #c8d0dd;
+      cursor: default;
+    }
+    .donation_button_share {
+      width: 37%;
+      margin-right: 2%;
+      background-color: rgb(220, 50, 100);
+      color: rgb(255, 255, 255);
+      background: #ffffff;
+      border: 2px solid #1c7bce;
+      color: #1c7bce;
+      padding: 5px 45px 17px 45px;
+    }
+
+    .donation_button_fundraiser {
+      margin-top: 20px;
+      width: 50%;
+      margin-right: 2%;
+      color: rgb(255, 255, 255);
+      background: #e6f4ff;
+      border: 2px solid #1c7bce;
+      color: #1c7bce;
+      padding: 5px 45px 17px 45px;
+      box-shadow: 0px 10px 12px 0 rgba(0,0,0,.1) !important;
+    }
+
+    .donation_social_button {
+      width: 18%;
+      margin-right: 1.2%;
+      background-color: rgb(220, 50, 100);
+      color: rgb(255, 255, 255);
+      background: #ffffff;
+      border: 2px solid #1c7bce;
+      color: #1c7bce;
+      padding: 8px 0px 8px 0px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.35s ease 0s;
+    }
+    .donation_social_button:hover {
+      background: #d6e9fb;
+    }
+    #fixed-share-button a:active, #fixed-share-button a:focus, #fixed-share-button a:visited {
+        box-shadow: none !important;
+        outline: none;
+        -moz-outline-style: none;
+    }
+    .donation_social_button img {
+        width: 18px;
+    }
+    .donation_social_button .text-copy {
+        position: absolute;
+        margin-left: 15px;
+        margin-top: -17px;
+    }
+    .donation_tooltip {
+      text-align: center;
+      color: #FFF;
+      border: 1px solid #719ECA;
+      padding: 6px 6px;
+      font-size: 11px;
+      line-height: 100%;
+      position: absolute;
+      transform: translate(-50%, -50%);
+      background: #729eca;
+      border-radius: 2px;
+      margin-top: 50px;
+      margin-left: -110px;
+      width: 100px;
+    }
+    .donation_tooltip.hide_tooltip {
+      display: none;
+    }
+    .donation_tooltip:before,
+    .donation_tooltip:after {
+      content: "";
+      position: absolute;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      left: 50%;
+      margin-left: -5px;
+    }
+    .donation_tooltip:before {
+      border-bottom: 5px solid #719ECA;
+      margin-top: -11px;
+    }
+    .donation_tooltip:after {
+      z-index: 1;
+    }
+
+    .donasiaja-input.fullname input, .donasiaja-input.whatsapp input, .donasiaja-input.email input {
+      font-size: 15px;
+    }
+    .donasiaja-input.fullname input[type="password"] {
+        padding-top: 13px;
+        padding-bottom: 7px;
+        font-size: 28px;
+    }
+    .donasiaja-input.comment textarea {
+      font-size: 15px;
+    }
+    #anonim {
+      /*margin-top: -41px;*/
+      margin-right: 5px;
+    }
+    /*.name_set_anonim #anonim {
+      margin-top: -42px;
+    }*/
+
+
+    ::-webkit-input-placeholder { /* WebKit, Blink, Edge */
+        color:    #acb2ca;
+    }
+    ::-moz-placeholder { /* Mozilla Firefox 19+ */
+       color:    #acb2ca;
+       opacity:  1;
+    }
+    :-ms-input-placeholder { /* Internet Explorer 10-11 */
+       color:    #acb2ca;
+    }
+    ::-ms-input-placeholder { /* Microsoft Edge */
+       color:    #acb2ca;
+    }
+    ::placeholder { /* Most modern browsers support this now. */
+       color:    #acb2ca;
+    }
+
+    .donasiaja-input.fullname input[type="password"]::-webkit-input-placeholder {
+        font-size: 18px;
+    }
+    .donasiaja-input.fullname input[type="password"]::-moz-placeholder {
+        font-size: 18px;
+    }
+    .donasiaja-input.fullname input[type="password"]:-ms-input-placeholder {
+        font-size: 18px;
+    }
+    .donasiaja-input.fullname input[type="password"]::-ms-input-placeholder {
+        font-size: 18px;
+    }
+
+    .share-title {
+      font-size: 14px;
+      margin-bottom: 20px;
+      font-weight: bold;
+      width: 50%;
+    }
+    .share-close {
+      font-size: 12px;
+      margin-bottom: 20px;
+      font-weight: bold;
+      text-align: right;
+      margin-right: 14px;
+      margin-top: -35px;
+      color: #7395BA;
+      cursor: pointer;
+    }
+    #fixed-share-button {
+      margin-bottom: 78px;
+      background: #edf6ff;
+      padding-bottom: 30px;
+      display: none;
+    }
+    #fixed-share-button.show-button {
+      bottom: 0;
+      position: fixed;
+      width: 100%;
+      max-width: 482px !important;
+      display: inline;
+      transition: all 0.35s ease 0s;
+    }
+    .donation_button_share img {
+      position: absolute;
+      width: 18px;
+      margin-left: -20px;
+      margin-top: 5px;
+    }
+    .donation_button_fundraiser img {
+      position: absolute;
+      width: 24px;
+      margin-left: -75px;
+      margin-top: 3px;
+    }
+    .donation_button_fundraiser .text-fundraiser {
+      padding-top: 8px;
+      padding-left: 28px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .donation_button_share .text-share {
+      margin-left: 8px;
+      font-size: 14px;
+    }
+    .donation_button_share .text-bagikan {
+      /*position: absolute;*/
+      font-size: 10px;
+      font-weight: 400;
+      margin-left: 6px;
+      margin-top: -2px;
+    }
+    .donation_button_share:hover {
+      background: #e6f4ff;
+    }
+    .donation_button_now2 {
+      width: 60%;
+    }
+    .donation_button_now2:hover {
+      background: #CB1552;
+    }
+    .penggalang-dana .profile-picture {
+      width: 60px;
+      float: left;
+      margin-left: 5px !important;
+    }
+    .penggalang-dana .profile-picture img {
+      width: 60px;
+    }
+
+    .penggalang-dana .verified_checklist img {
+      position: absolute;
+      width: 16px;
+    }
+    .penggalang-dana .profile-name {
+      margin-left: 90px;
+      margin-bottom: 20px;
+      padding-top: 10px;
+    }
+    .penggalang-dana .user-link{
+      margin-bottom: 5px;
+    }
+    .penggalang-dana .user-verified{
+      font-size: 12px;
+    }
+    .penggalang-dana .user-link a {
+      text-decoration: none;
+      color: #2196f3;
+      transition: all .35s ease;
+    }
+    .readmore {
+      text-align: center;
+      background: #e0f1ff;
+      margin: 0 auto;
+      border-radius: 4px;
+      border: 1px solid #e0f1ff;
+      padding: 5px 0px;
+      font-size: 13px;
+      text-decoration: none;
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+    #keterangan-donasi, #kabar-terbaru-donasi {
+      margin-top: -15px;
+    }
+
+    .donation_button_share:active, .donation_button_share:focus, .donation_button_share:visited {
+          box-shadow: none !important;
+          outline: none;
+          border: 2px solid #E6F4FF;
+          -moz-outline-style: none;
+      }
+
+    .powered-donasiaja-box {
+      text-align: center;
+      color: #0073aa;
+      margin-top: 40px;
+      margin-bottom: 40px;
+      font-size: 11px;
+      font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;
+    }
+
+    .powered-donasiaja-box a {
+      text-decoration: none;
+      margin-left: 25px;
+    }
+    a.donasiaja-share {
+      text-decoration: none;
+    }
+    
+    .powered-donasiaja-img {
+        width: 21px;
+      margin-right: 10px;
+      position: absolute;
+      margin-top: -4px;
+      margin-left: -28px;
+    }
+    .section-box.box-powered{
+      margin-bottom: 70px;
+    }
+
+    /*dropdown */
+    .dropdown-opt {
+      display: inline-block;
+      position: relative;
+      overflow: hidden;
+      height: 50px;
+      width: 99.5%;
+      background: #fff;
+      border: 1px solid;
+      border-color: white #f7f7f7 whitesmoke;
+      border-radius: 3px;
+      border-radius: 4px;
+      border: 1px solid #e5e8ec !important;
+      box-shadow: 0 4px 25px 0 rgba(0,0,0,.1);
+      border-radius: 10px;
+      height: 54px;
+      margin-bottom: 20px;
+    }
+
+    .dropdown-opt:before, .dropdown-opt:after {
+      content: '';
+      position: absolute;
+      z-index: 2;
+      top: 21px;
+      right: 15px;
+      width: 0;
+      height: 0;
+      border: 4px dashed;
+      border-color: #888888 transparent;
+      pointer-events: none;
+    }
+
+    .dropdown-opt:before {
+      border-bottom-style: solid;
+      border-top: none;
+    }
+
+    .dropdown-opt:after {
+      margin-top: 7px;
+      border-top-style: solid;
+      border-bottom: none;
+    }
+
+    .dropdown-select {
+      position: relative;
+      width: 100%;
+      margin: 0;
+      padding: 10px 8px 8px 10px;
+      height: 50px;
+      line-height: 14px;
+      font-size: 15px;
+      font-weight: bold;
+      color: #23374d;
+      text-shadow: 0 1px white;
+      background: #f2f2f2; /* Fallback for IE 8 */
+      background: rgba(0, 0, 0, 0) !important; /* "transparent" doesn't work with Opera */
+      border: 0;
+      border-radius: 0;
+      -webkit-appearance: none;
+    }
+
+    .dropdown-select:focus {
+      z-index: 3;
+      width: 100%;
+      color: #394349;
+      outline: 2px solid #49aff2;
+      outline: 2px solid -webkit-focus-ring-color;
+      outline-offset: -2px;
+      outline:none;
+    }
+
+    .dropdown-select > option {
+      margin: 3px;
+      padding: 6px 8px;
+      text-shadow: none;
+      background: #f2f2f2;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    /* Fix for IE 8 putting the arrows behind the select element. */
+
+    .lt-ie9 .dropdown-opt {
+      z-index: 1;
+    }
+
+    .lt-ie9 .dropdown-select {
+      z-index: -1;
+    }
+
+    .lt-ie9 .dropdown-select:focus {
+      z-index: 3;
+    }
+
+    /* Dirty fix for Firefox adding padding where it shouldn't. */
+
+    @-moz-document url-prefix() {
+      .dropdown-select {
+        padding-left: 10px;
+      }
+    }
+
+    .dropdown-dark {
+      background: #444;
+      border-color: #111111 #0a0a0a black;
+      background-image: -webkit-linear-gradient(top, transparent, rgba(0, 0, 0, 0.4));
+      background-image: -moz-linear-gradient(top, transparent, rgba(0, 0, 0, 0.4));
+      background-image: -o-linear-gradient(top, transparent, rgba(0, 0, 0, 0.4));
+      background-image: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.4));
+      -webkit-box-shadow: inset 0 1px rgba(255, 255, 255, 0.1), 0 1px 1px rgba(0, 0, 0, 0.2);
+      box-shadow: inset 0 1px rgba(255, 255, 255, 0.1), 0 1px 1px rgba(0, 0, 0, 0.2);
+    }
+
+    .dropdown-dark:before {
+      border-bottom-color: #aaa;
+    }
+
+    .dropdown-dark:after {
+      border-top-color: #aaa;
+    }
+
+    .dropdown-dark .dropdown-select {
+      color: #aaa;
+      text-shadow: 0 1px black;
+      background: #444;  /* Fallback for IE 8 */
+    }
+
+    .dropdown-dark .dropdown-select:focus {
+      color: #ccc;
+    }
+
+    .dropdown-dark .dropdown-select > option {
+      background: #444;
+      text-shadow: 0 1px rgba(0, 0, 0, 0.4);
+    }
+
+    .readmore-desc img {
+      border-radius: 6px;
+    }
+
+    /*timeline*/
+    .timeline {
+      list-style: none;
+      margin: 25px 0 22px;
+      padding: 0;
+      position: relative;
+      -moz-box-sizing: border-box;
+      -webkit-box-sizing: border-box;
+      box-sizing: border-box;
+    }
+    .timeline:after {
+      /*border: 6px solid;
+      border-top-width: 13px;
+      border-color: #23374d transparent transparent transparent;
+      content: "";
+      display: block;
+      position: absolute;
+      bottom: -19px;
+      left: 15px;*/
+    }
+
+    .timeline-horizontal:after {
+      border-top-width: 6px;
+      border-left-width: 13px;
+      border-color: transparent transparent transparent #23374d;
+      top: 15px;
+      right: 0;
+      bottom: auto;
+      left: auto;
+    }
+    .timeline-horizontal .timeline-milestone {
+      border-top: 2px solid #23374d;
+      display: inline;
+      float: left;
+      margin: 20px 0 0 0;
+      padding: 40px 0 0 0;
+    }
+    .timeline-horizontal .timeline-milestone:before {
+      top: -17px;
+      left: auto;
+    }
+    .timeline-horizontal .timeline-milestone.is-start:after {
+      top: -17px;
+      left: 0;
+    }
+
+    .timeline-milestone {
+      border-left: 1px solid #e8eef7;
+      margin: 0 0 0 10px;
+      padding: 15px 0 5px 25px;
+      position: relative;
+      -moz-box-sizing: border-box;
+      -webkit-box-sizing: border-box;
+      box-sizing: border-box;
+    }
+    .timeline-milestone:before {
+      border: 4px solid #ffffff;
+      margin-top: -18px;
+      border-radius: 50%;
+      content: "";
+      display: block;
+      position: absolute;
+      left: -10px;
+      width: 18px;
+      height: 18px;
+      -moz-box-sizing: border-box;
+      -webkit-box-sizing: border-box;
+      box-sizing: border-box;
+    }
+    .timeline-milestone.is-start:before {
+      background-color: #2196F3;
+      box-shadow: 0px 5px 5px rgba(0,0,0,.05);
+    }
+    .timeline-milestone.is-start:after {
+      color: #FFF;
+      content: "";
+      display: block;
+      font-family: "FontAwesome";
+      line-height: 32px;
+      position: absolute;
+      top: 0;
+      left: -17px;
+      text-align: center;
+      width: 32px;
+      height: 32px;
+      -moz-box-sizing: border-box;
+      -webkit-box-sizing: border-box;
+      box-sizing: border-box;
+    }
+    .timeline-milestone.is-current:before {
+      background-color: #2196F3;
+      box-shadow: 0px 5px 5px rgba(0,0,0,.05);
+    }
+    .timeline-milestone.is-future:before {
+      background-color: #8DACB8;
+      border: 0;
+    }
+    .timeline-milestone.is-future .timeline-action .title {
+      color: #8DACB8;
+    }
+
+    .timeline-action {
+      background-color: #FFF;
+      padding: 12px 20px 12px 20px;
+      position: relative;
+      top: -33px;
+      border: 1px solid #ffffff;
+      border-radius: 6px;
+      margin-right: 20px;
+    }
+    .timeline-action.is-expandable .title {
+      cursor: pointer;
+      position: relative;
+    }
+    .timeline-action.is-expandable .title:focus {
+      outline: 0;
+      text-decoration: underline;
+    }
+    .timeline-action.is-expandable .title:after {
+      border: 6px solid #666;
+      border-color: transparent transparent transparent #cdd7e8;
+      content: "";
+      display: block;
+      position: absolute;
+      top: 6px;
+      right: 0;
+    }
+    .timeline-action.is-expandable .content {
+      display: none;
+    }
+    .timeline-action.is-expandable.is-expanded .title:after {
+      border-color: #2196f3 transparent transparent transparent;
+      top: 10px;
+      right: 5px;
+    }
+    .timeline-action.is-expandable.is-expanded .content {
+      display: block;
+    }
+    .timeline-action.is-expandable.is-expanded {
+      /* border: 1px solid #c7dcec;
+      background: #f6fcff; */
+      background: #ffffff;
+      border: none;
+    }
+    .timeline-action.is-expandable.is-expanded img {
+      border-radius: 4px;
+    }
+    .timeline-action .title, .timeline-action .content {
+      word-wrap: break-word;
+    }
+    .timeline-action .title {
+      color: #23374d;
+      font-size: 15px;
+      margin: 0;
+    }
+    .timeline-action .date {
+      display: block;
+      font-size: 12px;
+      margin-top: 5px;
+      margin-bottom: 5px;
+      color: #a4abb7;
+    }
+    .timeline-action .content {
+      font-size: 14px;
+    }
+    .timeline-action .content img {
+      width: 100%;
+    }
+
+    .file-list {
+      line-height: 1.4;
+      list-style: none;
+      padding-left: 10px;
+    }
+
+    
+
+    /*Tabs */
+    .container--tabs .nav-tabs {
+      float: left;
+      width: 100%;
+      margin: 0;
+      list-style-type: none;
+      border-bottom: 1px solid #ddd;
+      padding:0;
+      background:#fff;
+    }
+    .container--tabs .nav-tabs > li {
+      float: left;
+      margin-bottom: -1px;
+    }
+    .container--tabs .nav-tabs > li > a {
+      float: left;
+      margin-right: 2px;
+      line-height: 1.42857143;
+      padding: 10px 20px;
+      border: 1px solid transparent;
+      border-radius: 4px 4px 0 0;
+      text-decoration: none;
+      color: #2196f3;
+    }
+    .container--tabs .nav-tabs > li > a:active, .container--tabs .nav-tabs > li > a:focus, .container--tabs .nav-tabs > li > a:visited {
+          box-shadow: none !important;
+          outline: none;
+          -moz-outline-style: none;
+      }
+      .container--tabs .nav-tabs > li.active > a {
+          font-weight: bold;
+      }
+    .container--tabs .nav-tabs > li > a:hover {
+      border-color: #eee #eee #ddd;
+    }
+    .container--tabs .nav-tabs > li.active > a,
+    .container--tabs .nav-tabs > li.active > a:hover,
+    .container--tabs .nav-tabs > li.active > a:focus {
+      color: #555;
+      cursor: default;
+      background-color: #fff;
+      border: 1px solid #ddd;
+      border-bottom-color: transparent;
+    }
+    .container--tabs .tab-content {
+      width: 100%;
+    }
+
+    .donasiaja-readmore img {
+      width: 100% !important;
+    }
+    .container--tabs .tab-content > .tab-pane {
+      display: none;
+    }
+    .container--tabs .tab-content > .tab-pane.active {
+      display: block;
+      padding: 3.3em 1em 1em 0em;
+      background-color: #ffffff;
+    }
+    .container--tabs .tab-content > .active {
+      display: block;
+    }
+    #tab-donasiaja {
+      padding-top:25px;
+    }
+
+    /*.verified_checklist {
+      background: #2196f3;
+      font-size: 10px;
+      color: #fff;
+      display: block;
+      border-radius: 14px;
+      position: absolute;
+      padding: 2px 4px;
+    }*/
+    .user-verified {
+      margin-left: 25px;
+    }
+
+
+
+    @media only screen and (max-width:480px) {
+      .donasiaja-input.fullname input, .donasiaja-input.whatsapp input, .donasiaja-input.email input, .donasiaja-input.comment textarea {
+        font-size: 16px;
+        font-weight: bold;
+      } 
+      .donation_tooltip {
+        margin-top: 50px;
+        width: 80px;
+        font-size: 10px;
+        right: 10px;
+      }
+      .donasiaja-input.fullname input[type="password"] {
+          padding-top: 10px;
+          padding-bottom: 10px;
+      }
+      .donation_box {
+        width: 100%;
+      }
+      .donation_box2 {
+        width: 100%;
+      }
+      .donation_box2 .d_total {
+        /*display: inherit;*/
+      }
+      .donation_box2 .d_target {
+        margin-left: 0;
+      }
+      .section-box.main-box{
+        padding: 1em 1.2em;
+      }
+      .section-box.flying-button {
+        width: 100%;
+      }
+      .section-box.flying-button .donation_button_now2 {
+        width: 51%;
+        padding: 12px 30px;
+        font-size: 14px;
+      }
+      .section-image img {
+        width: 100%;
+      }
+      .donation_social_button {
+        width: 16.5%;
+      }
+      .share-close {
+        margin-right: 38px;
+      }
+      .donation_social_button .text-copy {
+          margin-left: 8px;
+          font-size: 9px;
+      }
+
+      .container--tabs .nav-tabs > li > a {
+        padding: 10px 10px;
+        font-size:  13px;
+      }
+      .donation_box2 .d_date img {
+        margin-top: 1px;
+      }
+      .donate_now {
+        width: 91% !important;
+      }
+
+    }
+
+
+/*==================================
+    Alert container
+====================================*/
+#lala-alert-container {
+    position: fixed;
+    height: auto;
+    max-width: 350px;
+    width: 100%;
+    top: 0;
+    right: 0;
+}
+
+#lala-alert-wrapper {
+    height: auto;
+    padding: 15px;
+}
+
+/*==================================
+    Alerts
+====================================*/
+
+.lala-alert {
+    position: relative;
+    padding: 25px 30px 20px;
+	font-size: 15px;
+    margin-top: 15px;
+    opacity: 1;
+	line-height: 1.4;
+	border-radius: 3px;
+    border: 1px solid transparent;
+    cursor: default;
+    transition: all 0.5s ease-in-out;   /* Edit for fadeout time */
+    -webkit-user-select: none;  /* Chrome all / Safari all */
+    -moz-user-select: none;     /* Firefox all */
+    -ms-user-select: none;      /* IE 10+ */
+    user-select: none;          /* Likely future */
+}
+
+.lala-alert span {
+	opacity: 0.7;
+	transition: all 0.25s ease-in-out;   /* Edit for fadeout time */
+}
+
+.lala-alert span:hover {
+	opacity: 1.0;
+}
+
+.alert-success {
+    color: #ffffff;
+    background-color: #37c1aa;
+}
+
+.alert-success > span {
+	color: #0b6f5e;
+}
+
+.alert-info {
+	color: #ffffff;
+	background-color: #3473c1;
+}
+
+.alert-info > span {
+	color: #1e4567;
+}
+
+.alert-warning {
+    color: #6b7117;
+    background-color: #ffee9e;
+}
+
+.alert-warning > span {
+	color: #8a6d3b;
+}
+
+.alert-danger {
+    color: #ffffff;
+    background-color: #d64f62;
+}
+
+.alert-danger > span {
+	color: #6f1414;
+}
+
+.close-alert-x {
+    position: absolute;
+    float: right;
+    top: 10px;
+    right: 10px;
+    cursor: pointer;
+	outline: none;
+}
+
+.fade-out {
+    opacity: 0;
+}
+
+/*==================================
+    Alert Animation
+====================================*/
+.animation-target {
+  animation: animation 1500ms linear both;
+}
+
+/* Generated with Bounce.js. Edit at http://goo.gl/BKCT19 */
+
+@keyframes animation {
+  0% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 250, 0, 0, 1); }
+  3.14% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 160.737, 0, 0, 1); }
+  4.3% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 132.565, 0, 0, 1); }
+  6.27% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 91.357, 0, 0, 1); }
+  8.61% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 51.939, 0, 0, 1); }
+  9.41% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 40.599, 0, 0, 1); }
+  12.48% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 6.498, 0, 0, 1); }
+  12.91% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2.807, 0, 0, 1); }
+  16.22% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -17.027, 0, 0, 1); }
+  17.22% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -20.404, 0, 0, 1); }
+  19.95% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -24.473, 0, 0, 1); }
+  23.69% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -21.178, 0, 0, 1); }
+  27.36% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -13.259, 0, 0, 1); }
+  28.33% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -11.027, 0, 0, 1); }
+  34.77% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.142, 0, 0, 1); }
+  39.44% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2.725, 0, 0, 1); }
+  42.18% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2.675, 0, 0, 1); }
+  56.99% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.202, 0, 0, 1); }
+  61.66% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.223, 0, 0, 1); }
+  66.67% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.104, 0, 0, 1); }
+  83.98% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.01, 0, 0, 1); }
+  100% { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1); }
+}

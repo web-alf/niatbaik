@@ -11,7 +11,7 @@
             </div>
             <div class="lg:col-span-1">
                 <div class="bg-white rounded-lg shadow-md p-6 sticky top-4">
-                    <img src="{{ asset('storage/images/' . $campaign->image) }}" alt="{{ $campaign->title }}" class="w-full h-40 object-cover rounded-lg mb-4">
+                    <img src="{{ asset('storage/' . $campaign->image) }}" alt="{{ $campaign->title }}" class="w-full h-40 object-cover rounded-lg mb-4">
                     <h3 class="font-semibold text-gray-800 mb-2">{{ $campaign->title }}</h3>
                     <p class="text-sm text-gray-600 mb-4">{{ Str::limit($campaign->short_description, 100) }}</p>
                     <div class="mb-3">

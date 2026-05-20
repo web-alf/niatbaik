@@ -3,7 +3,7 @@
     <div class="max-w-2xl">
         <div class="bg-white rounded-lg shadow-md p-6">
             @if($slide->image)
-            <img src="{{ asset('storage/images/' . $slide->image) }}" alt="Slide" class="w-full h-40 object-cover rounded-lg mb-4">
+            <img src="{{ asset('storage/' . $slide->image) }}" alt="Slide" class="w-full h-40 object-cover rounded-lg mb-4">
             @endif
             <form method="POST" action="{{ route('admin.slides.update', $slide) }}" enctype="multipart/form-data">
                 @csrf @method('PUT')

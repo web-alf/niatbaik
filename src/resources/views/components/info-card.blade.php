@@ -1,7 +1,7 @@
 @props(['update'])
 <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
     @if($update->image)
-        <img src="{{ asset('storage/images/' . $update->image) }}" alt="{{ $update->title }}" class="w-full h-48 object-cover" loading="lazy">
+        <img src="{{ asset('storage/' . $update->image) }}" alt="{{ $update->title }}" class="w-full h-48 object-cover" loading="lazy">
     @else
         <div class="w-full h-48 bg-gray-200 flex items-center justify-center">
             <svg class="h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

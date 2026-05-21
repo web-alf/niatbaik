@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Love extends Model
 {
+    protected $table = 'loves';
     public $timestamps = false;
 
     protected $fillable = ['campaign_id', 'user_id', 'ip'];

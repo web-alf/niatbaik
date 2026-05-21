@@ -35,7 +35,7 @@
                     </div>
                     <div>
                         <label for="image" class="block text-sm font-medium text-gray-700 mb-1">Logo <span class="text-gray-400 font-normal">— opsional</span></label>
-                        <input type="file" name="image" id="image" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                        <input type="file" name="image" id="image" accept=".jpg,.jpeg,.png,.webp" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
                     </div>
                     <div class="flex items-center">
                         <input type="checkbox" name="active" id="active" value="1" {{ old('active', true) ? 'checked' : '' }} class="rounded border-gray-300 text-green-600 focus:ring-green-500">

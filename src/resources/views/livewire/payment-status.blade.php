@@ -121,7 +121,7 @@
         <div>
             <h4 class="font-semibold text-gray-800 mb-3">Upload Bukti Transfer</h4>
             <div class="mb-3">
-                <input type="file" wire:model="evidenceFile" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                <input type="file" wire:model="evidenceFile" accept=".jpg,.jpeg,.png,.webp" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
                 @error('evidenceFile') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
             </div>
             @if($evidenceFile)

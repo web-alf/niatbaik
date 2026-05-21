@@ -40,12 +40,12 @@
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label for="target" class="block text-sm font-medium text-gray-700 mb-1">Target (Rp)</label>
-                            <input type="number" name="target" id="target" value="{{ old('target', $campaign->target) }}" min="100000" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500" required>
+                            <label for="target" class="block text-sm font-medium text-gray-700 mb-1">Target Dana (Rp) <span class="text-gray-400 font-normal">— opsional</span></label>
+                            <input type="number" name="target" id="target" value="{{ old('target', $campaign->target ?: '') }}" min="0" placeholder="Kosongkan jika tanpa target" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500">
                         </div>
                         <div>
-                            <label for="duration_days" class="block text-sm font-medium text-gray-700 mb-1">Durasi (hari)</label>
-                            <input type="number" name="duration_days" id="duration_days" value="{{ old('duration_days', $campaign->duration_days) }}" min="1" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500">
+                            <label for="duration_days" class="block text-sm font-medium text-gray-700 mb-1">Durasi (hari) <span class="text-gray-400 font-normal">— opsional</span></label>
+                            <input type="number" name="duration_days" id="duration_days" value="{{ old('duration_days', $campaign->duration_days ?: '') }}" min="1" placeholder="Kosongkan jika tanpa batas" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500">
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
@@ -67,18 +67,12 @@
                         @if($campaign->image)
                         <img src="{{ asset('storage/' . $campaign->image) }}" class="w-32 h-32 object-cover rounded-lg mb-2">
                         @endif
-                        <input type="file" name="image" id="image" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                        <input type="file" name="image" id="image" accept=".jpg,.jpeg,.png,.webp" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
                     </div>
-                    <div class="flex items-center gap-6">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" name="unlimited" value="1" {{ old('unlimited', $campaign->unlimited) ? 'checked' : '' }} class="rounded border-gray-300 text-green-600 focus:ring-green-500">
-                            <span class="text-sm text-gray-700">Tanpa batas waktu</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" name="featured" value="1" {{ old('featured', $campaign->featured) ? 'checked' : '' }} class="rounded border-gray-300 text-green-600 focus:ring-green-500">
-                            <span class="text-sm text-gray-700">Featured</span>
-                        </label>
-                    </div>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="featured" value="1" {{ old('featured', $campaign->featured) ? 'checked' : '' }} class="rounded border-gray-300 text-green-600 focus:ring-green-500">
+                        <span class="text-sm text-gray-700">Featured</span>
+                    </label>
                     <div class="flex items-center gap-4 pt-4">
                         <button type="submit" class="bg-green-600 text-white rounded-lg px-6 py-2 font-medium hover:bg-green-700 transition">Simpan Perubahan</button>
                         <a href="{{ route('admin.all-campaigns.index') }}" class="text-gray-600 hover:text-gray-800">Kembali</a>

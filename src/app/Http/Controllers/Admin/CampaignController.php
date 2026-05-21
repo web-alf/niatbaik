@@ -35,10 +35,10 @@ class CampaignController extends Controller
             'title' => 'required|string|max:255',
             'short_description' => 'required|string|max:500',
             'description' => 'required|string',
-            'target' => 'required|integer|min:100000',
-            'duration_days' => 'required|integer|min:1',
+            'target' => 'nullable|integer|min:0',
+            'duration_days' => 'nullable|integer|min:1',
             'category_id' => 'required|exists:categories,id',
-            'image' => 'required|image|max:5120',
+            'image' => 'required|mimes:jpg,jpeg,png,webp|max:5120',
             'location_name' => 'nullable|string|max:255',
             'location_gmaps' => 'nullable|url|max:255',
             'form_type' => 'nullable|string|in:donasi,zakat,qurban,infaq,wakaf',
@@ -49,7 +49,8 @@ class CampaignController extends Controller
         $data['image'] = $request->file('image')->store('campaigns', 'public');
         $data['user_id'] = auth()->id();
         $data['status'] = 'Berjalan';
-        $data['unlimited'] = $request->boolean('unlimited');
+        $data['target'] = $data['target'] ?? 0;
+        $data['unlimited'] = empty($data['target']) || empty($data['duration_days']);
         $data['featured'] = $request->boolean('featured');
         $data['posted_at'] = now();
 
@@ -72,11 +73,11 @@ class CampaignController extends Controller
             'title' => 'required|string|max:255',
             'short_description' => 'required|string|max:500',
             'description' => 'required|string',
-            'target' => 'required|integer|min:100000',
+            'target' => 'nullable|integer|min:0',
             'duration_days' => 'nullable|integer|min:1',
             'category_id' => 'required|exists:categories,id',
             'status' => 'required|string|in:Menunggu,Berjalan,Selesai,Ditolak',
-            'image' => 'nullable|image|max:5120',
+            'image' => 'nullable|mimes:jpg,jpeg,png,webp|max:5120',
             'location_name' => 'nullable|string|max:255',
             'location_gmaps' => 'nullable|url|max:255',
             'form_type' => 'nullable|string|in:donasi,zakat,qurban,infaq,wakaf',
@@ -86,7 +87,8 @@ class CampaignController extends Controller
             $data['image'] = $request->file('image')->store('campaigns', 'public');
         }
 
-        $data['unlimited'] = $request->boolean('unlimited');
+        $data['target'] = $data['target'] ?? 0;
+        $data['unlimited'] = empty($data['target']) || empty($data['duration_days']);
         $data['featured'] = $request->boolean('featured');
 
         $campaign->update($data);

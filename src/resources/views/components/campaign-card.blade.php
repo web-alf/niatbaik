@@ -10,7 +10,7 @@
     $daysLeft = $campaign->unlimited ? null : max(0, now()->diffInDays($campaign->posted_at->addDays($campaign->duration_days), false));
 @endphp
 
-<a href="{{ route('campaign.show', $campaign) }}" class="block bg-white rounded-xl shadow-sm hover:shadow-md transition overflow-hidden">
+<a href="{{ route('campaign.show', $campaign) }}" class="block bg-white rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden">
     <div class="relative">
         <img src="{{ $campaign->image ? asset('storage/' . $campaign->image) : asset('images/default-campaign.png') }}"
              alt="{{ $campaign->title }}"
@@ -43,16 +43,16 @@
             Rp {{ number_format($campaign->total_raised, 0, ',', '.') }}
         </p>
 
-        <div class="w-full bg-gray-200 rounded-full h-1.5 mb-2">
-            <div class="h-1.5 rounded-full transition-all" style="width: {{ $percentage }}%; background: {{ $progressColor }}"></div>
+        <div class="w-full bg-gray-200 rounded-full h-2 mb-2">
+            <div class="h-2 rounded-full transition-all" style="width: {{ $percentage }}%; background: {{ $progressColor }}"></div>
         </div>
 
         <div class="flex items-center justify-between">
             <div class="flex items-center">
                 <div class="flex -space-x-2">
                     @foreach($recentDonors as $donor)
-                    <div class="w-6 h-6 rounded-full border-2 border-white bg-gray-300 flex items-center justify-center overflow-hidden">
-                        <span class="text-[8px] font-bold text-gray-500">{{ strtoupper(substr($donor->donor_name, 0, 1)) }}</span>
+                    <div class="w-7 h-7 rounded-full border-2 border-white bg-gray-300 flex items-center justify-center overflow-hidden">
+                        <span class="text-[9px] font-bold text-gray-500">{{ strtoupper(substr($donor->donor_name, 0, 1)) }}</span>
                     </div>
                     @endforeach
                 </div>

@@ -39,6 +39,14 @@ class Invoice extends Model
         'evidence_status',
         'evidence_image',
         'referral_processed',
+        'payment_method_name',
+        'payment_qrcode',
+        'deeplink_url',
+        'payment_instructions',
+        'ip',
+        'utm_source',
+        'utm_medium',
+        'utm_campaign',
     ];
 
     protected function casts(): array
@@ -50,6 +58,7 @@ class Invoice extends Model
             'expired_at' => 'date',
             'reminder_sent_at' => 'datetime',
             'paid_at' => 'datetime',
+            'payment_instructions' => 'array',
         ];
     }
 

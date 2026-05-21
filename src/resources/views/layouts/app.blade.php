@@ -17,7 +17,7 @@
     </head>
     <body class="font-sans antialiased bg-gray-50 text-gray-900">
         {{-- Top Navigation --}}
-        <nav x-data="{ open: false }" class="bg-white shadow-sm border-b border-gray-200">
+        <nav x-data="{ open: false }" class="sticky top-0 z-50 backdrop-blur-md bg-white/95 shadow-sm border-b border-gray-200">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between h-16">
                     {{-- Logo + Nav Links --}}
@@ -43,7 +43,7 @@
                             </form>
                         @else
                             <a href="{{ route('login') }}" class="text-sm font-medium text-gray-600 hover:text-green-600 transition">Login</a>
-                            <a href="{{ route('register') }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition">Daftar</a>
+                            <a href="{{ route('register') }}" class="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-green-600 hover:to-green-700 transition shadow-sm">Daftar</a>
                         @endauth
                     </div>
 
@@ -138,7 +138,7 @@
                         <h3 class="text-white text-lg font-semibold mb-3">Kontak</h3>
                         <ul class="space-y-2 text-sm">
                             <li>Email: info@niatbaik.com</li>
-                            <li>WhatsApp: +62 812-xxxx-xxxx</li>
+                            {{-- <li>WhatsApp: </li> --}}
                         </ul>
                     </div>
                 </div>

@@ -11,9 +11,8 @@ class DonationController extends Controller
 {
     public function form(Campaign $campaign)
     {
-        return view('pages.donation.form', [
-            'campaign' => $campaign,
-        ]);
+        $campaign->load('user');
+        return view('pages.donation.form', compact('campaign'));
     }
 
     public function store(Request $request, Campaign $campaign)

@@ -48,10 +48,8 @@ class DonationController extends Controller
     public function payment(string $invoiceNumber)
     {
         $invoice = Invoice::where('invoice_number', $invoiceNumber)->firstOrFail();
-        $invoice->load('campaign');
+        $invoice->load(['campaign', 'paymentMethod']);
 
-        return view('pages.donation.payment', [
-            'invoice' => $invoice,
-        ]);
+        return view('pages.donation.payment', compact('invoice'));
     }
 }

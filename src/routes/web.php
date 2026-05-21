@@ -58,10 +58,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Admin
-Route::middleware(['auth', 'admin'])->prefix('dashboard/manage')->name('admin.')->group(function () {
-    Route::get('/', [Admin\DashboardController::class, 'index'])->name('dashboard');
-    Route::resource('campaigns', Admin\CampaignController::class)->except(['create', 'store']);
+// Admin (under /dashboard, admin middleware)
+Route::middleware(['auth', 'admin'])->prefix('dashboard')->name('admin.')->group(function () {
+    Route::get('overview', [Admin\DashboardController::class, 'index'])->name('dashboard');
+    Route::resource('all-campaigns', Admin\CampaignController::class)->except(['create', 'store'])->parameters(['all-campaigns' => 'campaign']);
     Route::resource('users', Admin\UserController::class)->except(['create', 'store', 'destroy']);
     Route::get('invoices', [Admin\InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('invoices/{invoice}', [Admin\InvoiceController::class, 'show'])->name('invoices.show');
@@ -70,23 +70,23 @@ Route::middleware(['auth', 'admin'])->prefix('dashboard/manage')->name('admin.')
     Route::resource('pages', Admin\PageController::class);
     Route::resource('slides', Admin\SlideController::class);
     Route::resource('categories', Admin\CategoryController::class);
-    Route::get('withdrawals', [Admin\WithdrawalController::class, 'index'])->name('withdrawals.index');
-    Route::get('withdrawals/{withdrawal}', [Admin\WithdrawalController::class, 'show'])->name('withdrawals.show');
-    Route::post('withdrawals/{withdrawal}/approve', [Admin\WithdrawalController::class, 'approve'])->name('withdrawals.approve');
-    Route::post('withdrawals/{withdrawal}/reject', [Admin\WithdrawalController::class, 'reject'])->name('withdrawals.reject');
-    Route::get('settings', [Admin\SettingsController::class, 'index'])->name('settings.index');
-    Route::put('settings', [Admin\SettingsController::class, 'update'])->name('settings.update');
+    Route::get('all-withdrawals', [Admin\WithdrawalController::class, 'index'])->name('withdrawals.index');
+    Route::get('all-withdrawals/{withdrawal}', [Admin\WithdrawalController::class, 'show'])->name('withdrawals.show');
+    Route::post('all-withdrawals/{withdrawal}/approve', [Admin\WithdrawalController::class, 'approve'])->name('withdrawals.approve');
+    Route::post('all-withdrawals/{withdrawal}/reject', [Admin\WithdrawalController::class, 'reject'])->name('withdrawals.reject');
+    Route::get('site-settings', [Admin\SettingsController::class, 'index'])->name('settings.index');
+    Route::put('site-settings', [Admin\SettingsController::class, 'update'])->name('settings.update');
     Route::get('verifications', [Admin\VerificationController::class, 'index'])->name('verifications.index');
     Route::get('verifications/{user}', [Admin\VerificationController::class, 'show'])->name('verifications.show');
     Route::post('verifications/{user}/approve', [Admin\VerificationController::class, 'approve'])->name('verifications.approve');
     Route::post('verifications/{user}/reject', [Admin\VerificationController::class, 'reject'])->name('verifications.reject');
 });
 
-// Fundraiser
-Route::middleware(['auth', 'fundraiser'])->prefix('dashboard_fundraiser')->name('fundraiser.')->group(function () {
-    Route::get('/', [Dashboard\FundraiserController::class, 'index'])->name('dashboard');
-    Route::get('commissions', [Dashboard\FundraiserController::class, 'commissions'])->name('commissions');
-    Route::get('transactions', [Dashboard\FundraiserController::class, 'transactions'])->name('transactions');
+// Fundraiser (under /dashboard)
+Route::middleware(['auth', 'fundraiser'])->prefix('dashboard')->name('fundraiser.')->group(function () {
+    Route::get('fundraiser', [Dashboard\FundraiserController::class, 'index'])->name('dashboard');
+    Route::get('fundraiser/commissions', [Dashboard\FundraiserController::class, 'commissions'])->name('commissions');
+    Route::get('fundraiser/transactions', [Dashboard\FundraiserController::class, 'transactions'])->name('transactions');
 });
 
 require __DIR__ . '/auth.php';

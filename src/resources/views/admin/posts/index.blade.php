@@ -1,4 +1,4 @@
-<x-admin-layout>
+<x-dashboard-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">Posts</h2>
@@ -33,4 +33,4 @@
         </div>
         <div class="px-4 py-3 border-t border-gray-100">{{ $posts->links() }}</div>
     </div>
-</x-admin-layout>
+</x-dashboard-layout>

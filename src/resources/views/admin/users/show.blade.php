@@ -1,4 +1,4 @@
-<x-admin-layout>
+<x-dashboard-layout>
     <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">User: {{ $user->name }}</h2></x-slot>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="bg-white rounded-lg shadow-md p-6">
@@ -34,4 +34,4 @@
             </div>
         </div>
     </div>
-</x-admin-layout>
+</x-dashboard-layout>

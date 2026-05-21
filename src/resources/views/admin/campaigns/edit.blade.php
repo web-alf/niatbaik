@@ -1,8 +1,8 @@
-<x-admin-layout>
+<x-dashboard-layout>
     <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">Edit Campaign: {{ $campaign->title }}</h2></x-slot>
     <div class="max-w-3xl">
         <div class="bg-white rounded-lg shadow-md p-6">
-            <form method="POST" action="{{ route('admin.campaigns.update', $campaign) }}">
+            <form method="POST" action="{{ route('admin.all-campaigns.update', $campaign) }}">
                 @csrf @method('PUT')
                 <div class="space-y-6">
                     <div>
@@ -27,10 +27,10 @@
                     </div>
                     <div class="flex items-center gap-4">
                         <button type="submit" class="bg-green-600 text-white rounded-lg px-6 py-2 font-medium hover:bg-green-700 transition">Update</button>
-                        <a href="{{ route('admin.campaigns.index') }}" class="text-gray-600 hover:text-gray-800 text-sm">Batal</a>
+                        <a href="{{ route('admin.all-campaigns.index') }}" class="text-gray-600 hover:text-gray-800 text-sm">Batal</a>
                     </div>
                 </div>
             </form>
         </div>
     </div>
-</x-admin-layout>
+</x-dashboard-layout>

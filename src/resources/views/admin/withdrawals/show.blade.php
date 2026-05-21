@@ -1,4 +1,4 @@
-<x-admin-layout>
+<x-dashboard-layout>
     <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">Detail Penarikan</h2></x-slot>
     <div class="max-w-3xl">
         <div class="bg-white rounded-lg shadow-md p-6">
@@ -26,4 +26,4 @@
             <div class="mt-4"><a href="{{ route('admin.withdrawals.index') }}" class="text-green-600 hover:text-green-700 text-sm">&larr; Kembali</a></div>
         </div>
     </div>
-</x-admin-layout>
+</x-dashboard-layout>

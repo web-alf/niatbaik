@@ -1,4 +1,4 @@
-<x-admin-layout>
+<x-dashboard-layout>
     <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">Kategori</h2></x-slot>
     <div class="flex justify-end mb-4">
         <a href="{{ route('admin.categories.create') }}" class="bg-green-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-green-700 transition">+ Tambah Kategori</a>
@@ -36,4 +36,4 @@
         </table>
     </div>
     <div class="mt-4">{{ $categories->links() }}</div>
-</x-admin-layout>
+</x-dashboard-layout>

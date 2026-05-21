@@ -1,4 +1,4 @@
-<x-admin-layout>
+<x-dashboard-layout>
     <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">Admin Dashboard</h2></x-slot>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -24,7 +24,7 @@
         <div class="bg-white rounded-lg shadow-md p-6">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">Menu Cepat</h3>
             <div class="grid grid-cols-2 gap-3">
-                <a href="{{ route('admin.campaigns.index') }}" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-green-50 transition">
+                <a href="{{ route('admin.all-campaigns.index') }}" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-green-50 transition">
                     <span class="text-sm font-medium text-gray-700">Campaigns</span>
                 </a>
                 <a href="{{ route('admin.users.index') }}" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-green-50 transition">
@@ -56,4 +56,4 @@
             </div>
         </div>
     </div>
-</x-admin-layout>
+</x-dashboard-layout>

@@ -1,4 +1,4 @@
-<x-admin-layout>
+<x-dashboard-layout>
     <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">Detail Campaign</h2></x-slot>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
@@ -21,7 +21,7 @@
                     <div class="flex justify-between"><dt class="text-gray-500">Durasi</dt><dd>{{ $campaign->duration_days ?? '-' }} hari</dd></div>
                     <div class="flex justify-between"><dt class="text-gray-500">Invoice</dt><dd>{{ $campaign->invoices->count() }}</dd></div>
                 </dl>
-                <div class="mt-4"><a href="{{ route('admin.campaigns.edit', $campaign) }}" class="block w-full text-center bg-green-600 text-white rounded-lg px-4 py-2 text-sm hover:bg-green-700 transition">Edit Campaign</a></div>
+                <div class="mt-4"><a href="{{ route('admin.all-campaigns.edit', $campaign) }}" class="block w-full text-center bg-green-600 text-white rounded-lg px-4 py-2 text-sm hover:bg-green-700 transition">Edit Campaign</a></div>
             </div>
             <div class="bg-white rounded-lg shadow-md p-6">
                 <h3 class="font-semibold mb-3">Donasi Terakhir</h3>
@@ -36,4 +36,4 @@
             </div>
         </div>
     </div>
-</x-admin-layout>
+</x-dashboard-layout>

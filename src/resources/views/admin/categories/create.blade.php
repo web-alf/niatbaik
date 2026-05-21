@@ -1,4 +1,4 @@
-<x-admin-layout>
+<x-dashboard-layout>
     <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">Tambah Kategori</h2></x-slot>
     <div class="max-w-xl">
         <div class="bg-white rounded-lg shadow-md p-6">
@@ -23,4 +23,4 @@
             </form>
         </div>
     </div>
-</x-admin-layout>
+</x-dashboard-layout>

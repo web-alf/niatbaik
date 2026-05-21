@@ -161,7 +161,7 @@ $user = \App\Models\User::create([
 ]);
 ```
 
-Akses admin panel di `https://donasi.niatbaik.org/master`.
+Akses admin panel di `https://donasi.niatbaik.org/dashboard/manage`.
 
 ---
 

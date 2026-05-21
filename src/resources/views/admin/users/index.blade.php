@@ -1,4 +1,4 @@
-<x-admin-layout>
+<x-dashboard-layout>
     <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">Users</h2></x-slot>
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
         <div class="overflow-x-auto">
@@ -32,4 +32,4 @@
         </div>
         <div class="px-4 py-3 border-t border-gray-100">{{ $users->links() }}</div>
     </div>
-</x-admin-layout>
+</x-dashboard-layout>

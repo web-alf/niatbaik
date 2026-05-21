@@ -1,4 +1,4 @@
-<x-admin-layout>
+<x-dashboard-layout>
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">Slides</h2>
@@ -24,4 +24,4 @@
         @endforeach
     </div>
     <div class="mt-6">{{ $slides->links() }}</div>
-</x-admin-layout>
+</x-dashboard-layout>

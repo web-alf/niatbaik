@@ -7,8 +7,6 @@ use App\Http\Controllers\Dashboard;
 use App\Http\Controllers\DonationController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OrganizationController;
-use App\Http\Controllers\PageController;
-use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QuranController;
 use App\Http\Controllers\Webhook;
@@ -20,9 +18,6 @@ Route::get('/search/{category?}', [CampaignController::class, 'search'])->name('
 Route::get('/donasi/{campaign:slug}', [CampaignController::class, 'show'])->name('campaign.show');
 Route::get('/donasi-info/{update}', [CampaignController::class, 'info'])->name('campaign.info');
 Route::get('/organization/{user}', [OrganizationController::class, 'show'])->name('organization.show');
-Route::get('/blogs', [PostController::class, 'index'])->name('posts.index');
-Route::get('/blog/{post:slug}', [PostController::class, 'show'])->name('posts.show');
-Route::get('/page/{page:slug}', [PageController::class, 'show'])->name('pages.show');
 Route::get('/quran', [QuranController::class, 'index'])->name('quran.index');
 Route::get('/quran/{surah}', [QuranController::class, 'read'])->name('quran.read');
 Route::get('/kalkulator', [CalculatorController::class, 'index'])->name('calculator');
@@ -66,9 +61,6 @@ Route::middleware(['auth', 'admin'])->prefix('dashboard')->name('admin.')->group
     Route::get('invoices', [Admin\InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('invoices/{invoice}', [Admin\InvoiceController::class, 'show'])->name('invoices.show');
     Route::resource('banks', Admin\BankController::class);
-    Route::resource('posts', Admin\PostController::class);
-    Route::resource('pages', Admin\PageController::class);
-    Route::resource('slides', Admin\SlideController::class);
     Route::resource('categories', Admin\CategoryController::class);
     Route::get('all-withdrawals', [Admin\WithdrawalController::class, 'index'])->name('withdrawals.index');
     Route::get('all-withdrawals/{withdrawal}', [Admin\WithdrawalController::class, 'show'])->name('withdrawals.show');

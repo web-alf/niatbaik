@@ -71,18 +71,4 @@
     </section>
     @endif
 
-    {{-- Recent Blog Posts --}}
-    @if($posts->count())
-    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-gray-800">Artikel Terbaru</h2>
-            <a href="{{ route('posts.index') }}" class="text-green-600 hover:text-green-700 text-sm font-medium">Lihat Semua &rarr;</a>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            @foreach($posts as $post)
-                <x-blog-card :post="$post" />
-            @endforeach
-        </div>
-    </section>
-    @endif
 </x-app-layout>

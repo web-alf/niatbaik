@@ -28,7 +28,6 @@
                         <div class="hidden sm:flex sm:items-center sm:ml-8 space-x-6">
                             <a href="{{ route('home') }}" class="text-sm font-medium {{ request()->routeIs('home') ? 'text-green-600' : 'text-gray-600 hover:text-green-600' }} transition">Beranda</a>
                             <a href="{{ route('search') }}" class="text-sm font-medium {{ request()->routeIs('search') ? 'text-green-600' : 'text-gray-600 hover:text-green-600' }} transition">Kategori</a>
-                            <a href="{{ route('posts.index') }}" class="text-sm font-medium {{ request()->routeIs('posts.*') ? 'text-green-600' : 'text-gray-600 hover:text-green-600' }} transition">Blog</a>
                             <a href="{{ route('quran.index') }}" class="text-sm font-medium {{ request()->routeIs('quran.*') ? 'text-green-600' : 'text-gray-600 hover:text-green-600' }} transition">Quran</a>
                             <a href="{{ route('calculator') }}" class="text-sm font-medium {{ request()->routeIs('calculator') ? 'text-green-600' : 'text-gray-600 hover:text-green-600' }} transition">Kalkulator</a>
                         </div>
@@ -65,7 +64,6 @@
                 <div class="py-3 space-y-1 px-4">
                     <a href="{{ route('home') }}" class="block py-2 text-sm font-medium {{ request()->routeIs('home') ? 'text-green-600' : 'text-gray-600' }}">Beranda</a>
                     <a href="{{ route('search') }}" class="block py-2 text-sm font-medium {{ request()->routeIs('search') ? 'text-green-600' : 'text-gray-600' }}">Kategori</a>
-                    <a href="{{ route('posts.index') }}" class="block py-2 text-sm font-medium {{ request()->routeIs('posts.*') ? 'text-green-600' : 'text-gray-600' }}">Blog</a>
                     <a href="{{ route('quran.index') }}" class="block py-2 text-sm font-medium {{ request()->routeIs('quran.*') ? 'text-green-600' : 'text-gray-600' }}">Quran</a>
                     <a href="{{ route('calculator') }}" class="block py-2 text-sm font-medium {{ request()->routeIs('calculator') ? 'text-green-600' : 'text-gray-600' }}">Kalkulator</a>
                 </div>
@@ -131,7 +129,6 @@
                         <ul class="space-y-2 text-sm">
                             <li><a href="{{ route('home') }}" class="hover:text-green-400 transition">Beranda</a></li>
                             <li><a href="{{ route('search') }}" class="hover:text-green-400 transition">Kategori</a></li>
-                            <li><a href="{{ route('posts.index') }}" class="hover:text-green-400 transition">Blog</a></li>
                             <li><a href="{{ route('quran.index') }}" class="hover:text-green-400 transition">Quran</a></li>
                         </ul>
                     </div>

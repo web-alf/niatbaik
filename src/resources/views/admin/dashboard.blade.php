@@ -38,22 +38,5 @@
                 </a>
             </div>
         </div>
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Konten</h3>
-            <div class="grid grid-cols-2 gap-3">
-                <a href="{{ route('admin.posts.index') }}" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-green-50 transition">
-                    <span class="text-sm font-medium text-gray-700">Posts</span>
-                </a>
-                <a href="{{ route('admin.pages.index') }}" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-green-50 transition">
-                    <span class="text-sm font-medium text-gray-700">Pages</span>
-                </a>
-                <a href="{{ route('admin.slides.index') }}" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-green-50 transition">
-                    <span class="text-sm font-medium text-gray-700">Slides</span>
-                </a>
-                <a href="{{ route('admin.settings.index') }}" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-green-50 transition">
-                    <span class="text-sm font-medium text-gray-700">Settings</span>
-                </a>
-            </div>
-        </div>
     </div>
 </x-dashboard-layout>

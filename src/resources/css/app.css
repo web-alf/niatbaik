@@ -3,6 +3,14 @@
 @tailwind utilities;
 
 @layer base {
+    html {
+        transition: background-color .3s ease, color .3s ease;
+    }
+
+    html.dark {
+        color-scheme: dark;
+    }
+
     :root {
         --ux-ink: #12332d;
         --ux-muted: #62756f;
@@ -512,6 +520,25 @@
         box-shadow: 0 16px 30px rgba(18, 51, 45, .08);
     }
 
+    /* ── Smooth Transitions ── */
+
+    .ux-dashboard,
+    .ux-dashboard *,
+    .ux-auth,
+    .ux-auth * {
+        transition-property: background-color, border-color, color, box-shadow;
+        transition-duration: .25s;
+        transition-timing-function: ease;
+    }
+
+    .ux-dashboard a,
+    .ux-dashboard button,
+    .ux-auth a,
+    .ux-auth button {
+        transition-property: background-color, border-color, color, box-shadow, transform, opacity;
+        transition-duration: .2s;
+    }
+
     /* ── Dark Mode ── */
 
     .dark .ux-auth-shell {
@@ -644,6 +671,86 @@
         border-top-color: var(--ux-line);
         background: rgba(15, 31, 26, .98);
     }
+
+    /* Catch hardcoded Tailwind colors in templates */
+    .dark .ux-auth .text-gray-800,
+    .dark .ux-auth .text-gray-700,
+    .dark .ux-auth .text-gray-900,
+    .dark .ux-dashboard .text-gray-800,
+    .dark .ux-dashboard .text-gray-700,
+    .dark .ux-dashboard .text-gray-900 { color: var(--ux-ink); }
+
+    .dark .ux-auth .text-gray-500,
+    .dark .ux-auth .text-gray-600,
+    .dark .ux-auth .text-gray-400,
+    .dark .ux-dashboard .text-gray-500,
+    .dark .ux-dashboard .text-gray-600,
+    .dark .ux-dashboard .text-gray-400 { color: var(--ux-muted); }
+
+    .dark .ux-auth .bg-white,
+    .dark .ux-dashboard .bg-white { background-color: var(--ux-surface-soft); }
+
+    .dark .ux-auth .bg-gray-50,
+    .dark .ux-auth .bg-gray-100,
+    .dark .ux-dashboard .bg-gray-50,
+    .dark .ux-dashboard .bg-gray-100 { background-color: var(--ux-surface); }
+
+    .dark .ux-auth .border-gray-100,
+    .dark .ux-auth .border-gray-200,
+    .dark .ux-auth .border-gray-300,
+    .dark .ux-dashboard .border-gray-100,
+    .dark .ux-dashboard .border-gray-200,
+    .dark .ux-dashboard .border-gray-300 { border-color: var(--ux-line); }
+
+    .dark .ux-dashboard .hover\:bg-gray-50:hover,
+    .dark .ux-dashboard .hover\:bg-gray-100:hover { background-color: rgba(52, 211, 153, .06); }
+
+    .dark .ux-dashboard .hover\:bg-green-50\/30:hover { background-color: rgba(52, 211, 153, .08); }
+
+    .dark .ux-dashboard .bg-green-100 { background-color: rgba(52, 211, 153, .15); }
+    .dark .ux-dashboard .text-green-800,
+    .dark .ux-dashboard .text-green-700 { color: #6ee7b7; }
+    .dark .ux-dashboard .text-green-600 { color: var(--ux-green); }
+
+    .dark .ux-dashboard .bg-yellow-100 { background-color: rgba(251, 191, 36, .15); }
+    .dark .ux-dashboard .text-yellow-800,
+    .dark .ux-dashboard .text-yellow-700 { color: #fde68a; }
+
+    .dark .ux-dashboard .bg-red-100 { background-color: rgba(239, 68, 68, .15); }
+    .dark .ux-dashboard .text-red-800,
+    .dark .ux-dashboard .text-red-700 { color: #fca5a5; }
+
+    .dark .ux-dashboard .bg-blue-100 { background-color: rgba(59, 130, 246, .15); }
+    .dark .ux-dashboard .text-blue-800,
+    .dark .ux-dashboard .text-blue-700 { color: #93c5fd; }
+
+    .dark .ux-dashboard .bg-purple-100 { background-color: rgba(168, 85, 247, .15); }
+    .dark .ux-dashboard .text-purple-800 { color: #d8b4fe; }
+
+    .dark .ux-dashboard .shadow-sm { box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
+    .dark .ux-dashboard .shadow-md { box-shadow: 0 4px 12px rgba(0, 0, 0, .3); }
+    .dark .ux-dashboard .shadow-lg { box-shadow: 0 10px 24px rgba(0, 0, 0, .35); }
+
+    .dark .ux-dashboard .divide-y > :not([hidden]) ~ :not([hidden]) { border-color: var(--ux-line); }
+    .dark .ux-dashboard .border-b { border-color: var(--ux-line); }
+    .dark .ux-dashboard .border-t { border-color: var(--ux-line); }
+
+    .dark .ux-dashboard label,
+    .dark .ux-dashboard .font-medium.text-sm { color: var(--ux-muted); }
+
+    .dark .ux-dashboard h2,
+    .dark .ux-dashboard h3,
+    .dark .ux-dashboard .font-semibold { color: var(--ux-ink); }
+
+    .dark .ux-dashboard .font-medium.text-gray-800 { color: var(--ux-ink); }
+
+    /* Dropdown menus */
+    .dark .ux-dashboard [x-show].bg-white,
+    .dark .ux-auth [x-show].bg-white { background-color: var(--ux-surface-soft); }
+
+    /* File inputs */
+    .dark .ux-dashboard .file\:bg-green-50 { background-color: rgba(52, 211, 153, .1); }
+    .dark .ux-dashboard .file\:text-green-700 { color: var(--ux-green); }
 
     .dark .ux-public {
         background: linear-gradient(180deg, #0a1a14 0%, #0f1f1a 34%);

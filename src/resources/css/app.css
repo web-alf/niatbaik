@@ -752,6 +752,19 @@
     .dark .ux-dashboard .file\:bg-green-50 { background-color: rgba(52, 211, 153, .1); }
     .dark .ux-dashboard .file\:text-green-700 { color: var(--ux-green); }
 
+    /* Green buttons keep white text in dark mode */
+    .dark .ux-dashboard a[class*="bg-green-"],
+    .dark .ux-dashboard button[class*="bg-green-"],
+    .dark .ux-dashboard a[class*="from-green-"],
+    .dark .ux-dashboard button[class*="from-green-"],
+    .dark .ux-auth a[class*="bg-green-"],
+    .dark .ux-auth button[class*="bg-green-"],
+    .dark .ux-auth a[class*="from-green-"],
+    .dark .ux-auth button[class*="from-green-"] { color: #ffffff !important; }
+
+    .dark .ux-dashboard a[class*="bg-red-"],
+    .dark .ux-dashboard button[class*="bg-red-"] { color: #ffffff !important; }
+
     .dark .ux-public {
         background: linear-gradient(180deg, #0a1a14 0%, #0f1f1a 34%);
     }

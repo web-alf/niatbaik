@@ -88,12 +88,7 @@ class User extends Authenticatable
         return $this->hasMany(Fundraiser::class);
     }
 
-    public function bankAccounts(): HasMany
-    {
-        return $this->hasMany(BankAccount::class);
-    }
-
-    public function referrer(): BelongsTo
+public function referrer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'referred_by');
     }

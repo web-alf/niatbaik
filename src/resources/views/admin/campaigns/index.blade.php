@@ -1,5 +1,8 @@
 <x-dashboard-layout>
     <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">Campaigns</h2></x-slot>
+    <div class="flex justify-end mb-4">
+        <a href="{{ route('admin.all-campaigns.create') }}" class="bg-green-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-green-700 transition">+ Tambah Campaign</a>
+    </div>
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-sm">

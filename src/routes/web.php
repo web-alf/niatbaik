@@ -56,7 +56,7 @@ Route::middleware('auth')->group(function () {
 // Admin (under /dashboard, admin middleware)
 Route::middleware(['auth', 'admin'])->prefix('dashboard')->name('admin.')->group(function () {
     Route::get('overview', [Admin\DashboardController::class, 'index'])->name('dashboard');
-    Route::resource('all-campaigns', Admin\CampaignController::class)->except(['create', 'store'])->parameters(['all-campaigns' => 'campaign']);
+    Route::resource('all-campaigns', Admin\CampaignController::class)->parameters(['all-campaigns' => 'campaign']);
     Route::resource('users', Admin\UserController::class)->except(['create', 'store', 'destroy']);
     Route::get('invoices', [Admin\InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('invoices/{invoice}', [Admin\InvoiceController::class, 'show'])->name('invoices.show');

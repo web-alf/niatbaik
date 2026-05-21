@@ -525,7 +525,9 @@
     .ux-dashboard,
     .ux-dashboard *,
     .ux-auth,
-    .ux-auth * {
+    .ux-auth *,
+    .ux-public,
+    .ux-public * {
         transition-property: background-color, border-color, color, box-shadow;
         transition-duration: .25s;
         transition-timing-function: ease;
@@ -534,7 +536,9 @@
     .ux-dashboard a,
     .ux-dashboard button,
     .ux-auth a,
-    .ux-auth button {
+    .ux-auth button,
+    .ux-public a,
+    .ux-public button {
         transition-property: background-color, border-color, color, box-shadow, transform, opacity;
         transition-duration: .2s;
     }
@@ -764,6 +768,80 @@
 
     .dark .ux-dashboard a[class*="bg-red-"],
     .dark .ux-dashboard button[class*="bg-red-"] { color: #ffffff !important; }
+
+    /* Public pages dark overrides */
+    .dark .ux-public .text-gray-800,
+    .dark .ux-public .text-gray-700,
+    .dark .ux-public .text-gray-900 { color: var(--ux-ink); }
+
+    .dark .ux-public .text-gray-500,
+    .dark .ux-public .text-gray-600,
+    .dark .ux-public .text-gray-400 { color: var(--ux-muted); }
+
+    .dark .ux-public .text-gray-300 { color: #5a6e66; }
+
+    .dark .ux-public .bg-white { background-color: var(--ux-surface-soft); }
+    .dark .ux-public .bg-gray-50,
+    .dark .ux-public .bg-gray-100,
+    .dark .ux-public .bg-gray-200 { background-color: var(--ux-surface); }
+
+    .dark .ux-public .bg-white\/80 { background-color: rgba(22, 43, 36, .8); }
+
+    .dark .ux-public .border-gray-100,
+    .dark .ux-public .border-gray-200,
+    .dark .ux-public .border-gray-300,
+    .dark .ux-public .border-b,
+    .dark .ux-public .border-t,
+    .dark .ux-public .border { border-color: var(--ux-line); }
+
+    .dark .ux-public .border-gray-700 { border-color: #2a3d35; }
+
+    .dark .ux-public .hover\:bg-gray-50:hover,
+    .dark .ux-public .hover\:bg-gray-100:hover { background-color: rgba(52, 211, 153, .06); }
+
+    .dark .ux-public .hover\:bg-white:hover { background-color: rgba(22, 43, 36, .95); }
+
+    .dark .ux-public .bg-green-100 { background-color: rgba(52, 211, 153, .15); }
+    .dark .ux-public .text-green-600 { color: var(--ux-green); }
+    .dark .ux-public .text-green-700 { color: #6ee7b7; }
+
+    .dark .ux-public .shadow-sm { box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
+    .dark .ux-public .shadow-lg { box-shadow: 0 10px 24px rgba(0, 0, 0, .35); }
+
+    .dark .ux-public h1,
+    .dark .ux-public h2,
+    .dark .ux-public h3 { color: var(--ux-ink); }
+
+    .dark .ux-public .font-semibold.text-gray-800,
+    .dark .ux-public .font-bold.text-gray-800 { color: var(--ux-ink); }
+
+    .dark .ux-public .prose { color: var(--ux-ink); }
+    .dark .ux-public .prose h1,
+    .dark .ux-public .prose h2,
+    .dark .ux-public .prose h3,
+    .dark .ux-public .prose h4 { color: var(--ux-ink); }
+    .dark .ux-public .prose a { color: var(--ux-green); }
+    .dark .ux-public .prose strong { color: var(--ux-ink); }
+
+    /* Footer */
+    .dark .ux-public .bg-gray-800 { background-color: #081410; }
+    .dark .ux-public .bg-gray-800 .text-gray-300 { color: var(--ux-muted); }
+    .dark .ux-public .bg-gray-800 .text-white { color: var(--ux-ink); }
+
+    /* Fixed mobile bar */
+    .dark .ux-public .fixed.bg-white { background-color: var(--ux-surface-soft); }
+
+    /* Share modal */
+    .dark .ux-public .bg-black\/50 { background-color: rgba(0, 0, 0, .7); }
+    .dark .ux-public .bg-white.rounded-2xl { background-color: var(--ux-surface-soft); }
+
+    /* Donor list */
+    .dark .ux-public .bg-green-100 { background-color: rgba(52, 211, 153, .12); }
+    .dark .ux-public .text-green-600 { color: var(--ux-green); }
+
+    /* Buttons keep white text */
+    .dark .ux-public a[class*="bg-green-"],
+    .dark .ux-public button[class*="bg-green-"] { color: #ffffff !important; }
 
     .dark .ux-public {
         background: linear-gradient(180deg, #0a1a14 0%, #0f1f1a 34%);

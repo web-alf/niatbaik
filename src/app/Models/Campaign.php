@@ -30,6 +30,14 @@ class Campaign extends Model
         'featured',
         'posted_at',
         'last_checked_at',
+        'location_name',
+        'location_gmaps',
+        'form_type',
+        'allocation_title',
+        'opt_nominal',
+        'button_color',
+        'socialproof',
+        'fundraiser_setting',
     ];
 
     protected function casts(): array
@@ -39,6 +47,9 @@ class Campaign extends Model
             'featured' => 'boolean',
             'posted_at' => 'date',
             'last_checked_at' => 'date',
+            'opt_nominal' => 'array',
+            'socialproof' => 'boolean',
+            'fundraiser_setting' => 'boolean',
         ];
     }
 
@@ -84,6 +95,11 @@ class Campaign extends Model
     public function fundraisers(): HasMany
     {
         return $this->hasMany(Fundraiser::class);
+    }
+
+    public function loves(): HasMany
+    {
+        return $this->hasMany(Love::class);
     }
 
     protected function progressPercentage(): Attribute

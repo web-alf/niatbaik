@@ -152,6 +152,7 @@
             </div>
         </footer>
 
+        @livewire('social-proof')
         @livewireScripts
     </body>
 </html>

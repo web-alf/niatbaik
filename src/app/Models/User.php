@@ -44,6 +44,9 @@ class User extends Authenticatable
         'bonus_withdrawn',
         'total_clicks',
         'referred_by',
+        'user_cover_image',
+        'verification_status',
+        'bio',
     ];
 
     protected $hidden = [
@@ -98,6 +101,16 @@ class User extends Authenticatable
     public function referrals(): HasMany
     {
         return $this->hasMany(User::class, 'referred_by');
+    }
+
+    public function verificationDetail(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(VerificationDetail::class);
+    }
+
+    public function isVerified(): bool
+    {
+        return $this->verification_status === 'verified';
     }
 
     public function isAdmin(): bool

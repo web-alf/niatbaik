@@ -11,18 +11,16 @@ class CampaignController extends Controller
 {
     public function show(Campaign $campaign)
     {
-        $campaign->load(['user', 'category', 'updates']);
+        $campaign->load(['user', 'category', 'updates.user']);
 
-        $invoices = $campaign->invoices()
-            ->where('is_paid', true)
-            ->latest()
-            ->take(10)
-            ->get();
+        $paidInvoices = $campaign->invoices()->where('is_paid', true);
+        $donorCount = $paidInvoices->count();
+        $loveCount = $campaign->loves()->count();
+        $updateCount = $campaign->updates()->count();
 
-        return view('pages.campaign.show', [
-            'campaign' => $campaign,
-            'invoices' => $invoices,
-        ]);
+        return view('pages.campaign.show', compact(
+            'campaign', 'donorCount', 'loveCount', 'updateCount'
+        ));
     }
 
     public function search(?string $category = null)

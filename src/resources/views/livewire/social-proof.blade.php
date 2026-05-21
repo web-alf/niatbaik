@@ -1,3 +1,4 @@
+<div>
 @if($enabled && !empty($donation))
 <div x-data="{
     show: false,
@@ -43,3 +44,4 @@ style="display: none">
     </div>
 </div>
 @endif
+</div>

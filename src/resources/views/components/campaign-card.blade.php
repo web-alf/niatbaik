@@ -7,7 +7,7 @@
     $paidInvoices = $campaign->invoices->where('is_paid', true);
     $donorCount = $paidInvoices->count();
     $recentDonors = $paidInvoices->take(3);
-    $daysLeft = $campaign->unlimited ? null : max(0, now()->diffInDays($campaign->posted_at->addDays($campaign->duration_days), false));
+    $daysLeft = $campaign->unlimited ? null : (int) max(0, now()->diffInDays($campaign->posted_at->addDays($campaign->duration_days), false));
 @endphp
 
 <a href="{{ route('campaign.show', $campaign) }}" class="block bg-white rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden">

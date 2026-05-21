@@ -103,7 +103,7 @@
                         $progressColor = $setting->progressbar_color ?? '#16a34a';
                         $btnColor = $campaign->button_color ?? $setting->button_color ?? '#16a34a';
                         $percentage = min($campaign->progress_percentage, 100);
-                        $daysLeft = $campaign->unlimited ? null : max(0, now()->diffInDays($campaign->posted_at->addDays($campaign->duration_days), false));
+                        $daysLeft = $campaign->unlimited ? null : (int) max(0, now()->diffInDays($campaign->posted_at->addDays($campaign->duration_days), false));
                     @endphp
 
                     <p class="text-2xl font-bold text-gray-800 mb-1">Rp {{ number_format($campaign->total_raised, 0, ',', '.') }}</p>

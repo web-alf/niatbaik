@@ -85,8 +85,10 @@ RUN mkdir -p \
         storage/framework/cache \
         storage/framework/sessions \
         storage/framework/views \
+        storage/app/public \
         bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache
+    && ln -sf /var/www/html/storage/app/public /var/www/html/public/storage \
+    && chown -R www-data:www-data storage bootstrap/cache public/storage
 
 USER www-data
 

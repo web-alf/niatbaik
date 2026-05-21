@@ -520,27 +520,20 @@
         box-shadow: 0 16px 30px rgba(18, 51, 45, .08);
     }
 
-    /* ── Smooth Transitions ── */
+    /* ── Smooth Transitions (dark mode switch) ── */
 
     .ux-dashboard,
-    .ux-dashboard *,
     .ux-auth,
-    .ux-auth *,
-    .ux-public,
-    .ux-public * {
-        transition-property: background-color, border-color, color, box-shadow;
-        transition-duration: .25s;
-        transition-timing-function: ease;
+    .ux-public {
+        transition: background-color .3s ease, color .3s ease;
     }
 
-    .ux-dashboard a,
-    .ux-dashboard button,
-    .ux-auth a,
-    .ux-auth button,
-    .ux-public a,
-    .ux-public button {
-        transition-property: background-color, border-color, color, box-shadow, transform, opacity;
-        transition-duration: .2s;
+    .ux-sidebar,
+    .ux-dashboard-topbar,
+    .ux-public-nav,
+    .ux-auth-panel,
+    .ux-auth-shell {
+        transition: background-color .3s ease, border-color .3s ease, color .3s ease;
     }
 
     /* ── Global Dark Overrides ── */

@@ -33,6 +33,10 @@ class SettingsController extends Controller
             'smtp_encryption' => 'nullable|string|max:10',
             'admin_fee' => 'nullable|integer|min:0',
             'fundraiser_commission_percent' => 'nullable|integer|min:0|max:100',
+            'theme_color' => 'nullable|string|max:7',
+            'progressbar_color' => 'nullable|string|max:7',
+            'button_color' => 'nullable|string|max:7',
+            'whatsapp_admin' => 'nullable|string|max:20',
         ]);
 
         if (empty($data['smtp_password'])) {

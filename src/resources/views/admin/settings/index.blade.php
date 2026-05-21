@@ -1,4 +1,4 @@
-<x-admin-layout>
+<x-dashboard-layout>
     <x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">Settings</h2></x-slot>
     <div class="max-w-3xl">
         <div class="bg-white rounded-lg shadow-md p-6">
@@ -58,6 +58,26 @@
                         </div>
                     </div>
 
+                    {{-- Theme --}}
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">Tampilan</h3>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-3 gap-4">
+                                <div><label for="theme_color" class="block text-sm font-medium text-gray-700 mb-1">Warna Tema</label><input type="color" name="theme_color" id="theme_color" value="{{ old('theme_color', $setting->theme_color ?? '#16a34a') }}" class="w-full h-10 rounded-lg border border-gray-300 cursor-pointer"></div>
+                                <div><label for="progressbar_color" class="block text-sm font-medium text-gray-700 mb-1">Warna Progress Bar</label><input type="color" name="progressbar_color" id="progressbar_color" value="{{ old('progressbar_color', $setting->progressbar_color ?? '#16a34a') }}" class="w-full h-10 rounded-lg border border-gray-300 cursor-pointer"></div>
+                                <div><label for="button_color" class="block text-sm font-medium text-gray-700 mb-1">Warna Tombol</label><input type="color" name="button_color" id="button_color" value="{{ old('button_color', $setting->button_color ?? '#16a34a') }}" class="w-full h-10 rounded-lg border border-gray-300 cursor-pointer"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Notifications --}}
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b">Notifikasi</h3>
+                        <div class="space-y-4">
+                            <div><label for="whatsapp_admin" class="block text-sm font-medium text-gray-700 mb-1">WhatsApp Admin</label><input type="text" name="whatsapp_admin" id="whatsapp_admin" value="{{ old('whatsapp_admin', $setting->whatsapp_admin ?? '') }}" placeholder="628xxxxxxxxxx" class="w-full rounded-lg border border-gray-300 focus:ring-green-500 focus:border-green-500"></div>
+                        </div>
+                    </div>
+
                     <div class="flex items-center gap-4">
                         <button type="submit" class="bg-green-600 text-white rounded-lg px-6 py-2 font-medium hover:bg-green-700 transition">Simpan Pengaturan</button>
                     </div>
@@ -65,4 +85,4 @@
             </form>
         </div>
     </div>
-</x-admin-layout>
+</x-dashboard-layout>

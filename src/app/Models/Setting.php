@@ -13,5 +13,6 @@ class Setting extends Model
         'smtp_password',
         'whatsapp_token',
         'whatsapp_token_starsender',
+        'telegram_bot_token',
     ];
 }

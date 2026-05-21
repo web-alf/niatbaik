@@ -73,16 +73,19 @@
                         <nav class="p-4 space-y-1">
                             @php
                                 $links = [
-                                    ['route' => 'dashboard.home', 'label' => 'Dashboard', 'icon' => 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1'],
-                                    ['route' => 'dashboard.campaigns.index', 'label' => 'Campaign Saya', 'icon' => 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10'],
-                                    ['route' => 'dashboard.donations.index', 'label' => 'Donasi Saya', 'icon' => 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
-                                    ['route' => 'dashboard.withdrawals.index', 'label' => 'Penarikan', 'icon' => 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'],
+                                    ['route' => 'dashboard.home', 'pattern' => 'dashboard.home', 'label' => 'Dashboard', 'icon' => 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1'],
+                                    ['route' => 'admin.all-campaigns.index', 'pattern' => 'admin.all-campaigns.*', 'label' => 'Campaign', 'icon' => 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10'],
+                                    ['route' => 'admin.categories.index', 'pattern' => 'admin.categories.*', 'label' => 'Kategori', 'icon' => 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z'],
+                                    ['route' => 'admin.invoices.index', 'pattern' => 'admin.invoices.*', 'label' => 'Donasi', 'icon' => 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z'],
+                                    ['route' => 'admin.users.index', 'pattern' => 'admin.users.*', 'label' => 'Users', 'icon' => 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z'],
+                                    ['route' => 'admin.withdrawals.index', 'pattern' => 'admin.withdrawals.*', 'label' => 'Penarikan', 'icon' => 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'],
+                                    ['route' => 'admin.banks.index', 'pattern' => 'admin.banks.*', 'label' => 'Metode Pembayaran', 'icon' => 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'],
                                 ];
                             @endphp
 
                             @foreach($links as $link)
                                 <a href="{{ route($link['route']) }}"
-                                   class="flex items-center px-3 py-2 text-sm font-medium rounded-lg {{ request()->routeIs($link['route'] . '*') ? 'bg-green-50 text-green-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }} transition">
+                                   class="flex items-center px-3 py-2 text-sm font-medium rounded-lg {{ request()->routeIs($link['pattern']) ? 'bg-green-50 text-green-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }} transition">
                                     <svg class="mr-3 h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="{{ $link['icon'] }}"/>
                                     </svg>
@@ -91,68 +94,15 @@
                             @endforeach
 
                             <div class="pt-4 mt-4 border-t border-gray-200">
-                                <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Pengaturan</p>
-                                <a href="{{ route('dashboard.settings.profile') }}"
-                                   class="flex items-center px-3 py-2 text-sm font-medium rounded-lg {{ request()->routeIs('dashboard.settings.profile') ? 'bg-green-50 text-green-700' : 'text-gray-600 hover:bg-gray-50' }} transition">
-                                    <svg class="mr-3 h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                                    </svg>
-                                    Profil
-                                </a>
-                                <a href="{{ route('profile.edit') }}"
-                                   class="flex items-center px-3 py-2 text-sm font-medium rounded-lg {{ request()->routeIs('profile.edit') ? 'bg-green-50 text-green-700' : 'text-gray-600 hover:bg-gray-50' }} transition">
-                                    <svg class="mr-3 h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-                                    </svg>
-                                    Password
-                                </a>
-                                <a href="{{ route('dashboard.settings.bank') }}"
-                                   class="flex items-center px-3 py-2 text-sm font-medium rounded-lg {{ request()->routeIs('dashboard.settings.bank') ? 'bg-green-50 text-green-700' : 'text-gray-600 hover:bg-gray-50' }} transition">
-                                    <svg class="mr-3 h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-                                    </svg>
-                                    Bank
-                                </a>
-                            </div>
-
-                            @if(auth()->user()->isFundraiser())
-                            <div class="pt-4 mt-4 border-t border-gray-200">
-                                <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Fundraiser</p>
-                                <a href="{{ route('fundraiser.dashboard') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm {{ request()->routeIs('fundraiser.dashboard') ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                                    Dashboard Fundraiser
-                                </a>
-                                <a href="{{ route('fundraiser.commissions') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm {{ request()->routeIs('fundraiser.commissions') ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    Komisi
-                                </a>
-                                <a href="{{ route('fundraiser.transactions') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm {{ request()->routeIs('fundraiser.transactions') ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
-                                    Transaksi
-                                </a>
-                            </div>
-                            @endif
-
-                            @if(auth()->user()->isAdmin())
-                            <div class="pt-4 mt-4 border-t border-gray-200">
-                                <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Admin</p>
+                                <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Konten</p>
                                 @php
-                                    $adminLinks = [
-                                        ['route' => 'admin.dashboard', 'pattern' => 'admin.dashboard', 'label' => 'Overview', 'icon' => 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'],
-                                        ['route' => 'admin.all-campaigns.index', 'pattern' => 'admin.all-campaigns.*', 'label' => 'Semua Campaign', 'icon' => 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10'],
-                                        ['route' => 'admin.categories.index', 'pattern' => 'admin.categories.*', 'label' => 'Kategori', 'icon' => 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z'],
-                                        ['route' => 'admin.users.index', 'pattern' => 'admin.users.*', 'label' => 'Users', 'icon' => 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z'],
-                                        ['route' => 'admin.invoices.index', 'pattern' => 'admin.invoices.*', 'label' => 'Invoices', 'icon' => 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z'],
-                                        ['route' => 'admin.banks.index', 'pattern' => 'admin.banks.*', 'label' => 'Metode Pembayaran', 'icon' => 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'],
+                                    $contentLinks = [
                                         ['route' => 'admin.posts.index', 'pattern' => 'admin.posts.*', 'label' => 'Posts', 'icon' => 'M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z'],
                                         ['route' => 'admin.pages.index', 'pattern' => 'admin.pages.*', 'label' => 'Pages', 'icon' => 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z'],
                                         ['route' => 'admin.slides.index', 'pattern' => 'admin.slides.*', 'label' => 'Slides', 'icon' => 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'],
-                                        ['route' => 'admin.withdrawals.index', 'pattern' => 'admin.withdrawals.*', 'label' => 'Semua Penarikan', 'icon' => 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'],
-                                        ['route' => 'admin.settings.index', 'pattern' => 'admin.settings.*', 'label' => 'Pengaturan Situs', 'icon' => 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z'],
-                                        ['route' => 'admin.verifications.index', 'pattern' => 'admin.verifications.*', 'label' => 'Verifikasi', 'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
                                     ];
                                 @endphp
-                                @foreach($adminLinks as $link)
+                                @foreach($contentLinks as $link)
                                     <a href="{{ route($link['route']) }}"
                                        class="flex items-center px-3 py-2 text-sm font-medium rounded-lg {{ request()->routeIs($link['pattern']) ? 'bg-green-50 text-green-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }} transition">
                                         <svg class="mr-3 h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -162,7 +112,27 @@
                                     </a>
                                 @endforeach
                             </div>
-                            @endif
+
+                            <div class="pt-4 mt-4 border-t border-gray-200">
+                                <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Pengaturan</p>
+                                @php
+                                    $settingsLinks = [
+                                        ['route' => 'admin.settings.index', 'pattern' => 'admin.settings.*', 'label' => 'Pengaturan Situs', 'icon' => 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z'],
+                                        ['route' => 'admin.verifications.index', 'pattern' => 'admin.verifications.*', 'label' => 'Verifikasi', 'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
+                                        ['route' => 'dashboard.settings.profile', 'pattern' => 'dashboard.settings.profile', 'label' => 'Profil', 'icon' => 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'],
+                                        ['route' => 'dashboard.settings.bank', 'pattern' => 'dashboard.settings.bank', 'label' => 'Bank', 'icon' => 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z'],
+                                    ];
+                                @endphp
+                                @foreach($settingsLinks as $link)
+                                    <a href="{{ route($link['route']) }}"
+                                       class="flex items-center px-3 py-2 text-sm font-medium rounded-lg {{ request()->routeIs($link['pattern']) ? 'bg-green-50 text-green-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }} transition">
+                                        <svg class="mr-3 h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="{{ $link['icon'] }}"/>
+                                        </svg>
+                                        {{ $link['label'] }}
+                                    </a>
+                                @endforeach
+                            </div>
                         </nav>
                     </div>
                 </aside>

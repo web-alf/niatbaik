@@ -59,7 +59,7 @@ Route::middleware('auth')->group(function () {
 });
 
 // Admin
-Route::middleware(['auth', 'admin'])->prefix('master')->name('admin.')->group(function () {
+Route::middleware(['auth', 'admin'])->prefix('dashboard/manage')->name('admin.')->group(function () {
     Route::get('/', [Admin\DashboardController::class, 'index'])->name('dashboard');
     Route::resource('campaigns', Admin\CampaignController::class)->except(['create', 'store']);
     Route::resource('users', Admin\UserController::class)->except(['create', 'store', 'destroy']);
@@ -76,6 +76,10 @@ Route::middleware(['auth', 'admin'])->prefix('master')->name('admin.')->group(fu
     Route::post('withdrawals/{withdrawal}/reject', [Admin\WithdrawalController::class, 'reject'])->name('withdrawals.reject');
     Route::get('settings', [Admin\SettingsController::class, 'index'])->name('settings.index');
     Route::put('settings', [Admin\SettingsController::class, 'update'])->name('settings.update');
+    Route::get('verifications', [Admin\VerificationController::class, 'index'])->name('verifications.index');
+    Route::get('verifications/{user}', [Admin\VerificationController::class, 'show'])->name('verifications.show');
+    Route::post('verifications/{user}/approve', [Admin\VerificationController::class, 'approve'])->name('verifications.approve');
+    Route::post('verifications/{user}/reject', [Admin\VerificationController::class, 'reject'])->name('verifications.reject');
 });
 
 // Fundraiser

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" x-data x-bind:class="localStorage.getItem('theme') === 'dark' ? 'dark' : ''" x-init="if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark')">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<script>if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark')</script>
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">

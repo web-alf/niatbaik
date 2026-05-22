@@ -1,118 +1,84 @@
 services:
-  app:
+  api:
     build:
-      context: .
-      dockerfile: docker/Dockerfile
-      target: runtime
+      context: ./backend
+      dockerfile: Dockerfile
     restart: unless-stopped
-    env_file: ./src/.env
-    volumes:
-      - ./src/.env:/var/www/html/.env
-      - app-storage:/var/www/html/storage
-      - app-public:/var/www/html/public
+    env_file: .env.production
+    environment:
+      - APP_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+    volumes:
+      - api-uploads:/app/uploads
     networks:
       - niatbaik
     healthcheck:
-      test: ["CMD-SHELL", "php-fpm -t 2>/dev/null || exit 1"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - niatbaik
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      POSTGRES_USER: ${DB_USER:-niatbaik}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-niatbaik}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - niatbaik
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-niatbaik}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   nginx:
     image: nginx:alpine
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
     volumes:
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - app-public:/var/www/html/public:ro
-      - app-storage:/var/www/html/storage:ro
+      - ./docker/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
-      - app
-    networks:
-      - niatbaik
-
-  mysql:
-    image: mysql:8.4
-    restart: unless-stopped
-    env_file: ./src/.env
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-      MYSQL_DATABASE: ${DB_DATABASE}
-      MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - mysql-data:/var/lib/mysql
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
     networks:
       - niatbaik
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:alpine
-    restart: unless-stopped
-    volumes:
-      - redis-data:/data
-    networks:
-      - niatbaik
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost/api/health"]
+      interval: 30s
       timeout: 5s
       retries: 3
 
-  worker:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-      target: runtime
-    restart: unless-stopped
-    env_file: ./src/.env
-    command: php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
-    volumes:
-      - ./src/.env:/var/www/html/.env
-      - app-storage:/var/www/html/storage
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - niatbaik
-
-  scheduler:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-      target: runtime
-    restart: unless-stopped
-    env_file: ./src/.env
-    command: sh -c "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"
-    volumes:
-      - ./src/.env:/var/www/html/.env
-      - app-storage:/var/www/html/storage
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - niatbaik
+volumes:
+  postgres-data:
+  api-uploads:
 
 networks:
   niatbaik:
     driver: bridge
-
-volumes:
-  mysql-data:
-  redis-data:
-  app-storage:
-  app-public:

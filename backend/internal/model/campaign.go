@@ -1,0 +1,59 @@
+package model
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
+type Campaign struct {
+	ID               uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID           uuid.UUID      `gorm:"type:uuid;not null;index" json:"user_id"`
+	CategoryID       *uuid.UUID     `gorm:"type:uuid;index" json:"category_id"`
+	Title            string         `gorm:"size:255;not null" json:"title"`
+	Slug             string         `gorm:"size:255;uniqueIndex;not null" json:"slug"`
+	ShortDescription string         `gorm:"size:500" json:"short_description"`
+	Description      string         `gorm:"type:text" json:"description"`
+	Target           int64          `gorm:"default:0" json:"target"`
+	TotalRaised      int64          `gorm:"default:0" json:"total_raised"`
+	DurationDays     int            `json:"duration_days"`
+	Unlimited        bool           `gorm:"default:false" json:"unlimited"`
+	Image            string         `gorm:"size:255" json:"image"`
+	Status           string         `gorm:"size:50;default:'Berjalan'" json:"status"`
+	Featured         bool           `gorm:"default:false" json:"featured"`
+	PostedAt         *time.Time     `json:"posted_at"`
+	LastCheckedAt    *time.Time     `json:"last_checked_at"`
+	LocationName     string         `gorm:"size:255" json:"location_name"`
+	LocationGmaps    string         `gorm:"size:500" json:"location_gmaps"`
+	FormType         string         `gorm:"size:50;default:'donasi'" json:"form_type"`
+	AllocationTitle  string         `gorm:"size:255" json:"allocation_title"`
+	OptNominal       string         `gorm:"type:text" json:"opt_nominal"`          // JSON string
+	ButtonColor      string         `gorm:"size:20" json:"button_color"`
+	Socialproof      bool           `gorm:"default:false" json:"socialproof"`
+	FundraiserSetting bool          `gorm:"default:false" json:"fundraiser_setting"`
+
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+
+	// Relationships
+	User        User             `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"user,omitempty"`
+	Category    *Category        `gorm:"foreignKey:CategoryID;constraint:OnDelete:SET NULL" json:"category,omitempty"`
+	Invoices    []Invoice        `gorm:"foreignKey:CampaignID" json:"invoices,omitempty"`
+	Updates     []CampaignUpdate `gorm:"foreignKey:CampaignID" json:"updates,omitempty"`
+	Funds       []CampaignFund   `gorm:"foreignKey:CampaignID" json:"funds,omitempty"`
+	Fundraisers []Fundraiser     `gorm:"foreignKey:CampaignID" json:"fundraisers,omitempty"`
+	Loves       []Love           `gorm:"foreignKey:CampaignID" json:"loves,omitempty"`
+}
+
+func (c *Campaign) ProgressPercentage() float64 {
+	if c.Target <= 0 {
+		return 0
+	}
+	pct := float64(c.TotalRaised) / float64(c.Target) * 100
+	if pct > 100 {
+		return 100
+	}
+	return pct
+}

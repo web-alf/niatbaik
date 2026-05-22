@@ -1,0 +1,162 @@
+package handler
+
+import (
+	"errors"
+	"net/http"
+	"time"
+
+	"github.com/anrdart/niatbaik-api/internal/dto/request"
+	"github.com/anrdart/niatbaik-api/internal/dto/response"
+	"github.com/anrdart/niatbaik-api/internal/model"
+	"github.com/anrdart/niatbaik-api/internal/service"
+	"github.com/anrdart/niatbaik-api/pkg/pagination"
+	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
+)
+
+type InvoiceHandler struct {
+	db             *gorm.DB
+	paymentService *service.PaymentService
+}
+
+func NewInvoiceHandler(db *gorm.DB, paymentService *service.PaymentService) *InvoiceHandler {
+	return &InvoiceHandler{db: db, paymentService: paymentService}
+}
+
+func (h *InvoiceHandler) List(c echo.Context) error {
+	params := pagination.GetPaginationParams(c)
+
+	query := h.db.Model(&model.Invoice{})
+
+	// Filter by status
+	if status := c.QueryParam("status"); status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	// Filter by payment method
+	if method := c.QueryParam("payment_method"); method != "" {
+		query = query.Where("payment_method_name = ?", method)
+	}
+
+	// Filter by date range
+	if from := c.QueryParam("from"); from != "" {
+		if t, err := time.Parse("2006-01-02", from); err == nil {
+			query = query.Where("created_at >= ?", t)
+		}
+	}
+	if to := c.QueryParam("to"); to != "" {
+		if t, err := time.Parse("2006-01-02", to); err == nil {
+			query = query.Where("created_at < ?", t.AddDate(0, 0, 1))
+		}
+	}
+
+	// Search by donor name or invoice number
+	if search := c.QueryParam("search"); search != "" {
+		like := "%" + search + "%"
+		query = query.Where("donor_name ILIKE ? OR invoice_number ILIKE ?", like, like)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to count invoices"))
+	}
+
+	var invoices []model.Invoice
+	err := pagination.ApplyPagination(query, params).
+		Preload("Campaign").
+		Preload("PaymentMethod").
+		Find(&invoices).Error
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch invoices"))
+	}
+
+	p := pagination.Paginate(params, total)
+	return c.JSON(http.StatusOK, response.PaginatedResponse(invoices, p))
+}
+
+func (h *InvoiceHandler) GetDetail(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid invoice id"))
+	}
+
+	var invoice model.Invoice
+	err = h.db.Preload("Campaign").
+		Preload("PaymentMethod").
+		Preload("User").
+		Preload("Donations").
+		First(&invoice, "id = ?", id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.JSON(http.StatusNotFound, response.ErrorResponse("invoice not found"))
+		}
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch invoice"))
+	}
+
+	return c.JSON(http.StatusOK, response.SuccessResponse(invoice, "success"))
+}
+
+func (h *InvoiceHandler) UpdateStatus(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid invoice id"))
+	}
+
+	var req request.UpdateInvoiceStatusRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
+	}
+	if err := c.Validate(req); err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))
+	}
+
+	var invoice model.Invoice
+	if err := h.db.First(&invoice, "id = ?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.JSON(http.StatusNotFound, response.ErrorResponse("invoice not found"))
+		}
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch invoice"))
+	}
+
+	updates := map[string]interface{}{
+		"status": req.Status,
+	}
+	if req.Status == "Sukses" || req.Status == "Terbayar" {
+		now := time.Now()
+		updates["is_paid"] = true
+		updates["paid_at"] = &now
+	}
+
+	if err := h.db.Model(&invoice).Updates(updates).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to update status"))
+	}
+
+	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "invoice status updated"))
+}
+
+func (h *InvoiceHandler) AddNote(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid invoice id"))
+	}
+
+	var req request.AddInvoiceNoteRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
+	}
+	if err := c.Validate(req); err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))
+	}
+
+	result := h.db.Model(&model.Invoice{}).Where("id = ?", id).
+		Update("gateway_info", req.Note)
+	if result.Error != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to add note"))
+	}
+	if result.RowsAffected == 0 {
+		return c.JSON(http.StatusNotFound, response.ErrorResponse("invoice not found"))
+	}
+
+	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "note added"))
+}

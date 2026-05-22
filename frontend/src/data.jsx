@@ -238,3 +238,18 @@ async function loadApiData() {
 }
 
 window.loadApiData = loadApiData;
+
+// Admin/CS data loader — fetch transactions, notifications, fundraisers for panel pages
+async function loadAdminData() {
+  try {
+    const [txRes, notifRes, fundraiserRes] = await Promise.all([
+      api.recentTransactions(48),
+      api.notifications(),
+      api.fundraisers(),
+    ]);
+    if (txRes?.data) window.TRANSACTIONS = txRes.data;
+    if (notifRes?.data) window.NOTIFICATIONS = notifRes.data;
+    if (fundraiserRes?.data) window.FUNDRAISERS = fundraiserRes.data;
+  } catch(e) { console.log('Admin data fallback:', e); }
+}
+window.loadAdminData = loadAdminData;

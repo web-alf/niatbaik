@@ -30,18 +30,20 @@ function PublicNav({ onAdmin }){
 
 // Landing page — conversion-optimized
 function LandingPage(){
-  const { navigate, openCampaign, setRole } = useApp();
+  const { navigate, openCampaign } = useApp();
   const featured = CAMPAIGNS.slice(0,6);
+  const [publicStats, setPublicStats] = uS_pub(null);
+  uE_pub(()=>{ api.publicStats().then(r => r?.data && setPublicStats(r.data)).catch(()=>{}); }, []);
   const stats = [
-    { v:'Rp48,7 M', l:'Total tersalurkan' },
-    { v:'120.430', l:'Donatur aktif' },
-    { v:'247', l:'Campaign sukses' },
-    { v:'58', l:'Kota terdampak' },
+    { v: publicStats?.total_distributed || 'Rp48,7 M', l:'Total tersalurkan' },
+    { v: publicStats?.active_donors || '120.430', l:'Donatur aktif' },
+    { v: publicStats?.successful_campaigns || '247', l:'Campaign sukses' },
+    { v: publicStats?.cities_reached || '58', l:'Kota terdampak' },
   ];
 
   return (
     <div className="min-h-screen bg-white text-ink">
-      <PublicNav onAdmin={()=>{ setRole('Admin'); navigate('dashboard'); }}/>
+      <PublicNav onAdmin={()=>{ navigate('dashboard'); }}/>
 
       {/* HERO */}
       <section className="relative overflow-hidden">
@@ -279,10 +281,10 @@ function CampaignDetail({ id, onBack }){
   const pct = Math.min(100, Math.round(c.raised/c.target*100));
   const [tab, setTab] = uS_pub('cerita');
   const [donate, setDonate] = uS_pub(false);
-  const { navigate, setRole } = useApp();
+  const { navigate } = useApp();
   return (
     <div className="min-h-screen bg-bg2">
-      <PublicNav onAdmin={()=>{ setRole('Admin'); navigate('dashboard'); }}/>
+      <PublicNav onAdmin={()=>{ navigate('dashboard'); }}/>
 
       <div className="max-w-7xl mx-auto px-4 lg:px-6 pt-6">
         <button onClick={onBack} className="inline-flex items-center gap-2 text-sm text-muted hover:text-brand-700 mb-4"><Icons.ChevronLeft w={16} h={16}/> Kembali ke beranda</button>
@@ -468,8 +470,15 @@ function DonationModal({ open, onClose, campaign }){
   const [method, setMethod] = uS_pub('QRIS');
   const [anon, setAnon] = uS_pub(false);
   const [success, setSuccess] = uS_pub(false);
+  const [name, setName] = uS_pub('');
+  const [phone, setPhone] = uS_pub('');
+  const [email, setEmail] = uS_pub('');
+  const [prayer, setPrayer] = uS_pub('');
+  const [loading, setLoading] = uS_pub(false);
+  const [error, setError] = uS_pub('');
+  const [invoice, setInvoice] = uS_pub('');
 
-  const reset = () => { setStep(1); setAmount(100000); setCustom(false); setMethod('QRIS'); setAnon(false); setSuccess(false); };
+  const reset = () => { setStep(1); setAmount(100000); setCustom(false); setMethod('QRIS'); setAnon(false); setSuccess(false); setName(''); setPhone(''); setEmail(''); setPrayer(''); setLoading(false); setError(''); setInvoice(''); };
 
   return (
     <Modal open={open} onClose={()=>{ onClose(); setTimeout(reset, 300); }} maxW="max-w-xl">
@@ -494,7 +503,7 @@ function DonationModal({ open, onClose, campaign }){
             <p className="text-muted mt-1 text-sm">Donasi <span className="font-semibold text-ink tnum">{fmtIDR(amount)}</span> via <span className="font-semibold">{method}</span> sedang diproses. Bukti transaksi telah dikirim ke email & WhatsApp.</p>
             <div className="mt-5 bg-bg2 rounded-2xl p-4 text-left">
               <div className="text-xs text-muted">Kode Invoice</div>
-              <div className="font-mono font-bold text-brand-700">INV-2026100{Math.floor(Math.random()*900+100)}</div>
+              <div className="font-mono font-bold text-brand-700">{invoice || 'INV-...'}</div>
             </div>
             <Button variant="primary" size="lg" full className="mt-5" onClick={()=>{ onClose(); setTimeout(reset,300); }}>Selesai</Button>
           </div>
@@ -517,23 +526,27 @@ function DonationModal({ open, onClose, campaign }){
               <div className="flex justify-between mt-1.5"><span className="text-muted">Biaya admin</span><span className="text-emerald-600 font-semibold">Gratis</span></div>
               <div className="border-t border-line mt-3 pt-3 flex justify-between"><span className="font-semibold">Total</span><span className="font-extrabold text-brand-700 tnum">{fmtIDR(amount)}</span></div>
             </div>
-            <Button variant="primary" size="lg" full className="mt-5" onClick={()=>setStep(2)} iconRight={<Icons.ArrowRight w={16} h={16}/>}>Lanjut</Button>
+            {error && <div className="mt-2 text-sm text-rose-600 font-medium">{error}</div>}
+            <Button variant="primary" size="lg" full className="mt-5" onClick={()=>{
+              if (amount < 10000) { setError('Minimum donasi Rp10.000'); return; }
+              setError(''); setStep(2);
+            }} iconRight={<Icons.ArrowRight w={16} h={16}/>}>Lanjut</Button>
           </div>
         ) : step===2 ? (
           <div className="space-y-4">
             <Field label="Nama lengkap" required>
-              <Input placeholder="Nama Anda" defaultValue="Ahmad Fauzi"/>
+              <Input placeholder="Nama Anda" value={name} onChange={e=>setName(e.target.value)}/>
             </Field>
             <div className="grid sm:grid-cols-2 gap-4">
               <Field label="No. WhatsApp" required>
-                <Input placeholder="08xx" icon={<Icons.Whatsapp w={16} h={16}/>} defaultValue="0812 3456 7890"/>
+                <Input placeholder="08xx" icon={<Icons.Whatsapp w={16} h={16}/>} value={phone} onChange={e=>setPhone(e.target.value)}/>
               </Field>
               <Field label="Email">
-                <Input placeholder="email@contoh.com" icon={<Icons.Mail w={16} h={16}/>} defaultValue="ahmad@gmail.com"/>
+                <Input placeholder="email@contoh.com" icon={<Icons.Mail w={16} h={16}/>} value={email} onChange={e=>setEmail(e.target.value)}/>
               </Field>
             </div>
             <Field label="Doa / pesan untuk penerima manfaat (opsional)">
-              <textarea rows="3" className="w-full px-3.5 py-3 rounded-xl bg-white border border-line focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400 text-sm" placeholder="Semoga bermanfaat dan barokah…"/>
+              <textarea rows="3" className="w-full px-3.5 py-3 rounded-xl bg-white border border-line focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400 text-sm" placeholder="Semoga bermanfaat dan barokah…" value={prayer} onChange={e=>setPrayer(e.target.value)}/>
             </Field>
             <label className="flex items-center gap-2 select-none">
               <input type="checkbox" checked={anon} onChange={e=>setAnon(e.target.checked)} className="w-4 h-4 rounded border-line text-brand-600 focus:ring-brand-300"/>
@@ -541,8 +554,13 @@ function DonationModal({ open, onClose, campaign }){
             </label>
             <div className="flex gap-2">
               <Button variant="secondary" size="lg" onClick={()=>setStep(1)}>Kembali</Button>
-              <Button variant="primary" size="lg" full onClick={()=>setStep(3)} iconRight={<Icons.ArrowRight w={16} h={16}/>}>Lanjut</Button>
+              <Button variant="primary" size="lg" full onClick={()=>{
+                if (!name.trim()) { setError('Nama wajib diisi'); return; }
+                if (!phone.trim()) { setError('No. WhatsApp wajib diisi'); return; }
+                setError(''); setStep(3);
+              }} iconRight={<Icons.ArrowRight w={16} h={16}/>}>Lanjut</Button>
             </div>
+            {error && <div className="text-sm text-rose-600 font-medium">{error}</div>}
           </div>
         ) : (
           <div>
@@ -575,21 +593,29 @@ function DonationModal({ open, onClose, campaign }){
             </div>
             <div className="mt-4 flex gap-2">
               <Button variant="secondary" size="lg" onClick={()=>setStep(2)}>Kembali</Button>
-              <Button variant="primary" size="lg" full onClick={async ()=>{
+              <Button variant="primary" size="lg" full disabled={loading} onClick={async ()=>{
+  setLoading(true); setError('');
   try {
     const res = await api.createDonation({
       campaign_slug: campaign?.slug || campaign?.id,
-      donor_name: 'Ahmad Fauzi',
-      donor_phone: '08123456789',
-      donor_email: 'ahmad@gmail.com',
+      donor_name: name,
+      donor_phone: phone,
+      donor_email: email,
       amount: amount,
-      message: '',
+      message: prayer,
       is_anonymous: anon,
+      payment_method: method,
     });
-    if (res?.data) console.log('Donation created:', res.data.invoice_number);
-  } catch(e) { console.log('API donation failed, showing success anyway'); }
-  setSuccess(true);
-}} icon={<Icons.Heart w={16} h={16}/>}>Bayar {fmtShort(amount)}</Button>
+    if (res?.data) {
+      setInvoice(res.data.invoice_number || '');
+      setSuccess(true);
+    } else {
+      setError(res?.message || 'Gagal memproses donasi');
+    }
+  } catch(e) { setError('Error: ' + (e.message || 'Gagal memproses donasi')); }
+  setLoading(false);
+}} icon={<Icons.Heart w={16} h={16}/>}>{loading ? 'Memproses…' : 'Bayar ' + fmtShort(amount)}</Button>
+              {error && <div className="mt-2 text-sm text-rose-600 font-medium">{error}</div>}
             </div>
           </div>
         )}

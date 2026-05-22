@@ -8,7 +8,6 @@ function useTweaks(defaults) {
 const { useState: uS_a, useEffect: uE_a, useMemo: uM_a } = React;
 
 const TWEAK_DEFAULTS = {
-  "role": "Admin",
   "dark": false,
   "primary": "#2E4191",
   "density": "comfortable",
@@ -22,14 +21,47 @@ function App(){
   const [invoice, setInvoice] = uS_a(null);
   const [toast, setToast] = uS_a(null);
   const [showTweaks, setShowTweaks] = uS_a(false);
+  const [user, setUser] = uS_a(null);
+  const [authLoading, setAuthLoading] = uS_a(true);
 
-  const role = tweaks.role || 'Admin';
-  const setRole = (r) => {
-    setTweak('role', r);
-    if (route !== 'landing' && route !== 'campaign-detail'){
-      const next = NAV_BY_ROLE[r][0];
-      setRoute(next);
+  const role = user?.role || 'Admin';
+
+  // Check token on mount
+  uE_a(() => {
+    const token = api.getToken();
+    if (token) {
+      api.me().then(res => {
+        if (res?.success && res?.data) {
+          setUser(res.data);
+        } else {
+          api.clearToken();
+        }
+      }).catch(() => {
+        api.clearToken();
+      }).finally(() => setAuthLoading(false));
+    } else {
+      setAuthLoading(false);
     }
+  }, []);
+
+  // Landing nav helper for login page
+  uE_a(() => {
+    window.__nbNavigateLanding = () => { setRoute('landing'); window.scrollTo({top:0,behavior:'instant'}); };
+    return () => { delete window.__nbNavigateLanding; };
+  }, []);
+
+  const handleLogin = (userData) => {
+    setUser(userData);
+    const defaultRoute = NAV_BY_ROLE[userData.role]?.[0] || 'dashboard';
+    setRoute(defaultRoute);
+    window.scrollTo({top:0,behavior:'instant'});
+  };
+
+  const handleLogout = () => {
+    api.logout();
+    setUser(null);
+    setRoute('landing');
+    window.scrollTo({top:0,behavior:'instant'});
   };
 
   uE_a(()=>{
@@ -93,7 +125,30 @@ function App(){
   const openCampaign = (id) => { setCampaignId(id); setRoute('campaign-detail'); window.scrollTo({top:0,behavior:'instant'}); };
   const openInvoice = (tx) => setInvoice(tx);
 
-  const ctx = { role, setRole, route, navigate, openCampaign, campaignId, tweaks, setTweak, openInvoice };
+  const ctx = { role, route, navigate, openCampaign, campaignId, tweaks, setTweak, openInvoice, user, setUser, logout: handleLogout };
+
+  // Show loading spinner during auth check
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-bg2 dark:bg-slate-950">
+        <div className="text-center">
+          <Logo size={36} />
+          <div className="mt-4 text-sm text-muted">Memuat...</div>
+        </div>
+      </div>
+    );
+  }
+
+  const isPublicRoute = route === 'landing' || route === 'campaign-detail';
+
+  // Not logged in + trying to access admin route → show login
+  if (!user && !isPublicRoute) {
+    return (
+      <AppCtx.Provider value={ctx}>
+        <LoginPage onLogin={handleLogin} />
+      </AppCtx.Provider>
+    );
+  }
 
   return (
     <AppCtx.Provider value={ctx}>
@@ -102,7 +157,7 @@ function App(){
       <Toast toast={toast} onClose={()=>setToast(null)}/>
       <RouteBar/>
       <SettingsFloatBtn show={showTweaks} onToggle={()=>setShowTweaks(!showTweaks)}/>
-      {showTweaks && <SettingsFloat tweaks={tweaks} setTweak={setTweak} role={role} setRole={setRole} navigate={navigate} openCampaign={openCampaign} openInvoice={openInvoice} onClose={()=>setShowTweaks(false)}/>}
+      {showTweaks && <SettingsFloat tweaks={tweaks} setTweak={setTweak} navigate={navigate} openCampaign={openCampaign} openInvoice={openInvoice} onClose={()=>setShowTweaks(false)}/>}
     </AppCtx.Provider>
   );
 }
@@ -115,21 +170,13 @@ function SettingsFloatBtn({ show, onToggle }){
   );
 }
 
-function SettingsFloat({ tweaks, setTweak, role, setRole, navigate, openCampaign, openInvoice, onClose }){
+function SettingsFloat({ tweaks, setTweak, navigate, openCampaign, openInvoice, onClose }){
+  const { user } = useApp();
   return (
     <div className="fixed right-4 bottom-20 z-[59] w-[280px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-pop border border-line p-4 space-y-4 fadeup">
       <div className="flex items-center justify-between">
         <div className="font-bold text-sm text-ink dark:text-slate-100">Pengaturan</div>
         <button onClick={onClose} className="text-slate-400 hover:text-ink"><Icons.X w={16} h={16}/></button>
-      </div>
-
-      <div>
-        <div className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Role</div>
-        <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-0.5">
-          {['Admin','CS','Advertiser'].map(r=>(
-            <button key={r} onClick={()=>setRole(r)} className={`flex-1 px-2 h-8 rounded-lg text-xs font-semibold transition ${role===r?'bg-white dark:bg-slate-700 shadow-sm text-ink dark:text-white':'text-muted'}`}>{r}</button>
-          ))}
-        </div>
       </div>
 
       <div>
@@ -168,8 +215,8 @@ function SettingsFloat({ tweaks, setTweak, role, setRole, navigate, openCampaign
         <div className="space-y-1">
           <button onClick={()=>{navigate('landing');onClose();}} className="w-full text-left text-xs px-2 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-brand-600 font-medium">→ Landing page</button>
           <button onClick={()=>{openCampaign(CAMPAIGNS[0].id);onClose();}} className="w-full text-left text-xs px-2 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-brand-600 font-medium">→ Campaign detail</button>
-          <button onClick={()=>{navigate('dashboard');onClose();}} className="w-full text-left text-xs px-2 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-brand-600 font-medium">→ Admin dashboard</button>
-          <button onClick={()=>{openInvoice(TRANSACTIONS[0]);onClose();}} className="w-full text-left text-xs px-2 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-brand-600 font-medium">→ Modal invoice</button>
+          {user && <button onClick={()=>{navigate('dashboard');onClose();}} className="w-full text-left text-xs px-2 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-brand-600 font-medium">→ Admin dashboard</button>}
+          {user && <button onClick={()=>{openInvoice(TRANSACTIONS[0]);onClose();}} className="w-full text-left text-xs px-2 h-7 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-brand-600 font-medium">→ Modal invoice</button>}
         </div>
       </div>
     </div>
@@ -177,16 +224,22 @@ function SettingsFloat({ tweaks, setTweak, role, setRole, navigate, openCampaign
 }
 
 function RouteBar(){
-  const { route, navigate, role } = useApp();
+  const { route, navigate, role, user } = useApp();
   const isPublic = route==='landing' || route==='campaign-detail';
   if (!isPublic) return null;
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[55]">
       <div className="bg-white/95 backdrop-blur rounded-full shadow-pop border border-line px-1.5 py-1 flex items-center gap-1 text-xs">
         <span className="px-2 text-muted">Anda di halaman publik</span>
-        <button onClick={()=>navigate(NAV_BY_ROLE[role][0])} className="inline-flex items-center gap-1 px-3 h-7 rounded-full bg-brand-600 text-white font-semibold">
-          Masuk Admin <Icons.ArrowRight w={12} h={12}/>
-        </button>
+        {user ? (
+          <button onClick={()=>navigate(NAV_BY_ROLE[role][0])} className="inline-flex items-center gap-1 px-3 h-7 rounded-full bg-brand-600 text-white font-semibold">
+            Dashboard <Icons.ArrowRight w={12} h={12}/>
+          </button>
+        ) : (
+          <button onClick={()=>navigate('dashboard')} className="inline-flex items-center gap-1 px-3 h-7 rounded-full bg-brand-600 text-white font-semibold">
+            Masuk <Icons.ArrowRight w={12} h={12}/>
+          </button>
+        )}
       </div>
     </div>
   );

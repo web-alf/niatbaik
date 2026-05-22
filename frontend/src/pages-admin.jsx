@@ -1,17 +1,27 @@
 // Admin pages: Dashboard, Campaigns, Analytics
-const { useState: uS_adm } = React;
+const { useState: uS_adm, useEffect: uE_adm } = React;
 
 // ====================== Admin Dashboard ======================
 function AdminDashboard(){
+  const [apiStats, setApiStats] = uS_adm(null);
+  const [dailyData, setDailyData] = uS_adm(DAILY);
+  const [recentTx, setRecentTx] = uS_adm(TRANSACTIONS.slice(0,8));
+
+  uE_adm(()=>{
+    api.dashboardStats().then(r => r?.data && setApiStats(r.data));
+    api.dailyChart(30).then(r => { if(r?.data) setDailyData(r.data.map(d=>({date:new Date(d.date),amount:d.amount,count:d.count}))); });
+    api.recentTransactions(8).then(r => { if(r?.data) setRecentTx(r.data); });
+  },[]);
+
   const stats = [
-    { l:'Total Donasi', v:fmtShort(TOTAL_RAISED), s:'Sepanjang waktu', tone:'brand', i:<Icons.Heart w={20} h={20}/>, t:{up:true,value:'+12.4%'} },
-    { l:'Total Transaksi', v:fmtNum(TOTAL_TX), s:'Sepanjang waktu', tone:'cyan', i:<Icons.Wallet w={20} h={20}/>, t:{up:true,value:'+8.1%'} },
-    { l:'Campaign Aktif', v:ACTIVE_CAMPAIGNS+' / '+CAMPAIGNS.length, s:'Running sekarang', tone:'green', i:<Icons.Megaphone w={20} h={20}/> },
-    { l:'Total Fundraiser', v:fmtNum(TOTAL_FUNDRAISER), s:'24 aktif minggu ini', tone:'amber', i:<Icons.Users w={20} h={20}/> },
-    { l:'Total Leads Iklan', v:fmtNum(TOTAL_LEADS), s:'30 hari terakhir', tone:'cyan', i:<Icons.Sparkles w={20} h={20}/>, t:{up:true,value:'+24.6%'} },
-    { l:'Conversion Rate', v:CONV_RATE+'%', s:'Visitor → Donatur', tone:'green', i:<Icons.Chart w={20} h={20}/>, t:{up:true,value:'+0.4%'} },
-    { l:'Donasi Hari Ini', v:fmtShort(TODAY_RAISED), s:'Update real-time', tone:'brand', i:<Icons.Sun w={20} h={20}/>, t:{up:true,value:'+18%'} },
-    { l:'Donasi Bulan Ini', v:fmtShort(MONTH_RAISED), s:'November 2026', tone:'cyan', i:<Icons.Calendar w={20} h={20}/>, t:{up:false,value:'-2.1%'} },
+    { l:'Total Donasi', v:fmtShort(apiStats?.total_raised || TOTAL_RAISED), s:'Sepanjang waktu', tone:'brand', i:<Icons.Heart w={20} h={20}/>, t:{up:true,value:apiStats?.total_raised_trend || '+12.4%'} },
+    { l:'Total Transaksi', v:fmtNum(apiStats?.total_tx || TOTAL_TX), s:'Sepanjang waktu', tone:'cyan', i:<Icons.Wallet w={20} h={20}/>, t:{up:true,value:apiStats?.total_tx_trend || '+8.1%'} },
+    { l:'Campaign Aktif', v:(apiStats?.active_campaigns || ACTIVE_CAMPAIGNS)+' / '+(apiStats?.total_campaigns || CAMPAIGNS.length), s:'Running sekarang', tone:'green', i:<Icons.Megaphone w={20} h={20}/> },
+    { l:'Total Fundraiser', v:fmtNum(apiStats?.total_fundraiser || TOTAL_FUNDRAISER), s:'24 aktif minggu ini', tone:'amber', i:<Icons.Users w={20} h={20}/> },
+    { l:'Total Leads Iklan', v:fmtNum(apiStats?.total_leads || TOTAL_LEADS), s:'30 hari terakhir', tone:'cyan', i:<Icons.Sparkles w={20} h={20}/>, t:{up:true,value:apiStats?.leads_trend || '+24.6%'} },
+    { l:'Conversion Rate', v:(apiStats?.conv_rate || CONV_RATE)+'%', s:'Visitor → Donatur', tone:'green', i:<Icons.Chart w={20} h={20}/>, t:{up:true,value:apiStats?.conv_rate_trend || '+0.4%'} },
+    { l:'Donasi Hari Ini', v:fmtShort(apiStats?.today_raised || TODAY_RAISED), s:'Update real-time', tone:'brand', i:<Icons.Sun w={20} h={20}/>, t:{up:true,value:apiStats?.today_trend || '+18%'} },
+    { l:'Donasi Bulan Ini', v:fmtShort(apiStats?.month_raised || MONTH_RAISED), s:'November 2026', tone:'cyan', i:<Icons.Calendar w={20} h={20}/>, t:{up:false,value:apiStats?.month_trend || '-2.1%'} },
   ];
   return (
     <div className="space-y-6">
@@ -49,7 +59,7 @@ function AdminDashboard(){
             </div>
           </div>
           <div className="text-slate-700 dark:text-slate-300">
-            <LineChart data={DAILY} height={220}/>
+            <LineChart data={dailyData} height={220}/>
           </div>
         </Card>
 
@@ -68,7 +78,7 @@ function AdminDashboard(){
               { value: 18, color: '#0e83c8' },
               { value: 12, color: '#1aa1ee' },
               { value: 8, color: '#94a3b8' },
-            ]} center={<><div className="text-2xl font-extrabold tnum text-ink dark:text-slate-100">{fmtShort(TOTAL_RAISED)}</div><div className="text-xs text-muted">Total</div></>}/>
+            ]} center={<><div className="text-2xl font-extrabold tnum text-ink dark:text-slate-100">{fmtShort(apiStats?.total_raised || TOTAL_RAISED)}</div><div className="text-xs text-muted">Total</div></>}/>
           </div>
           <div className="mt-2 space-y-1.5 text-sm">
             {[
@@ -96,7 +106,7 @@ function AdminDashboard(){
             <button className="text-xs text-brand-600 font-medium">Lihat semua</button>
           </div>
         </div>
-        <TxTable rows={TRANSACTIONS.slice(0,8)}/>
+        <TxTable rows={recentTx}/>
       </Card>
 
       {/* Top campaigns */}
@@ -210,14 +220,29 @@ function CampaignsPage(){
   const [view, setView] = uS_adm('grid');
   const [filter, setFilter] = uS_adm('all');
   const [search, setSearch] = uS_adm('');
-  const filtered = CAMPAIGNS.filter(c=>(filter==='all'||c.status.toLowerCase()===filter) && c.title.toLowerCase().includes(search.toLowerCase()));
+  const [campaigns, setCampaigns] = uS_adm(CAMPAIGNS);
+  const activeCampaigns = campaigns.filter(c=>c.status==='Running'||c.status==='Berjalan').length;
+
+  uE_adm(()=>{
+    api.adminCampaigns().then(r => {
+      if(r?.data && r.data.length > 0) setCampaigns(r.data.map(c=>({
+        id: c.id, slug: c.slug, title: c.title, target: c.target,
+        raised: c.total_raised || 0, donors: c.donor_count || 0,
+        days: c.days_left || 0, status: c.status,
+        category: c.category || '', description: c.short_description || c.description || '',
+        img: c.image ? '/uploads/' + c.image : placeholderImg(0, c.title?.substring(0,12) || 'CAMPAIGN'),
+      })));
+    });
+  },[]);
+
+  const filtered = campaigns.filter(c=>(filter==='all'||c.status.toLowerCase()===filter) && c.title.toLowerCase().includes(search.toLowerCase()));
   const { openCampaign } = useApp();
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="Campaigns"
-        subtitle={`${CAMPAIGNS.length} campaign · ${ACTIVE_CAMPAIGNS} sedang berjalan`}
+        subtitle={`${campaigns.length} campaign · ${activeCampaigns} sedang berjalan`}
         actions={<>
           <Button variant="secondary" icon={<Icons.Download w={16} h={16}/>}>Export</Button>
           <Button variant="primary" icon={<Icons.Plus w={16} h={16}/>}>Buat Campaign</Button>
@@ -331,6 +356,20 @@ function CampaignAdminCard({ c, onOpen }){
 // ====================== Analytics ======================
 function AnalyticsPage(){
   const [platform, setPlatform] = uS_adm('all');
+  const [overview, setOverview] = uS_adm(null);
+  const [trafficSources, setTrafficSources] = uS_adm(TRAFFIC_SOURCES);
+  const [chartData, setChartData] = uS_adm(DAILY);
+  const [campaignPerf, setCampaignPerf] = uS_adm(null);
+  const [utmData, setUtmData] = uS_adm(null);
+
+  uE_adm(()=>{
+    api.analyticsOverview().then(r => r?.data && setOverview(r.data));
+    api.analyticsTraffic().then(r => { if(r?.data && r.data.length > 0) setTrafficSources(r.data); });
+    api.analyticsCampaigns().then(r => r?.data && setCampaignPerf(r.data));
+    api.analyticsUTM().then(r => r?.data && setUtmData(r.data));
+    api.dailyChart(30).then(r => { if(r?.data) setChartData(r.data.map(d=>({date:new Date(d.date),amount:d.amount,count:d.count}))); });
+  },[]);
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -362,14 +401,14 @@ function AnalyticsPage(){
 
       {/* KPIs */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat label="Visitor" value="314.700" sub="30 hari" tone="brand" icon={<Icons.Eye w={20} h={20}/>} trend={{up:true,value:'+14.2%'}}/>
-        <Stat label="Leads" value="11.180" sub="Form view" tone="cyan" icon={<Icons.Sparkles w={20} h={20}/>} trend={{up:true,value:'+8.6%'}}/>
-        <Stat label="Donation" value="4.920" sub="Tx sukses" tone="green" icon={<Icons.Heart w={20} h={20}/>} trend={{up:true,value:'+22.1%'}}/>
-        <Stat label="Conv. Rate" value="4.7%" sub="Visitor → Donatur" tone="amber" icon={<Icons.Chart w={20} h={20}/>} trend={{up:true,value:'+0.6%'}}/>
-        <Stat label="Cost / Lead" value="Rp4.870" sub="CPL rata-rata" tone="cyan" icon={<Icons.Wallet w={20} h={20}/>}/>
-        <Stat label="Cost / Donation" value="Rp17.500" sub="CPA rata-rata" tone="amber" icon={<Icons.Wallet w={20} h={20}/>}/>
-        <Stat label="Revenue / Campaign" value={fmtShort(348_500_000)} sub="Rata-rata" tone="brand" icon={<Icons.Star w={20} h={20}/>}/>
-        <Stat label="ROAS Estimasi" value="4.8×" sub="Return on ad spend" tone="green" icon={<Icons.Chart w={20} h={20}/>} trend={{up:true,value:'+0.3×'}}/>
+        <Stat label="Visitor" value={overview?.visitors || '314.700'} sub="30 hari" tone="brand" icon={<Icons.Eye w={20} h={20}/>} trend={{up:true,value:overview?.visitors_trend || '+14.2%'}}/>
+        <Stat label="Leads" value={overview?.leads || '11.180'} sub="Form view" tone="cyan" icon={<Icons.Sparkles w={20} h={20}/>} trend={{up:true,value:overview?.leads_trend || '+8.6%'}}/>
+        <Stat label="Donation" value={overview?.donations || '4.920'} sub="Tx sukses" tone="green" icon={<Icons.Heart w={20} h={20}/>} trend={{up:true,value:overview?.donations_trend || '+22.1%'}}/>
+        <Stat label="Conv. Rate" value={overview?.conv_rate || '4.7%'} sub="Visitor → Donatur" tone="amber" icon={<Icons.Chart w={20} h={20}/>} trend={{up:true,value:overview?.conv_rate_trend || '+0.6%'}}/>
+        <Stat label="Cost / Lead" value={overview?.cpl || 'Rp4.870'} sub="CPL rata-rata" tone="cyan" icon={<Icons.Wallet w={20} h={20}/>}/>
+        <Stat label="Cost / Donation" value={overview?.cpa || 'Rp17.500'} sub="CPA rata-rata" tone="amber" icon={<Icons.Wallet w={20} h={20}/>}/>
+        <Stat label="Revenue / Campaign" value={overview?.rev_per_campaign ? fmtShort(overview.rev_per_campaign) : fmtShort(348_500_000)} sub="Rata-rata" tone="brand" icon={<Icons.Star w={20} h={20}/>}/>
+        <Stat label="ROAS Estimasi" value={overview?.roas || '4.8×'} sub="Return on ad spend" tone="green" icon={<Icons.Chart w={20} h={20}/>} trend={{up:true,value:overview?.roas_trend || '+0.3×'}}/>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
@@ -386,7 +425,7 @@ function AnalyticsPage(){
             </div>
           </div>
           <div className="text-slate-700 dark:text-slate-300">
-            <LineChart data={DAILY} height={220}/>
+            <LineChart data={chartData} height={220}/>
           </div>
         </Card>
 
@@ -394,10 +433,10 @@ function AnalyticsPage(){
         <Card>
           <div className="font-bold text-ink dark:text-slate-100 mb-2">Sumber Traffic</div>
           <div className="flex items-center justify-center my-2">
-            <Donut size={170} thickness={26} segments={TRAFFIC_SOURCES.map(s=>({value:s.visits, color:s.color}))} center={<><div className="text-xl font-extrabold tnum">{fmtNum(TRAFFIC_SOURCES.reduce((a,b)=>a+b.visits,0))}</div><div className="text-xs text-muted">Visitor</div></>}/>
+            <Donut size={170} thickness={26} segments={trafficSources.map(s=>({value:s.visits, color:s.color}))} center={<><div className="text-xl font-extrabold tnum">{fmtNum(trafficSources.reduce((a,b)=>a+b.visits,0))}</div><div className="text-xs text-muted">Visitor</div></>}/>
           </div>
           <div className="space-y-1.5 text-sm">
-            {TRAFFIC_SOURCES.map(s=>(
+            {trafficSources.map(s=>(
               <div key={s.src} className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-sm" style={{background:s.color}}/>
                 <span className="flex-1 text-slate-600 dark:text-slate-400">{s.src}</span>
@@ -432,27 +471,28 @@ function AnalyticsPage(){
               </tr>
             </thead>
             <tbody className="divide-y divide-line dark:divide-slate-800">
-              {CAMPAIGNS.slice(0,6).map((c,i)=>{
+              {(campaignPerf || CAMPAIGNS.slice(0,6).map((c,i)=>{
                 const vis = 18000 + i*4200;
                 const leads = Math.round(vis * (0.04 + i*0.005));
                 const don = Math.round(leads * (0.3 + i*0.04));
-                const rev = c.raised;
-                const spend = Math.round(rev / (3 + i*0.3));
-                const roas = (rev/spend).toFixed(1)+'×';
+                return { id:c.id, title:c.title, img:c.img, visitors:vis, leads, donations:don, revenue:c.raised, spend:Math.round(c.raised/(3+i*0.3)) };
+              })).map(cp=>{
+                const roas = cp.spend > 0 ? (cp.revenue/cp.spend).toFixed(1)+'×' : '∞';
+                const cr = cp.visitors > 0 ? (cp.donations/cp.visitors*100).toFixed(1)+'%' : '0%';
                 return (
-                  <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <tr key={cp.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-7 rounded-md overflow-hidden shrink-0"><img src={c.img} className="w-full h-full object-cover" alt=""/></div>
-                        <div className="font-medium text-ink dark:text-slate-100 truncate max-w-[220px]">{c.title}</div>
+                        <div className="w-10 h-7 rounded-md overflow-hidden shrink-0"><img src={cp.img || placeholderImg(0,'')} className="w-full h-full object-cover" alt=""/></div>
+                        <div className="font-medium text-ink dark:text-slate-100 truncate max-w-[220px]">{cp.title}</div>
                       </div>
                     </td>
-                    <td className="px-5 py-3 tnum">{fmtNum(vis)}</td>
-                    <td className="px-5 py-3 tnum">{fmtNum(leads)}</td>
-                    <td className="px-5 py-3 tnum">{fmtNum(don)}</td>
-                    <td className="px-5 py-3 tnum">{(don/vis*100).toFixed(1)}%</td>
-                    <td className="px-5 py-3 font-bold text-brand-700 dark:text-brand-300 tnum">{fmtShort(rev)}</td>
-                    <td className="px-5 py-3 tnum">{fmtShort(spend)}</td>
+                    <td className="px-5 py-3 tnum">{fmtNum(cp.visitors)}</td>
+                    <td className="px-5 py-3 tnum">{fmtNum(cp.leads)}</td>
+                    <td className="px-5 py-3 tnum">{fmtNum(cp.donations)}</td>
+                    <td className="px-5 py-3 tnum">{cr}</td>
+                    <td className="px-5 py-3 font-bold text-brand-700 dark:text-brand-300 tnum">{fmtShort(cp.revenue)}</td>
+                    <td className="px-5 py-3 tnum">{fmtShort(cp.spend)}</td>
                     <td className="px-5 py-3"><Badge tone={parseFloat(roas)>=3?'green':'amber'}>{roas}</Badge></td>
                   </tr>
                 );
@@ -472,7 +512,7 @@ function AnalyticsPage(){
           <Badge tone="green" dot>Tersinkron</Badge>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
+          {(utmData || [
             ['utm_source','facebook','3.240 sesi'],
             ['utm_medium','cpc','5.180 sesi'],
             ['utm_campaign','ramadhan-2026','2.120 sesi'],
@@ -481,7 +521,7 @@ function AnalyticsPage(){
             ['fbclid','✓ tertangkap','2.180 klik'],
             ['gclid','✓ tertangkap','1.420 klik'],
             ['ttclid','✓ tertangkap','680 klik'],
-          ].map(([k,v,sub])=>(
+          ]).map(([k,v,sub])=>(
             <div key={k} className="surface-2 rounded-xl p-3">
               <div className="text-[11px] font-mono text-muted">{k}</div>
               <div className="font-bold text-sm text-ink dark:text-slate-100 truncate mt-0.5">{v}</div>

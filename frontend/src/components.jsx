@@ -360,9 +360,11 @@ function Sidebar({ open, onClose }){
 }
 
 function Topbar({ onMenu, title, subtitle, actions, role }){
-  const { setRole, tweaks, setTweak, notifs } = useApp();
+  const { tweaks, setTweak, user, logout } = useApp();
   const [openNotif, setOpenNotif] = useState(false);
   const [openProfile, setOpenProfile] = useState(false);
+  const userName = user?.name || 'User';
+  const userEmail = user?.email || '';
   return (
     <header className="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-line">
       <div className="h-16 px-4 lg:px-6 flex items-center gap-3">
@@ -377,11 +379,9 @@ function Topbar({ onMenu, title, subtitle, actions, role }){
           <Input icon={<Icons.Search w={18} h={18}/>} placeholder="Cari campaign, donatur, invoice…"/>
         </div>
 
-        {/* Role switcher */}
-        <div className="hidden sm:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
-          {['Admin','CS','Advertiser'].map(r=>(
-            <button key={r} onClick={()=>setRole(r)} className={`px-3 h-8 rounded-lg text-xs font-semibold transition ${role===r?'bg-white dark:bg-slate-900 text-ink dark:text-white shadow-sm':'text-slate-500 hover:text-ink dark:hover:text-white'}`}>{r}</button>
-          ))}
+        {/* Role badge (read-only) */}
+        <div className="hidden sm:block">
+          <RoleBadge role={role}/>
         </div>
 
         {/* Dark toggle */}
@@ -415,13 +415,26 @@ function Topbar({ onMenu, title, subtitle, actions, role }){
         </div>
 
         {/* Profile */}
-        <button onClick={()=>setOpenProfile(!openProfile)} className="flex items-center gap-2 h-10 pl-1 pr-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">
-          <Avatar name={role==='Admin'?'Admin Pusat':role==='CS'?'Sari Maharani':'Dimas Iklan'} size={32}/>
-          <div className="hidden md:block text-left">
-            <div className="text-[13px] font-semibold leading-tight text-ink dark:text-slate-100">{role==='Admin'?'Admin Pusat':role==='CS'?'Sari Maharani':'Dimas Iklan'}</div>
-            <div className="text-[11px] text-muted leading-tight">{role}</div>
-          </div>
-        </button>
+        <div className="relative">
+          <button onClick={()=>setOpenProfile(!openProfile)} className="flex items-center gap-2 h-10 pl-1 pr-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800">
+            <Avatar name={userName} size={32}/>
+            <div className="hidden md:block text-left">
+              <div className="text-[13px] font-semibold leading-tight text-ink dark:text-slate-100">{userName}</div>
+              <div className="text-[11px] text-muted leading-tight">{role}</div>
+            </div>
+          </button>
+          {openProfile && (
+            <div className="absolute right-0 top-12 w-[220px] surface rounded-2xl shadow-pop p-2 z-50">
+              <div className="px-3 py-2 border-b border-line mb-1">
+                <div className="font-semibold text-sm text-ink dark:text-slate-100">{userName}</div>
+                <div className="text-xs text-muted">{userEmail}</div>
+              </div>
+              <button onClick={()=>{setOpenProfile(false); logout && logout();}} className="w-full flex items-center gap-2 px-3 h-10 rounded-xl text-sm font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition">
+                <Icons.X w={16} h={16}/> Keluar
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       {actions && <div className="px-4 lg:px-6 pb-3">{actions}</div>}
     </header>

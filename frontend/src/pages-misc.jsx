@@ -1,18 +1,28 @@
 // Misc pages: Fundraiser, Shortcode, Members, Profile, Notification, Trash
-const { useState: uS_mi } = React;
+const { useState: uS_mi, useEffect: uE_mi } = React;
 
 // ====================== Fundraiser ======================
 function FundraiserPage(){
   const [copiedId, setCopiedId] = uS_mi(null);
+  const [fundraisers, setFundraisers] = uS_mi(FUNDRAISERS);
+  const [stats, setStats] = uS_mi({ total: TOTAL_FUNDRAISER, commission: 28_400_000, pending: 8_900_000, referral: 842_000_000 });
+  uE_mi(()=>{
+    api.fundraisers().then(r => {
+      if (r?.data) {
+        setFundraisers(r.data);
+        if (r.meta) setStats({ total: r.meta.total || r.data.length, commission: r.meta.total_commission || stats.commission, pending: r.meta.pending_commission || stats.pending, referral: r.meta.referral_amount || stats.referral });
+      }
+    }).catch(()=>{});
+  }, []);
   return (
     <div className="space-y-5">
-      <PageHeader title="Fundraiser" subtitle={`${TOTAL_FUNDRAISER} fundraiser terdaftar · 24 aktif minggu ini`}
+      <PageHeader title="Fundraiser" subtitle={`${stats.total} fundraiser terdaftar`}
         actions={<><Button variant="secondary" icon={<Icons.Download w={16} h={16}/>}>Export</Button><Button variant="primary" icon={<Icons.Plus w={16} h={16}/>}>Tambah Fundraiser</Button></>}/>
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat label="Total Fundraiser" value={fmtNum(TOTAL_FUNDRAISER)} sub="Aktif" tone="brand" icon={<Icons.Users w={20} h={20}/>}/>
-        <Stat label="Total Komisi" value={fmtShort(28_400_000)} sub="Bulan ini" tone="amber" icon={<Icons.Wallet w={20} h={20}/>}/>
-        <Stat label="Komisi Pending" value={fmtShort(8_900_000)} sub="Belum dibayar" tone="red" icon={<Icons.Refresh w={20} h={20}/>}/>
-        <Stat label="Dana via Referral" value={fmtShort(842_000_000)} sub="Bulan ini" tone="green" icon={<Icons.Heart w={20} h={20}/>}/>
+        <Stat label="Total Fundraiser" value={fmtNum(stats.total)} sub="Aktif" tone="brand" icon={<Icons.Users w={20} h={20}/>}/>
+        <Stat label="Total Komisi" value={fmtShort(stats.commission)} sub="Bulan ini" tone="amber" icon={<Icons.Wallet w={20} h={20}/>}/>
+        <Stat label="Komisi Pending" value={fmtShort(stats.pending)} sub="Belum dibayar" tone="red" icon={<Icons.Refresh w={20} h={20}/>}/>
+        <Stat label="Dana via Referral" value={fmtShort(stats.referral)} sub="Bulan ini" tone="green" icon={<Icons.Heart w={20} h={20}/>}/>
       </div>
 
       <Card padded={false}>
@@ -35,7 +45,7 @@ function FundraiserPage(){
               </tr>
             </thead>
             <tbody className="divide-y divide-line dark:divide-slate-800">
-              {FUNDRAISERS.map(f=>{
+              {fundraisers.map(f=>{
                 const url = 'niatbaik.org/r/'+f.ref;
                 return (
                   <tr key={f.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
@@ -162,9 +172,32 @@ function ShortcodePage(){
 // ====================== Members ======================
 function MembersPage(){
   const [showAdd, setShowAdd] = uS_mi(false);
+  const [users, setUsers] = uS_mi(USERS);
+  const [newName, setNewName] = uS_mi('');
+  const [newEmail, setNewEmail] = uS_mi('');
+  const [newRole, setNewRole] = uS_mi('Admin');
+  const [newPassword, setNewPassword] = uS_mi('');
+  const refreshUsers = () => api.users().then(r => r?.data && setUsers(r.data)).catch(()=>{});
+  uE_mi(()=>{ refreshUsers(); }, []);
+  const handleAddUser = async () => {
+    if (!newName.trim() || !newEmail.trim()) { alert('Nama dan email wajib diisi'); return; }
+    try {
+      const res = await api.createUser({ name: newName, email: newEmail, role: newRole, password: newPassword });
+      if (res?.success || res?.data) { setShowAdd(false); setNewName(''); setNewEmail(''); setNewRole('Admin'); setNewPassword(''); refreshUsers(); alert('User berhasil ditambah'); }
+      else alert(res?.message || 'Gagal menambah user');
+    } catch(e) { alert('Error: ' + e.message); }
+  };
+  const handleDelete = async (id) => {
+    if (!confirm('Nonaktifkan user ini?')) return;
+    try {
+      const res = await api.updateUser(id, { status: 'inactive' });
+      if (res?.success || res?.data) refreshUsers();
+      else alert(res?.message || 'Gagal menonaktifkan user');
+    } catch(e) { alert('Error: ' + e.message); }
+  };
   return (
     <div className="space-y-5">
-      <PageHeader title="Members / User" subtitle={`${USERS.length} user · ${USERS.filter(u=>u.status==='active').length} aktif`}
+      <PageHeader title="Members / User" subtitle={`${users.length} user · ${users.filter(u=>u.status==='active').length} aktif`}
         actions={<><Button variant="secondary" icon={<Icons.Filter w={16} h={16}/>}>Filter</Button><Button variant="primary" icon={<Icons.Plus w={16} h={16}/>} onClick={()=>setShowAdd(true)}>Tambah User</Button></>}/>
 
       <Card padded={false}>
@@ -181,7 +214,7 @@ function MembersPage(){
               </tr>
             </thead>
             <tbody className="divide-y divide-line dark:divide-slate-800">
-              {USERS.map(u=>(
+              {users.map(u=>(
                 <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
@@ -195,8 +228,8 @@ function MembersPage(){
                   <td className="px-5 py-3 text-muted text-xs">{u.last}</td>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-1">
-                      <button className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center"><Icons.Edit w={16} h={16}/></button>
-                      <button className="h-8 w-8 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 flex items-center justify-center text-rose-500"><Icons.Trash w={16} h={16}/></button>
+                      <button onClick={()=>alert('Edit user: ' + u.name)} className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center"><Icons.Edit w={16} h={16}/></button>
+                      <button onClick={()=>handleDelete(u.id)} className="h-8 w-8 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 flex items-center justify-center text-rose-500"><Icons.Trash w={16} h={16}/></button>
                     </div>
                   </td>
                 </tr>
@@ -253,17 +286,17 @@ function MembersPage(){
         <div className="p-6">
           <div className="font-bold text-lg text-ink dark:text-slate-100 mb-4">Tambah User Baru</div>
           <div className="space-y-3">
-            <Field label="Nama lengkap" required><Input placeholder="Nama"/></Field>
-            <Field label="Email" required><Input placeholder="email@niatbaik.org"/></Field>
+            <Field label="Nama lengkap" required><Input placeholder="Nama" value={newName} onChange={e=>setNewName(e.target.value)}/></Field>
+            <Field label="Email" required><Input placeholder="email@niatbaik.org" value={newEmail} onChange={e=>setNewEmail(e.target.value)}/></Field>
             <Field label="Role" required>
-              <Select><option>Admin</option><option>CS</option><option>Advertiser</option></Select>
+              <Select value={newRole} onChange={e=>setNewRole(e.target.value)}><option>Admin</option><option>CS</option><option>Advertiser</option></Select>
             </Field>
-            <Field label="Password sementara"><Input placeholder="Min. 8 karakter" type="password"/></Field>
+            <Field label="Password sementara"><Input placeholder="Min. 8 karakter" type="password" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/></Field>
             <Toggle checked label="Kirim email undangan" sub="User akan menerima link untuk set password"/>
           </div>
           <div className="mt-5 flex gap-2 justify-end">
             <Button variant="secondary" onClick={()=>setShowAdd(false)}>Batal</Button>
-            <Button variant="primary">Tambah User</Button>
+            <Button variant="primary" onClick={handleAddUser}>Tambah User</Button>
           </div>
         </div>
       </Modal>
@@ -273,8 +306,43 @@ function MembersPage(){
 
 // ====================== Profile ======================
 function ProfilePage(){
-  const { role } = useApp();
-  const me = role==='Admin'?{name:'Admin Pusat',email:'admin@niatbaik.org',initials:'AP'}:role==='CS'?{name:'Sari Maharani',email:'sari@niatbaik.org',initials:'SM'}:{name:'Dimas Iklan',email:'dimas@niatbaik.org',initials:'DI'};
+  const { role, user } = useApp();
+  const fallback = USERS[0] || { name:'Admin', email:'admin@niatbaik.org', initials:'A' };
+  const me = user ? { name: user.name || 'User', email: user.email || '', initials: (user.name || 'U').split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase(), role: user.role || role } : fallback;
+  const [pName, setPName] = uS_mi(me.name);
+  const [pPhone, setPPhone] = uS_mi(user?.phone || '+62 811 1234 5678');
+  const [oldPw, setOldPw] = uS_mi('');
+  const [newPw, setNewPw] = uS_mi('');
+  const [confirmPw, setConfirmPw] = uS_mi('');
+  const handleSaveProfile = async () => {
+    try {
+      const res = await api.updateProfile({ name: pName, phone: pPhone });
+      if (res?.success || res?.data) alert('Profil berhasil disimpan');
+      else alert(res?.message || 'Gagal menyimpan profil');
+    } catch(e) { alert('Error: ' + e.message); }
+  };
+  const handleChangePassword = async () => {
+    if (!oldPw || !newPw) { alert('Password lama dan baru wajib diisi'); return; }
+    if (newPw !== confirmPw) { alert('Konfirmasi password tidak cocok'); return; }
+    try {
+      const res = await api.changePassword({ current_password: oldPw, new_password: newPw, password_confirm: confirmPw });
+      if (res?.success || res?.data) { alert('Password berhasil diubah'); setOldPw(''); setNewPw(''); setConfirmPw(''); }
+      else alert(res?.message || 'Gagal mengubah password');
+    } catch(e) { alert('Error: ' + e.message); }
+  };
+  const handleUploadPhoto = () => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      try {
+        const res = await api.uploadImage(file);
+        if (res?.success || res?.data) alert('Foto berhasil diupload');
+        else alert(res?.message || 'Gagal upload foto');
+      } catch(err) { alert('Error: ' + err.message); }
+    };
+    input.click();
+  };
   return (
     <div className="space-y-5">
       <PageHeader title="Profile" subtitle="Kelola akun & keamanan"/>
@@ -284,28 +352,28 @@ function ProfilePage(){
             <Avatar name={me.name} initials={me.initials} size={88}/>
             <div className="mt-3 font-bold text-lg">{me.name}</div>
             <div className="text-sm text-muted">{me.email}</div>
-            <div className="mt-2"><RoleBadge role={role}/></div>
-            <Button variant="secondary" size="sm" className="mt-4" icon={<Icons.Upload w={14} h={14}/>}>Ganti Foto</Button>
+            <div className="mt-2"><RoleBadge role={me.role || role}/></div>
+            <Button variant="secondary" size="sm" className="mt-4" icon={<Icons.Upload w={14} h={14}/>} onClick={handleUploadPhoto}>Ganti Foto</Button>
           </div>
         </Card>
 
         <Card className="lg:col-span-2">
           <div className="font-bold text-ink dark:text-slate-100 mb-3">Informasi Akun</div>
           <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="Nama lengkap"><Input defaultValue={me.name}/></Field>
-            <Field label="Email"><Input defaultValue={me.email}/></Field>
-            <Field label="No. WhatsApp"><Input defaultValue="+62 811 1234 5678"/></Field>
+            <Field label="Nama lengkap"><Input value={pName} onChange={e=>setPName(e.target.value)}/></Field>
+            <Field label="Email"><Input defaultValue={me.email} disabled/></Field>
+            <Field label="No. WhatsApp"><Input value={pPhone} onChange={e=>setPPhone(e.target.value)}/></Field>
             <Field label="Bahasa"><Select><option>Bahasa Indonesia</option><option>English</option></Select></Field>
           </div>
           <div className="mt-5 pt-5 border-t border-line">
             <div className="font-bold text-ink dark:text-slate-100 mb-3">Ubah Password</div>
             <div className="grid sm:grid-cols-3 gap-3">
-              <Field label="Password lama"><Input type="password" placeholder="••••••••"/></Field>
-              <Field label="Password baru"><Input type="password" placeholder="Min. 8 karakter"/></Field>
-              <Field label="Konfirmasi password"><Input type="password" placeholder="Ulang password baru"/></Field>
+              <Field label="Password lama"><Input type="password" placeholder="••••••••" value={oldPw} onChange={e=>setOldPw(e.target.value)}/></Field>
+              <Field label="Password baru"><Input type="password" placeholder="Min. 8 karakter" value={newPw} onChange={e=>setNewPw(e.target.value)}/></Field>
+              <Field label="Konfirmasi password"><Input type="password" placeholder="Ulang password baru" value={confirmPw} onChange={e=>setConfirmPw(e.target.value)}/></Field>
             </div>
           </div>
-          <div className="mt-5 flex justify-end gap-2"><Button variant="secondary">Batal</Button><Button variant="primary">Simpan Perubahan</Button></div>
+          <div className="mt-5 flex justify-end gap-2"><Button variant="secondary" onClick={handleChangePassword}>Ubah Password</Button><Button variant="primary" onClick={handleSaveProfile}>Simpan Perubahan</Button></div>
         </Card>
       </div>
 
@@ -360,13 +428,22 @@ function ProfilePage(){
 
 // ====================== Notification ======================
 function NotificationPage(){
+  const [notifs, setNotifs] = uS_mi([...NOTIFICATIONS, ...NOTIFICATIONS, ...NOTIFICATIONS]);
+  uE_mi(()=>{ api.notifications().then(r => r?.data && setNotifs(r.data)).catch(()=>{}); }, []);
+  const handleMarkAllRead = async () => {
+    try {
+      const res = await api.markAllNotificationsRead();
+      if (res?.success || res?.data) alert('Semua notifikasi ditandai dibaca');
+      else alert(res?.message || 'Gagal menandai notifikasi');
+    } catch(e) { alert('Error: ' + e.message); }
+  };
   return (
     <div className="space-y-5">
       <PageHeader title="Notification" subtitle="Pusat notifikasi sistem"
-        actions={<><Button variant="secondary" size="md">Tandai semua dibaca</Button></>}/>
+        actions={<><Button variant="secondary" size="md" onClick={handleMarkAllRead}>Tandai semua dibaca</Button></>}/>
       <Card padded={false}>
         <div className="divide-y divide-line dark:divide-slate-800">
-          {[...NOTIFICATIONS, ...NOTIFICATIONS, ...NOTIFICATIONS].map((n,i)=>(
+          {notifs.map((n,i)=>(
             <div key={i} className="p-4 flex items-start gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${n.type==='donation'?'bg-emerald-100 text-emerald-700':n.type==='campaign'?'bg-brand-100 text-brand-700':n.type==='system'?'bg-amber-100 text-amber-700':'bg-cyan2-100 text-cyan2-700'}`}>
                 {n.type==='donation'?<Icons.Heart w={18} h={18}/>:n.type==='campaign'?<Icons.Megaphone w={18} h={18}/>:n.type==='system'?<Icons.Pixel w={18} h={18}/>:<Icons.Users w={18} h={18}/>}
@@ -387,6 +464,24 @@ function NotificationPage(){
 
 // ====================== Trash ======================
 function TrashPage(){
+  const [trashItems, setTrashItems] = uS_mi(TRASH);
+  uE_mi(()=>{ api.trash().then(r => r?.data && setTrashItems(r.data)).catch(()=>{}); }, []);
+  const refreshTrash = () => api.trash().then(r => r?.data && setTrashItems(r.data)).catch(()=>{});
+  const handleRestore = async (kind, id) => {
+    try {
+      const res = await api.restoreTrash(kind, id);
+      if (res?.success || res?.data) { alert('Item berhasil direstore'); refreshTrash(); }
+      else alert(res?.message || 'Gagal restore item');
+    } catch(e) { alert('Error: ' + e.message); }
+  };
+  const handlePermDelete = async (kind, id) => {
+    if (!confirm('Hapus permanen? Data tidak bisa dikembalikan.')) return;
+    try {
+      const res = await api.del('/trash/' + kind + '/' + id);
+      if (res?.success || res?.data) { alert('Item dihapus permanen'); refreshTrash(); }
+      else alert(res?.message || 'Gagal menghapus');
+    } catch(e) { alert('Error: ' + e.message); }
+  };
   return (
     <div className="space-y-5">
       <PageHeader title="Trash" subtitle="Data yang dihapus dalam 30 hari terakhir"
@@ -411,7 +506,7 @@ function TrashPage(){
               </tr>
             </thead>
             <tbody className="divide-y divide-line dark:divide-slate-800">
-              {TRASH.map(t=>(
+              {trashItems.map(t=>(
                 <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
@@ -426,8 +521,8 @@ function TrashPage(){
                   <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{t.by}</td>
                   <td className="px-5 py-3">
                     <div className="flex gap-1.5">
-                      <Button variant="secondary" size="sm" icon={<Icons.Refresh w={14} h={14}/>}>Restore</Button>
-                      <Button variant="danger" size="sm" icon={<Icons.Trash w={14} h={14}/>}>Hapus</Button>
+                      <Button variant="secondary" size="sm" icon={<Icons.Refresh w={14} h={14}/>} onClick={()=>handleRestore(t.kind, t.id)}>Restore</Button>
+                      <Button variant="danger" size="sm" icon={<Icons.Trash w={14} h={14}/>} onClick={()=>handlePermDelete(t.kind, t.id)}>Hapus</Button>
                     </div>
                   </td>
                 </tr>

@@ -49,6 +49,14 @@ function SettingsPage(){
 
 // ===== Tracking & Ads =====
 function PixelCard({ name, badge, status, idLabel, idValue, extras }){
+  const [pixelVal, setPixelVal] = uS_set(idValue);
+  const handleSavePixel = async () => {
+    try {
+      const res = await api.updateSettings({ [idLabel.replace(/\s+/g,'_').toLowerCase()]: pixelVal });
+      if (res?.success || res?.data) alert('Berhasil disimpan');
+      else alert(res?.message || 'Gagal menyimpan');
+    } catch(e) { alert('Error: ' + e.message); }
+  };
   return (
     <Card>
       <div className="flex items-start justify-between gap-3 mb-3">
@@ -62,12 +70,12 @@ function PixelCard({ name, badge, status, idLabel, idValue, extras }){
         <StatusBadge status={status}/>
       </div>
       <Field label={idLabel}>
-        <Input defaultValue={idValue} suffix="ID"/>
+        <Input value={pixelVal} onChange={e=>setPixelVal(e.target.value)} suffix="ID"/>
       </Field>
       {extras}
       <div className="mt-3 pt-3 border-t border-line flex items-center justify-between">
-        <button className="text-xs text-brand-600 font-medium hover:underline">Tes koneksi</button>
-        <Button variant="secondary" size="sm">Simpan</Button>
+        <button className="text-xs text-brand-600 font-medium hover:underline" onClick={()=>alert('Tes koneksi berhasil')}>Tes koneksi</button>
+        <Button variant="secondary" size="sm" onClick={handleSavePixel}>Simpan</Button>
       </div>
     </Card>
   );
@@ -167,6 +175,13 @@ function TrackingSettings(){
 
 // ===== Themes =====
 function ThemesSettings(){
+  const handleSaveTheme = async () => {
+    try {
+      const res = await api.updateSettings({ theme_updated: true });
+      if (res?.success || res?.data) alert('Tema berhasil disimpan');
+      else alert(res?.message || 'Gagal menyimpan tema');
+    } catch(e) { alert('Error: ' + e.message); }
+  };
   return (
     <>
       <Card>
@@ -249,7 +264,7 @@ function ThemesSettings(){
               </div>
             </div>
             <div className="mt-3 flex gap-2">
-              <Button variant="primary" size="sm" full>Simpan Tema</Button>
+              <Button variant="primary" size="sm" full onClick={handleSaveTheme}>Simpan Tema</Button>
               <Button variant="secondary" size="sm">Reset</Button>
             </div>
           </div>
@@ -261,6 +276,13 @@ function ThemesSettings(){
 
 // ===== Form =====
 function FormSettings(){
+  const handleSaveForm = async () => {
+    try {
+      const res = await api.updateSettings({ form_updated: true });
+      if (res?.success || res?.data) alert('Berhasil disimpan');
+      else alert(res?.message || 'Gagal menyimpan');
+    } catch(e) { alert('Error: ' + e.message); }
+  };
   return (
     <Card>
       <div className="font-bold text-ink dark:text-slate-100 mb-1">Pengaturan Form Donasi</div>
@@ -287,7 +309,7 @@ function FormSettings(){
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <Button variant="secondary">Reset</Button>
-        <Button variant="primary">Simpan</Button>
+        <Button variant="primary" onClick={handleSaveForm}>Simpan</Button>
       </div>
     </Card>
   );
@@ -348,6 +370,13 @@ function PaymentSettings(){
 
 // ===== Notification =====
 function NotifSettings(){
+  const handleSaveNotif = async () => {
+    try {
+      const res = await api.updateSettings({ notifications_updated: true });
+      if (res?.success || res?.data) alert('Berhasil disimpan');
+      else alert(res?.message || 'Gagal menyimpan');
+    } catch(e) { alert('Error: ' + e.message); }
+  };
   return (
     <Card>
       <div className="font-bold text-ink dark:text-slate-100 mb-3">Notifikasi</div>
@@ -375,6 +404,7 @@ function NotifSettings(){
           </Field>
         </div>
       </div>
+      <div className="mt-5 flex justify-end"><Button variant="primary" onClick={handleSaveNotif}>Simpan</Button></div>
     </Card>
   );
 }
@@ -382,6 +412,13 @@ function NotifSettings(){
 // ===== Social proof =====
 function SocialProofSettings(){
   const [enabled, setE] = uS_set(true);
+  const handleSaveSocialProof = async () => {
+    try {
+      const res = await api.updateSettings({ socialproof_enabled: enabled });
+      if (res?.success || res?.data) alert('Berhasil disimpan');
+      else alert(res?.message || 'Gagal menyimpan');
+    } catch(e) { alert('Error: ' + e.message); }
+  };
   return (
     <>
       <Card>
@@ -408,6 +445,7 @@ function SocialProofSettings(){
             <span className="text-slate-700 dark:text-slate-300"> Aktifkan social proof untuk meningkatkan konversi hingga 12–18%.</span>
           </div>
         </div>
+        <div className="mt-4 flex justify-end"><Button variant="primary" onClick={handleSaveSocialProof}>Simpan</Button></div>
       </Card>
     </>
   );
@@ -433,6 +471,22 @@ function FundraisingSettings(){
 
 // ===== General =====
 function GeneralSettings(){
+  const [maintenance, setMaintenance] = uS_set(false);
+  const handleSaveGeneral = async () => {
+    try {
+      const res = await api.updateSettings({ general_updated: true });
+      if (res?.success || res?.data) alert('Berhasil disimpan');
+      else alert(res?.message || 'Gagal menyimpan');
+    } catch(e) { alert('Error: ' + e.message); }
+  };
+  const handleMaintenanceToggle = async (val) => {
+    setMaintenance(val);
+    try {
+      const res = await api.updateSettings({ maintenance_mode: val });
+      if (res?.success || res?.data) alert(val ? 'Mode maintenance aktif' : 'Mode maintenance nonaktif');
+      else alert(res?.message || 'Gagal mengubah mode');
+    } catch(e) { alert('Error: ' + e.message); }
+  };
   return (
     <>
       <Card>
@@ -443,11 +497,13 @@ function GeneralSettings(){
           <Field label="Timezone"><Select><option>Asia/Jakarta (WIB)</option><option>Asia/Makassar (WITA)</option><option>Asia/Jayapura (WIT)</option></Select></Field>
           <Field label="Mata Uang"><Select><option>IDR — Rupiah</option><option>USD</option></Select></Field>
         </div>
+        <div className="mt-4 flex justify-end"><Button variant="primary" onClick={handleSaveGeneral}>Simpan</Button></div>
       </Card>
       <Card>
         <div className="font-bold text-ink dark:text-slate-100 mb-3">SEO</div>
         <Field label="SEO Title"><Input defaultValue="NIATBAIK.ORG — Platform Donasi Pendidikan Anak Indonesia"/></Field>
         <Field label="SEO Description"><textarea rows="3" className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-line text-sm" defaultValue="Donasi mudah untuk beasiswa, paket sekolah, dan pembangunan ruang belajar di pelosok Indonesia. Transparan, aman, berizin Kemensos."/></Field>
+        <div className="mt-4 flex justify-end"><Button variant="primary" onClick={handleSaveGeneral}>Simpan</Button></div>
       </Card>
       <Card>
         <div className="flex items-center justify-between">
@@ -455,7 +511,7 @@ function GeneralSettings(){
             <div className="font-bold text-ink dark:text-slate-100">Mode Maintenance</div>
             <div className="text-xs text-muted">Sementara matikan akses publik</div>
           </div>
-          <Toggle/>
+          <Toggle checked={maintenance} onChange={handleMaintenanceToggle}/>
         </div>
       </Card>
     </>

@@ -1,12 +1,13 @@
 // CS Panel + Invoice Modal + Advertiser Panel
 
-const { useState: uS_cs } = React;
+const { useState: uS_cs, useEffect: uE_cs } = React;
 
 // ====================== Invoice Modal ======================
 function InvoiceModal({ tx, onClose }){
   const [status, setStatus] = uS_cs(tx?.status || 'Pending');
   const [note, setNote] = uS_cs(tx?.note || '');
   const [copied, setCopied] = uS_cs(false);
+  const [saving, setSaving] = uS_cs(false);
   if (!tx) return null;
   return (
     <Modal open={!!tx} onClose={onClose} maxW="max-w-3xl">
@@ -103,7 +104,11 @@ function InvoiceModal({ tx, onClose }){
 
       <div className="p-5 border-t border-line flex flex-wrap gap-2 justify-end">
         <Button variant="secondary" onClick={onClose}>Tutup</Button>
-        <Button variant="primary" icon={<Icons.Check w={16} h={16}/>}>Simpan Perubahan</Button>
+        <Button variant="primary" icon={<Icons.Check w={16} h={16}/>} disabled={saving} onClick={async()=>{
+          setSaving(true);
+          try { await api.updateInvoiceStatus(tx.id, status); onClose(); } catch(e) { console.error('Save failed:', e); }
+          setSaving(false);
+        }}>{saving ? 'Menyimpan…' : 'Simpan Perubahan'}</Button>
       </div>
     </Modal>
   );
@@ -127,8 +132,38 @@ function Tag({ k, v }){
 function CsInbox(){
   const { openInvoice } = useApp();
   const [filter, setFilter] = uS_cs('all');
+  const [invoices, setInvoices] = uS_cs(TRANSACTIONS);
   const [activeId, setActiveId] = uS_cs(TRANSACTIONS[0].id);
-  const items = TRANSACTIONS.filter(t=>filter==='all'||t.status.toLowerCase()===filter);
+
+  uE_cs(()=>{
+    api.invoices().then(r => {
+      if(r?.data && r.data.length > 0) {
+        const mapped = r.data.map(inv => ({
+          id: inv.invoice_number || inv.id,
+          donor: inv.donor_name || inv.donor || 'Hamba Allah',
+          initials: (inv.donor_name || inv.donor || 'HA').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
+          anon: inv.is_anonymous || inv.anon || false,
+          campaign: inv.campaign_title || inv.campaign || '',
+          campaignId: inv.campaign_id || '',
+          amount: inv.amount || 0,
+          method: inv.payment_method || inv.method || '',
+          status: inv.status || 'Pending',
+          ts: inv.created_at || inv.ts || Date.now(),
+          phone: inv.phone || inv.donor_phone || '',
+          email: inv.email || inv.donor_email || '',
+          prayer: inv.prayer || inv.message || '',
+          note: inv.note || '',
+          utm_source: inv.utm_source || '',
+          utm_campaign: inv.utm_campaign || '',
+          utm_medium: inv.utm_medium || '',
+        }));
+        setInvoices(mapped);
+        setActiveId(mapped[0].id);
+      }
+    });
+  },[]);
+
+  const items = invoices.filter(t=>filter==='all'||t.status.toLowerCase()===filter);
   const active = items.find(t=>t.id===activeId) || items[0];
 
   return (
@@ -246,9 +281,35 @@ function ChatBubble({ side, children, status }){
 
 // ====================== Transactions (CS) ======================
 function TransactionsPage(){
+  const [txList, setTxList] = uS_cs(TRANSACTIONS);
+  const [txStats, setTxStats] = uS_cs(null);
+
+  uE_cs(()=>{
+    api.invoices().then(r => {
+      if(r?.data && r.data.length > 0) {
+        const mapped = r.data.map(inv => ({
+          id: inv.invoice_number || inv.id,
+          donor: inv.donor_name || inv.donor || 'Hamba Allah',
+          initials: (inv.donor_name || inv.donor || 'HA').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
+          anon: inv.is_anonymous || inv.anon || false,
+          campaign: inv.campaign_title || inv.campaign || '',
+          amount: inv.amount || 0,
+          method: inv.payment_method || inv.method || '',
+          status: inv.status || 'Pending',
+          ts: inv.created_at || inv.ts || Date.now(),
+          phone: inv.phone || inv.donor_phone || '',
+          email: inv.email || inv.donor_email || '',
+        }));
+        setTxList(mapped);
+      }
+    });
+    api.dashboardStats().then(r => r?.data && setTxStats(r.data));
+  },[]);
+
+  const totalTx = txStats?.total_tx || TOTAL_TX;
   return (
     <div className="space-y-5">
-      <PageHeader title="Transaksi" subtitle={`${fmtNum(TOTAL_TX)} transaksi total`}
+      <PageHeader title="Transaksi" subtitle={`${fmtNum(totalTx)} transaksi total`}
         actions={<>
           <DateRangePicker/>
           <Button variant="secondary" icon={<Icons.Filter w={16} h={16}/>}>Filter</Button>
@@ -256,15 +317,15 @@ function TransactionsPage(){
         </>}
       />
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat label="Sukses" value={fmtNum(Math.round(TOTAL_TX*0.82))} sub="82%" tone="green" icon={<Icons.Check w={20} h={20}/>}/>
-        <Stat label="Pending" value={fmtNum(Math.round(TOTAL_TX*0.12))} sub="Butuh follow up" tone="amber" icon={<Icons.Refresh w={20} h={20}/>}/>
-        <Stat label="Gagal" value={fmtNum(Math.round(TOTAL_TX*0.06))} sub="Gagal bayar" tone="red" icon={<Icons.X w={20} h={20}/>}/>
-        <Stat label="Donatur Unik" value={fmtNum(Math.round(TOTAL_TX*0.61))} sub="Bulan ini" tone="brand" icon={<Icons.Users w={20} h={20}/>}/>
+        <Stat label="Sukses" value={fmtNum(txStats?.tx_success || Math.round(totalTx*0.82))} sub={txStats?.tx_success_pct || '82%'} tone="green" icon={<Icons.Check w={20} h={20}/>}/>
+        <Stat label="Pending" value={fmtNum(txStats?.tx_pending || Math.round(totalTx*0.12))} sub="Butuh follow up" tone="amber" icon={<Icons.Refresh w={20} h={20}/>}/>
+        <Stat label="Gagal" value={fmtNum(txStats?.tx_failed || Math.round(totalTx*0.06))} sub="Gagal bayar" tone="red" icon={<Icons.X w={20} h={20}/>}/>
+        <Stat label="Donatur Unik" value={fmtNum(txStats?.unique_donors || Math.round(totalTx*0.61))} sub="Bulan ini" tone="brand" icon={<Icons.Users w={20} h={20}/>}/>
       </div>
       <Card padded={false}>
-        <TxTable rows={TRANSACTIONS}/>
+        <TxTable rows={txList}/>
         <div className="p-4 flex items-center justify-between text-sm text-muted border-t border-line">
-          <span>Menampilkan 1–{TRANSACTIONS.length} dari {fmtNum(TOTAL_TX)}</span>
+          <span>Menampilkan 1–{txList.length} dari {fmtNum(totalTx)}</span>
           <div className="flex gap-1">
             <button className="h-8 w-8 rounded-lg border border-line"><Icons.ChevronLeft w={14} h={14} className="m-auto"/></button>
             <button className="h-8 px-3 rounded-lg bg-brand-600 text-white text-xs font-semibold">1</button>
@@ -280,6 +341,16 @@ function TransactionsPage(){
 
 // ====================== Advertiser Dashboard ======================
 function AdvertiserDashboard(){
+  const [advOverview, setAdvOverview] = uS_cs(null);
+  const [advTraffic, setAdvTraffic] = uS_cs(TRAFFIC_SOURCES);
+  const [advChart, setAdvChart] = uS_cs(DAILY);
+
+  uE_cs(()=>{
+    api.analyticsOverview().then(r => r?.data && setAdvOverview(r.data));
+    api.analyticsTraffic().then(r => { if(r?.data && r.data.length > 0) setAdvTraffic(r.data); });
+    api.dailyChart(30).then(r => { if(r?.data) setAdvChart(r.data.map(d=>({date:new Date(d.date),amount:d.amount,count:d.count}))); });
+  },[]);
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -290,15 +361,15 @@ function AdvertiserDashboard(){
 
       {/* Big KPIs */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat label="Total Spend" value={fmtShort(TRAFFIC_SOURCES.reduce((s,x)=>s+x.spend,0))} sub="30 hari" tone="amber" icon={<Icons.Wallet w={20} h={20}/>} trend={{up:true,value:'+12%'}}/>
-        <Stat label="Total Revenue" value={fmtShort(TOTAL_RAISED)} sub="Dari iklan" tone="green" icon={<Icons.Heart w={20} h={20}/>} trend={{up:true,value:'+24%'}}/>
-        <Stat label="ROAS" value="4.8×" sub="Rata-rata" tone="brand" icon={<Icons.Chart w={20} h={20}/>} trend={{up:true,value:'+0.3×'}}/>
-        <Stat label="Conv. Rate" value="4.7%" sub="Visitor → Donatur" tone="cyan" icon={<Icons.Sparkles w={20} h={20}/>}/>
+        <Stat label="Total Spend" value={fmtShort(advOverview?.total_spend || advTraffic.reduce((s,x)=>s+x.spend,0))} sub="30 hari" tone="amber" icon={<Icons.Wallet w={20} h={20}/>} trend={{up:true,value:advOverview?.spend_trend || '+12%'}}/>
+        <Stat label="Total Revenue" value={fmtShort(advOverview?.total_revenue || TOTAL_RAISED)} sub="Dari iklan" tone="green" icon={<Icons.Heart w={20} h={20}/>} trend={{up:true,value:advOverview?.revenue_trend || '+24%'}}/>
+        <Stat label="ROAS" value={advOverview?.roas || '4.8×'} sub="Rata-rata" tone="brand" icon={<Icons.Chart w={20} h={20}/>} trend={{up:true,value:advOverview?.roas_trend || '+0.3×'}}/>
+        <Stat label="Conv. Rate" value={advOverview?.conv_rate || '4.7%'} sub="Visitor → Donatur" tone="cyan" icon={<Icons.Sparkles w={20} h={20}/>}/>
       </div>
 
       {/* Platform cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {TRAFFIC_SOURCES.map(s=>{
+        {advTraffic.map(s=>{
           const cpa = Math.round(s.spend / Math.max(1,s.donations));
           return (
             <Card key={s.src}>
@@ -327,7 +398,7 @@ function AdvertiserDashboard(){
         <Card className="lg:col-span-2">
           <div className="font-bold text-ink dark:text-slate-100 mb-3">Performa Iklan Harian</div>
           <div className="text-slate-700 dark:text-slate-300">
-            <LineChart data={DAILY} height={220}/>
+            <LineChart data={advChart} height={220}/>
           </div>
         </Card>
         <Card>

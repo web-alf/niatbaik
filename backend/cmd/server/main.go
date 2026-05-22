@@ -11,6 +11,7 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/database"
 	"github.com/anrdart/niatbaik-api/internal/middleware"
 	"github.com/anrdart/niatbaik-api/internal/router"
+	"github.com/anrdart/niatbaik-api/pkg/validator"
 )
 
 func main() {
@@ -34,6 +35,7 @@ func main() {
 	// Create Echo instance
 	e := echo.New()
 	e.HideBanner = true
+	e.Validator = validator.New()
 
 	// Global middleware
 	e.Use(echoMiddleware.Logger())

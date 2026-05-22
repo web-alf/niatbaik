@@ -13,7 +13,7 @@ function LoginPage({ onLogin }) {
     setLoading(true);
     try {
       const res = await api.login(email, password);
-      if (res?.success && res?.data?.access_token) {
+      if (res?.success && (res?.data?.token?.access_token || res?.data?.access_token)) {
         const meRes = await api.me();
         if (meRes?.success) {
           onLogin(meRes.data);

@@ -36,7 +36,7 @@ const api = {
   // Auth
   async login(email, password) {
     const res = await this.post('/auth/login', { email, password });
-    if (res?.data?.access_token) this.setToken(res.data.access_token);
+    if (res?.data?.token?.access_token) this.setToken(res.data.token.access_token);
     return res;
   },
   async logout() { this.clearToken(); return { success: true }; },

@@ -40,15 +40,14 @@ services:
     restart: unless-stopped
     env_file: .env.production
     environment:
-      POSTGRES_USER: ${DB_USER:-niatbaik}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME:-niatbaik}
+      - POSTGRES_USER=niatbaik
+      - POSTGRES_DB=niatbaik
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - niatbaik
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-niatbaik}"]
+      test: ["CMD-SHELL", "pg_isready -U niatbaik"]
       interval: 5s
       timeout: 5s
       retries: 5

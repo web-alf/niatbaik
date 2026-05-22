@@ -85,37 +85,34 @@ log "Now on branch: $(git branch --show-current)"
 # ============================================================
 log "STEP 3: Setting up environment..."
 
-if [ ! -f ".env.production" ]; then
+if [ ! -f ".env.production" ] || grep -q "GANTI_DENGAN" .env.production 2>/dev/null || ! grep -q "POSTGRES_PASSWORD" .env.production 2>/dev/null; then
     cp .env.production .env.production.bak 2>/dev/null || true
 
-    JWT_SECRET=$(openssl rand -hex 32)
-    DB_PASSWORD=$(openssl rand -hex 16)
+    JWT_SECRET=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p)
+    DB_PASSWORD=$(openssl rand -hex 16 2>/dev/null || head -c 16 /dev/urandom | xxd -p)
 
-    cat > .env.production << ENVEOF
-APP_PORT=8080
-APP_ENV=production
-
-DB_HOST=postgres
-DB_PORT=5432
-DB_USER=niatbaik
-DB_PASSWORD=$DB_PASSWORD
-DB_NAME=niatbaik
-
-JWT_SECRET=$JWT_SECRET
-JWT_EXPIRY=24h
-JWT_REFRESH_EXPIRY=168h
-
-UPLOAD_DIR=/app/uploads
-MAX_UPLOAD_SIZE=10485760
-
-CORS_ORIGINS=https://donasi.niatbaik.org
-
-MOOTA_API_KEY=
-MOOTA_WEBHOOK_SECRET=
-FLIP_SECRET_KEY=
-FLIP_VALIDATION_TOKEN=
-FLIP_BASE_URL=https://bigflip.id/api/v3
-ENVEOF
+    printf '%s\n' \
+      "APP_PORT=8080" \
+      "APP_ENV=production" \
+      "" \
+      "DB_HOST=postgres" \
+      "DB_PORT=5432" \
+      "DB_USER=niatbaik" \
+      "DB_PASSWORD=${DB_PASSWORD}" \
+      "DB_NAME=niatbaik" \
+      "" \
+      "# PostgreSQL container needs this" \
+      "POSTGRES_PASSWORD=${DB_PASSWORD}" \
+      "" \
+      "JWT_SECRET=${JWT_SECRET}" \
+      "JWT_EXPIRY=24h" \
+      "JWT_REFRESH_EXPIRY=168h" \
+      "" \
+      "UPLOAD_DIR=/app/uploads" \
+      "MAX_UPLOAD_SIZE=10485760" \
+      "" \
+      "CORS_ORIGINS=https://donasi.niatbaik.org" \
+      > .env.production
 
     log "Created .env.production with auto-generated secrets"
     info "DB_PASSWORD: $DB_PASSWORD"

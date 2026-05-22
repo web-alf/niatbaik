@@ -1,0 +1,9 @@
+{
+  "name": "niatbaik-frontend",
+  "version": "1.0.0",
+  "description": "NIATBAIK.ORG — Platform Donasi Pendidikan",
+  "scripts": {
+    "start": "bun run server.js",
+    "dev": "bun --watch run server.js"
+  }
+}

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>NIATBAIK.ORG — Platform Donasi Pendidikan</title>
+<meta name="description" content="Donasi mudah untuk beasiswa, paket sekolah, dan pembangunan ruang belajar di pelosok Indonesia. Transparan, aman, berizin Kemensos.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['DM Sans','ui-sans-serif','system-ui','sans-serif'],
+        mono: ['DM Mono','ui-monospace','monospace']
+      },
+      colors: {
+        brand: {
+          50:'#eef1fb',100:'#dbe2f6',200:'#b6c4ec',300:'#8ea3df',400:'#6781d0',
+          500:'#4762bd',600:'#2E4191',700:'#283879',800:'#202c5e',900:'#1a2450'
+        },
+        cyan2: {
+          50:'#eaf7ff',100:'#cfeefe',200:'#a7e0fd',300:'#74cefb',400:'#38B6FF',
+          500:'#1aa1ee',600:'#0e83c8',700:'#0e69a0',800:'#125883',900:'#114a6e'
+        },
+        ink: '#1E293B',
+        muted: '#64748B',
+        line: '#E2E8F0',
+        bg1: '#FFFFFF',
+        bg2: '#F7FAFC'
+      },
+      boxShadow: {
+        card: '0 1px 2px rgba(15,23,42,0.04), 0 4px 12px rgba(15,23,42,0.04)',
+        pop: '0 10px 30px rgba(15,23,42,0.12), 0 2px 6px rgba(15,23,42,0.06)'
+      }
+    }
+  }
+}
+</script>
+<style>
+  html,body{background:#F7FAFC;color:#1E293B;font-family:'DM Sans',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .dark html,.dark body,html.dark,body.dark{background:#0b1220;color:#e2e8f0}
+  .density-compact .pad-y{padding-top:.5rem;padding-bottom:.5rem}
+  .density-compact .pad-x{padding-left:.75rem;padding-right:.75rem}
+  .density-compact .gap-row{gap:.5rem}
+  .density-compact .text-row{font-size:13px}
+  .density-comfortable .pad-y{padding-top:.875rem;padding-bottom:.875rem}
+  .density-comfortable .pad-x{padding-left:1rem;padding-right:1rem}
+  .density-comfortable .gap-row{gap:.75rem}
+  .density-comfortable .text-row{font-size:14px}
+  .dark .surface{background:#0f172a;border-color:#1f2a44;color:#e2e8f0}
+  .dark .surface-2{background:#111a2e;border-color:#1f2a44}
+  .dark .ink{color:#e2e8f0}
+  .dark .muted{color:#94a3b8}
+  .dark .line{border-color:#1f2a44}
+  .surface{background:#fff;border:1px solid #E2E8F0}
+  .surface-2{background:#F7FAFC;border:1px solid #E2E8F0}
+  .nice-scroll::-webkit-scrollbar{width:8px;height:8px}
+  .nice-scroll::-webkit-scrollbar-thumb{background:rgba(100,116,139,.25);border-radius:4px}
+  .nice-scroll::-webkit-scrollbar-thumb:hover{background:rgba(100,116,139,.45)}
+  @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+  .shimmer{background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.4) 50%,transparent 100%);background-size:200% 100%;animation:shimmer 2.2s infinite}
+  @keyframes fadeup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .fadeup{animation:fadeup .35s ease both}
+  @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+  .slideIn{animation:slideIn .35s ease both}
+  .cta-shadow{box-shadow:0 -10px 30px rgba(15,23,42,.06)}
+  .tnum{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="src/data.jsx"></script>
+<script type="text/babel" src="src/icons.jsx"></script>
+<script type="text/babel" src="src/components.jsx"></script>
+<script type="text/babel" src="src/pages-public.jsx"></script>
+<script type="text/babel" src="src/pages-admin.jsx"></script>
+<script type="text/babel" src="src/pages-cs-adv.jsx"></script>
+<script type="text/babel" src="src/pages-misc.jsx"></script>
+<script type="text/babel" src="src/settings.jsx"></script>
+<script type="text/babel" src="src/app.jsx"></script>
+</body>
+</html>

@@ -19,10 +19,18 @@ type FlipService struct {
 	cfg         *config.Config
 	paymentSvc  *PaymentService
 	invoiceRepo *repository.InvoiceRepo
+	settingRepo *repository.SettingRepo
 }
 
-func NewFlipService(cfg *config.Config, paymentSvc *PaymentService, invoiceRepo *repository.InvoiceRepo) *FlipService {
-	return &FlipService{cfg: cfg, paymentSvc: paymentSvc, invoiceRepo: invoiceRepo}
+func NewFlipService(cfg *config.Config, paymentSvc *PaymentService, invoiceRepo *repository.InvoiceRepo, settingRepo *repository.SettingRepo) *FlipService {
+	return &FlipService{cfg: cfg, paymentSvc: paymentSvc, invoiceRepo: invoiceRepo, settingRepo: settingRepo}
+}
+
+func (s *FlipService) getCredentials() (secretKey, validationToken, baseURL string) {
+	if setting, err := s.settingRepo.Get(); err == nil && setting.FlipEnabled {
+		return setting.FlipSecretKey, setting.FlipValidationToken, setting.FlipBaseURL
+	}
+	return s.cfg.FlipSecretKey, s.cfg.FlipValidationToken, s.cfg.FlipBaseURL
 }
 
 // FlipBillResponse is the response from Flip bill creation API.
@@ -74,11 +82,10 @@ type FlipDisbursementResponse struct {
 }
 
 func (s *FlipService) apiRequest(method, path string, data url.Values) ([]byte, error) {
-	baseURL := s.cfg.FlipBaseURL
+	secretKey, _, baseURL := s.getCredentials()
 	if baseURL == "" {
 		baseURL = "https://bigflip.id/api/v3"
 	}
-
 	var body io.Reader
 	if data != nil {
 		body = strings.NewReader(data.Encode())
@@ -89,7 +96,7 @@ func (s *FlipService) apiRequest(method, path string, data url.Values) ([]byte, 
 		return nil, err
 	}
 
-	req.SetBasicAuth(s.cfg.FlipSecretKey+":", "")
+	req.SetBasicAuth(secretKey+":", "")
 	if data != nil {
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}

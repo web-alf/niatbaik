@@ -5,6 +5,7 @@ import (
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
+	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/internal/service"
 	"github.com/labstack/echo/v4"
 )
@@ -23,7 +24,20 @@ func (h *SettingHandler) Get(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch settings"))
 	}
 
-	return c.JSON(http.StatusOK, response.SuccessResponse(setting, "success"))
+	// Include gateway status (keys are json:"-" so we add status manually)
+	type SettingWithGateway struct {
+		*model.Setting
+		MootaConfigured bool `json:"moota_configured"`
+		FlipConfigured  bool `json:"flip_configured"`
+	}
+
+	resp := SettingWithGateway{
+		Setting:         setting,
+		MootaConfigured: setting.MootaAPIKey != "",
+		FlipConfigured:  setting.FlipSecretKey != "",
+	}
+
+	return c.JSON(http.StatusOK, response.SuccessResponse(resp, "success"))
 }
 
 func (h *SettingHandler) Update(c echo.Context) error {

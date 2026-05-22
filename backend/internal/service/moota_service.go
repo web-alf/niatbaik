@@ -15,10 +15,18 @@ type MootaService struct {
 	cfg         *config.Config
 	paymentSvc  *PaymentService
 	invoiceRepo *repository.InvoiceRepo
+	settingRepo *repository.SettingRepo
 }
 
-func NewMootaService(cfg *config.Config, paymentSvc *PaymentService, invoiceRepo *repository.InvoiceRepo) *MootaService {
-	return &MootaService{cfg: cfg, paymentSvc: paymentSvc, invoiceRepo: invoiceRepo}
+func NewMootaService(cfg *config.Config, paymentSvc *PaymentService, invoiceRepo *repository.InvoiceRepo, settingRepo *repository.SettingRepo) *MootaService {
+	return &MootaService{cfg: cfg, paymentSvc: paymentSvc, invoiceRepo: invoiceRepo, settingRepo: settingRepo}
+}
+
+func (s *MootaService) getWebhookSecret() string {
+	if setting, err := s.settingRepo.Get(); err == nil && setting.MootaEnabled && setting.MootaWebhookSecret != "" {
+		return setting.MootaWebhookSecret
+	}
+	return s.cfg.MootaWebhookSecret
 }
 
 // MootaWebhookPayload represents a single mutation from Moota webhook.
@@ -36,10 +44,11 @@ type MootaWebhookPayload struct {
 }
 
 func (s *MootaService) VerifySignature(payload []byte, signature string) bool {
-	if s.cfg.MootaWebhookSecret == "" {
+	secret := s.getWebhookSecret()
+	if secret == "" {
 		return true
 	}
-	mac := hmac.New(sha256.New, []byte(s.cfg.MootaWebhookSecret))
+	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(payload)
 	expected := hex.EncodeToString(mac.Sum(nil))
 	return hmac.Equal([]byte(expected), []byte(signature))

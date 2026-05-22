@@ -23,4 +23,15 @@ type UpdateSettingRequest struct {
 	SmtpPassword                string `json:"smtp_password"`
 	SmtpPort                    *int   `json:"smtp_port"`
 	PaymentProvider             string `json:"payment_provider"`
+
+	// Moota
+	MootaAPIKey        string `json:"moota_api_key"`
+	MootaWebhookSecret string `json:"moota_webhook_secret"`
+	MootaEnabled       *bool  `json:"moota_enabled"`
+
+	// Flip
+	FlipSecretKey       string `json:"flip_secret_key"`
+	FlipValidationToken string `json:"flip_validation_token"`
+	FlipBaseURL         string `json:"flip_base_url"`
+	FlipEnabled         *bool  `json:"flip_enabled"`
 }

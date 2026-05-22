@@ -317,6 +317,73 @@ function FormSettings(){
 
 // ===== Payment =====
 function PaymentSettings(){
+  const [mootaKey, setMootaKey] = uS_set('');
+  const [mootaSecret, setMootaSecret] = uS_set('');
+  const [mootaEnabled, setMootaEnabled] = uS_set(false);
+  const [flipKey, setFlipKey] = uS_set('');
+  const [flipToken, setFlipToken] = uS_set('');
+  const [flipUrl, setFlipUrl] = uS_set('https://bigflip.id/api/v3');
+  const [flipEnabled, setFlipEnabled] = uS_set(false);
+  const [smtpHost, setSmtpHost] = uS_set('smtp.gmail.com');
+  const [smtpPort, setSmtpPort] = uS_set('587');
+  const [smtpEmail, setSmtpEmail] = uS_set('');
+  const [smtpPassword, setSmtpPassword] = uS_set('');
+  const [smtpName, setSmtpName] = uS_set('NIATBAIK.ORG');
+  const [mootaConfigured, setMootaConfigured] = uS_set(false);
+  const [flipConfigured, setFlipConfigured] = uS_set(false);
+  const [saving, setSaving] = uS_set('');
+
+  React.useEffect(() => {
+    api.settings().then(r => {
+      if (!r?.data) return;
+      const d = r.data;
+      setMootaEnabled(!!d.moota_enabled);
+      setFlipEnabled(!!d.flip_enabled);
+      setFlipUrl(d.flip_base_url || 'https://bigflip.id/api/v3');
+      setMootaConfigured(!!d.moota_configured);
+      setFlipConfigured(!!d.flip_configured);
+      setSmtpHost(d.smtp_host || 'smtp.gmail.com');
+      setSmtpPort(String(d.smtp_port || 587));
+      setSmtpEmail(d.smtp_email || '');
+      setSmtpName(d.smtp_name || '');
+    });
+  }, []);
+
+  const saveMoota = async () => {
+    setSaving('moota');
+    try {
+      const data = { moota_enabled: mootaEnabled };
+      if (mootaKey) data.moota_api_key = mootaKey;
+      if (mootaSecret) data.moota_webhook_secret = mootaSecret;
+      const res = await api.updateSettings(data);
+      alert(res?.success ? 'Moota berhasil disimpan' : (res?.message || 'Gagal'));
+    } catch(e) { alert('Error: ' + e.message); }
+    setSaving('');
+  };
+
+  const saveFlip = async () => {
+    setSaving('flip');
+    try {
+      const data = { flip_enabled: flipEnabled, flip_base_url: flipUrl };
+      if (flipKey) data.flip_secret_key = flipKey;
+      if (flipToken) data.flip_validation_token = flipToken;
+      const res = await api.updateSettings(data);
+      alert(res?.success ? 'Flip berhasil disimpan' : (res?.message || 'Gagal'));
+    } catch(e) { alert('Error: ' + e.message); }
+    setSaving('');
+  };
+
+  const saveSmtp = async () => {
+    setSaving('smtp');
+    try {
+      const data = { smtp_host: smtpHost, smtp_port: parseInt(smtpPort) || 587, smtp_email: smtpEmail, smtp_name: smtpName };
+      if (smtpPassword) data.smtp_password = smtpPassword;
+      const res = await api.updateSettings(data);
+      alert(res?.success ? 'SMTP berhasil disimpan' : (res?.message || 'Gagal'));
+    } catch(e) { alert('Error: ' + e.message); }
+    setSaving('');
+  };
+
   const methods = [
     { n:'BCA Virtual Account', t:'Transfer', a:true, fee:'4.000' },
     { n:'BNI Virtual Account', t:'Transfer', a:true, fee:'4.000' },
@@ -362,6 +429,95 @@ function PaymentSettings(){
               <Icons.Download w={16} h={16} className="text-brand-600"/>
             </button>
           ))}
+        </div>
+      </Card>
+
+      {/* Moota */}
+      <Card>
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">M</div>
+            <div>
+              <div className="font-bold text-ink dark:text-slate-100">Moota</div>
+              <div className="text-xs text-muted">Bank mutation monitoring · moota.co</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusBadge status={mootaEnabled && mootaConfigured ? 'Active' : !mootaEnabled ? 'inactive' : 'Not Connected'}/>
+            <Toggle checked={mootaEnabled} onChange={setMootaEnabled}/>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <Field label="API Key" hint="Dari moota.co → Settings → API">
+            <Input type="password" placeholder={mootaConfigured ? '••••••••••• (sudah diisi)' : 'Masukkan API Key'} value={mootaKey} onChange={e=>setMootaKey(e.target.value)}/>
+          </Field>
+          <Field label="Webhook Secret" hint="Untuk verifikasi signature webhook">
+            <Input type="password" placeholder={mootaConfigured ? '••••••••••• (sudah diisi)' : 'Masukkan Webhook Secret'} value={mootaSecret} onChange={e=>setMootaSecret(e.target.value)}/>
+          </Field>
+          <div className="bg-cyan2-50 dark:bg-cyan2-900/30 border border-cyan2-100 dark:border-cyan2-900/40 rounded-xl p-3 text-xs text-cyan2-700 dark:text-cyan2-300">
+            <b>Webhook URL:</b> https://donasi.niatbaik.org/api/webhooks/moota
+          </div>
+        </div>
+        <div className="mt-3 pt-3 border-t border-line flex justify-end">
+          <Button variant="primary" size="sm" onClick={saveMoota}>{saving==='moota'?'Menyimpan...':'Simpan Moota'}</Button>
+        </div>
+      </Card>
+
+      {/* Flip */}
+      <Card>
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-sm">F</div>
+            <div>
+              <div className="font-bold text-ink dark:text-slate-100">Flip</div>
+              <div className="text-xs text-muted">Payment gateway + disbursement · flip.id</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusBadge status={flipEnabled && flipConfigured ? 'Active' : !flipEnabled ? 'inactive' : 'Not Connected'}/>
+            <Toggle checked={flipEnabled} onChange={setFlipEnabled}/>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <Field label="Secret Key" hint="Dari flip.id → Dashboard → API Keys">
+            <Input type="password" placeholder={flipConfigured ? '••••••••••• (sudah diisi)' : 'Masukkan Secret Key'} value={flipKey} onChange={e=>setFlipKey(e.target.value)}/>
+          </Field>
+          <Field label="Validation Token" hint="Untuk verifikasi webhook callback">
+            <Input type="password" placeholder={flipConfigured ? '••••••••••• (sudah diisi)' : 'Masukkan Validation Token'} value={flipToken} onChange={e=>setFlipToken(e.target.value)}/>
+          </Field>
+          <Field label="Base URL">
+            <Select value={flipUrl} onChange={e=>setFlipUrl(e.target.value)}>
+              <option value="https://bigflip.id/api/v3">Production (bigflip.id)</option>
+              <option value="https://bigflip.id/big_sandbox_api/v3">Sandbox (testing)</option>
+            </Select>
+          </Field>
+          <div className="bg-cyan2-50 dark:bg-cyan2-900/30 border border-cyan2-100 dark:border-cyan2-900/40 rounded-xl p-3 text-xs text-cyan2-700 dark:text-cyan2-300">
+            <b>Webhook URL:</b> https://donasi.niatbaik.org/api/webhooks/flip
+          </div>
+        </div>
+        <div className="mt-3 pt-3 border-t border-line flex justify-end">
+          <Button variant="primary" size="sm" onClick={saveFlip}>{saving==='flip'?'Menyimpan...':'Simpan Flip'}</Button>
+        </div>
+      </Card>
+
+      {/* SMTP */}
+      <Card>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center"><Icons.Mail w={22} h={22}/></div>
+          <div>
+            <div className="font-bold text-ink dark:text-slate-100">Email SMTP</div>
+            <div className="text-xs text-muted">Kirim email notifikasi, invoice, dan receipt</div>
+          </div>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Field label="SMTP Host"><Input value={smtpHost} onChange={e=>setSmtpHost(e.target.value)} placeholder="smtp.gmail.com"/></Field>
+          <Field label="SMTP Port"><Input value={smtpPort} onChange={e=>setSmtpPort(e.target.value)} placeholder="587"/></Field>
+          <Field label="Email"><Input value={smtpEmail} onChange={e=>setSmtpEmail(e.target.value)} placeholder="noreply@niatbaik.org"/></Field>
+          <Field label="Password" hint="Gmail: gunakan App Password"><Input type="password" value={smtpPassword} onChange={e=>setSmtpPassword(e.target.value)} placeholder={smtpEmail ? '••••••••••• (sudah diisi)' : 'App Password'}/></Field>
+          <Field label="Sender Name"><Input value={smtpName} onChange={e=>setSmtpName(e.target.value)} placeholder="NIATBAIK.ORG"/></Field>
+        </div>
+        <div className="mt-3 pt-3 border-t border-line flex justify-end">
+          <Button variant="primary" size="sm" onClick={saveSmtp}>{saving==='smtp'?'Menyimpan...':'Simpan SMTP'}</Button>
         </div>
       </Card>
     </>

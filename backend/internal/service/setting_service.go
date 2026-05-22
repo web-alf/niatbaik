@@ -91,6 +91,27 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	if req.PaymentProvider != "" {
 		setting.PaymentProvider = req.PaymentProvider
 	}
+	if req.MootaAPIKey != "" {
+		setting.MootaAPIKey = req.MootaAPIKey
+	}
+	if req.MootaWebhookSecret != "" {
+		setting.MootaWebhookSecret = req.MootaWebhookSecret
+	}
+	if req.MootaEnabled != nil {
+		setting.MootaEnabled = *req.MootaEnabled
+	}
+	if req.FlipSecretKey != "" {
+		setting.FlipSecretKey = req.FlipSecretKey
+	}
+	if req.FlipValidationToken != "" {
+		setting.FlipValidationToken = req.FlipValidationToken
+	}
+	if req.FlipBaseURL != "" {
+		setting.FlipBaseURL = req.FlipBaseURL
+	}
+	if req.FlipEnabled != nil {
+		setting.FlipEnabled = *req.FlipEnabled
+	}
 
 	return s.settingRepo.Update(setting)
 }

@@ -24,11 +24,22 @@ type Setting struct {
 
 	FundraiserCommissionPercent int `gorm:"default:0" json:"fundraiser_commission_percent"`
 
-	// Payment gateway
+	// Payment gateway — iPaymu (legacy)
 	IpaymuVA           string `gorm:"size:100" json:"ipaymu_va"`
 	IpaymuSecret       string `gorm:"size:255" json:"-"`
 	IpaymuURL          string `gorm:"size:255" json:"ipaymu_url"`
 	IpaymuMerchantCode string `gorm:"size:100" json:"ipaymu_merchant_code"`
+
+	// Payment gateway — Moota (bank mutation)
+	MootaAPIKey        string `gorm:"size:255" json:"-"`
+	MootaWebhookSecret string `gorm:"size:255" json:"-"`
+	MootaEnabled       bool   `gorm:"default:false" json:"moota_enabled"`
+
+	// Payment gateway — Flip (payment + disbursement)
+	FlipSecretKey       string `gorm:"size:255" json:"-"`
+	FlipValidationToken string `gorm:"size:255" json:"-"`
+	FlipBaseURL         string `gorm:"size:255" json:"flip_base_url"`
+	FlipEnabled         bool   `gorm:"default:false" json:"flip_enabled"`
 
 	// SMTP
 	SMTPHost     string `gorm:"size:255" json:"smtp_host"`

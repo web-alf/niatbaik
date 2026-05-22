@@ -10,6 +10,7 @@ type LoginHistory struct {
 	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	UserID     uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
 	IP         string    `gorm:"size:45" json:"ip"`
+	UserAgent  string    `gorm:"size:500" json:"user_agent"`
 	Location   string    `gorm:"size:255" json:"location"`
 	Device     string    `gorm:"size:255" json:"device"`
 	LoggedInAt time.Time `gorm:"not null" json:"logged_in_at"`

@@ -44,6 +44,10 @@ type User struct {
 	FundBankType   string `gorm:"size:50" json:"fund_bank_type"`
 	FundOrg        string `gorm:"size:255" json:"fund_org"`
 
+	// Password reset
+	ResetToken       string     `gorm:"size:255" json:"-"`
+	ResetTokenExpiry *time.Time `json:"-"`
+
 	// Referral / bonus
 	BonusBalance  int64  `gorm:"default:0" json:"bonus_balance"`
 	BonusWithdrawn int64 `gorm:"default:0" json:"bonus_withdrawn"`

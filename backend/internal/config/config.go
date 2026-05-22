@@ -28,6 +28,13 @@ type Config struct {
 	IpaymuURL          string
 	IpaymuMerchantCode string
 
+	MootaAPIKey        string
+	MootaWebhookSecret string
+
+	FlipSecretKey       string
+	FlipValidationToken string
+	FlipBaseURL         string
+
 	CORSOrigins string
 }
 
@@ -53,6 +60,13 @@ func Load() *Config {
 		IpaymuSecret:       getEnv("IPAYMU_SECRET", ""),
 		IpaymuURL:          getEnv("IPAYMU_URL", ""),
 		IpaymuMerchantCode: getEnv("IPAYMU_MERCHANT_CODE", ""),
+
+		MootaAPIKey:        getEnv("MOOTA_API_KEY", ""),
+		MootaWebhookSecret: getEnv("MOOTA_WEBHOOK_SECRET", ""),
+
+		FlipSecretKey:       getEnv("FLIP_SECRET_KEY", ""),
+		FlipValidationToken: getEnv("FLIP_VALIDATION_TOKEN", ""),
+		FlipBaseURL:         getEnv("FLIP_BASE_URL", "https://bigflip.id/api/v3"),
 
 		CORSOrigins: getEnv("CORS_ORIGINS", "http://localhost:3000"),
 	}

@@ -1,0 +1,122 @@
+const API_BASE = window.location.hostname === 'localhost'
+  ? 'http://localhost:8080/api'
+  : '/api';
+
+let authToken = localStorage.getItem('nb_token') || null;
+
+const api = {
+  setToken(token) { authToken = token; localStorage.setItem('nb_token', token); },
+  clearToken() { authToken = null; localStorage.removeItem('nb_token'); },
+  getToken() { return authToken; },
+
+  async request(method, path, body = null) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+
+    const opts = { method, headers };
+    if (body) opts.body = JSON.stringify(body);
+
+    try {
+      const res = await fetch(API_BASE + path, opts);
+      const data = await res.json();
+      if (!res.ok) throw { status: res.status, message: data.message || 'Error' };
+      return data;
+    } catch (err) {
+      if (err.status) throw err;
+      console.warn('API unavailable, using fallback:', path);
+      return null;
+    }
+  },
+
+  get(path) { return this.request('GET', path); },
+  post(path, body) { return this.request('POST', path, body); },
+  put(path, body) { return this.request('PUT', path, body); },
+  del(path) { return this.request('DELETE', path); },
+
+  // Auth
+  async login(email, password) {
+    const res = await this.post('/auth/login', { email, password });
+    if (res?.data?.access_token) this.setToken(res.data.access_token);
+    return res;
+  },
+  async logout() { this.clearToken(); return { success: true }; },
+  async me() { return this.get('/auth/me'); },
+
+  // Public
+  campaigns(params = '') { return this.get('/campaigns' + (params ? '?' + params : '')); },
+  campaign(slug) { return this.get('/campaigns/' + slug); },
+  categories() { return this.get('/categories'); },
+  publicSettings() { return this.get('/settings/public'); },
+  publicStats() { return this.get('/stats'); },
+
+  // Donations
+  createDonation(data) { return this.post('/donations', data); },
+  paymentStatus(invoice) { return this.get('/donations/' + invoice); },
+
+  // Dashboard
+  dashboardStats() { return this.get('/dashboard/stats'); },
+  dailyChart(days = 30) { return this.get('/dashboard/chart/daily?days=' + days); },
+  paymentMethodChart() { return this.get('/dashboard/chart/payment-methods'); },
+  trafficSourceChart() { return this.get('/dashboard/chart/traffic-sources'); },
+  recentTransactions(limit = 10) { return this.get('/dashboard/recent-transactions?limit=' + limit); },
+
+  // Admin campaigns
+  adminCampaigns(params = '') { return this.get('/admin/campaigns' + (params ? '?' + params : '')); },
+  createCampaign(data) { return this.post('/admin/campaigns', data); },
+  updateCampaign(id, data) { return this.put('/admin/campaigns/' + id, data); },
+  deleteCampaign(id) { return this.del('/admin/campaigns/' + id); },
+
+  // Users
+  users(params = '') { return this.get('/users' + (params ? '?' + params : '')); },
+  createUser(data) { return this.post('/users', data); },
+  updateUser(id, data) { return this.put('/users/' + id, data); },
+
+  // Invoices (CS)
+  invoices(params = '') { return this.get('/invoices' + (params ? '?' + params : '')); },
+  invoice(id) { return this.get('/invoices/' + id); },
+  updateInvoiceStatus(id, status) { return this.put('/invoices/' + id + '/status', { status }); },
+
+  // Analytics
+  analyticsOverview() { return this.get('/analytics/overview'); },
+  analyticsCampaigns() { return this.get('/analytics/campaigns'); },
+  analyticsUTM() { return this.get('/analytics/utm'); },
+  analyticsTraffic() { return this.get('/analytics/traffic'); },
+
+  // Settings
+  settings() { return this.get('/settings'); },
+  updateSettings(data) { return this.put('/settings', data); },
+
+  // Notifications
+  notifications() { return this.get('/notifications'); },
+  markNotificationRead(id) { return this.put('/notifications/' + id + '/read'); },
+  markAllNotificationsRead() { return this.put('/notifications/read'); },
+
+  // Profile
+  profile() { return this.get('/profile'); },
+  updateProfile(data) { return this.put('/profile', data); },
+  changePassword(data) { return this.put('/profile/password', data); },
+
+  // Fundraisers
+  fundraisers(params = '') { return this.get('/fundraisers' + (params ? '?' + params : '')); },
+
+  // Withdrawals
+  withdrawals() { return this.get('/withdrawals'); },
+  approveWithdrawal(id) { return this.post('/withdrawals/' + id + '/approve'); },
+  rejectWithdrawal(id) { return this.post('/withdrawals/' + id + '/reject'); },
+
+  // Trash
+  trash() { return this.get('/trash'); },
+  restoreTrash(type, id) { return this.post('/trash/' + type + '/' + id + '/restore'); },
+
+  // Upload
+  async uploadImage(file) {
+    const formData = new FormData();
+    formData.append('image', file);
+    const headers = {};
+    if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
+    const res = await fetch(API_BASE + '/uploads/image', { method: 'POST', headers, body: formData });
+    return res.json();
+  },
+};
+
+window.api = api;

@@ -86,6 +86,9 @@ function App(){
     `;
   },[tweaks.primary]);
 
+  // Load real data from API if available
+  uE_a(() => { loadApiData(); }, []);
+
   const navigate = (r) => { setRoute(r); window.scrollTo({top:0,behavior:'instant'}); };
   const openCampaign = (id) => { setCampaignId(id); setRoute('campaign-detail'); window.scrollTo({top:0,behavior:'instant'}); };
   const openInvoice = (tx) => setInvoice(tx);

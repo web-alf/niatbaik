@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/anrdart/niatbaik-api/internal/config"
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/internal/repository"
@@ -15,25 +16,31 @@ import (
 
 type DonationService struct {
 	db           *gorm.DB
+	cfg          *config.Config
 	invoiceRepo  *repository.InvoiceRepo
 	campaignRepo *repository.CampaignRepo
 	donationRepo *repository.DonationRepo
 	settingRepo  *repository.SettingRepo
+	flipService  *FlipService
 }
 
 func NewDonationService(
 	db *gorm.DB,
+	cfg *config.Config,
 	invoiceRepo *repository.InvoiceRepo,
 	campaignRepo *repository.CampaignRepo,
 	donationRepo *repository.DonationRepo,
 	settingRepo *repository.SettingRepo,
+	flipService *FlipService,
 ) *DonationService {
 	return &DonationService{
 		db:           db,
+		cfg:          cfg,
 		invoiceRepo:  invoiceRepo,
 		campaignRepo: campaignRepo,
 		donationRepo: donationRepo,
 		settingRepo:  settingRepo,
+		flipService:  flipService,
 	}
 }
 
@@ -80,6 +87,19 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 	}
 	if err := s.donationRepo.Create(&donation); err != nil {
 		return nil, fmt.Errorf("failed to create donation: %w", err)
+	}
+
+	// Create Flip payment bill if configured
+	if s.flipService != nil && s.cfg.FlipSecretKey != "" {
+		redirectURL := fmt.Sprintf("https://donasi.niatbaik.org/donations/%s", invoice.InvoiceNumber)
+		bill, err := s.flipService.CreateBill(&invoice, redirectURL)
+		if err == nil && bill != nil {
+			invoice.PayCode = fmt.Sprintf("%d", bill.LinkID)
+			invoice.QrURL = bill.PaymentURL
+			invoice.URLAlternative = bill.LinkURL
+			invoice.TypePayment = "Flip"
+			_ = s.invoiceRepo.Update(&invoice)
+		}
 	}
 
 	invoice.Campaign = *campaign

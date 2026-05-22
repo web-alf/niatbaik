@@ -30,8 +30,10 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 
 	// Initialize services
 	authService := service.NewAuthService(db, cfg)
-	donationService := service.NewDonationService(db, invoiceRepo, campaignRepo, donationRepo, settingRepo)
 	paymentService := service.NewPaymentService(db, invoiceRepo, campaignRepo, settingRepo, fundraiserRepo, commissionRepo)
+	mootaService := service.NewMootaService(cfg, paymentService, invoiceRepo)
+	flipService := service.NewFlipService(cfg, paymentService, invoiceRepo)
+	donationService := service.NewDonationService(db, cfg, invoiceRepo, campaignRepo, donationRepo, settingRepo, flipService)
 	webhookService := service.NewWebhookService(paymentService, invoiceRepo)
 	dashboardService := service.NewDashboardService(statsRepo)
 	campaignService := service.NewCampaignService(campaignRepo, categoryRepo)
@@ -49,7 +51,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	authHandler := handler.NewAuthHandler(authService)
 	publicHandler := handler.NewPublicHandler(campaignRepo, categoryRepo, settingRepo, invoiceRepo, donationRepo)
 	donationHandler := handler.NewDonationHandler(donationService)
-	webhookHandler := handler.NewWebhookHandler(webhookService)
+	webhookHandler := handler.NewWebhookHandler(webhookService, mootaService, flipService)
 	dashboardHandler := handler.NewDashboardHandler(dashboardService)
 	adminCampaignHandler := handler.NewAdminCampaignHandler(campaignService, campaignRepo)
 	userHandler := handler.NewUserHandler(userService, userRepo)
@@ -82,6 +84,8 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	// Webhooks (no auth, no CSRF)
 	api.POST("/webhooks/ipaymu", webhookHandler.HandleIpaymu)
 	api.POST("/webhooks/cekmutasi", webhookHandler.HandleCekmutasi)
+	api.POST("/webhooks/moota", webhookHandler.HandleMoota)
+	api.POST("/webhooks/flip", webhookHandler.HandleFlip)
 
 	// Auth routes
 	auth := api.Group("/auth")

@@ -198,3 +198,43 @@ Object.assign(window, {
   TOTAL_FUNDRAISER, TOTAL_LEADS, CONV_RATE, TODAY_RAISED, MONTH_RAISED,
   FUNDRAISERS, USERS, NOTIFICATIONS, TRAFFIC_SOURCES, TRASH
 });
+
+// API data loader — replaces dummy data when backend is available
+async function loadApiData() {
+  try {
+    const [statsRes, campaignsRes, categoriesRes] = await Promise.all([
+      api.publicStats(),
+      api.campaigns(),
+      api.categories(),
+    ]);
+
+    if (statsRes?.data) {
+      window.TOTAL_RAISED = statsRes.data.total_raised || TOTAL_RAISED;
+      window.TOTAL_DONORS = statsRes.data.total_donors || TOTAL_DONORS;
+      window.ACTIVE_CAMPAIGNS = statsRes.data.active_campaigns || ACTIVE_CAMPAIGNS;
+    }
+
+    if (campaignsRes?.data && campaignsRes.data.length > 0) {
+      window.CAMPAIGNS = campaignsRes.data.map(c => ({
+        id: c.id,
+        slug: c.slug,
+        title: c.title,
+        target: c.target,
+        raised: c.total_raised || 0,
+        donors: c.donor_count || 0,
+        days: c.days_left || 0,
+        status: c.status,
+        category: c.category || '',
+        img: c.image ? '/uploads/' + c.image : placeholderImg(0, c.title?.substring(0,12) || 'CAMPAIGN'),
+        description: c.short_description || c.description || '',
+      }));
+      window.ACTIVE_CAMPAIGNS = CAMPAIGNS.filter(c => c.status === 'Berjalan').length;
+    }
+
+    console.log('API data loaded successfully');
+  } catch (e) {
+    console.log('Using fallback dummy data:', e?.message || e);
+  }
+}
+
+window.loadApiData = loadApiData;

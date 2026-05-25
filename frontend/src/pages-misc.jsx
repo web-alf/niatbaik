@@ -107,9 +107,9 @@ function FundraiserPage(){
                 </td>
                 <td className="pr-5 py-3 text-right">
                   <div className="inline-flex items-center gap-1">
-                    <button className="h-8 w-8 rounded-md hover:bg-bg2 dark:hover:bg-slate-800 text-mute dark:text-slate-400 hover:text-ink dark:hover:text-slate-100"><Icon name="eye" size={16}/></button>
-                    <button className="h-8 w-8 rounded-md hover:bg-bg2 dark:hover:bg-slate-800 text-mute dark:text-slate-400 hover:text-ink dark:hover:text-slate-100"><Icon name="wallet" size={16}/></button>
-                    <button className="h-8 w-8 rounded-md hover:bg-bg2 dark:hover:bg-slate-800 text-mute dark:text-slate-400 hover:text-ink dark:hover:text-slate-100"><Icon name="more" size={16}/></button>
+                    <button onClick={()=>showToast('Detail fundraiser '+f.name)} className="h-8 w-8 rounded-md hover:bg-bg2 dark:hover:bg-slate-800 text-mute dark:text-slate-400 hover:text-ink dark:hover:text-slate-100" title="Lihat detail"><Icon name="eye" size={16}/></button>
+                    <button onClick={()=>showToast(f.status==='pending'?'Proses payout untuk '+f.name:'Sudah dibayar')} className="h-8 w-8 rounded-md hover:bg-bg2 dark:hover:bg-slate-800 text-mute dark:text-slate-400 hover:text-ink dark:hover:text-slate-100" title="Payout"><Icon name="wallet" size={16}/></button>
+                    <button onClick={()=>showToast('Menu lainnya')} className="h-8 w-8 rounded-md hover:bg-bg2 dark:hover:bg-slate-800 text-mute dark:text-slate-400 hover:text-ink dark:hover:text-slate-100" title="Lainnya"><Icon name="more" size={16}/></button>
                   </div>
                 </td>
               </tr>

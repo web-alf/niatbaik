@@ -133,7 +133,7 @@ function App() {
   const showToast = (titleOrObj, sub, tone) => {
     let t;
     if (typeof titleOrObj === 'string') {
-      t = { title: titleOrObj, sub: sub || '', tone: tone || 'success' };
+      t = { title: titleOrObj, sub: sub || '', tone: tone || 'ok' };
     } else {
       t = titleOrObj;
     }

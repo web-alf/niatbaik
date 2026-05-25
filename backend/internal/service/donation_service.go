@@ -49,7 +49,7 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 	if err != nil {
 		return nil, fmt.Errorf("campaign not found")
 	}
-	if campaign.Status != "Berjalan" {
+	if campaign.Status != "Berjalan" && campaign.Status != "Running" {
 		return nil, fmt.Errorf("campaign is not active")
 	}
 

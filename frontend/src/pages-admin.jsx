@@ -236,7 +236,12 @@ function CampaignsPage(){
   },[]);
 
   const filtered = campaigns.filter(c=>(filter==='all'||c.status.toLowerCase()===filter) && c.title.toLowerCase().includes(search.toLowerCase()));
-  const { openCampaign } = useApp();
+  const { openCampaign, setEditingCampaign, setView: navigateTo, showToast } = useApp();
+  const editCampaign = (c) => { setEditingCampaign(c); navigateTo('campaign-editor'); };
+  const deleteCampaign = async (c) => {
+    if (!confirm('Hapus campaign "'+c.title+'"?')) return;
+    try { await api.deleteCampaign(c.id); showToast('Campaign dihapus'); setCampaigns(prev=>prev.filter(x=>x.id!==c.id)); } catch(e) { showToast('Gagal menghapus: '+(e.message||'')); }
+  };
 
   return (
     <div className="space-y-5">
@@ -272,7 +277,7 @@ function CampaignsPage(){
       {view==='grid' ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map(c=>(
-            <CampaignAdminCard key={c.id} c={c} onOpen={()=>openCampaign(c.id)}/>
+            <CampaignAdminCard key={c.id} c={c} onOpen={()=>openCampaign(c.id)} onEdit={()=>editCampaign(c)}/>
           ))}
         </div>
       ) : (
@@ -310,8 +315,8 @@ function CampaignsPage(){
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-1">
                         <button onClick={()=>openCampaign(c.id)} className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300" title="Preview"><Icon name="eye" size={16}/></button>
-                        <button className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300" title="Edit"><Icon name="edit" size={16}/></button>
-                        <button className="h-8 w-8 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 flex items-center justify-center text-rose-500" title="Trash"><Icon name="trash" size={16}/></button>
+                        <button onClick={()=>editCampaign(c)} className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300" title="Edit"><Icon name="edit" size={16}/></button>
+                        <button onClick={()=>deleteCampaign(c)} className="h-8 w-8 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 flex items-center justify-center text-rose-500" title="Trash"><Icon name="trash" size={16}/></button>
                       </div>
                     </td>
                   </tr>
@@ -325,7 +330,7 @@ function CampaignsPage(){
   );
 }
 
-function CampaignAdminCard({ c, onOpen }){
+function CampaignAdminCard({ c, onOpen, onEdit }){
   return (
     <Card padded={false} className="overflow-hidden">
       <div className="relative aspect-[16/10]">
@@ -349,7 +354,7 @@ function CampaignAdminCard({ c, onOpen }){
         </div>
         <div className="mt-3 flex items-center gap-1.5">
           <Button variant="soft" size="sm" full onClick={onOpen} icon={<Icon name="eye" size={14}/>}>Preview</Button>
-          <Button variant="secondary" size="sm" icon={<Icon name="edit" size={14}/>}>Edit</Button>
+          <Button variant="secondary" size="sm" icon={<Icon name="edit" size={14}/>} onClick={()=>onEdit&&onEdit(c)}>Edit</Button>
         </div>
       </div>
     </Card>

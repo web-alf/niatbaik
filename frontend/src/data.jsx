@@ -338,6 +338,33 @@ const MONTH_RAISED     = dailyDonations.reduce((s, d) => s + d.amount, 0);
 /*  API data loaders — replace seed data when backend available        */
 /* ------------------------------------------------------------------ */
 
+function mapCampaign(c) {
+  return {
+    id: c.id, slug: c.slug, title: c.title,
+    category: c.category || '',
+    target: c.target || 0,
+    raised: c.total_raised ?? c.raised ?? 0,
+    donors: c.donor_count ?? c.donors ?? 0,
+    status: c.status || 'Draft',
+    daysLeft: c.days_left ?? c.daysLeft ?? 0,
+    days: c.days_left ?? c.daysLeft ?? 0,
+    thumb: c.thumb_gradient || c.thumb || (c.image ? '/uploads/' + c.image : ''),
+    img: c.image ? (c.image.startsWith('http') ? c.image : '/uploads/' + c.image) : '',
+    icon: c.icon || 'heart',
+    updatedAt: c.updated_at || c.updatedAt || '',
+    description: c.description || c.short_description || '',
+    short_description: c.short_description || '',
+    featured: c.featured || false,
+    form_style: c.form_style || 'Card',
+    form_type: c.form_type || 'donasi',
+    opt_nominal: c.opt_nominal || '',
+    min_donation: c.min_donation || 0,
+    location_name: c.location_name || '',
+    progress_percentage: c.progress_percentage || (c.target > 0 ? Math.min(100, Math.round((c.total_raised || c.raised || 0) / c.target * 100)) : 0),
+  };
+}
+window.mapCampaign = mapCampaign;
+
 async function loadApiData() {
   if (typeof window.api === 'undefined') {
     console.log('[data] No API client — using seed data');
@@ -358,21 +385,7 @@ async function loadApiData() {
     }
 
     if (campaignsRes?.data && campaignsRes.data.length > 0) {
-      window.CAMPAIGNS = campaignsRes.data.map(c => ({
-        id: c.id,
-        slug: c.slug,
-        title: c.title,
-        category: c.category || '',
-        target: c.target,
-        raised: c.total_raised || 0,
-        donors: c.donor_count || 0,
-        status: c.status,
-        daysLeft: c.days_left || 0,
-        thumb: c.image ? '/uploads/' + c.image : placeholderImg(0, c.title?.substring(0, 12) || 'CAMPAIGN'),
-        icon: c.icon || 'heart',
-        updatedAt: c.updated_at || '',
-        description: c.short_description || c.description || '',
-      }));
+      window.CAMPAIGNS = campaignsRes.data.map(mapCampaign);
       window.ACTIVE_CAMPAIGNS = window.CAMPAIGNS.filter(c => c.status === 'Berjalan' || c.status === 'Running').length;
     }
 

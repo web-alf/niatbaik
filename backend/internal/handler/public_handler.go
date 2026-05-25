@@ -132,7 +132,7 @@ func (h *PublicHandler) GetPublicStats(c echo.Context) error {
 	totalDonors, _ := h.invoiceRepo.CountAllPaidDonors()
 
 	statusCounts, _ := h.campaignRepo.CountByStatus()
-	activeCampaigns := statusCounts["Berjalan"]
+	activeCampaigns := statusCounts["Berjalan"] + statusCounts["Running"]
 
 	var totalCampaigns int64
 	for _, count := range statusCounts {

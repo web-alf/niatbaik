@@ -78,7 +78,7 @@ func (r *StatsRepo) GetDashboardStats() (*DashboardStats, error) {
 
 	// active campaigns
 	r.db.Model(&model.Campaign{}).
-		Where("status = ?", "Berjalan").
+		Where("status IN ?", []string{"Berjalan", "Running"}).
 		Count(&stats.ActiveCampaigns)
 
 	// fundraisers

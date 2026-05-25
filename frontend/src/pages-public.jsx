@@ -258,7 +258,7 @@ function CampaignsSection({ onCampaign }){
 
   uE(()=>{
     api.campaigns().then(r=>{
-      if (r?.data && Array.isArray(r.data)) setApiCampaigns(r.data);
+      if (r?.data && Array.isArray(r.data)) setApiCampaigns(r.data.map(mapCampaign));
     }).catch(()=>{});
   },[]);
 
@@ -656,7 +656,7 @@ function CampaignDetail({ id, onBack }){
     setLoading(true);
     const slug = id;
     api.campaign(slug).then(r=>{
-      if (r?.data) setCampaignData(r.data);
+      if (r?.data) setCampaignData(mapCampaign(r.data));
       else setCampaignData(CAMPAIGNS.find(x=>x.id===id || x.slug===id) || CAMPAIGNS[0]);
     }).catch(()=>{
       setCampaignData(CAMPAIGNS.find(x=>x.id===id || x.slug===id) || CAMPAIGNS[0]);

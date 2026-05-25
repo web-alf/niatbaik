@@ -70,6 +70,8 @@ function SettingsPage() {
 // =========================================================
 // 1. Themes
 // =========================================================
+function useToast() { try { return useApp().showToast || function(){}; } catch { return function(){}; } }
+
 function ThemesPanel() {
   const [color, setColor] = uS('#2E4191');
   const [secondary, setSecondary] = uS('#38B6FF');
@@ -94,9 +96,9 @@ function ThemesPanel() {
     setSaving(true);
     try {
       const res = await api.updateSettings({ primary_color: color, secondary_color: secondary, border_radius: radius, font_family: font, button_style: btnStyle });
-      if (res?.success || res?.data) Toast.show ? Toast.show('Tema berhasil disimpan') : alert('Tema berhasil disimpan');
-      else alert(res?.message || 'Gagal menyimpan tema');
-    } catch(e) { alert('Error: ' + e.message); }
+      if (res?.success || res?.data) useToast()('Tema berhasil disimpan');
+      else useToast()(res?.message || 'Gagal menyimpan tema');
+    } catch(e) { useToast()('Error: ' + e.message); }
     setSaving(false);
   };
 
@@ -228,9 +230,9 @@ function FormPanel() {
     setSaving(true);
     try {
       const res = await api.updateSettings({ form_fields: fields, nominal_presets: presets, min_donation: parseInt(minDonation) || 10000, max_donation: parseInt(maxDonation) || 100000000 });
-      if (res?.success || res?.data) alert('Form berhasil disimpan');
-      else alert(res?.message || 'Gagal menyimpan');
-    } catch(e) { alert('Error: ' + e.message); }
+      if (res?.success || res?.data) useToast()('Form berhasil disimpan');
+      else useToast()(res?.message || 'Gagal menyimpan');
+    } catch(e) { useToast()('Error: ' + e.message); }
     setSaving(false);
   };
 
@@ -542,11 +544,11 @@ function PaymentPanel() {
   const handleSave = (data) => {
     if (editing) {
       setMethods(prev => prev.map(x => x.id === editing.id ? { ...x, ...data } : x));
-      alert(`Payment "${data.name}" diperbarui`);
+      useToast()(`Payment "${data.name}" diperbarui`);
     } else {
       const id = 'm' + (Date.now() % 100000);
       setMethods(prev => [...prev, { id, active:true, ...data }]);
-      alert(`Payment "${data.name}" ditambahkan`);
+      useToast()(`Payment "${data.name}" ditambahkan`);
     }
     setModalOpen(false);
     setEditing(null);
@@ -554,7 +556,7 @@ function PaymentPanel() {
 
   const handleDelete = () => {
     setMethods(prev => prev.filter(x => x.id !== confirmDel.id));
-    alert(`Payment "${confirmDel.name}" dihapus`);
+    useToast()(`Payment "${confirmDel.name}" dihapus`);
     setConfirmDel(null);
   };
 
@@ -567,8 +569,8 @@ function PaymentPanel() {
       if (mootaKey) data.moota_api_key = mootaKey;
       if (mootaSecret) data.moota_webhook_secret = mootaSecret;
       const res = await api.updateSettings(data);
-      alert(res?.success ? 'Moota berhasil disimpan' : (res?.message || 'Gagal'));
-    } catch(e) { alert('Error: ' + e.message); }
+      useToast()(res?.success ? 'Moota berhasil disimpan' : (res?.message || 'Gagal'));
+    } catch(e) { useToast()('Error: ' + e.message); }
     setSaving('');
   };
 
@@ -579,8 +581,8 @@ function PaymentPanel() {
       if (flipKey) data.flip_secret_key = flipKey;
       if (flipToken) data.flip_validation_token = flipToken;
       const res = await api.updateSettings(data);
-      alert(res?.success ? 'Flip berhasil disimpan' : (res?.message || 'Gagal'));
-    } catch(e) { alert('Error: ' + e.message); }
+      useToast()(res?.success ? 'Flip berhasil disimpan' : (res?.message || 'Gagal'));
+    } catch(e) { useToast()('Error: ' + e.message); }
     setSaving('');
   };
 
@@ -590,8 +592,8 @@ function PaymentPanel() {
       const data = { ipaymu_va: ipaymuVA, ipaymu_url: ipaymuUrl };
       if (ipaymuSecret) data.ipaymu_secret = ipaymuSecret;
       const res = await api.updateSettings(data);
-      alert(res?.success ? 'iPaymu berhasil disimpan' : (res?.message || 'Gagal'));
-    } catch(e) { alert('Error: ' + e.message); }
+      useToast()(res?.success ? 'iPaymu berhasil disimpan' : (res?.message || 'Gagal'));
+    } catch(e) { useToast()('Error: ' + e.message); }
     setSaving('');
   };
 
@@ -907,8 +909,8 @@ function NotificationPanel() {
       const data = { wa_provider: waProvider, wa_admin_number: waAdmin };
       if (waToken) data.wa_token = waToken;
       const res = await api.updateSettings(data);
-      alert(res?.success ? 'WhatsApp berhasil disimpan' : (res?.message || 'Gagal'));
-    } catch(e) { alert('Error: ' + e.message); }
+      useToast()(res?.success ? 'WhatsApp berhasil disimpan' : (res?.message || 'Gagal'));
+    } catch(e) { useToast()('Error: ' + e.message); }
     setSaving('');
   };
 
@@ -918,8 +920,8 @@ function NotificationPanel() {
       const data = { email_enabled: emailEnabled, smtp_host: smtpHost, smtp_email: smtpEmail, smtp_port: parseInt(smtpPort) || 587, smtp_ssl: smtpSSL };
       if (smtpPassword) data.smtp_password = smtpPassword;
       const res = await api.updateSettings(data);
-      alert(res?.success ? 'SMTP berhasil disimpan' : (res?.message || 'Gagal'));
-    } catch(e) { alert('Error: ' + e.message); }
+      useToast()(res?.success ? 'SMTP berhasil disimpan' : (res?.message || 'Gagal'));
+    } catch(e) { useToast()('Error: ' + e.message); }
     setSaving('');
   };
 
@@ -929,8 +931,8 @@ function NotificationPanel() {
       const data = { telegram_chat_id: tgChatId };
       if (tgToken) data.telegram_bot_token = tgToken;
       const res = await api.updateSettings(data);
-      alert(res?.success ? 'Telegram berhasil disimpan' : (res?.message || 'Gagal'));
-    } catch(e) { alert('Error: ' + e.message); }
+      useToast()(res?.success ? 'Telegram berhasil disimpan' : (res?.message || 'Gagal'));
+    } catch(e) { useToast()('Error: ' + e.message); }
     setSaving('');
   };
 
@@ -1041,9 +1043,9 @@ function SocialPanel() {
         socialproof_max: parseInt(maxItems) || 10,
         socialproof_template: template,
       });
-      if (res?.success || res?.data) alert('Social proof berhasil disimpan');
-      else alert(res?.message || 'Gagal menyimpan');
-    } catch(e) { alert('Error: ' + e.message); }
+      if (res?.success || res?.data) useToast()('Social proof berhasil disimpan');
+      else useToast()(res?.message || 'Gagal menyimpan');
+    } catch(e) { useToast()('Error: ' + e.message); }
     setSaving(false);
   };
 
@@ -1153,9 +1155,9 @@ function FundraisingPanel() {
         fundraiser_min_payout: parseInt(minPayout) || 100000,
         fundraiser_payout_cycle: payoutCycle,
       });
-      if (res?.success || res?.data) alert('Fundraiser berhasil disimpan');
-      else alert(res?.message || 'Gagal menyimpan');
-    } catch(e) { alert('Error: ' + e.message); }
+      if (res?.success || res?.data) useToast()('Fundraiser berhasil disimpan');
+      else useToast()(res?.message || 'Gagal menyimpan');
+    } catch(e) { useToast()('Error: ' + e.message); }
     setSaving(false);
   };
 
@@ -1249,9 +1251,9 @@ function GeneralPanel() {
         footer_code: footerCode, powered_by: poweredBy,
         admin_fee: parseInt(adminFee) || 0, auto_slide: parseInt(autoSlide) || 5,
       });
-      if (res?.success || res?.data) alert('Pengaturan umum berhasil disimpan');
-      else alert(res?.message || 'Gagal menyimpan');
-    } catch(e) { alert('Error: ' + e.message); }
+      if (res?.success || res?.data) useToast()('Pengaturan umum berhasil disimpan');
+      else useToast()(res?.message || 'Gagal menyimpan');
+    } catch(e) { useToast()('Error: ' + e.message); }
     setSaving('');
   };
 
@@ -1259,9 +1261,9 @@ function GeneralPanel() {
     setSaving('seo');
     try {
       const res = await api.updateSettings({ seo_title: seoTitle, seo_description: seoDesc });
-      if (res?.success || res?.data) alert('SEO berhasil disimpan');
-      else alert(res?.message || 'Gagal menyimpan');
-    } catch(e) { alert('Error: ' + e.message); }
+      if (res?.success || res?.data) useToast()('SEO berhasil disimpan');
+      else useToast()(res?.message || 'Gagal menyimpan');
+    } catch(e) { useToast()('Error: ' + e.message); }
     setSaving('');
   };
 
@@ -1269,9 +1271,9 @@ function GeneralPanel() {
     setMaintenance(val);
     try {
       const res = await api.updateSettings({ maintenance_mode: val });
-      if (res?.success || res?.data) alert(val ? 'Mode maintenance aktif' : 'Mode maintenance nonaktif');
-      else alert(res?.message || 'Gagal mengubah mode');
-    } catch(e) { alert('Error: ' + e.message); }
+      if (res?.success || res?.data) useToast()(val ? 'Mode maintenance aktif' : 'Mode maintenance nonaktif');
+      else useToast()(res?.message || 'Gagal mengubah mode');
+    } catch(e) { useToast()('Error: ' + e.message); }
   };
 
   return (

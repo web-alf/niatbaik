@@ -29,7 +29,7 @@ const { useState: uS, useEffect: uE, useMemo: uM, useRef: uR } = React;
 })();
 
 // ===================== Public Navbar =====================
-function PublicNav({ onAdmin }){
+function PublicNav({ onAdmin, onDonate }){
   const [scrolled, setScrolled] = uS(false);
   const [mobileOpen, setMobileOpen] = uS(false);
   const { navigate, dark, setDark } = useApp();
@@ -63,7 +63,7 @@ function PublicNav({ onAdmin }){
         <button onClick={onAdmin} className="hidden lg:inline-flex items-center gap-1 text-sm font-semibold text-muted dark:text-slate-400 hover:text-ink dark:hover:text-slate-200">
           <Icon name="user" size={16}/> Masuk
         </button>
-        <Button variant="primary" size="md" icon={<Icon name="heart" size={16}/>}>Donasi Sekarang</Button>
+        <Button variant="primary" size="md" icon={<Icon name="heart" size={16}/>} onClick={()=>onDonate ? onDonate() : document.getElementById('campaigns')?.scrollIntoView({behavior:'smooth'})}>Donasi Sekarang</Button>
         <button onClick={()=>setMobileOpen(!mobileOpen)} className="lg:hidden h-9 w-9 rounded-lg hover:bg-bg2 dark:hover:bg-slate-800 flex items-center justify-center">
           <Icon name="menu" size={20}/>
         </button>
@@ -625,7 +625,7 @@ function LandingPage(){
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-slate-900 text-ink dark:text-slate-100">
-      <PublicNav onAdmin={()=>navigate('dashboard')}/>
+      <PublicNav onAdmin={()=>navigate('dashboard')} onDonate={()=>document.getElementById('campaigns')?.scrollIntoView({behavior:'smooth'})}/>
 
       <main className="flex-1 pb-24 lg:pb-0">
         <HeroSection onCampaign={handleCampaign}/>
@@ -732,7 +732,7 @@ function CampaignDetail({ id, onBack }){
 
   return (
     <div className="min-h-screen bg-bg2 dark:bg-slate-950">
-      <PublicNav onAdmin={()=>navigate('dashboard')}/>
+      <PublicNav onAdmin={()=>navigate('dashboard')} onDonate={()=>document.getElementById('campaigns')?.scrollIntoView({behavior:'smooth'})}/>
 
       {/* Back link */}
       <section className="bg-bg2 dark:bg-slate-950 border-b border-line dark:border-slate-700">

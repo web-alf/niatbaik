@@ -1727,10 +1727,8 @@ function Router(){
       {route==='settings' && <SettingsPage/>}
       {route==='notification' && <NotificationPage/>}
       {route==='trash' && <TrashPage/>}
-      {route==='cs-inbox' && <CsInbox/>}
-      {route==='transactions' && <TransactionsPage/>}
-      {route==='adv-dashboard' && <AdvertiserDashboard/>}
-      {route==='tracking' && <TrackingSettings/>}
+      {route==='cs-inbox' && typeof CsInbox!=='undefined' && <CsInbox/>}
+      {route==='adv-dashboard' && typeof AdvertiserDashboard!=='undefined' && <AdvertiserDashboard/>}
     </AppShell>
   );
 }

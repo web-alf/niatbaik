@@ -518,10 +518,6 @@ function PaymentPanel() {
   const [flipUrl, setFlipUrl] = uS('https://bigflip.id/api/v3');
   const [flipEnabled, setFlipEnabled] = uS(false);
   const [flipConfigured, setFlipConfigured] = uS(false);
-  // iPaymu
-  const [ipaymuVA, setIpaymuVA] = uS('');
-  const [ipaymuSecret, setIpaymuSecret] = uS('');
-  const [ipaymuUrl, setIpaymuUrl] = uS('https://my.ipaymu.com/api/v2');
   const [saving, setSaving] = uS('');
 
   uE(() => {
@@ -533,8 +529,6 @@ function PaymentPanel() {
       setFlipEnabled(!!d.flip_enabled);
       setFlipConfigured(!!d.flip_configured);
       setFlipUrl(d.flip_base_url || 'https://bigflip.id/api/v3');
-      setIpaymuVA(d.ipaymu_va || '');
-      setIpaymuUrl(d.ipaymu_url || 'https://my.ipaymu.com/api/v2');
     });
   }, []);
 
@@ -586,16 +580,6 @@ function PaymentPanel() {
     setSaving('');
   };
 
-  const saveIpaymu = async () => {
-    setSaving('ipaymu');
-    try {
-      const data = { ipaymu_va: ipaymuVA, ipaymu_url: ipaymuUrl };
-      if (ipaymuSecret) data.ipaymu_secret = ipaymuSecret;
-      const res = await api.updateSettings(data);
-      useToast()(res?.success ? 'iPaymu berhasil disimpan' : (res?.message || 'Gagal'));
-    } catch(e) { useToast()('Error: ' + e.message); }
-    setSaving('');
-  };
 
   return (
     <>
@@ -701,25 +685,6 @@ function PaymentPanel() {
         </div>
         <div className="mt-3 pt-3 border-t border-line dark:border-slate-700 flex justify-end">
           <Button variant="primary" size="sm" onClick={saveFlip}>{saving==='flip' ? 'Menyimpan...' : 'Simpan Flip'}</Button>
-        </div>
-      </Section>
-
-      {/* iPaymu */}
-      <Section title="iPaymu" sub="Payment gateway — ipaymu.com">
-        <div className="space-y-3">
-          <Field label="Virtual Account"><Input value={ipaymuVA} onChange={e => setIpaymuVA(e.target.value)} placeholder="Masukkan VA iPaymu"/></Field>
-          <Field label="API Key (Secret)" hint="Secret key dari dashboard iPaymu">
-            <Input type="password" value={ipaymuSecret} onChange={e => setIpaymuSecret(e.target.value)} placeholder="Masukkan Secret Key"/>
-          </Field>
-          <Field label="API URL">
-            <Select value={ipaymuUrl} onChange={e => setIpaymuUrl(e.target.value)}>
-              <option value="https://my.ipaymu.com/api/v2">Production</option>
-              <option value="https://sandbox.ipaymu.com/api/v2">Sandbox</option>
-            </Select>
-          </Field>
-        </div>
-        <div className="mt-3 pt-3 border-t border-line dark:border-slate-700 flex justify-end">
-          <Button variant="primary" size="sm" onClick={saveIpaymu}>{saving==='ipaymu' ? 'Menyimpan...' : 'Simpan iPaymu'}</Button>
         </div>
       </Section>
 

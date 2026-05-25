@@ -331,7 +331,8 @@ function MembersPage(){
   const handleAddUser = async () => {
     if (!newName.trim() || !newEmail.trim()) { showToast('Nama dan email wajib diisi'); return; }
     try {
-      const res = await api.createUser({ name: newName, email: newEmail, role: newRole, password: newPassword });
+      if (newPassword.length < 8) { showToast('Password minimal 8 karakter'); return; }
+      const res = await api.createUser({ name: newName, email: newEmail, role: newRole.toLowerCase(), password: newPassword });
       if (res?.success || res?.data) {
         setShowAdd(false); setNewName(''); setNewEmail(''); setNewRole('Admin'); setNewPassword('');
         refreshUsers(); showToast('User berhasil ditambah');

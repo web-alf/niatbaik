@@ -225,17 +225,11 @@ function CampaignsPage(){
 
   uE_adm(()=>{
     api.adminCampaigns().then(r => {
-      if(r?.data && r.data.length > 0) setCampaigns(r.data.map(c=>({
-        id: c.id, slug: c.slug, title: c.title, target: c.target,
-        raised: c.total_raised || 0, donors: c.donor_count || 0,
-        days: c.days_left || 0, status: c.status,
-        category: c.category || '', description: c.short_description || c.description || '',
-        img: c.image ? '/uploads/' + c.image : placeholderImg(0, c.title?.substring(0,12) || 'CAMPAIGN'),
-      })));
-    });
+      if(r?.data && r.data.length > 0) setCampaigns(r.data.map(mapCampaign));
+    }).catch(()=>{});
   },[]);
 
-  const filtered = campaigns.filter(c=>(filter==='all'||c.status.toLowerCase()===filter) && c.title.toLowerCase().includes(search.toLowerCase()));
+  const filtered = campaigns.filter(c=>(filter==='all'||(c.status||'').toLowerCase()===filter) && (c.title||'').toLowerCase().includes(search.toLowerCase()));
   const { openCampaign, setEditingCampaign, setView: navigateTo, showToast } = useApp();
   const editCampaign = (c) => { setEditingCampaign(c); navigateTo('campaign-editor'); };
   const deleteCampaign = async (c) => {

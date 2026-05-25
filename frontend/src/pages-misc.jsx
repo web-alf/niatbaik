@@ -868,7 +868,10 @@ function NotificationPage(){
   const [items, setItems] = uS(seedItems);
 
   uE(()=>{
-    api.notifications().then(r => r?.data && setItems(r.data)).catch(()=>{});
+    api.notifications().then(r => {
+      const list = r?.data?.notifications || r?.data;
+      if (Array.isArray(list) && list.length > 0) setItems(list);
+    }).catch(()=>{});
   }, []);
 
   const tones = {

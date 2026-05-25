@@ -115,7 +115,7 @@ function HeroSection({ onCampaign }){
             </button>
           </div>
 
-          <div className="mt-8 grid grid-cols-3 gap-3 max-w-md">
+          <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 max-w-md">
             {[
               { v:hs?fmtIDRShort(hs.total_raised):'Rp 0', l:'Donasi tersalurkan' },
               { v:hs?fmtNum(hs.total_donors):'0', l:'Donatur bersama' },
@@ -177,7 +177,7 @@ function HeroCard({ c, onCampaign }){
             </div>
           </div>
           <ProgressBar value={c.raised} max={c.target} size="lg" />
-          <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
+          <div className="mt-2 grid grid-cols-3 gap-1.5 sm:gap-2 text-center text-xs">
             <div className="p-2 rounded-lg bg-bg2 dark:bg-slate-950"><div className="text-muted dark:text-slate-400">Donatur</div><div className="font-extrabold text-ink dark:text-slate-100 tnum">{fmtNum(c.donors)}</div></div>
             <div className="p-2 rounded-lg bg-bg2 dark:bg-slate-950"><div className="text-muted dark:text-slate-400">Sisa hari</div><div className="font-extrabold text-rose-600 tnum">{c.daysLeft}</div></div>
             <div className="p-2 rounded-lg bg-bg2 dark:bg-slate-950"><div className="text-muted dark:text-slate-400">Sisa</div><div className="font-extrabold text-ink dark:text-slate-100 tnum">{fmtShort(c.target - c.raised)}</div></div>
@@ -310,7 +310,7 @@ function PublicCampaignCard({ c, onClick }){
     <div onClick={onClick} className="group cursor-pointer rounded-2xl bg-white dark:bg-slate-900 border border-line dark:border-slate-700 shadow-card hover:shadow-pop transition-all hover:-translate-y-1 overflow-hidden">
       {c.img ? (
         <div className="relative aspect-[16/10] overflow-hidden">
-          <img src={c.img} alt="" className="absolute inset-0 w-full h-full object-cover"/>
+          <img src={c.img} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy"/>
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"/>
           <div className="absolute top-3 left-3 flex gap-1.5">
             <span className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900/95 text-[11px] font-bold text-ink dark:text-slate-100">{c.category}</span>
@@ -402,7 +402,7 @@ function TestimonialsSection(){
             <div className="text-xs font-bold uppercase tracking-widest text-cyan2-100">Apa kata donatur</div>
             <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold tracking-tight">Bergabung bersama donatur Indonesia</h2>
             <p className="mt-3 text-white/85">Cerita nyata dari donatur yang mempercayakan niat baiknya melalui NIATBAIK.ORG.</p>
-            <div className="mt-6 grid grid-cols-3 gap-3 max-w-md">
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 max-w-md">
               <div><div className="text-2xl font-extrabold">4.9 ★</div><div className="text-xs text-white/75">Trust rating</div></div>
               <div><div className="text-2xl font-extrabold">98%</div><div className="text-xs text-white/75">Donatur puas</div></div>
               <div><div className="text-2xl font-extrabold">412</div><div className="text-xs text-white/75">Mitra fundraiser</div></div>
@@ -742,7 +742,7 @@ function CampaignDetail({ id, onBack }){
             {/* Campaign banner */}
             {c.img ? (
               <div className="relative aspect-[16/9] rounded-2xl overflow-hidden">
-                <img src={c.img} alt="" className="absolute inset-0 w-full h-full object-cover"/>
+                <img src={c.img} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy"/>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/0 to-transparent"/>
                 <div className="absolute top-4 left-4 flex gap-2">
                   <span className="px-2.5 py-1 rounded-md bg-white dark:bg-slate-900/95 text-[11px] font-bold text-ink dark:text-slate-100">{c.category}</span>
@@ -810,7 +810,7 @@ function CampaignDetail({ id, onBack }){
                   <div className="mt-1 text-3xl font-extrabold text-brand-600 tnum">{fmtIDR(c.raised)}</div>
                   <div className="text-sm text-muted dark:text-slate-400">dari target <b className="tnum">{fmtIDR(c.target)}</b></div>
                   <ProgressBar value={c.raised} max={c.target} size="lg"/>
-                  <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="mt-2 grid grid-cols-3 gap-1.5 sm:gap-2 text-center text-xs">
                     <div className="p-2 rounded-lg bg-bg2 dark:bg-slate-950"><div className="text-muted dark:text-slate-400">Donatur</div><div className="font-extrabold text-ink dark:text-slate-100 tnum">{fmtNum(c.donors)}</div></div>
                     <div className="p-2 rounded-lg bg-bg2 dark:bg-slate-950"><div className="text-muted dark:text-slate-400">Sisa hari</div><div className="font-extrabold text-rose-600 tnum">{days}</div></div>
                     <div className="p-2 rounded-lg bg-bg2 dark:bg-slate-950"><div className="text-muted dark:text-slate-400">Tercapai</div><div className="font-extrabold text-emerald-600 tnum">{pct}%</div></div>
@@ -856,7 +856,7 @@ function CampaignDetail({ id, onBack }){
                     {/* Pembayaran */}
                     <div className="space-y-3">
                       <div className="text-xs font-bold uppercase tracking-wider text-muted dark:text-slate-400">Metode pembayaran</div>
-                      <div className="grid grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         {['QRIS','BCA','Mandiri','BNI','GoPay','OVO','Dana','ShopeePay'].map(m=>(
                           <button key={m} onClick={()=>setPayMethod(m)}
                             className={`h-12 rounded-lg border-2 flex items-center justify-center text-[10px] font-extrabold transition-all ${payMethod===m?'border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300':'border-line dark:border-slate-700 bg-white dark:bg-slate-900 text-ink dark:text-slate-100 hover:border-brand-200'}`}>

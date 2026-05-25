@@ -66,7 +66,8 @@ function FundraiserPage(){
         </div>
       </Card>
 
-      <Card className="overflow-hidden">
+      <Card padded={false} className="overflow-hidden">
+        <div className="overflow-x-auto nice-scroll">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase tracking-wider text-mute dark:text-slate-400 border-b border-line dark:border-slate-700 bg-bg2/60 dark:bg-slate-800/60">
@@ -116,6 +117,7 @@ function FundraiserPage(){
             ))}
           </tbody>
         </table>
+        </div>
       </Card>
 
       <Card className="p-5">
@@ -386,7 +388,8 @@ function MembersPage(){
         </div>
       </Card>
 
-      <Card className="overflow-hidden">
+      <Card padded={false} className="overflow-hidden">
+        <div className="overflow-x-auto nice-scroll">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase tracking-wider text-mute dark:text-slate-400 border-b border-line dark:border-slate-700 bg-bg2/60 dark:bg-slate-800/60">
@@ -425,6 +428,7 @@ function MembersPage(){
             ))}
           </tbody>
         </table>
+        </div>
       </Card>
 
       {/* Permission matrix */}

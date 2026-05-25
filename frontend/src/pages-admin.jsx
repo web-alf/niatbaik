@@ -122,7 +122,7 @@ function AdminDashboard(){
           <div className="space-y-3">
             {CAMPAIGNS.slice(0,4).map((c,i)=>(
               <div key={c.id} className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">{c.img ? <img src={c.img} className="w-full h-full object-cover" alt=""/> : <div className="w-full h-full flex items-center justify-center text-white/80" style={{background:c.thumb||'linear-gradient(135deg,#2E4191,#38B6FF)'}}><Icon name={c.icon||'heart'} size={18}/></div>}</div>
+                <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">{c.img ? <img src={c.img} className="w-full h-full object-cover" alt="" loading="lazy"/> : <div className="w-full h-full flex items-center justify-center text-white/80" style={{background:c.thumb||'linear-gradient(135deg,#2E4191,#38B6FF)'}}><Icon name={c.icon||'heart'} size={18}/></div>}</div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold truncate text-ink dark:text-slate-100">{c.title}</div>
                   <ProgressBar value={c.raised} max={c.target} size="sm"/>
@@ -332,7 +332,7 @@ function CampaignsPage(){
                   <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-14 h-10 rounded-lg overflow-hidden shrink-0">{c.img ? <img src={c.img} className="w-full h-full object-cover" alt=""/> : <div className="w-full h-full flex items-center justify-center text-white/80" style={{background:c.thumb||'linear-gradient(135deg,#2E4191,#38B6FF)'}}><Icon name={c.icon||'heart'} size={16}/></div>}</div>
+                        <div className="w-14 h-10 rounded-lg overflow-hidden shrink-0">{c.img ? <img src={c.img} className="w-full h-full object-cover" alt="" loading="lazy"/> : <div className="w-full h-full flex items-center justify-center text-white/80" style={{background:c.thumb||'linear-gradient(135deg,#2E4191,#38B6FF)'}}><Icon name={c.icon||'heart'} size={16}/></div>}</div>
                         <div className="min-w-0">
                           <div className="font-semibold truncate max-w-[280px] text-ink dark:text-slate-100">{c.title}</div>
                           <div className="text-xs text-muted dark:text-slate-400">{c.category} · {c.days>0?`${c.days} hari lagi`:'Selesai'}</div>
@@ -651,7 +651,7 @@ function AnalyticsPage(){
                   <tr key={cp.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-7 rounded-md overflow-hidden shrink-0"><img src={cp.img || placeholderImg(0,'')} className="w-full h-full object-cover" alt=""/></div>
+                        <div className="w-10 h-7 rounded-md overflow-hidden shrink-0"><img src={cp.img || placeholderImg(0,'')} className="w-full h-full object-cover" alt="" loading="lazy"/></div>
                         <div className="font-medium text-ink dark:text-slate-100 truncate max-w-[220px]">{cp.title}</div>
                       </div>
                     </td>
@@ -1415,7 +1415,7 @@ function DSPageOverview({ daily, sources, campaigns }) {
             {(campaigns||[]).slice(0,5).map((c,i)=>{
               const rev = (c.raised||0) + i*1000;
               const pct = (rev / 600000000) * 100;
-              return (<div key={c.id||i} className="flex items-center gap-2.5"><div className="h-8 w-8 rounded-md shrink-0 overflow-hidden">{c.img ? <img src={c.img} className="w-full h-full object-cover" alt=""/> : <div className="w-full h-full flex items-center justify-center text-white/80" style={{background:c.thumb||'linear-gradient(135deg,#2E4191,#38B6FF)'}}><Icon name={c.icon||'heart'} size={14}/></div>}</div><div className="flex-1 min-w-0"><div className="text-xs font-bold text-ink dark:text-slate-100 line-clamp-1">{c.title}</div><div className="mt-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-[#1A73E8] to-[#0F9D58]" style={{width:Math.min(100,pct)+'%'}}/></div></div><div className="text-right shrink-0"><div className="text-xs font-extrabold text-ink dark:text-slate-100">{fmtIDRShort(rev)}</div><div className="text-[10px] text-muted">{fmtNum(c.donors||0)} donors</div></div></div>);
+              return (<div key={c.id||i} className="flex items-center gap-2.5"><div className="h-8 w-8 rounded-md shrink-0 overflow-hidden">{c.img ? <img src={c.img} className="w-full h-full object-cover" alt="" loading="lazy"/> : <div className="w-full h-full flex items-center justify-center text-white/80" style={{background:c.thumb||'linear-gradient(135deg,#2E4191,#38B6FF)'}}><Icon name={c.icon||'heart'} size={14}/></div>}</div><div className="flex-1 min-w-0"><div className="text-xs font-bold text-ink dark:text-slate-100 line-clamp-1">{c.title}</div><div className="mt-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-[#1A73E8] to-[#0F9D58]" style={{width:Math.min(100,pct)+'%'}}/></div></div><div className="text-right shrink-0"><div className="text-xs font-extrabold text-ink dark:text-slate-100">{fmtIDRShort(rev)}</div><div className="text-[10px] text-muted">{fmtNum(c.donors||0)} donors</div></div></div>);
             })}
           </div>
         </DSPanel>

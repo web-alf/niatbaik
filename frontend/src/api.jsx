@@ -4,6 +4,22 @@ const API_BASE = window.location.hostname === 'localhost'
 
 let authToken = localStorage.getItem('nb_token') || null;
 
+function sanitizeText(s) {
+  if (typeof s !== 'string') return s;
+  return s.replace(/[<>]/g, c => c === '<' ? '&lt;' : '&gt;');
+}
+
+function sanitizeBody(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const safe = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === 'description' || k === 'content' || k === 'body') safe[k] = v;
+    else if (typeof v === 'string') safe[k] = sanitizeText(v);
+    else safe[k] = v;
+  }
+  return safe;
+}
+
 const api = {
   setToken(token) { authToken = token; localStorage.setItem('nb_token', token); },
   clearToken() { authToken = null; localStorage.removeItem('nb_token'); },
@@ -14,7 +30,7 @@ const api = {
     if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
 
     const opts = { method, headers };
-    if (body) opts.body = JSON.stringify(body);
+    if (body) opts.body = JSON.stringify(sanitizeBody(body));
 
     try {
       const res = await fetch(API_BASE + path, opts);

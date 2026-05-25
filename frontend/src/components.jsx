@@ -481,7 +481,18 @@ function DateRangePicker({ open, anchor, onClose, value, onChange }){
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose}/>
-      <div className="absolute z-50 mt-2 left-0 bg-white dark:bg-slate-900 rounded-2xl shadow-pop border border-line dark:border-slate-700 overflow-hidden w-[640px] max-w-[calc(100vw-2rem)]">
+      <div className="fixed sm:absolute z-50 inset-x-0 bottom-0 sm:inset-auto sm:mt-2 sm:right-0 sm:left-auto bg-white dark:bg-slate-900 rounded-t-2xl sm:rounded-2xl shadow-pop border border-line dark:border-slate-700 overflow-hidden sm:w-[640px] max-h-[85vh] sm:max-h-none overflow-y-auto">
+        {/* Mobile drag handle */}
+        <div className="sm:hidden flex justify-center py-2"><div className="w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-600"/></div>
+        {/* Mobile presets row */}
+        <div className="sm:hidden px-3 pb-2 flex gap-1.5 overflow-x-auto nice-scroll">
+          {presets.slice(0,6).map((p)=>(
+            <button key={p.label} onClick={()=>setDraft(p.range())}
+              className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-ink dark:text-slate-200 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600">
+              {p.label}
+            </button>
+          ))}
+        </div>
         <div className="flex">
           <div className="w-40 border-r border-line dark:border-slate-700 bg-bg2/50 dark:bg-slate-800/50 py-2 px-2 hidden sm:block">
             {presets.map((p)=>(
@@ -495,16 +506,17 @@ function DateRangePicker({ open, anchor, onClose, value, onChange }){
             <div className="flex items-center justify-between mb-2 px-1">
               <button onClick={()=>{const d=new Date(cursorL);d.setMonth(d.getMonth()-1);setCursorL(d);}}
                 className="h-7 w-7 rounded-md hover:bg-bg2 dark:hover:bg-slate-800 text-muted dark:text-slate-400 flex items-center justify-center"><Icon name="chevronL" size={14}/></button>
-              <div className="grid grid-cols-2 gap-8 flex-1 mx-2 text-center">
+              <div className="hidden sm:grid grid-cols-2 gap-8 flex-1 mx-2 text-center">
                 <div className="text-sm font-extrabold text-ink dark:text-slate-100">{MONTHS_ID[cursorL.getMonth()]} {cursorL.getFullYear()}</div>
                 <div className="text-sm font-extrabold text-ink dark:text-slate-100">{MONTHS_ID[cursorR.getMonth()]} {cursorR.getFullYear()}</div>
               </div>
+              <div className="sm:hidden flex-1 text-center text-sm font-extrabold text-ink dark:text-slate-100">{MONTHS_ID[cursorL.getMonth()]} {cursorL.getFullYear()}</div>
               <button onClick={()=>{const d=new Date(cursorL);d.setMonth(d.getMonth()+1);setCursorL(d);}}
                 className="h-7 w-7 rounded-md hover:bg-bg2 dark:hover:bg-slate-800 text-muted dark:text-slate-400 flex items-center justify-center"><Icon name="chevronR" size={14}/></button>
             </div>
-            <div className="grid grid-cols-2 gap-4" onMouseLeave={()=>setHover(null)}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" onMouseLeave={()=>setHover(null)}>
               <CalendarGrid cursor={cursorL} range={draft} hover={hover} onPick={pick} onHover={setHover}/>
-              <CalendarGrid cursor={cursorR} range={draft} hover={hover} onPick={pick} onHover={setHover}/>
+              <div className="hidden sm:block"><CalendarGrid cursor={cursorR} range={draft} hover={hover} onPick={pick} onHover={setHover}/></div>
             </div>
           </div>
         </div>
@@ -1623,7 +1635,7 @@ function Topbar({ onMenu, title, subtitle, actions, role }){
             {notifCount > 0 && <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 text-[10px] font-bold bg-rose-500 text-white rounded-full flex items-center justify-center ring-2 ring-white dark:ring-slate-900">{notifCount > 9 ? '9+' : notifCount}</span>}
           </button>
           {openNotif && (
-            <div className="absolute right-0 top-12 w-[320px] bg-white dark:bg-slate-900 rounded-2xl shadow-pop border border-line dark:border-slate-700 p-2 z-50">
+            <div className="absolute right-0 top-12 w-[320px] max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-pop border border-line dark:border-slate-700 p-2 z-50">
               <div className="px-3 py-2 flex items-center justify-between">
                 <div className="font-semibold text-sm text-ink dark:text-slate-100">Notifikasi</div>
                 <button className="text-xs text-brand-600 dark:text-brand-300 font-medium">Tandai dibaca</button>
@@ -1652,7 +1664,7 @@ function Topbar({ onMenu, title, subtitle, actions, role }){
             </div>
           </button>
           {openProfile && (
-            <div className="absolute right-0 top-12 w-[220px] bg-white dark:bg-slate-900 rounded-2xl shadow-pop border border-line dark:border-slate-700 p-2 z-50">
+            <div className="absolute right-0 top-12 w-[220px] max-w-[calc(100vw-2rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-pop border border-line dark:border-slate-700 p-2 z-50">
               <div className="px-3 py-2 border-b border-line dark:border-slate-700 mb-1">
                 <div className="font-semibold text-sm text-ink dark:text-slate-100">{userName}</div>
                 <div className="text-xs text-muted dark:text-slate-400">{userEmail}</div>

@@ -3,6 +3,7 @@ const { useState: uS_adm, useEffect: uE_adm } = React;
 
 // ====================== Admin Dashboard ======================
 function AdminDashboard(){
+  const { setEditingCampaign, setView: navTo, showToast } = useApp();
   const [apiStats, setApiStats] = uS_adm(null);
   const [dailyData, setDailyData] = uS_adm(DAILY);
   const [recentTx, setRecentTx] = uS_adm(TRANSACTIONS.slice(0,8));
@@ -29,11 +30,10 @@ function AdminDashboard(){
         title="Selamat datang, Admin 👋"
         subtitle="Ringkasan donasi & performa NIATBAIK.ORG"
         actions={<>
-          <DateRangePicker/>
-          <Button variant="secondary" icon={<Icon name="download" size={16}/>}>Excel</Button>
-          <Button variant="secondary" icon={<Icon name="download" size={16}/>}>CSV</Button>
-          <Button variant="secondary" icon={<Icon name="upload" size={16}/>}>Import</Button>
-          <Button variant="primary" icon={<Icon name="plus" size={16}/>}>Buat Campaign</Button>
+          <DateRangePill/>
+          <Button variant="secondary" icon={<Icon name="download" size={16}/>} onClick={()=>{if(typeof exportExcel==='function')exportExcel(recentTx,'dashboard');else showToast('Export Excel');}}>Excel</Button>
+          <Button variant="secondary" icon={<Icon name="download" size={16}/>} onClick={()=>{if(typeof exportCSV==='function')exportCSV(recentTx,'dashboard');else showToast('Export CSV');}}>CSV</Button>
+          <Button variant="primary" icon={<Icon name="plus" size={16}/>} onClick={()=>{setEditingCampaign(null);navTo('campaign-editor');}}>Buat Campaign</Button>
         </>}
       />
 
@@ -152,25 +152,7 @@ function AdminDashboard(){
 }
 
 // ====================== Date Range Picker (visual) ======================
-function DateRangePicker({ label="01 Nov – 30 Nov 2026" }){
-  const [open, setOpen] = uS_adm(false);
-  return (
-    <div className="relative">
-      <button onClick={()=>setOpen(!open)} className="h-10 inline-flex items-center gap-2 px-3 rounded-xl border border-line bg-white hover:bg-slate-50 text-sm font-medium text-ink dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700">
-        <Icon name="calendar" size={16}/>{label}<Icon name="chevronD" size={14}/>
-      </button>
-      {open && (
-        <div className="absolute right-0 top-12 surface rounded-2xl shadow-pop p-3 z-30 w-[280px]">
-          <div className="grid grid-cols-2 gap-1 text-xs">
-            {['Hari ini','Kemarin','7 hari','30 hari','Bulan ini','Bulan lalu','Tahun ini','Custom'].map(t=>(
-              <button key={t} onClick={()=>setOpen(false)} className="h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-left px-2">{t}</button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+// DateRangePicker removed — use DateRangePill from components.jsx
 
 // ====================== Transaction Table ======================
 function TxTable({ rows, onInvoice }){
@@ -243,8 +225,8 @@ function CampaignsPage(){
         title="Campaigns"
         subtitle={`${campaigns.length} campaign · ${activeCampaigns} sedang berjalan`}
         actions={<>
-          <Button variant="secondary" icon={<Icon name="download" size={16}/>}>Export</Button>
-          <Button variant="primary" icon={<Icon name="plus" size={16}/>}>Buat Campaign</Button>
+          <Button variant="secondary" icon={<Icon name="download" size={16}/>} onClick={()=>{if(typeof exportCSV==='function')exportCSV(filtered,'campaigns');else showToast('Export');}}>Export</Button>
+          <Button variant="primary" icon={<Icon name="plus" size={16}/>} onClick={()=>{setEditingCampaign(null);navigateTo('campaign-editor');}}>Buat Campaign</Button>
         </>}
       />
 
@@ -259,7 +241,7 @@ function CampaignsPage(){
               <button key={k} onClick={()=>setFilter(k)} className={`px-3 h-9 rounded-lg text-sm font-medium ${filter===k?'bg-white dark:bg-slate-700 shadow-sm':'text-muted dark:text-slate-400'}`}>{l}</button>
             ))}
           </div>
-          <DateRangePicker/>
+          <DateRangePill/>
           <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-0.5">
             <button onClick={()=>setView('grid')} className={`px-3 h-9 rounded-lg ${view==='grid'?'bg-white dark:bg-slate-700 shadow-sm':'text-muted dark:text-slate-400'}`}><Icon name="home" size={16}/></button>
             <button onClick={()=>setView('list')} className={`px-3 h-9 rounded-lg ${view==='list'?'bg-white dark:bg-slate-700 shadow-sm':'text-muted dark:text-slate-400'}`}><Icon name="menu" size={16}/></button>
@@ -378,8 +360,8 @@ function AnalyticsPage(){
         title="Analytics"
         subtitle="Performance campaign & ads tracking"
         actions={<>
-          <DateRangePicker/>
-          <Button variant="secondary" icon={<Icon name="download" size={16}/>}>Export</Button>
+          <DateRangePill/>
+          <Button variant="secondary" icon={<Icon name="download" size={16}/>} onClick={()=>{if(typeof exportCSV==='function'&&campaignPerf)exportCSV(campaignPerf,'analytics');}}>Export</Button>
         </>}
       />
 
@@ -1542,4 +1524,4 @@ function AGOrganic() {
   );
 }
 
-Object.assign(window, { AdminDashboard, CampaignsPage, AnalyticsPage, TxTable, DateRangePicker, CampaignEditorView, DataStudioView, AdsGuideModal });
+Object.assign(window, { AdminDashboard, CampaignsPage, AnalyticsPage, TxTable, CampaignEditorView, DataStudioView, AdsGuideModal });

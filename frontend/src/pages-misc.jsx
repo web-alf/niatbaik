@@ -41,8 +41,8 @@ function FundraiserPage(){
     <div className="space-y-5">
       <PageHeader title="Fundraiser" subtitle="Mitra fundraiser yang mempromosikan campaign NIATBAIK.ORG."
         actions={<>
-          <Btn variant="outline" tone="ink" icon="download">Export komisi</Btn>
-          <Btn icon="plus">Undang Fundraiser</Btn>
+          <Btn variant="outline" tone="ink" icon="download" onClick={()=>{if(typeof exportCSV==='function')exportCSV(fundraisers,'fundraiser-komisi');else showToast('Export komisi');}}>Export komisi</Btn>
+          <Btn icon="plus" onClick={()=>showToast('Fitur undang fundraiser segera hadir')}>Undang Fundraiser</Btn>
         </>}/>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -370,7 +370,7 @@ function MembersPage(){
     <div className="space-y-5">
       <PageHeader title="Members / User" subtitle="Tim NIATBAIK.ORG · Admin, CS, dan Advertiser."
         actions={<>
-          <Btn variant="outline" tone="ink" icon="download">Export</Btn>
+          <Btn variant="outline" tone="ink" icon="download" onClick={()=>{if(typeof exportCSV==='function')exportCSV(users,'members');else showToast('Export');}}>Export</Btn>
           <Btn icon="plus" onClick={()=>setShowAdd(true)}>Add User</Btn>
         </>}/>
 
@@ -795,7 +795,7 @@ function ProfilePage(){
             <div className="font-bold text-ink dark:text-slate-100">Activity Log</div>
             <div className="text-xs text-mute dark:text-slate-400">30 aktivitas terakhir</div>
           </div>
-          <Btn size="sm" variant="ghost" tone="ink" icon="download">Export log</Btn>
+          <Btn size="sm" variant="ghost" tone="ink" icon="download" onClick={()=>showToast('Export log aktivitas')}>Export log</Btn>
         </div>
         <div className="space-y-2">
           {[

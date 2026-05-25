@@ -5,24 +5,28 @@ const { useState: uS_adm, useEffect: uE_adm } = React;
 function AdminDashboard(){
   const { setEditingCampaign, setView: navTo, showToast } = useApp();
   const [apiStats, setApiStats] = uS_adm(null);
-  const [dailyData, setDailyData] = uS_adm(DAILY);
-  const [recentTx, setRecentTx] = uS_adm(TRANSACTIONS.slice(0,8));
+  const [dailyData, setDailyData] = uS_adm([]);
+  const [allTx, setAllTx] = uS_adm([]);
+  const [range, setRange] = uS_adm(null);
 
   uE_adm(()=>{
     api.dashboardStats().then(r => r?.data && setApiStats(r.data));
     api.dailyChart(30).then(r => { if(r?.data) setDailyData(r.data.map(d=>({date:new Date(d.date),amount:d.amount,count:d.count}))); });
-    api.recentTransactions(8).then(r => { if(r?.data) setRecentTx(r.data); });
+    api.recentTransactions(8).then(r => { if(r?.data) setAllTx(r.data); });
   },[]);
 
+  const recentTx = typeof filterByRange==='function' ? filterByRange(allTx, range, 'date') : allTx;
+
+  const s_ = apiStats;
   const stats = [
-    { l:'Total Donasi', v:fmtShort(apiStats?.total_raised || TOTAL_RAISED), s:'Sepanjang waktu', tone:'brand', i:<Icon name="heart" size={20}/>, t:{up:true,value:apiStats?.total_raised_trend || '+12.4%'} },
-    { l:'Total Transaksi', v:fmtNum(apiStats?.total_tx || TOTAL_TX), s:'Sepanjang waktu', tone:'cyan', i:<Icon name="wallet" size={20}/>, t:{up:true,value:apiStats?.total_tx_trend || '+8.1%'} },
-    { l:'Campaign Aktif', v:(apiStats?.active_campaigns || ACTIVE_CAMPAIGNS)+' / '+(apiStats?.total_campaigns || CAMPAIGNS.length), s:'Running sekarang', tone:'green', i:<Icon name="megaphone" size={20}/> },
-    { l:'Total Fundraiser', v:fmtNum(apiStats?.total_fundraiser || TOTAL_FUNDRAISER), s:'24 aktif minggu ini', tone:'amber', i:<Icon name="users" size={20}/> },
-    { l:'Total Leads Iklan', v:fmtNum(apiStats?.total_leads || TOTAL_LEADS), s:'30 hari terakhir', tone:'cyan', i:<Icon name="sparkle" size={20}/>, t:{up:true,value:apiStats?.leads_trend || '+24.6%'} },
-    { l:'Conversion Rate', v:(apiStats?.conv_rate || CONV_RATE)+'%', s:'Visitor → Donatur', tone:'green', i:<Icon name="chart" size={20}/>, t:{up:true,value:apiStats?.conv_rate_trend || '+0.4%'} },
-    { l:'Donasi Hari Ini', v:fmtShort(apiStats?.today_raised || TODAY_RAISED), s:'Update real-time', tone:'brand', i:<Icon name="sun" size={20}/>, t:{up:true,value:apiStats?.today_trend || '+18%'} },
-    { l:'Donasi Bulan Ini', v:fmtShort(apiStats?.month_raised || MONTH_RAISED), s:'November 2026', tone:'cyan', i:<Icon name="calendar" size={20}/>, t:{up:false,value:apiStats?.month_trend || '-2.1%'} },
+    { l:'Total Donasi', v:fmtShort(s_?s_.total_raised:TOTAL_RAISED), s:'Sepanjang waktu', tone:'brand', i:<Icon name="heart" size={20}/>, t:{up:true,value:s_?.total_raised_trend??'+12.4%'} },
+    { l:'Total Transaksi', v:fmtNum(s_?s_.total_transactions:TOTAL_TX), s:'Sepanjang waktu', tone:'cyan', i:<Icon name="wallet" size={20}/>, t:{up:true,value:s_?.total_tx_trend??'+8.1%'} },
+    { l:'Campaign Aktif', v:(s_?s_.active_campaigns:ACTIVE_CAMPAIGNS)+' / '+(s_?s_.total_campaigns??CAMPAIGNS.length:CAMPAIGNS.length), s:'Running sekarang', tone:'green', i:<Icon name="megaphone" size={20}/> },
+    { l:'Total Fundraiser', v:fmtNum(s_?s_.total_fundraisers:TOTAL_FUNDRAISER), s:'24 aktif minggu ini', tone:'amber', i:<Icon name="users" size={20}/> },
+    { l:'Total Leads Iklan', v:fmtNum(s_?s_.total_leads:TOTAL_LEADS), s:'30 hari terakhir', tone:'cyan', i:<Icon name="sparkle" size={20}/>, t:{up:true,value:s_?.leads_trend??'+24.6%'} },
+    { l:'Conversion Rate', v:(s_?s_.conversion_rate:CONV_RATE)+'%', s:'Visitor → Donatur', tone:'green', i:<Icon name="chart" size={20}/>, t:{up:true,value:s_?.conv_rate_trend??'+0.4%'} },
+    { l:'Donasi Hari Ini', v:fmtShort(s_?s_.today_raised:TODAY_RAISED), s:'Update real-time', tone:'brand', i:<Icon name="sun" size={20}/>, t:{up:true,value:s_?.today_trend??'+18%'} },
+    { l:'Donasi Bulan Ini', v:fmtShort(s_?s_.month_raised:MONTH_RAISED), s:'Bulan ini', tone:'cyan', i:<Icon name="calendar" size={20}/>, t:{up:false,value:s_?.month_trend??'-2.1%'} },
   ];
   return (
     <div className="space-y-6">
@@ -30,9 +34,9 @@ function AdminDashboard(){
         title="Selamat datang, Admin 👋"
         subtitle="Ringkasan donasi & performa NIATBAIK.ORG"
         actions={<>
-          <DateRangePill/>
-          <Button variant="secondary" icon={<Icon name="download" size={16}/>} onClick={()=>{if(typeof exportExcel==='function')exportExcel(recentTx,'dashboard');else showToast('Export Excel');}}>Excel</Button>
-          <Button variant="secondary" icon={<Icon name="download" size={16}/>} onClick={()=>{if(typeof exportCSV==='function')exportCSV(recentTx,'dashboard');else showToast('Export CSV');}}>CSV</Button>
+          <DateRangePill value={range} onChange={setRange}/>
+          <Button variant="secondary" icon={<Icon name="download" size={16}/>} onClick={()=>{if(typeof exportExcel==='function')exportExcel(recentTx,'dashboard',range);else showToast('Export Excel');}}>Excel</Button>
+          <Button variant="secondary" icon={<Icon name="download" size={16}/>} onClick={()=>{if(typeof exportCSV==='function')exportCSV(recentTx,'dashboard',range);else showToast('Export CSV');}}>CSV</Button>
           <Button variant="primary" icon={<Icon name="plus" size={16}/>} onClick={()=>{setEditingCampaign(null);navTo('campaign-editor');}}>Buat Campaign</Button>
         </>}
       />
@@ -78,7 +82,7 @@ function AdminDashboard(){
               { value: 18, color: '#0e83c8' },
               { value: 12, color: '#1aa1ee' },
               { value: 8, color: '#94a3b8' },
-            ]} center={<><div className="text-2xl font-extrabold tnum text-ink dark:text-slate-100">{fmtShort(apiStats?.total_raised || TOTAL_RAISED)}</div><div className="text-xs text-muted">Total</div></>}/>
+            ]} center={<><div className="text-2xl font-extrabold tnum text-ink dark:text-slate-100">{fmtShort(apiStats?apiStats.total_raised:TOTAL_RAISED)}</div><div className="text-xs text-muted">Total</div></>}/>
           </div>
           <div className="mt-2 space-y-1.5 text-sm">
             {[
@@ -202,16 +206,18 @@ function CampaignsPage(){
   const [view, setView] = uS_adm('grid');
   const [filter, setFilter] = uS_adm('all');
   const [search, setSearch] = uS_adm('');
-  const [campaigns, setCampaigns] = uS_adm(CAMPAIGNS);
+  const [campaigns, setCampaigns] = uS_adm([]);
+  const [range, setRange] = uS_adm(null);
   const activeCampaigns = campaigns.filter(c=>c.status==='Running'||c.status==='Berjalan').length;
 
   uE_adm(()=>{
     api.adminCampaigns().then(r => {
-      if(r?.data && r.data.length > 0) setCampaigns(r.data.map(mapCampaign));
+      if(r?.data && Array.isArray(r.data)) setCampaigns(r.data.map(mapCampaign));
     }).catch(()=>{});
   },[]);
 
-  const filtered = campaigns.filter(c=>(filter==='all'||(c.status||'').toLowerCase()===filter) && (c.title||'').toLowerCase().includes(search.toLowerCase()));
+  const ranged = typeof filterByRange==='function' ? filterByRange(campaigns, range, 'createdAt') : campaigns;
+  const filtered = ranged.filter(c=>(filter==='all'||(c.status||'').toLowerCase()===filter) && (c.title||'').toLowerCase().includes(search.toLowerCase()));
   const { openCampaign, setEditingCampaign, setView: navigateTo, showToast } = useApp();
   const editCampaign = (c) => { setEditingCampaign(c); navigateTo('campaign-editor'); };
   const deleteCampaign = async (c) => {
@@ -225,7 +231,7 @@ function CampaignsPage(){
         title="Campaigns"
         subtitle={`${campaigns.length} campaign · ${activeCampaigns} sedang berjalan`}
         actions={<>
-          <Button variant="secondary" icon={<Icon name="download" size={16}/>} onClick={()=>{if(typeof exportCSV==='function')exportCSV(filtered,'campaigns');else showToast('Export');}}>Export</Button>
+          <Button variant="secondary" icon={<Icon name="download" size={16}/>} onClick={()=>{if(typeof exportCSV==='function')exportCSV(filtered,'campaigns',range);else showToast('Export');}}>Export</Button>
           <Button variant="primary" icon={<Icon name="plus" size={16}/>} onClick={()=>{setEditingCampaign(null);navigateTo('campaign-editor');}}>Buat Campaign</Button>
         </>}
       />
@@ -241,7 +247,7 @@ function CampaignsPage(){
               <button key={k} onClick={()=>setFilter(k)} className={`px-3 h-9 rounded-lg text-sm font-medium ${filter===k?'bg-white dark:bg-slate-700 shadow-sm':'text-muted dark:text-slate-400'}`}>{l}</button>
             ))}
           </div>
-          <DateRangePill/>
+          <DateRangePill value={range} onChange={setRange}/>
           <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-0.5">
             <button onClick={()=>setView('grid')} className={`px-3 h-9 rounded-lg ${view==='grid'?'bg-white dark:bg-slate-700 shadow-sm':'text-muted dark:text-slate-400'}`}><Icon name="home" size={16}/></button>
             <button onClick={()=>setView('list')} className={`px-3 h-9 rounded-lg ${view==='list'?'bg-white dark:bg-slate-700 shadow-sm':'text-muted dark:text-slate-400'}`}><Icon name="menu" size={16}/></button>
@@ -341,10 +347,11 @@ function CampaignAdminCard({ c, onOpen, onEdit }){
 function AnalyticsPage(){
   const [platform, setPlatform] = uS_adm('all');
   const [overview, setOverview] = uS_adm(null);
-  const [trafficSources, setTrafficSources] = uS_adm(TRAFFIC_SOURCES);
-  const [chartData, setChartData] = uS_adm(DAILY);
+  const [trafficSources, setTrafficSources] = uS_adm([]);
+  const [chartData, setChartData] = uS_adm([]);
   const [campaignPerf, setCampaignPerf] = uS_adm(null);
   const [utmData, setUtmData] = uS_adm(null);
+  const [range, setRange] = uS_adm(null);
 
   uE_adm(()=>{
     api.analyticsOverview().then(r => r?.data && setOverview(r.data));
@@ -360,8 +367,8 @@ function AnalyticsPage(){
         title="Analytics"
         subtitle="Performance campaign & ads tracking"
         actions={<>
-          <DateRangePill/>
-          <Button variant="secondary" icon={<Icon name="download" size={16}/>} onClick={()=>{if(typeof exportCSV==='function'&&campaignPerf)exportCSV(campaignPerf,'analytics');}}>Export</Button>
+          <DateRangePill value={range} onChange={setRange}/>
+          <Button variant="secondary" icon={<Icon name="download" size={16}/>} onClick={()=>{if(typeof exportCSV==='function'&&campaignPerf)exportCSV(campaignPerf,'analytics',range);}}>Export</Button>
         </>}
       />
 

@@ -1,6 +1,30 @@
 // Login page — split layout: branding left + form right
 const { useState: uS_login, useEffect: uE_login } = React;
 
+function LoginStats(){
+  const [d, setD] = uS_login(null);
+  uE_login(()=>{ api.publicStats().then(r=>r?.data&&setD(r.data)).catch(()=>{}); },[]);
+  const items = d ? [
+    { v: fmtIDRShort(d.total_raised), l: 'Donasi tersalurkan' },
+    { v: fmtNum(d.total_donors), l: 'Donatur' },
+    { v: String(d.active_campaigns), l: 'Campaign aktif' },
+  ] : [
+    { v: '-', l: 'Donasi tersalurkan' },
+    { v: '-', l: 'Donatur' },
+    { v: '-', l: 'Campaign aktif' },
+  ];
+  return (
+    <div className="mt-8 grid grid-cols-3 gap-3 max-w-md">
+      {items.map((s,i)=>(
+        <div key={i} className="rounded-xl bg-white/10 backdrop-blur border border-white/15 p-3">
+          <div className="text-xl font-extrabold leading-none">{s.v}</div>
+          <div className="text-[11px] text-white/80 mt-1.5 leading-tight">{s.l}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const LOGIN_ACCOUNTS = {
   'admin@niatbaik.org':      { password: 'admin123',      role: 'Admin',      name: 'Andre Wicaksono', initial: 'AW', email: 'admin@niatbaik.org',      access: 'Full akses · kelola seluruh platform' },
   'cs@niatbaik.org':         { password: 'cs123',         role: 'CS',         name: 'Putri Maharani',  initial: 'PM', email: 'cs@niatbaik.org',         access: 'Akses inbox donor, transaksi, follow-up' },
@@ -14,8 +38,8 @@ const LOGIN_ROLE_META = {
 };
 
 function LoginPage({ onLogin }) {
-  const [email, setEmail] = uS_login('admin@niatbaik.org');
-  const [password, setPassword] = uS_login('admin123');
+  const [email, setEmail] = uS_login('');
+  const [password, setPassword] = uS_login('');
   const [error, setError] = uS_login('');
   const [loading, setLoading] = uS_login(false);
   const [showPwd, setShowPwd] = uS_login(false);
@@ -54,25 +78,11 @@ function LoginPage({ onLogin }) {
         }
       }
       if (res === null) {
-        // API unreachable — try demo accounts
-        const acc = LOGIN_ACCOUNTS[email.trim().toLowerCase()];
-        if (acc && acc.password === password) {
-          onLogin(acc);
-          setLoading(false);
-          return;
-        }
         setError('Tidak dapat terhubung ke server. Periksa koneksi Anda.');
       } else {
         setError(res?.message || 'Email atau password salah.');
       }
     } catch (err) {
-      // API returned error (401, etc)
-      const acc = LOGIN_ACCOUNTS[email.trim().toLowerCase()];
-      if (acc && acc.password === password) {
-        onLogin(acc);
-        setLoading(false);
-        return;
-      }
       const msg = err?.message || '';
       if (msg.includes('invalid') || msg.includes('password') || msg.includes('email')) {
         setError('Email atau password salah.');
@@ -112,18 +122,7 @@ function LoginPage({ onLogin }) {
           </p>
 
           {/* Stat cards */}
-          <div className="mt-8 grid grid-cols-3 gap-3 max-w-md">
-            {[
-              { v: '1,8 M+', l: 'Donasi tersalurkan' },
-              { v: '182 rb+', l: 'Donatur' },
-              { v: '4,9★', l: 'Trust rating' }
-            ].map((s, i) => (
-              <div key={i} className="rounded-xl bg-white/10 backdrop-blur border border-white/15 p-3">
-                <div className="text-xl font-extrabold leading-none">{s.v}</div>
-                <div className="text-[11px] text-white/80 mt-1.5 leading-tight">{s.l}</div>
-              </div>
-            ))}
-          </div>
+          <LoginStats/>
         </div>
 
         {/* Trust badges */}

@@ -84,6 +84,8 @@ function PublicNav({ onAdmin, onDonate }){
 
 // ===================== Hero Section =====================
 function HeroSection({ onCampaign }){
+  const [hs, setHs] = uS(null);
+  uE(()=>{ api.publicStats().then(r=>r?.data&&setHs(r.data)).catch(()=>{}); },[]);
   const featured = CAMPAIGNS.filter(c=>c.status==='Running').slice(0,1)[0] || CAMPAIGNS[0];
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-brand-50 via-white to-cyan2-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
@@ -103,7 +105,7 @@ function HeroSection({ onCampaign }){
           </h1>
           <p className="mt-5 text-lg text-muted dark:text-slate-400 max-w-xl leading-relaxed">
             Donasi terverifikasi untuk kemanusiaan, kesehatan, pendidikan, dan wakaf.
-            Transparan, mudah, dan dipercaya <b className="text-ink dark:text-slate-100">182.000+ donatur</b> Indonesia.
+            Transparan, mudah, dan dipercaya <b className="text-ink dark:text-slate-100">{hs?fmtNum(hs.total_donors):'0'} donatur</b> Indonesia.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -115,9 +117,9 @@ function HeroSection({ onCampaign }){
 
           <div className="mt-8 grid grid-cols-3 gap-3 max-w-md">
             {[
-              { v:'1,8 M+', l:'Donasi tersalurkan' },
-              { v:'182 rb+', l:'Donatur bersama' },
-              { v:'4,9 ★',  l:'Trust rating' },
+              { v:hs?fmtIDRShort(hs.total_raised):'Rp 0', l:'Donasi tersalurkan' },
+              { v:hs?fmtNum(hs.total_donors):'0', l:'Donatur bersama' },
+              { v:hs?String(hs.active_campaigns):'0',  l:'Campaign aktif' },
             ].map((s,i)=>(
               <div key={i} className="bg-white dark:bg-slate-900/80 backdrop-blur border border-line dark:border-slate-700 rounded-xl p-3">
                 <div className="text-xl lg:text-2xl font-extrabold text-brand-600 leading-none">{s.v}</div>
@@ -227,11 +229,12 @@ function TrustStrip(){
 function StatsSection(){
   const [publicStats, setPublicStats] = uS(null);
   uE(()=>{ api.publicStats().then(r=>r?.data && setPublicStats(r.data)).catch(()=>{}); },[]);
+  const ps = publicStats;
   const stats = [
-    { icon:'wallet',    v: publicStats?.total_distributed || 'Rp 1,84 M+', l:'Donasi tersalurkan' },
-    { icon:'users',     v: publicStats?.active_donors || '182.412',         l:'Donatur bersama' },
-    { icon:'megaphone', v: publicStats?.successful_campaigns || '412',      l:'Campaign aktif' },
-    { icon:'pin',       v: publicStats?.cities_reached || '34 Provinsi',    l:'Jangkauan program' },
+    { icon:'wallet',    v: ps ? fmtIDRShort(ps.total_raised) : 'Rp 0', l:'Donasi tersalurkan' },
+    { icon:'users',     v: ps ? fmtNum(ps.total_donors) : '0',          l:'Donatur bersama' },
+    { icon:'megaphone', v: ps ? String(ps.active_campaigns) : '0',      l:'Campaign aktif' },
+    { icon:'pin',       v: ps ? String(ps.total_campaigns) : '0',       l:'Total campaign' },
   ];
   return (
     <section className="py-12 lg:py-16 bg-white dark:bg-slate-900">
@@ -263,7 +266,7 @@ function CampaignsSection({ onCampaign }){
   },[]);
 
   const campaigns = uM(()=>{
-    const src = apiCampaigns || CAMPAIGNS;
+    const src = apiCampaigns ?? CAMPAIGNS;
     const running = src.filter(c=> c.status==='Running' || c.status==='Published');
     return tab==='all' ? running : running.filter(c=>c.category===tab);
   },[tab, apiCampaigns]);
@@ -350,8 +353,8 @@ function PublicCampaignCard({ c, onClick }){
 function HowToSection(){
   const steps = [
     { n:1, t:'Pilih campaign', d:'Pilih campaign sesuai niat baik Anda dari daftar terverifikasi.', icon:'megaphone' },
-    { n:2, t:'Tentukan nominal', d:'Isi nominal donasi. Mulai dari Rp 10.000.', icon:'wallet' },
-    { n:3, t:'Pilih pembayaran', d:'Bayar via QRIS, VA Bank, atau e-wallet favorit Anda.', icon:'creditcard' },
+    { n:2, t:'Isi formulir donasi', d:'Tentukan nominal, isi identitas, dan pilih metode pembayaran — semua dalam satu halaman.', icon:'wallet' },
+    { n:3, t:'Bayar & selesai', d:'Bayar via QRIS, VA Bank, atau e-wallet favorit Anda. Kuitansi dikirim otomatis.', icon:'creditcard' },
     { n:4, t:'Doakan & sebar', d:'Donasi tersalurkan. Ajak teman ikut dalam kebaikan.', icon:'heart' },
   ];
   return (
@@ -397,7 +400,7 @@ function TestimonialsSection(){
         <div className="grid lg:grid-cols-2 gap-10 items-start">
           <div>
             <div className="text-xs font-bold uppercase tracking-widest text-cyan2-100">Apa kata donatur</div>
-            <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold tracking-tight">Bergabung bersama 182.000+ donatur Indonesia</h2>
+            <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold tracking-tight">Bergabung bersama donatur Indonesia</h2>
             <p className="mt-3 text-white/85">Cerita nyata dari donatur yang mempercayakan niat baiknya melalui NIATBAIK.ORG.</p>
             <div className="mt-6 grid grid-cols-3 gap-3 max-w-md">
               <div><div className="text-2xl font-extrabold">4.9 ★</div><div className="text-xs text-white/75">Trust rating</div></div>
@@ -559,14 +562,15 @@ function PublicFooter(){
 function SocialPopup(){
   const [idx, setIdx] = uS(0);
   const [visible, setVisible] = uS(false);
-  const proofItems = window.socialProofLines || [
-    { name:'Ahmad F.', amount:250_000, campaign:'Sumur Bersih NTT', when:'2 menit lalu' },
-    { name:'Hamba Allah', amount:1_000_000, campaign:'Bantuan Operasi Aira', when:'5 menit lalu' },
-    { name:'Siti N.', amount:50_000, campaign:'Buka Puasa 5000 Yatim', when:'8 menit lalu' },
-    { name:'Rina M.', amount:500_000, campaign:'Renovasi Madrasah', when:'12 menit lalu' },
-    { name:'Budi S.', amount:100_000, campaign:'Beasiswa 1000 Anak', when:'15 menit lalu' },
-    { name:'Hamba Allah', amount:2_000_000, campaign:'Sumur Bersih NTT', when:'18 menit lalu' },
-  ];
+  const [proofItems, setProofItems] = uS([]);
+
+  uE(()=>{
+    api.recentTransactions?.(6).then(r=>{
+      if(r?.data && Array.isArray(r.data) && r.data.length>0){
+        setProofItems(r.data.map(t=>({ name:t.donor_name||t.donor||'Hamba Allah', amount:t.total||t.amount||0, campaign:t.campaign_title||t.campaign||'', when:'' })));
+      }
+    }).catch(()=>{});
+  },[]);
 
   uE(()=>{
     const t1 = setTimeout(()=>setVisible(true), 4000);
@@ -651,24 +655,19 @@ function CampaignDetail({ id, onBack }){
   const [loading, setLoading] = uS(true);
   const { navigate } = useApp();
 
-  // Try API first, fall back to seed data
   uE(()=>{
     setLoading(true);
-    const slug = id;
-    api.campaign(slug).then(r=>{
+    api.campaign(id).then(r=>{
       if (r?.data) setCampaignData(mapCampaign(r.data));
-      else setCampaignData(CAMPAIGNS.find(x=>x.id===id || x.slug===id) || CAMPAIGNS[0]);
-    }).catch(()=>{
-      setCampaignData(CAMPAIGNS.find(x=>x.id===id || x.slug===id) || CAMPAIGNS[0]);
-    }).finally(()=>setLoading(false));
+    }).catch(()=>{}).finally(()=>setLoading(false));
   },[id]);
 
-  const c = campaignData || CAMPAIGNS.find(x=>x.id===id) || CAMPAIGNS[0];
+  const c = campaignData;
+  if (loading || !c) return <div className="min-h-screen bg-bg2 dark:bg-slate-950 flex items-center justify-center"><div className="text-center"><div className="animate-spin h-8 w-8 border-4 border-brand-600 border-t-transparent rounded-full mx-auto"/><div className="mt-3 text-sm text-muted">Memuat campaign...</div></div></div>;
   const pct = Math.min(100, Math.round((c.raised/c.target)*100));
   const days = c.daysLeft || c.days || 0;
 
   const [tab, setTab] = uS('story');
-  const [step, setStep] = uS(1);
   const [amount, setAmount] = uS(100_000);
   const [payMethod, setPayMethod] = uS('QRIS');
   const [anon, setAnon] = uS(false);
@@ -690,16 +689,9 @@ function CampaignDetail({ id, onBack }){
   const recentDonors = (window.TRANSACTIONS || []).slice(0, 8);
 
   const handleSubmitDonation = async ()=>{
-    if (step === 1) {
-      if (amount < 10000) { setError('Minimum donasi Rp 10.000'); return; }
-      setError(''); setStep(2); return;
-    }
-    if (step === 2) {
-      if (!anon && !donor.name.trim()) { setError('Nama wajib diisi'); return; }
-      if (!donor.wa.trim()) { setError('No. WhatsApp wajib diisi'); return; }
-      setError(''); setStep(3); return;
-    }
-    // Step 3: submit
+    if (amount < 10000) { setError('Minimum donasi Rp 10.000'); return; }
+    if (!anon && !donor.name.trim()) { setError('Nama wajib diisi'); return; }
+    if (!donor.wa.trim()) { setError('No. WhatsApp wajib diisi'); return; }
     setSubmitting(true); setError('');
     try {
       const res = await api.createDonation({
@@ -725,7 +717,7 @@ function CampaignDetail({ id, onBack }){
   };
 
   const resetForm = ()=>{
-    setStep(1); setAmount(100_000); setPayMethod('QRIS'); setAnon(false);
+    setAmount(100_000); setPayMethod('QRIS'); setAnon(false);
     setDonor({name:'',wa:'',email:'',message:''}); setPaid(false);
     setSubmitting(false); setError(''); setInvoice('');
   };
@@ -825,98 +817,69 @@ function CampaignDetail({ id, onBack }){
                   </div>
                 </div>
 
-                {/* Donation form */}
+                {/* Donation form — single page */}
                 {!paid ? (
-                  <div className="mt-5 pt-5 border-t border-line dark:border-slate-700">
-                    {/* Step indicator */}
-                    <div className="flex items-center justify-between mb-4 text-[11px] font-bold">
-                      {['Nominal','Identitas','Pembayaran'].map((s,i)=>(
-                        <div key={s} className="flex items-center gap-1.5">
-                          <span className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] ${step>i+1?'bg-emerald-500 text-white':step===i+1?'bg-brand-600 text-white':'bg-bg2 dark:bg-slate-950 text-muted dark:text-slate-400'}`}>
-                            {step>i+1 ? <Icon name="check" size={10} strokeWidth={3}/> : i+1}
-                          </span>
-                          <span className={step===i+1?'text-ink dark:text-slate-100':'text-muted dark:text-slate-400'}>{s}</span>
+                  <div className="mt-5 pt-5 border-t border-line dark:border-slate-700 space-y-4">
+                    {/* Nominal */}
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider text-muted dark:text-slate-400 mb-2">Pilih nominal donasi</div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {presets.map(p=>(
+                          <button key={p} onClick={()=>setAmount(p)}
+                            className={`py-2.5 rounded-xl text-sm font-extrabold border-2 transition-all ${amount===p?'border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300':'border-line dark:border-slate-700 text-ink dark:text-slate-100 hover:border-brand-200'}`}>
+                            {fmtShort(p)}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="mt-3">
+                        <label className="text-xs font-bold text-muted dark:text-slate-400">Atau masukkan nominal lain</label>
+                        <div className="mt-1 flex items-center rounded-xl border-2 border-line dark:border-slate-700 bg-white dark:bg-slate-900 focus-within:border-brand-600">
+                          <span className="pl-3 text-muted dark:text-slate-400 font-bold">Rp</span>
+                          <input type="number" value={amount} onChange={e=>setAmount(+e.target.value||0)} className="flex-1 px-2 py-3 outline-none font-bold text-ink dark:text-slate-100 bg-transparent"/>
                         </div>
-                      ))}
+                      </div>
                     </div>
 
-                    {/* Step 1: Nominal */}
-                    {step===1 && (
-                      <div className="float-in">
-                        <div className="text-xs font-bold uppercase tracking-wider text-muted dark:text-slate-400 mb-2">Pilih nominal donasi</div>
-                        <div className="grid grid-cols-3 gap-2">
-                          {presets.map(p=>(
-                            <button key={p} onClick={()=>setAmount(p)}
-                              className={`py-2.5 rounded-xl text-sm font-extrabold border-2 transition-all ${amount===p?'border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300':'border-line dark:border-slate-700 text-ink dark:text-slate-100 hover:border-brand-200'}`}>
-                              {fmtShort(p)}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="mt-3">
-                          <label className="text-xs font-bold text-muted dark:text-slate-400">Atau masukkan nominal lain</label>
-                          <div className="mt-1 flex items-center rounded-xl border-2 border-line dark:border-slate-700 bg-white dark:bg-slate-900 focus-within:border-brand-600">
-                            <span className="pl-3 text-muted dark:text-slate-400 font-bold">Rp</span>
-                            <input type="number" value={amount} onChange={e=>setAmount(+e.target.value||0)} className="flex-1 px-2 py-3 outline-none font-bold text-ink dark:text-slate-100 bg-transparent"/>
-                          </div>
-                        </div>
-                        {error && <div className="mt-2 text-sm text-rose-600 font-medium">{error}</div>}
-                        <Button variant="primary" size="lg" full className="mt-4" iconRight={<Icon name="arrowR" size={18}/>} onClick={handleSubmitDonation}>Lanjut</Button>
+                    {/* Identitas */}
+                    <div className="space-y-3">
+                      <div className="text-xs font-bold uppercase tracking-wider text-muted dark:text-slate-400">Identitas donatur</div>
+                      <input className="w-full h-11 px-3.5 rounded-xl bg-white dark:bg-slate-900 border border-line dark:border-slate-700 text-ink dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400" placeholder="Nama (cth: Hamba Allah)" value={donor.name} onChange={e=>setDonor({...donor, name:e.target.value})} disabled={anon}/>
+                      <input className="w-full h-11 px-3.5 rounded-xl bg-white dark:bg-slate-900 border border-line dark:border-slate-700 text-ink dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400" placeholder="No. WhatsApp · cth 08123..." value={donor.wa} onChange={e=>setDonor({...donor, wa:e.target.value})}/>
+                      <input className="w-full h-11 px-3.5 rounded-xl bg-white dark:bg-slate-900 border border-line dark:border-slate-700 text-ink dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400" placeholder="Email · untuk kuitansi" value={donor.email} onChange={e=>setDonor({...donor, email:e.target.value})}/>
+                      <label className="flex items-center gap-2 text-sm text-ink dark:text-slate-300">
+                        <input type="checkbox" checked={anon} onChange={e=>setAnon(e.target.checked)} className="w-4 h-4 rounded border-line dark:border-slate-700 text-brand-600 focus:ring-brand-300"/>
+                        Donasi sebagai anonim (Hamba Allah)
+                      </label>
+                      <textarea className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-slate-900 border border-line dark:border-slate-700 text-ink dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400 text-sm" rows="2" placeholder="Doa / pesan donatur (opsional)" value={donor.message} onChange={e=>setDonor({...donor, message:e.target.value})}/>
+                    </div>
+
+                    {/* Pembayaran */}
+                    <div className="space-y-3">
+                      <div className="text-xs font-bold uppercase tracking-wider text-muted dark:text-slate-400">Metode pembayaran</div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {['QRIS','BCA','Mandiri','BNI','GoPay','OVO','Dana','ShopeePay'].map(m=>(
+                          <button key={m} onClick={()=>setPayMethod(m)}
+                            className={`h-12 rounded-lg border-2 flex items-center justify-center text-[10px] font-extrabold transition-all ${payMethod===m?'border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300':'border-line dark:border-slate-700 bg-white dark:bg-slate-900 text-ink dark:text-slate-100 hover:border-brand-200'}`}>
+                            {m}
+                          </button>
+                        ))}
                       </div>
-                    )}
+                    </div>
 
-                    {/* Step 2: Donor identity */}
-                    {step===2 && (
-                      <div className="float-in space-y-3">
-                        <div className="rounded-xl bg-brand-50 dark:bg-brand-900/30 border border-brand-100 p-3 text-sm text-brand-700 dark:text-brand-300 font-semibold flex items-center justify-between">
-                          <span>Nominal donasi</span><b className="tnum">{fmtIDR(amount)}</b>
-                        </div>
-                        <input className="w-full h-11 px-3.5 rounded-xl bg-white dark:bg-slate-900 border border-line dark:border-slate-700 text-ink dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400" placeholder="Nama (cth: Hamba Allah)" value={donor.name} onChange={e=>setDonor({...donor, name:e.target.value})} disabled={anon}/>
-                        <input className="w-full h-11 px-3.5 rounded-xl bg-white dark:bg-slate-900 border border-line dark:border-slate-700 text-ink dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400" placeholder="No. WhatsApp · cth 08123..." value={donor.wa} onChange={e=>setDonor({...donor, wa:e.target.value})}/>
-                        <input className="w-full h-11 px-3.5 rounded-xl bg-white dark:bg-slate-900 border border-line dark:border-slate-700 text-ink dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400" placeholder="Email · untuk kuitansi" value={donor.email} onChange={e=>setDonor({...donor, email:e.target.value})}/>
-                        <label className="flex items-center gap-2 text-sm text-ink dark:text-slate-300">
-                          <input type="checkbox" checked={anon} onChange={e=>setAnon(e.target.checked)} className="w-4 h-4 rounded border-line dark:border-slate-700 text-brand-600 focus:ring-brand-300"/>
-                          Donasi sebagai anonim (Hamba Allah)
-                        </label>
-                        <textarea className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-slate-900 border border-line dark:border-slate-700 text-ink dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400 text-sm" rows="2" placeholder="Doa / pesan donatur (opsional)" value={donor.message} onChange={e=>setDonor({...donor, message:e.target.value})}/>
-                        {error && <div className="text-sm text-rose-600 font-medium">{error}</div>}
-                        <div className="flex gap-2">
-                          <button onClick={()=>{setError(''); setStep(1);}} className="flex-1 px-4 py-3 rounded-xl text-sm font-bold border border-line dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-bg2 dark:hover:bg-slate-800">Kembali</button>
-                          <Button variant="primary" size="md" full onClick={handleSubmitDonation} iconRight={<Icon name="arrowR" size={16}/>}>Lanjut</Button>
-                        </div>
-                      </div>
-                    )}
+                    {/* Summary + submit */}
+                    <div className="rounded-xl bg-brand-50 dark:bg-brand-900/30 border border-brand-100 p-3 text-sm flex items-center justify-between">
+                      <span className="font-semibold text-brand-700 dark:text-brand-300">Total donasi</span><b className="text-brand-700 dark:text-brand-300 tnum">{fmtIDR(amount)}</b>
+                    </div>
 
-                    {/* Step 3: Payment method */}
-                    {step===3 && (
-                      <div className="float-in space-y-3">
-                        <div className="rounded-xl bg-brand-50 dark:bg-brand-900/30 border border-brand-100 p-3 text-sm flex items-center justify-between">
-                          <span className="font-semibold text-brand-700 dark:text-brand-300">Total donasi</span><b className="text-brand-700 dark:text-brand-300 tnum">{fmtIDR(amount)}</b>
-                        </div>
+                    <div className="rounded-xl bg-bg2 dark:bg-slate-950 p-3 text-xs text-ink dark:text-slate-300">
+                      <div className="flex items-center gap-2 mb-1.5 text-emerald-700 dark:text-emerald-300"><Icon name="shield" size={14}/><b>Pembayaran aman & terenkripsi</b></div>
+                      Anda akan diarahkan ke gateway resmi {payMethod} untuk menyelesaikan pembayaran.
+                    </div>
 
-                        <div className="text-xs font-bold uppercase tracking-wider text-muted dark:text-slate-400 mt-1">Metode pembayaran</div>
-                        <div className="grid grid-cols-4 gap-2">
-                          {['QRIS','BCA','Mandiri','BNI','GoPay','OVO','Dana','ShopeePay'].map(m=>(
-                            <button key={m} onClick={()=>setPayMethod(m)}
-                              className={`h-12 rounded-lg border-2 flex items-center justify-center text-[10px] font-extrabold transition-all ${payMethod===m?'border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300':'border-line dark:border-slate-700 bg-white dark:bg-slate-900 text-ink dark:text-slate-100 hover:border-brand-200'}`}>
-                              {m}
-                            </button>
-                          ))}
-                        </div>
-
-                        <div className="rounded-xl bg-bg2 dark:bg-slate-950 p-3 text-xs text-ink dark:text-slate-300">
-                          <div className="flex items-center gap-2 mb-1.5 text-emerald-700 dark:text-emerald-300"><Icon name="shield" size={14}/><b>Pembayaran aman & terenkripsi</b></div>
-                          Anda akan diarahkan ke gateway resmi {payMethod} untuk menyelesaikan pembayaran.
-                        </div>
-
-                        {error && <div className="text-sm text-rose-600 font-medium">{error}</div>}
-                        <div className="flex gap-2">
-                          <button onClick={()=>{setError(''); setStep(2);}} className="flex-1 px-4 py-3 rounded-xl text-sm font-bold border border-line dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-bg2 dark:hover:bg-slate-800">Kembali</button>
-                          <Button variant="primary" size="lg" full disabled={submitting} icon={<Icon name="heart" size={16}/>} onClick={handleSubmitDonation}>
-                            {submitting ? 'Memproses...' : 'Bayar ' + fmtShort(amount)}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                    {error && <div className="text-sm text-rose-600 font-medium">{error}</div>}
+                    <Button variant="primary" size="lg" full disabled={submitting} icon={<Icon name="heart" size={16}/>} onClick={handleSubmitDonation}>
+                      {submitting ? 'Memproses...' : 'Bayar ' + fmtShort(amount)}
+                    </Button>
                   </div>
                 ) : (
                   /* Success screen */
@@ -1065,7 +1028,6 @@ function CampaignFAQTab(){
 
 // ===================== Donation Modal (for inline use from landing) =====================
 function DonationModal({ open, onClose, campaign }){
-  const [step, setStep] = uS(1);
   const [amount, setAmount] = uS(100000);
   const [custom, setCustom] = uS(false);
   const [method, setMethod] = uS('QRIS');
@@ -1080,9 +1042,35 @@ function DonationModal({ open, onClose, campaign }){
   const [invoice, setInvoice] = uS('');
 
   const reset = ()=>{
-    setStep(1); setAmount(100000); setCustom(false); setMethod('QRIS'); setAnon(false);
+    setAmount(100000); setCustom(false); setMethod('QRIS'); setAnon(false);
     setSuccess(false); setName(''); setPhone(''); setEmail(''); setPrayer('');
     setLoading(false); setError(''); setInvoice('');
+  };
+
+  const handleSubmit = async ()=>{
+    if (amount < 10000) { setError('Minimum donasi Rp10.000'); return; }
+    if (!name.trim() && !anon) { setError('Nama wajib diisi'); return; }
+    if (!phone.trim()) { setError('No. WhatsApp wajib diisi'); return; }
+    setLoading(true); setError('');
+    try {
+      const res = await api.createDonation({
+        campaign_slug: campaign?.slug || campaign?.id,
+        donor_name: anon ? 'Hamba Allah' : name,
+        donor_phone: phone,
+        donor_email: email,
+        amount: amount,
+        message: prayer,
+        is_anonymous: anon,
+        payment_method: method,
+      });
+      if (res?.data) {
+        setInvoice(res.data.invoice_number || '');
+        setSuccess(true);
+      } else {
+        setError(res?.message || 'Gagal memproses donasi');
+      }
+    } catch(e) { setError('Error: ' + (e.message || 'Gagal memproses donasi')); }
+    setLoading(false);
   };
 
   return (
@@ -1091,12 +1079,6 @@ function DonationModal({ open, onClose, campaign }){
       <div className="px-6 pt-6 pb-3 border-b border-line dark:border-slate-700">
         <div className="text-xs text-muted dark:text-slate-400">Donasi untuk</div>
         <div className="mt-0.5 font-bold text-ink dark:text-slate-100 line-clamp-1">{campaign?.title}</div>
-        <div className="mt-4 flex items-center gap-1.5">
-          {[1,2,3].map(s=>(
-            <div key={s} className={`h-1.5 rounded-full transition flex-1 ${s<=step?'bg-brand-600':'bg-slate-200'}`}/>
-          ))}
-        </div>
-        <div className="mt-2 text-xs text-muted dark:text-slate-400">Langkah {step} dari 3 · {step===1?'Pilih nominal':step===2?'Identitas donatur':'Pilih pembayaran'}</div>
       </div>
 
       <div className="p-6">
@@ -1111,116 +1093,87 @@ function DonationModal({ open, onClose, campaign }){
             </div>
             <Button variant="primary" size="lg" full className="mt-5" onClick={()=>{onClose(); setTimeout(reset,300);}}>Selesai</Button>
           </div>
-        ) : step===1 ? (
-          <div>
-            <Field label="Pilih nominal donasi">
-              <div className="grid grid-cols-3 gap-2.5">
-                {NOMINAL_PRESETS.map(n=>(
-                  <button key={n} onClick={()=>{setAmount(n); setCustom(false);}} className={`h-14 rounded-xl border-2 font-bold tnum transition ${!custom&&amount===n?'border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300':'border-line dark:border-slate-700 text-ink dark:text-slate-100 hover:border-brand-300'}`}>{fmtShort(n)}</button>
-                ))}
+        ) : (
+          <div className="space-y-5">
+            {/* Nominal */}
+            <div>
+              <Field label="Pilih nominal donasi">
+                <div className="grid grid-cols-3 gap-2.5">
+                  {NOMINAL_PRESETS.map(n=>(
+                    <button key={n} onClick={()=>{setAmount(n); setCustom(false);}} className={`h-14 rounded-xl border-2 font-bold tnum transition ${!custom&&amount===n?'border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300':'border-line dark:border-slate-700 text-ink dark:text-slate-100 hover:border-brand-300'}`}>{fmtShort(n)}</button>
+                  ))}
+                </div>
+              </Field>
+              <div className="mt-4">
+                <Field label="Nominal lain">
+                  <Input type="number" value={custom?amount:''} onChange={e=>{setAmount(+e.target.value||0); setCustom(true);}} placeholder="Masukkan nominal donasi..." icon={<span className="text-sm font-semibold">Rp</span>}/>
+                </Field>
               </div>
-            </Field>
-            <div className="mt-4">
-              <Field label="Nominal lain">
-                <Input type="number" value={custom?amount:''} onChange={e=>{setAmount(+e.target.value||0); setCustom(true);}} placeholder="Masukkan nominal donasi..." icon={<span className="text-sm font-semibold">Rp</span>}/>
+            </div>
+
+            {/* Identitas */}
+            <div className="space-y-4">
+              <Field label="Nama lengkap" required>
+                <Input placeholder="Nama Anda" value={name} onChange={e=>setName(e.target.value)} disabled={anon}/>
+              </Field>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field label="No. WhatsApp" required>
+                  <Input placeholder="08xx" icon={<Icon name="wa" size={16}/>} value={phone} onChange={e=>setPhone(e.target.value)}/>
+                </Field>
+                <Field label="Email">
+                  <Input placeholder="email@contoh.com" icon={<Icon name="mail" size={16}/>} value={email} onChange={e=>setEmail(e.target.value)}/>
+                </Field>
+              </div>
+              <Field label="Doa / pesan (opsional)">
+                <textarea rows="2" className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-slate-900 border border-line dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400 text-sm" placeholder="Semoga bermanfaat dan barokah..." value={prayer} onChange={e=>setPrayer(e.target.value)}/>
+              </Field>
+              <label className="flex items-center gap-2 select-none">
+                <input type="checkbox" checked={anon} onChange={e=>setAnon(e.target.checked)} className="w-4 h-4 rounded border-line dark:border-slate-700 text-brand-600 focus:ring-brand-300"/>
+                <span className="text-sm text-ink dark:text-slate-100">Tampilkan sebagai "Hamba Allah" (anonim)</span>
+              </label>
+            </div>
+
+            {/* Pembayaran */}
+            <div>
+              <Field label="Metode pembayaran">
+                <div className="space-y-2">
+                  {[
+                    { k:'QRIS', d:'Bayar pakai aplikasi mobile banking / e-wallet', tag:'Tercepat', emoji:'QR' },
+                    { k:'BCA VA', d:'Transfer ke Virtual Account BCA', emoji:'BCA' },
+                    { k:'BNI VA', d:'Transfer ke Virtual Account BNI', emoji:'BNI' },
+                    { k:'GoPay', d:'Bayar pakai saldo GoPay', emoji:'GP' },
+                    { k:'OVO', d:'Bayar pakai saldo OVO', emoji:'OVO' },
+                    { k:'DANA', d:'Bayar pakai saldo DANA', emoji:'DA' },
+                  ].map(m=>(
+                    <button key={m.k} onClick={()=>setMethod(m.k)} className={`w-full text-left flex items-center gap-3 p-3 rounded-xl border-2 transition ${method===m.k?'border-brand-600 bg-brand-50 dark:bg-brand-900/30':'border-line dark:border-slate-700 hover:border-brand-300'}`}>
+                      <div className="w-12 h-9 rounded-lg bg-white dark:bg-slate-900 border border-line dark:border-slate-700 flex items-center justify-center text-[11px] font-bold text-brand-700 dark:text-brand-300">{m.emoji}</div>
+                      <div className="flex-1">
+                        <div className="font-semibold text-sm text-ink dark:text-slate-100 flex items-center gap-2">{m.k} {m.tag && <Badge tone="cyan" size="sm">{m.tag}</Badge>}</div>
+                        <div className="text-xs text-muted dark:text-slate-400">{m.d}</div>
+                      </div>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${method===m.k?'border-brand-600 bg-brand-600':'border-line dark:border-slate-700'}`}>
+                        {method===m.k && <div className="w-2 h-2 rounded-full bg-white dark:bg-slate-900"/>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </Field>
             </div>
-            <div className="mt-5 bg-bg2 dark:bg-slate-950 rounded-2xl p-4 text-sm">
+
+            {/* Summary + submit */}
+            <div className="bg-bg2 dark:bg-slate-950 rounded-2xl p-4 text-sm">
               <div className="flex justify-between"><span className="text-muted dark:text-slate-400">Donasi</span><span className="font-bold text-ink dark:text-slate-100 tnum">{fmtIDR(amount)}</span></div>
               <div className="flex justify-between mt-1.5"><span className="text-muted dark:text-slate-400">Biaya admin</span><span className="text-emerald-600 font-semibold">Gratis</span></div>
               <div className="border-t border-line dark:border-slate-700 mt-3 pt-3 flex justify-between"><span className="font-semibold">Total</span><span className="font-extrabold text-brand-700 dark:text-brand-300 tnum">{fmtIDR(amount)}</span></div>
             </div>
-            {error && <div className="mt-2 text-sm text-rose-600 font-medium">{error}</div>}
-            <Button variant="primary" size="lg" full className="mt-5" onClick={()=>{
-              if (amount < 10000) { setError('Minimum donasi Rp10.000'); return; }
-              setError(''); setStep(2);
-            }} iconRight={<Icon name="arrowR" size={16}/>}>Lanjut</Button>
-          </div>
-        ) : step===2 ? (
-          <div className="space-y-4">
-            <Field label="Nama lengkap" required>
-              <Input placeholder="Nama Anda" value={name} onChange={e=>setName(e.target.value)}/>
-            </Field>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Field label="No. WhatsApp" required>
-                <Input placeholder="08xx" icon={<Icon name="wa" size={16}/>} value={phone} onChange={e=>setPhone(e.target.value)}/>
-              </Field>
-              <Field label="Email">
-                <Input placeholder="email@contoh.com" icon={<Icon name="mail" size={16}/>} value={email} onChange={e=>setEmail(e.target.value)}/>
-              </Field>
-            </div>
-            <Field label="Doa / pesan untuk penerima manfaat (opsional)">
-              <textarea rows="3" className="w-full px-3.5 py-3 rounded-xl bg-white dark:bg-slate-900 border border-line dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400 text-sm" placeholder="Semoga bermanfaat dan barokah..." value={prayer} onChange={e=>setPrayer(e.target.value)}/>
-            </Field>
-            <label className="flex items-center gap-2 select-none">
-              <input type="checkbox" checked={anon} onChange={e=>setAnon(e.target.checked)} className="w-4 h-4 rounded border-line dark:border-slate-700 text-brand-600 focus:ring-brand-300"/>
-              <span className="text-sm text-ink dark:text-slate-100">Tampilkan sebagai "Hamba Allah" (anonim)</span>
-            </label>
-            {error && <div className="text-sm text-rose-600 font-medium">{error}</div>}
-            <div className="flex gap-2">
-              <Button variant="secondary" size="lg" onClick={()=>setStep(1)}>Kembali</Button>
-              <Button variant="primary" size="lg" full onClick={()=>{
-                if (!name.trim() && !anon) { setError('Nama wajib diisi'); return; }
-                if (!phone.trim()) { setError('No. WhatsApp wajib diisi'); return; }
-                setError(''); setStep(3);
-              }} iconRight={<Icon name="arrowR" size={16}/>}>Lanjut</Button>
-            </div>
-          </div>
-        ) : (
-          <div>
-            <Field label="Metode pembayaran">
-              <div className="space-y-2">
-                {[
-                  { k:'QRIS', d:'Bayar pakai aplikasi mobile banking / e-wallet', tag:'Tercepat', emoji:'QR' },
-                  { k:'BCA VA', d:'Transfer ke Virtual Account BCA', emoji:'BCA' },
-                  { k:'BNI VA', d:'Transfer ke Virtual Account BNI', emoji:'BNI' },
-                  { k:'GoPay', d:'Bayar pakai saldo GoPay', emoji:'GP' },
-                  { k:'OVO', d:'Bayar pakai saldo OVO', emoji:'OVO' },
-                  { k:'DANA', d:'Bayar pakai saldo DANA', emoji:'DA' },
-                ].map(m=>(
-                  <button key={m.k} onClick={()=>setMethod(m.k)} className={`w-full text-left flex items-center gap-3 p-3 rounded-xl border-2 transition ${method===m.k?'border-brand-600 bg-brand-50 dark:bg-brand-900/30':'border-line dark:border-slate-700 hover:border-brand-300'}`}>
-                    <div className="w-12 h-9 rounded-lg bg-white dark:bg-slate-900 border border-line dark:border-slate-700 flex items-center justify-center text-[11px] font-bold text-brand-700 dark:text-brand-300">{m.emoji}</div>
-                    <div className="flex-1">
-                      <div className="font-semibold text-sm text-ink dark:text-slate-100 flex items-center gap-2">{m.k} {m.tag && <Badge tone="cyan" size="sm">{m.tag}</Badge>}</div>
-                      <div className="text-xs text-muted dark:text-slate-400">{m.d}</div>
-                    </div>
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${method===m.k?'border-brand-600 bg-brand-600':'border-line dark:border-slate-700'}`}>
-                      {method===m.k && <div className="w-2 h-2 rounded-full bg-white dark:bg-slate-900"/>}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </Field>
-            <div className="mt-4 flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-3 py-2.5 rounded-xl text-sm">
+
+            <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-3 py-2.5 rounded-xl text-sm">
               <Icon name="shield" size={16}/>
               Transaksi aman dengan enkripsi SSL 256-bit
             </div>
-            {error && <div className="mt-2 text-sm text-rose-600 font-medium">{error}</div>}
-            <div className="mt-4 flex gap-2">
-              <Button variant="secondary" size="lg" onClick={()=>setStep(2)}>Kembali</Button>
-              <Button variant="primary" size="lg" full disabled={loading} onClick={async ()=>{
-                setLoading(true); setError('');
-                try {
-                  const res = await api.createDonation({
-                    campaign_slug: campaign?.slug || campaign?.id,
-                    donor_name: anon ? 'Hamba Allah' : name,
-                    donor_phone: phone,
-                    donor_email: email,
-                    amount: amount,
-                    message: prayer,
-                    is_anonymous: anon,
-                    payment_method: method,
-                  });
-                  if (res?.data) {
-                    setInvoice(res.data.invoice_number || '');
-                    setSuccess(true);
-                  } else {
-                    setError(res?.message || 'Gagal memproses donasi');
-                  }
-                } catch(e) { setError('Error: ' + (e.message || 'Gagal memproses donasi')); }
-                setLoading(false);
-              }} icon={<Icon name="heart" size={16}/>}>{loading ? 'Memproses...' : 'Bayar ' + fmtShort(amount)}</Button>
-            </div>
+
+            {error && <div className="text-sm text-rose-600 font-medium">{error}</div>}
+            <Button variant="primary" size="lg" full disabled={loading} onClick={handleSubmit} icon={<Icon name="heart" size={16}/>}>{loading ? 'Memproses...' : 'Bayar ' + fmtShort(amount)}</Button>
           </div>
         )}
       </div>

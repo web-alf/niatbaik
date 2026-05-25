@@ -7,14 +7,14 @@ function FundraiserPage(){
   const [tab, setTab] = uS('all');
   const [search, setSearch] = uS('');
   const [copiedId, setCopiedId] = uS(null);
-  const [fundraisers, setFundraisers] = uS(FUNDRAISERS);
-  const [stats, setStats] = uS({ total: TOTAL_FUNDRAISER, commission: 28_400_000, pending: 8_900_000, referral: 842_000_000 });
+  const [fundraisers, setFundraisers] = uS([]);
+  const [stats, setStats] = uS({ total: 0, commission: 0, pending: 0, referral: 0 });
 
   uE(()=>{
     api.fundraisers().then(r => {
       if (r?.data) {
         setFundraisers(r.data);
-        if (r.meta) setStats({ total: r.meta.total || r.data.length, commission: r.meta.total_commission || 28_400_000, pending: r.meta.pending_commission || 8_900_000, referral: r.meta.referral_amount || 842_000_000 });
+        if (r.meta) setStats({ total: r.meta.total_rows ?? r.data.length, commission: r.meta.total_commission ?? 0, pending: r.meta.pending_commission ?? 0, referral: r.meta.referral_amount ?? 0 });
       }
     }).catch(()=>{});
   }, []);
@@ -312,7 +312,7 @@ function MembersPage(){
   const [tab, setTab] = uS('all');
   const [search, setSearch] = uS('');
   const [showAdd, setShowAdd] = uS(false);
-  const [users, setUsers] = uS(USERS);
+  const [users, setUsers] = uS([]);
   const [newName, setNewName] = uS('');
   const [newEmail, setNewEmail] = uS('');
   const [newRole, setNewRole] = uS('Admin');
@@ -855,23 +855,12 @@ function NotificationPage(){
   const { showToast } = useApp();
   const [tab, setTab] = uS('all');
 
-  const seedItems = [
-    { id:1, icon:'heart', tone:'ok', title:'Donasi baru diterima', body:'Hamba Allah berdonasi Rp 1.000.000 untuk "Bantuan Aira"', when:'baru saja', unread:true, type:'donation' },
-    { id:2, icon:'wa', tone:'sky', title:'Donatur balas WhatsApp', body:'Rizky H. — "Sudah saya transfer kak, tolong dicek."', when:'5 menit lalu', unread:true, type:'cs' },
-    { id:3, icon:'shield', tone:'bad', title:'Pixel TikTok error', body:'Token TikTok Events API expired. Hubungkan ulang.', when:'12 menit lalu', unread:true, type:'system' },
-    { id:4, icon:'flame', tone:'warn', title:'Campaign mendekati target', body:'"Bantuan Aira" tinggal 9% lagi mencapai Rp 180.000.000.', when:'1 jam lalu', unread:true, type:'campaign' },
-    { id:5, icon:'creditcard', tone:'brand', title:'Payout fundraiser diproses', body:'Komisi Mei 2026 untuk Ust. Ahmad Fauzi sebesar Rp 8.432.000 telah dijadwalkan.', when:'2 jam lalu', unread:false, type:'system' },
-    { id:6, icon:'bolt', tone:'sky', title:'Conversion rate naik', body:'CVR campaign "Sumur Bersih NTT" naik dari 3.4% → 4.8% (24 jam terakhir).', when:'3 jam lalu', unread:false, type:'campaign' },
-    { id:7, icon:'megaphone', tone:'brand', title:'Campaign baru dipublish', body:'"Modal Usaha untuk Janda Kepala Keluarga" telah dipublish.', when:'kemarin', unread:false, type:'campaign' },
-    { id:8, icon:'check', tone:'ok', title:'Donatur menyelesaikan pembayaran', body:'INV-20251123 — Rp 500.000 via QRIS.', when:'kemarin', unread:false, type:'donation' },
-  ];
-
-  const [items, setItems] = uS(seedItems);
+  const [items, setItems] = uS([]);
 
   uE(()=>{
     api.notifications().then(r => {
       const list = r?.data?.notifications || r?.data;
-      if (Array.isArray(list) && list.length > 0) setItems(list);
+      if (Array.isArray(list)) setItems(list);
     }).catch(()=>{});
   }, []);
 
@@ -958,17 +947,7 @@ function TrashPage(){
   const [search, setSearch] = uS('');
   const [confirmDelete, setConfirmDelete] = uS(null);
 
-  const seedItems = [
-    { id:1, type:'Campaign', name:'Berbagi Sembako Idul Adha 2024', meta:'14 hari lagi dihapus permanen', icon:'megaphone', tone:'brand', size:'thumbnail + 12 update', kind:'campaign' },
-    { id:2, type:'User', name:'Hasan Pratama (Advertiser)', meta:'7 hari lagi dihapus permanen', icon:'user', tone:'sky', size:'hasan@niatbaik.org', kind:'user' },
-    { id:3, type:'Transaksi', name:'INV-20251078 · Rp 250.000', meta:'24 hari lagi dihapus permanen', icon:'creditcard', tone:'ok', size:'soft-deleted oleh admin', kind:'transaksi' },
-    { id:4, type:'Campaign', name:'Tebus Donasi Yatim Q1', meta:'29 hari lagi dihapus permanen', icon:'megaphone', tone:'brand', size:'4 update · 412 donasi', kind:'campaign' },
-    { id:5, type:'User', name:'Lina Marlina (CS)', meta:'21 hari lagi dihapus permanen', icon:'user', tone:'sky', size:'lina@niatbaik.org', kind:'user' },
-    { id:6, type:'Transaksi', name:'INV-20251022 · Rp 1.000.000', meta:'2 hari lagi dihapus permanen', icon:'creditcard', tone:'ok', size:'soft-deleted oleh CS', kind:'transaksi' },
-    { id:7, type:'Campaign', name:'Bantuan Korban Gempa Cianjur', meta:'sudah lewat masa retensi · permanen besok', icon:'megaphone', tone:'brand', size:'arsipkan?', kind:'campaign' },
-  ];
-
-  const [trashItems, setTrashItems] = uS(seedItems);
+  const [trashItems, setTrashItems] = uS([]);
 
   const parseTrash = (d) => {
     if (Array.isArray(d)) return d;
@@ -979,7 +958,7 @@ function TrashPage(){
   };
 
   uE(()=>{
-    api.trash().then(r => { if(r?.data) { const p=parseTrash(r.data); if(p.length>0) setTrashItems(p); } }).catch(()=>{});
+    api.trash().then(r => { if(r?.data) setTrashItems(parseTrash(r.data)); }).catch(()=>{});
   }, []);
 
   const refreshTrash = () => api.trash().then(r => { if(r?.data) setTrashItems(parseTrash(r.data)); }).catch(()=>{});

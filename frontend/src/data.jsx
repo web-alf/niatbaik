@@ -379,12 +379,12 @@ async function loadApiData() {
     ]);
 
     if (statsRes?.data) {
-      window.TOTAL_RAISED     = statsRes.data.total_raised     || TOTAL_RAISED;
-      window.TOTAL_DONORS     = statsRes.data.total_donors     || TOTAL_DONORS;
-      window.ACTIVE_CAMPAIGNS = statsRes.data.active_campaigns || ACTIVE_CAMPAIGNS;
+      window.TOTAL_RAISED     = statsRes.data.total_raised     ?? TOTAL_RAISED;
+      window.TOTAL_DONORS     = statsRes.data.total_donors     ?? TOTAL_DONORS;
+      window.ACTIVE_CAMPAIGNS = statsRes.data.active_campaigns ?? ACTIVE_CAMPAIGNS;
     }
 
-    if (campaignsRes?.data && campaignsRes.data.length > 0) {
+    if (campaignsRes?.data && Array.isArray(campaignsRes.data)) {
       window.CAMPAIGNS = campaignsRes.data.map(mapCampaign);
       window.ACTIVE_CAMPAIGNS = window.CAMPAIGNS.filter(c => c.status === 'Berjalan' || c.status === 'Running').length;
     }

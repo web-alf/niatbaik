@@ -189,7 +189,6 @@ function App() {
       <AppCtx.Provider value={ctx}>
         {route === 'landing' && <LandingPage/>}
         {route === 'campaign-detail' && <CampaignDetailWrap/>}
-        <PublicRouteBar/>
         <Toast toast={toast} onClose={() => setToast(null)}/>
       </AppCtx.Provider>
     );
@@ -290,28 +289,6 @@ function Placeholder() {
   );
 }
 
-// --- Public route bar (shown when on landing/campaign-detail) ---
-function PublicRouteBar() {
-  const { route, setView: navigate, user, role } = useApp();
-  const isPublic = route === 'landing' || route === 'campaign-detail';
-  if (!isPublic) return null;
-  return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[55]">
-      <div className="bg-white/95 dark:bg-slate-800/95 backdrop-blur rounded-full shadow-pop border border-line dark:border-slate-700 px-1.5 py-1 flex items-center gap-1 text-xs">
-        <span className="px-2 text-muted">Anda di halaman publik</span>
-        {user ? (
-          <button onClick={() => navigate(NAV_ROLE_KEYS[role]?.[0] || 'dashboard')} className="inline-flex items-center gap-1 px-3 h-7 rounded-full bg-brand-600 text-white font-semibold">
-            Dashboard <Icon name="arrowR" size={12}/>
-          </button>
-        ) : (
-          <button onClick={() => navigate('dashboard')} className="inline-flex items-center gap-1 px-3 h-7 rounded-full bg-brand-600 text-white font-semibold">
-            Masuk <Icon name="arrowR" size={12}/>
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // --- Campaign detail wrapper (public) ---
 function CampaignDetailWrap() {

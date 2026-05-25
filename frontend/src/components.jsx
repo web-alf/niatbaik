@@ -1705,7 +1705,9 @@ function Router(){
     <AppShell title={def.label} subtitle="">
       {route==='dashboard' && <AdminDashboard/>}
       {route==='campaigns' && <CampaignsPage/>}
+      {route==='campaign-editor' && <CampaignEditorView/>}
       {route==='analytics' && <AnalyticsPage/>}
+      {route==='data-studio' && <DataStudioView/>}
       {route==='fundraiser' && <FundraiserPage/>}
       {route==='shortcode' && <ShortcodePage/>}
       {route==='members' && <MembersPage/>}

@@ -27,7 +27,7 @@ function LoginStats(){
 
 const LOGIN_ACCOUNTS = {
   'admin@niatbaik.org':      { password: 'admin123',      role: 'Admin',      name: 'Andre Wicaksono', initial: 'AW', email: 'admin@niatbaik.org',      access: 'Full akses · kelola seluruh platform' },
-  'cs@niatbaik.org':         { password: 'cs123',         role: 'CS',         name: 'Putri Maharani',  initial: 'PM', email: 'cs@niatbaik.org',         access: 'Akses inbox donor, transaksi, follow-up' },
+  'cs@niatbaik.org':         { password: 'cs123456',      role: 'CS',         name: 'Putri Maharani',  initial: 'PM', email: 'cs@niatbaik.org',         access: 'Akses inbox donor, transaksi, follow-up' },
   'advertiser@niatbaik.org': { password: 'advertiser123', role: 'Advertiser', name: 'Dewi Lestari',    initial: 'DL', email: 'advertiser@niatbaik.org', access: 'Akses analytics, ads tracking, UTM, pixel' }
 };
 

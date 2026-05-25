@@ -146,10 +146,10 @@ function App() {
     if (!user) return;
     const allNav = [...NAV, ...SECONDARY_NAV];
     const cur = allNav.find(n => n.key === route);
-    if (cur && cur.roles && !cur.roles.includes(user.role)) {
+    if (cur && cur.roles && !cur.roles.includes(role)) {
       setRouteRaw('dashboard');
     }
-  }, [route, user]);
+  }, [route, user, role]);
 
   // --- Context value ---
   const ctx = uM(() => ({

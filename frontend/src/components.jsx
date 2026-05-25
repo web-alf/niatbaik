@@ -1424,32 +1424,61 @@ const csvEscape = (v)=>{
 };
 
 const rangeStamp = (r)=>{
-  if (!r||!r.start) return 'all';
+  if (!r||!r.start) return new Date().toISOString().slice(0,10);
   const f=(d)=>`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
   return f(r.start)+'-'+f(r.end||r.start);
 };
 
+const COLUMN_LABELS = {
+  id:'Invoice', invoice_number:'Invoice', donor:'Donatur', donor_name:'Donatur',
+  campaign:'Campaign', campaign_title:'Campaign', amount:'Nominal (Rp)', total:'Nominal (Rp)',
+  method:'Metode Bayar', payment_method_name:'Metode Bayar', status:'Status',
+  date:'Tanggal', ts:'Tanggal', paid_at:'Tanggal Bayar', created_at:'Dibuat',
+  email:'Email', phone:'No. HP', whatsapp:'WhatsApp', message:'Pesan',
+  title:'Judul', target:'Target (Rp)', raised:'Terkumpul (Rp)', total_raised:'Terkumpul (Rp)',
+  donors:'Jumlah Donatur', donor_count:'Jumlah Donatur', category:'Kategori',
+  name:'Nama', role:'Role', ref:'Kode Referral', commission:'Komisi (Rp)',
+  slug:'Slug', short_description:'Deskripsi Singkat',
+};
+
+const fmtExportVal = (k, v) => {
+  if (v == null) return '';
+  if (typeof v === 'object' && !Array.isArray(v)) return JSON.stringify(v);
+  if (Array.isArray(v)) return v.join(', ');
+  return v;
+};
+
 function exportCSV(rows, filename, range){
   if (!rows||!rows.length) return;
-  const headers = Object.keys(rows[0]);
-  const lines = [headers.map(csvEscape).join(',')];
-  for (const r of rows) lines.push(headers.map(h=>csvEscape(r[h])).join(','));
-  const content = '﻿'+lines.join('\r\n');
-  downloadBlob(content, `${filename}_${rangeStamp(range)}.csv`, 'text/csv;charset=utf-8;');
+  const keys = Object.keys(rows[0]).filter(k => k !== 'thumb' && k !== 'icon' && k !== 'img' && k !== 'utm');
+  const labels = keys.map(k => COLUMN_LABELS[k] || k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()));
+  const lines = [labels.map(csvEscape).join(',')];
+  for (const r of rows) lines.push(keys.map(k => csvEscape(fmtExportVal(k, r[k]))).join(','));
+  const content = '﻿' + lines.join('\r\n');
+  downloadBlob(content, `NIATBAIK_${filename}_${rangeStamp(range)}.csv`, 'text/csv;charset=utf-8;');
 }
 
 function exportExcel(rows, filename, range, sheetName='Data'){
   if (!rows||!rows.length) return;
-  const headers = Object.keys(rows[0]);
+  const keys = Object.keys(rows[0]).filter(k => k !== 'thumb' && k !== 'icon' && k !== 'img' && k !== 'utm');
+  const labels = keys.map(k => COLUMN_LABELS[k] || k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()));
   const xmlEsc=(v)=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const typeOf=(v)=>typeof v==='number'&&isFinite(v)?'Number':'String';
-  const rowsXml = rows.map(r=>'<Row>'+headers.map(h=>{
-    const v=r[h];
-    return `<Cell><Data ss:Type="${typeOf(v)}">${xmlEsc(v)}</Data></Cell>`;
+  const colW = keys.map(k => {
+    const w = (COLUMN_LABELS[k]||k).length;
+    return Math.max(w * 8, k.includes('amount')||k.includes('target')||k.includes('raised')||k.includes('total') ? 120 : k.includes('title')||k.includes('campaign')||k.includes('description') ? 250 : 100);
+  });
+  const colXml = colW.map(w => `<Column ss:AutoFitWidth="1" ss:Width="${w}"/>`).join('');
+  const rowsXml = rows.map((r,ri)=>'<Row>'+keys.map((k,ci)=>{
+    const v = fmtExportVal(k, r[k]);
+    const isNum = typeof v==='number'&&isFinite(v);
+    const style = ri%2===0 ? '' : ' ss:StyleID="alt"';
+    return `<Cell${style}><Data ss:Type="${isNum?'Number':'String'}">${xmlEsc(v)}</Data></Cell>`;
   }).join('')+'</Row>').join('');
-  const headerXml = '<Row>'+headers.map(h=>
+  const headerXml = '<Row ss:AutoFitHeight="1">'+labels.map(h=>
     `<Cell ss:StyleID="hdr"><Data ss:Type="String">${xmlEsc(h)}</Data></Cell>`
   ).join('')+'</Row>';
+  const infoRow = `<Row><Cell ss:StyleID="info" ss:MergeAcross="${keys.length-1}"><Data ss:Type="String">NIATBAIK.ORG — ${sheetName} — Diekspor ${new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}</Data></Cell></Row>`;
   const xml = `<?xml version="1.0"?>
 <?mso-application progid="Excel.Sheet"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
@@ -1457,20 +1486,23 @@ function exportExcel(rows, filename, range, sheetName='Data'){
   xmlns:x="urn:schemas-microsoft-com:office:excel"
   xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
  <Styles>
-  <Style ss:ID="hdr"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#2E4191" ss:Pattern="Solid"/></Style>
+  <Style ss:ID="Default" ss:Name="Normal"><Font ss:FontName="Calibri" ss:Size="11"/><Alignment ss:Vertical="Center"/></Style>
+  <Style ss:ID="hdr"><Font ss:Bold="1" ss:Color="#FFFFFF" ss:FontName="Calibri" ss:Size="11"/><Interior ss:Color="#2E4191" ss:Pattern="Solid"/><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1E293B"/></Borders></Style>
+  <Style ss:ID="alt"><Interior ss:Color="#F1F5F9" ss:Pattern="Solid"/></Style>
+  <Style ss:ID="info"><Font ss:Bold="1" ss:Color="#2E4191" ss:FontName="Calibri" ss:Size="10"/><Interior ss:Color="#EEF2FF" ss:Pattern="Solid"/><Alignment ss:Vertical="Center"/></Style>
  </Styles>
  <Worksheet ss:Name="${xmlEsc(sheetName)}">
-  <Table>${headerXml}${rowsXml}</Table>
+  <Table>${colXml}${infoRow}${headerXml}${rowsXml}</Table>
  </Worksheet>
 </Workbook>`;
-  downloadBlob(xml, `${filename}_${rangeStamp(range)}.xls`, 'application/vnd.ms-excel');
+  downloadBlob(xml, `NIATBAIK_${filename}_${rangeStamp(range)}.xls`, 'application/vnd.ms-excel');
 }
 
 // ===================== Sidebar =====================
 const NAV_BY_ROLE = {
   Admin: ['dashboard','campaigns','analytics','data-studio','cs-inbox','fundraiser','shortcode','members','notification','trash','profile','settings'],
   CS: ['dashboard','campaigns','cs-inbox','fundraiser','notification','profile'],
-  Advertiser: ['dashboard','campaigns','analytics','data-studio','shortcode','notification','profile'],
+  Advertiser: ['adv-dashboard','campaigns','analytics','data-studio','shortcode','notification','profile'],
 };
 
 const NAV_DEFS = {

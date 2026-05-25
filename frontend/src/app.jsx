@@ -2,16 +2,17 @@
 const { useState: uS, useEffect: uE, useMemo: uM } = React;
 
 const NAV = [
-  { key: 'dashboard',     label: 'Dashboard',      icon: 'home',      roles: ['Admin', 'CS', 'Advertiser'] },
-  { key: 'campaigns',     label: 'Campaigns',      icon: 'megaphone', roles: ['Admin', 'CS', 'Advertiser'] },
-  { key: 'analytics',     label: 'Analytics',      icon: 'chart',     roles: ['Admin', 'Advertiser'] },
-  { key: 'data-studio',   label: 'Data Studio',    icon: 'sparkle',   roles: ['Admin', 'Advertiser'] },
-  { key: 'cs-inbox',      label: 'Inbox Donatur',  icon: 'inbox',     roles: ['Admin', 'CS'], badge: 12 },
-  { key: 'fundraiser',    label: 'Fundraiser',     icon: 'handshake', roles: ['Admin', 'CS'] },
-  { key: 'shortcode',     label: 'Shortcode',      icon: 'code',      roles: ['Admin', 'Advertiser'] },
-  { key: 'members',       label: 'Members / User', icon: 'users',     roles: ['Admin'] },
-  { key: 'notification',  label: 'Notification',   icon: 'bell',      roles: ['Admin', 'CS', 'Advertiser'], badge: 4 },
-  { key: 'trash',         label: 'Trash',          icon: 'trash',     roles: ['Admin'] }
+  { key: 'dashboard',     label: 'Dashboard',        icon: 'home',      roles: ['Admin', 'CS'] },
+  { key: 'adv-dashboard', label: 'Dashboard Iklan',   icon: 'home',      roles: ['Advertiser'] },
+  { key: 'campaigns',     label: 'Campaigns',        icon: 'megaphone', roles: ['Admin', 'CS', 'Advertiser'] },
+  { key: 'analytics',     label: 'Analytics',        icon: 'chart',     roles: ['Admin', 'Advertiser'] },
+  { key: 'data-studio',   label: 'Data Studio',      icon: 'sparkle',   roles: ['Admin', 'Advertiser'] },
+  { key: 'cs-inbox',      label: 'Inbox Donatur',    icon: 'inbox',     roles: ['Admin', 'CS'], badge: 12 },
+  { key: 'fundraiser',    label: 'Fundraiser',       icon: 'handshake', roles: ['Admin', 'CS'] },
+  { key: 'shortcode',     label: 'Shortcode',        icon: 'code',      roles: ['Admin', 'Advertiser'] },
+  { key: 'members',       label: 'Members / User',   icon: 'users',     roles: ['Admin'] },
+  { key: 'notification',  label: 'Notification',     icon: 'bell',      roles: ['Admin', 'CS', 'Advertiser'], badge: 4 },
+  { key: 'trash',         label: 'Trash',            icon: 'trash',     roles: ['Admin'] }
 ];
 
 const SECONDARY_NAV = [

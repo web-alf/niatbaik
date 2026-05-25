@@ -969,11 +969,19 @@ function TrashPage(){
 
   const [trashItems, setTrashItems] = uS(seedItems);
 
+  const parseTrash = (d) => {
+    if (Array.isArray(d)) return d;
+    const out = [];
+    if (d?.campaigns) d.campaigns.forEach(c => out.push({ id:c.id, type:'Campaign', kind:'campaign', name:c.title||c.name||'Campaign', meta:c.deleted_at||'', icon:'megaphone', tone:'brand' }));
+    if (d?.users) d.users.forEach(u => out.push({ id:u.id, type:'User', kind:'user', name:u.name||u.email||'User', meta:u.email||'', icon:'user', tone:'sky' }));
+    return out;
+  };
+
   uE(()=>{
-    api.trash().then(r => r?.data && setTrashItems(r.data)).catch(()=>{});
+    api.trash().then(r => { if(r?.data) { const p=parseTrash(r.data); if(p.length>0) setTrashItems(p); } }).catch(()=>{});
   }, []);
 
-  const refreshTrash = () => api.trash().then(r => r?.data && setTrashItems(r.data)).catch(()=>{});
+  const refreshTrash = () => api.trash().then(r => { if(r?.data) setTrashItems(parseTrash(r.data)); }).catch(()=>{});
 
   const tones = { brand:'bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400', sky:'bg-sky2-50 dark:bg-sky-900/30 text-sky2-500 dark:text-sky-400', ok:'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' };
 

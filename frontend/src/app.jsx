@@ -181,10 +181,10 @@ function App() {
     );
   }
 
-  // --- Public routes (no auth needed) ---
+  // --- Public routes ---
   const isPublicRoute = route === 'landing' || route === 'campaign-detail';
 
-  if (!user && isPublicRoute) {
+  if (isPublicRoute) {
     return (
       <AppCtx.Provider value={ctx}>
         {route === 'landing' && <LandingPage/>}

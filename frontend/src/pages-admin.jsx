@@ -8,6 +8,7 @@ function AdminDashboard(){
   const [dailyData, setDailyData] = uS_adm([]);
   const [allTx, setAllTx] = uS_adm([]);
   const [range, setRange] = uS_adm(null);
+  const [txTw, setTxTw] = uS_adm({ density:'regular', striped:false, anonymize:false, showDonatur:true, showCampaign:true, showMetode:true, showStatus:true, showTanggal:true, rowCount:8 });
 
   uE_adm(()=>{
     api.dashboardStats().then(r => r?.data && setApiStats(r.data));
@@ -100,17 +101,18 @@ function AdminDashboard(){
 
       {/* Recent transactions */}
       <Card padded={false}>
-        <div className="p-5 flex items-center justify-between">
+        <div className="p-5 flex items-center justify-between relative">
           <div>
             <div className="font-bold text-ink dark:text-slate-100">Transaksi Terbaru</div>
-            <div className="text-xs text-muted dark:text-slate-400">Update real-time</div>
+            <div className="text-xs text-muted dark:text-slate-400">Update real-time · {recentTx.length} baris</div>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" icon={<Icon name="filter" size={14}/>}>Filter</Button>
-            <button className="text-xs text-brand-600 font-medium">Lihat semua</button>
+            <TxTweaks tw={txTw} setTw={setTxTw}/>
           </div>
         </div>
-        <TxTable rows={recentTx}/>
+        <TxTable rows={recentTx.slice(0, txTw.rowCount||8)} density={txTw.density} striped={txTw.striped} anonymize={txTw.anonymize}
+          showDonatur={txTw.showDonatur} showCampaign={txTw.showCampaign} showMetode={txTw.showMetode} showStatus={txTw.showStatus} showTanggal={txTw.showTanggal}/>
       </Card>
 
       {/* Top campaigns */}
@@ -159,44 +161,91 @@ function AdminDashboard(){
 // DateRangePicker removed — use DateRangePill from components.jsx
 
 // ====================== Transaction Table ======================
-function TxTable({ rows, onInvoice }){
+function TxTable({ rows, onInvoice, density='regular', striped=false, showDonatur=true, showCampaign=true, showMetode=true, showStatus=true, showTanggal=true, anonymize=false }){
   const { openInvoice } = useApp();
+  const py = density==='compact'?'py-1.5':density==='comfy'?'py-4':'py-3';
+  const stripe = (i) => striped && i%2===1 ? 'bg-slate-50/50 dark:bg-slate-800/20' : '';
   return (
     <div className="overflow-x-auto nice-scroll">
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-xs text-muted dark:text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-800/50">
             <th className="px-5 py-3 font-semibold">Invoice</th>
-            <th className="px-5 py-3 font-semibold">Donatur</th>
-            <th className="px-5 py-3 font-semibold">Campaign</th>
+            {showDonatur && <th className="px-5 py-3 font-semibold">Donatur</th>}
+            {showCampaign && <th className="px-5 py-3 font-semibold">Campaign</th>}
             <th className="px-5 py-3 font-semibold">Nominal</th>
-            <th className="px-5 py-3 font-semibold">Metode</th>
-            <th className="px-5 py-3 font-semibold">Status</th>
-            <th className="px-5 py-3 font-semibold">Tanggal</th>
+            {showMetode && <th className="px-5 py-3 font-semibold">Metode</th>}
+            {showStatus && <th className="px-5 py-3 font-semibold">Status</th>}
+            {showTanggal && <th className="px-5 py-3 font-semibold">Tanggal</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-line dark:divide-slate-800">
-          {rows.map(r=>(
-            <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
-              <td className="px-5 py-3"><button onClick={()=>(onInvoice||openInvoice)(r)} className="font-mono text-brand-700 dark:text-brand-300 hover:underline font-semibold text-xs">{r.id}</button></td>
-              <td className="px-5 py-3">
+          {rows.map((r,i)=>(
+            <tr key={r.id||i} className={`hover:bg-slate-50 dark:hover:bg-slate-800/50 transition ${stripe(i)}`}>
+              <td className={`px-5 ${py}`}><button onClick={()=>(onInvoice||openInvoice)(r)} className="font-mono text-brand-700 dark:text-brand-300 hover:underline font-semibold text-xs">{r.id||r.invoice_number}</button></td>
+              {showDonatur && <td className={`px-5 ${py}`}>
                 <div className="flex items-center gap-2.5">
-                  <Avatar name={r.donor} initials={r.initials} anon={r.anon} size={28}/>
+                  <Avatar name={anonymize||r.anon?'Hamba Allah':r.donor} anon={anonymize||r.anon} size={28}/>
                   <div>
-                    <div className="font-medium text-ink dark:text-slate-100">{r.anon?'Hamba Allah':r.donor}</div>
-                    <div className="text-xs text-muted dark:text-slate-400">{r.phone}</div>
+                    <div className="font-medium text-ink dark:text-slate-100">{anonymize||r.anon?'Hamba Allah':r.donor||r.donor_name}</div>
                   </div>
                 </div>
-              </td>
-              <td className="px-5 py-3 max-w-[200px]"><div className="truncate text-slate-700 dark:text-slate-300">{r.campaign}</div></td>
-              <td className="px-5 py-3 font-bold text-ink dark:text-slate-100 tnum">{fmtIDR(r.amount)}</td>
-              <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{r.method}</td>
-              <td className="px-5 py-3"><StatusBadge status={r.status}/></td>
-              <td className="px-5 py-3 text-muted dark:text-slate-400 text-xs whitespace-nowrap">{new Date(r.ts).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</td>
+              </td>}
+              {showCampaign && <td className={`px-5 ${py} max-w-[200px]`}><div className="truncate text-slate-700 dark:text-slate-300">{r.campaign||r.campaign_title}</div></td>}
+              <td className={`px-5 ${py} font-bold text-ink dark:text-slate-100 tnum`}>{fmtIDR(r.amount||r.total)}</td>
+              {showMetode && <td className={`px-5 ${py} text-slate-700 dark:text-slate-300`}>{r.method||r.payment_method_name}</td>}
+              {showStatus && <td className={`px-5 ${py}`}><StatusBadge status={r.status}/></td>}
+              {showTanggal && <td className={`px-5 ${py} text-muted dark:text-slate-400 text-xs whitespace-nowrap`}>{r.date||r.ts||(r.paid_at&&new Date(r.paid_at).toLocaleString('id-ID',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}))||''}</td>}
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ====================== Tx Table Tweaks ======================
+function TxTweaks({ tw, setTw }){
+  const [open, setOpen] = uS_adm(false);
+  if (!open) return <button onClick={()=>setOpen(true)} className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-muted dark:text-slate-400" title="Tweaks"><Icon name="cog" size={16}/></button>;
+  return (
+    <div className="absolute right-0 top-full mt-2 z-40 w-72 rounded-xl bg-white dark:bg-slate-800 border border-line dark:border-slate-700 shadow-pop p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-bold text-ink dark:text-slate-100">Tweaks · Tabel</div>
+        <button onClick={()=>setOpen(false)} className="text-muted dark:text-slate-400 hover:text-ink dark:hover:text-slate-100"><Icon name="close" size={14}/></button>
+      </div>
+      <div>
+        <div className="text-[10px] font-bold uppercase tracking-wider text-muted dark:text-slate-400 mb-2">Tampilan</div>
+        <div className="flex gap-1">
+          {['compact','regular','comfy'].map(d=>(
+            <button key={d} onClick={()=>setTw({...tw,density:d})} className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-bold ${tw.density===d?'bg-brand-600 text-white':'bg-slate-100 dark:bg-slate-700 text-ink dark:text-slate-200'}`}>{d.charAt(0).toUpperCase()+d.slice(1)}</button>
+          ))}
+        </div>
+        <label className="flex items-center gap-2 mt-2 text-sm text-ink dark:text-slate-200">
+          <input type="checkbox" checked={tw.striped} onChange={e=>setTw({...tw,striped:e.target.checked})} className="rounded border-line"/>
+          Striped rows
+        </label>
+        <label className="flex items-center gap-2 mt-1 text-sm text-ink dark:text-slate-200">
+          <input type="checkbox" checked={tw.anonymize} onChange={e=>setTw({...tw,anonymize:e.target.checked})} className="rounded border-line"/>
+          Anonimkan semua donatur
+        </label>
+      </div>
+      <div>
+        <div className="text-[10px] font-bold uppercase tracking-wider text-muted dark:text-slate-400 mb-2">Kolom</div>
+        {[['showDonatur','Donatur'],['showCampaign','Campaign'],['showMetode','Metode'],['showStatus','Status'],['showTanggal','Tanggal']].map(([k,l])=>(
+          <label key={k} className="flex items-center gap-2 mt-1 text-sm text-ink dark:text-slate-200">
+            <input type="checkbox" checked={tw[k]!==false} onChange={e=>setTw({...tw,[k]:e.target.checked})} className="rounded border-line"/>
+            {l}
+          </label>
+        ))}
+      </div>
+      <div>
+        <div className="text-[10px] font-bold uppercase tracking-wider text-muted dark:text-slate-400 mb-2">Baris</div>
+        <div className="flex items-center gap-2">
+          <input type="range" min={3} max={15} value={tw.rowCount||8} onChange={e=>setTw({...tw,rowCount:+e.target.value})} className="flex-1"/>
+          <span className="text-xs font-bold tnum text-ink dark:text-slate-100 w-6 text-right">{tw.rowCount||8}</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -769,7 +818,7 @@ function CampaignEditorView() {
 
             <div className="mt-5">
               <label className="text-sm font-semibold text-ink dark:text-slate-100">Deskripsi Lengkap <span className="text-rose-600">*</span></label>
-              <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={10} className="mt-1.5 w-full px-3 py-2 rounded-xl border border-line bg-white dark:bg-slate-800 dark:border-slate-700 text-sm text-ink dark:text-slate-100"/>
+              <RichEditor value={content} onChange={setContent}/>
             </div>
 
             <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -962,6 +1011,68 @@ function CampaignEditorView() {
         <button onClick={() => handleSave(false)} className="flex-1 px-3 py-2.5 rounded-lg border-2 border-brand-600 text-brand-600 font-bold text-sm">Save Draft</button>
         <button onClick={() => handleSave(true)} className="flex-1 px-3 py-2.5 rounded-lg bg-brand-600 text-white font-bold text-sm">Publish</button>
       </div>
+    </div>
+  );
+}
+
+// -- Rich Text Editor --
+function RichEditor({ value, onChange }){
+  const editorRef = React.useRef();
+  const [mode, setMode] = uS_adm('visual');
+
+  const exec = (cmd, val) => { document.execCommand(cmd, false, val); editorRef.current?.focus(); onChange(editorRef.current?.innerHTML || ''); };
+
+  const toolbar = [
+    { cmd:'bold', icon:'B', cls:'font-bold' },
+    { cmd:'italic', icon:'I', cls:'italic' },
+    { sep:true },
+    { cmd:'formatBlock', val:'H2', icon:'H2', cls:'font-bold text-xs' },
+    { cmd:'formatBlock', val:'H3', icon:'H3', cls:'font-bold text-xs' },
+    { cmd:'formatBlock', val:'P', icon:'P', cls:'text-xs' },
+    { cmd:'formatBlock', val:'BLOCKQUOTE', icon:'"', cls:'font-serif' },
+    { sep:true },
+    { cmd:'insertUnorderedList', icon:'UL', cls:'text-xs' },
+    { cmd:'insertOrderedList', icon:'OL', cls:'text-xs' },
+    { sep:true },
+    { cmd:'createLink', prompt:true, icon:'Link', cls:'text-xs underline' },
+  ];
+
+  const handleInput = () => { onChange(editorRef.current?.innerHTML || ''); };
+
+  uE_adm(()=>{
+    if (editorRef.current && mode === 'visual' && editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value || '';
+    }
+  }, [mode]);
+
+  return (
+    <div className="mt-1.5 rounded-xl border border-line dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden focus-within:border-brand-600 focus-within:ring-2 focus-within:ring-brand-600/20">
+      <div className="flex items-center gap-0.5 px-2 py-1.5 border-b border-line dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex-wrap">
+        {toolbar.map((t,i) => t.sep
+          ? <div key={i} className="w-px h-5 bg-line dark:bg-slate-700 mx-1"/>
+          : <button key={i} type="button" onMouseDown={(e)=>{
+              e.preventDefault();
+              if (t.prompt) { const v = prompt('URL:'); if(v) exec(t.cmd, v); }
+              else exec(t.cmd, t.val);
+            }}
+            className={`h-7 min-w-[28px] px-1.5 rounded-md text-sm hover:bg-slate-200 dark:hover:bg-slate-700 text-ink dark:text-slate-200 ${t.cls||''}`}>
+            {t.icon}
+          </button>
+        )}
+        <div className="flex-1"/>
+        <div className="flex bg-slate-200 dark:bg-slate-700 rounded-md p-0.5">
+          <button type="button" onClick={()=>setMode('visual')} className={`px-2 py-0.5 rounded text-[10px] font-bold ${mode==='visual'?'bg-white dark:bg-slate-600 shadow-sm text-ink dark:text-slate-100':'text-muted dark:text-slate-400'}`}>Visual</button>
+          <button type="button" onClick={()=>setMode('html')} className={`px-2 py-0.5 rounded text-[10px] font-bold ${mode==='html'?'bg-white dark:bg-slate-600 shadow-sm text-ink dark:text-slate-100':'text-muted dark:text-slate-400'}`}>HTML</button>
+        </div>
+      </div>
+      {mode === 'visual' ? (
+        <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={handleInput}
+          className="min-h-[240px] px-4 py-3 text-sm text-ink dark:text-slate-100 prose prose-sm dark:prose-invert max-w-none focus:outline-none"
+          dangerouslySetInnerHTML={{__html: value || ''}}/>
+      ) : (
+        <textarea value={value} onChange={(e)=>onChange(e.target.value)} rows={12}
+          className="w-full px-4 py-3 text-sm font-mono text-ink dark:text-slate-100 bg-transparent focus:outline-none resize-none"/>
+      )}
     </div>
   );
 }

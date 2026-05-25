@@ -22,6 +22,9 @@ type CampaignListItem struct {
 	Category           string    `json:"category"`
 	ProgressPercentage float64   `json:"progress_percentage"`
 	Featured           bool      `json:"featured"`
+	Icon               string    `json:"icon"`
+	ThumbGradient      string    `json:"thumb_gradient"`
+	FormStyle          string    `json:"form_style"`
 	CreatedAt          time.Time `json:"created_at"`
 }
 
@@ -40,6 +43,17 @@ type CampaignDetail struct {
 	Category           string               `json:"category"`
 	ProgressPercentage float64              `json:"progress_percentage"`
 	Featured           bool                 `json:"featured"`
+	Icon               string               `json:"icon"`
+	ThumbGradient      string               `json:"thumb_gradient"`
+	FormStyle          string               `json:"form_style"`
+	FormType           string               `json:"form_type"`
+	OptNominal         string               `json:"opt_nominal"`
+	MinDonation        int64                `json:"min_donation"`
+	MaxDonation        int64                `json:"max_donation"`
+	LocationName       string               `json:"location_name"`
+	MetaPixelID        string               `json:"meta_pixel_id"`
+	TikTokPixelID      string               `json:"tiktok_pixel_id"`
+	GTMID              string               `json:"gtm_id"`
 	CreatedAt          time.Time            `json:"created_at"`
 	User               CampaignUser         `json:"user"`
 	Updates            []CampaignUpdateItem `json:"updates"`
@@ -96,6 +110,9 @@ func ToCampaignListItem(c *model.Campaign, donorCount int64) CampaignListItem {
 		Category:           cat,
 		ProgressPercentage: c.ProgressPercentage(),
 		Featured:           c.Featured,
+		Icon:               c.Icon,
+		ThumbGradient:      c.ThumbGradient,
+		FormStyle:          c.FormStyle,
 		CreatedAt:          c.CreatedAt,
 	}
 }
@@ -120,6 +137,17 @@ func ToCampaignDetail(c *model.Campaign, donorCount int64, donors []CampaignDono
 		Category:           cat,
 		ProgressPercentage: c.ProgressPercentage(),
 		Featured:           c.Featured,
+		Icon:               c.Icon,
+		ThumbGradient:      c.ThumbGradient,
+		FormStyle:          c.FormStyle,
+		FormType:           c.FormType,
+		OptNominal:         c.OptNominal,
+		MinDonation:        c.MinDonation,
+		MaxDonation:        c.MaxDonation,
+		LocationName:       c.LocationName,
+		MetaPixelID:        c.MetaPixelID,
+		TikTokPixelID:      c.TikTokPixelID,
+		GTMID:              c.GTMID,
 		CreatedAt:          c.CreatedAt,
 		User: CampaignUser{
 			Name:  c.User.Name,

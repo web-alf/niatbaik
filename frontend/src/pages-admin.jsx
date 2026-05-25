@@ -299,7 +299,7 @@ function CampaignsPage(){
                       <div className="flex items-center gap-1">
                         <button onClick={()=>setPreviewCampaign(c)} className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300" title="Preview"><Icon name="eye" size={16}/></button>
                         <button onClick={()=>editCampaign(c)} className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300" title="Edit"><Icon name="edit" size={16}/></button>
-                        <button onClick={()=>deleteCampaign(c)} className="h-8 w-8 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 flex items-center justify-center text-rose-500" title="Trash"><Icon name="trash" size={16}/></button>
+                        <CampaignOptionMenu c={c} onEdit={()=>editCampaign(c)} onPreview={()=>setPreviewCampaign(c)}/>
                       </div>
                     </td>
                   </tr>
@@ -384,6 +384,62 @@ function CampaignPreviewModal({ campaign, onClose, onEdit }){
   );
 }
 
+function CampaignOptionMenu({ c, onEdit, onPreview }){
+  const [open, setOpen] = uS_adm(false);
+  const [pos, setPos] = uS_adm('down');
+  const btnRef = React.useRef();
+  const menuRef = React.useRef();
+  const { showToast } = useApp();
+
+  uE_adm(()=>{
+    if (!open) return;
+    const click = (e) => { if (!menuRef.current?.contains(e.target) && !btnRef.current?.contains(e.target)) setOpen(false); };
+    const esc = (e) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('mousedown', click);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', click); document.removeEventListener('keydown', esc); };
+  }, [open]);
+
+  uE_adm(()=>{
+    if (!open || !btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    setPos(window.innerHeight - r.bottom < 280 ? 'up' : 'down');
+  }, [open]);
+
+  const items = [
+    { l:'Edit Campaign', icon:'edit', onClick:()=>{ setOpen(false); onEdit&&onEdit(); } },
+    { l:'Preview', icon:'eye', onClick:()=>{ setOpen(false); onPreview&&onPreview(); } },
+    { l:'Salin URL', icon:'copy', onClick:()=>{ setOpen(false); navigator.clipboard?.writeText('https://niatbaik.org/c/'+(c.slug||c.id)); showToast('URL disalin'); } },
+    { sep:true },
+    { l:'Delete', icon:'trash', onClick:()=>{ setOpen(false); showToast('Campaign dipindahkan ke trash'); }, danger:true },
+  ];
+
+  return (
+    <div className="relative">
+      <button ref={btnRef} onClick={()=>setOpen(!open)} className={`h-9 w-9 rounded-lg border flex items-center justify-center transition-colors ${open?'bg-brand-50 dark:bg-brand-900/30 border-brand-200 dark:border-brand-700 text-brand-700 dark:text-brand-300':'border-line dark:border-slate-700 text-muted dark:text-slate-400 hover:bg-bg2 dark:hover:bg-slate-800 hover:text-ink dark:hover:text-slate-100'}`}>
+        <Icon name="more" size={16}/>
+      </button>
+      {open && (
+        <div ref={menuRef} className={`absolute z-50 w-52 rounded-xl bg-white dark:bg-slate-800 border border-line dark:border-slate-700 shadow-pop overflow-hidden ${pos==='up'?'bottom-full mb-2':'top-full mt-2'} right-0`}>
+          <div className="px-3 py-2 border-b border-line dark:border-slate-700 bg-bg2/60 dark:bg-slate-900/60">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-muted dark:text-slate-400">Option</div>
+            <div className="text-xs font-bold text-ink dark:text-slate-100 line-clamp-1 mt-0.5">{c?.title||'Campaign'}</div>
+          </div>
+          <div className="p-1.5">
+            {items.map((it,i) => it.sep
+              ? <div key={i} className="my-1 h-px bg-line dark:bg-slate-700"/>
+              : <button key={i} onClick={it.onClick} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-semibold text-left transition-colors ${it.danger?'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30':'text-ink/85 dark:text-slate-200 hover:bg-bg2 dark:hover:bg-slate-700 hover:text-ink dark:hover:text-slate-100'}`}>
+                  <Icon name={it.icon} size={15} className={it.danger?'text-rose-500':'text-muted dark:text-slate-400'}/>
+                  <span className="flex-1">{it.l}</span>
+                </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CampaignAdminCard({ c, onOpen, onEdit }){
   return (
     <Card padded={false} className="overflow-hidden">
@@ -408,7 +464,7 @@ function CampaignAdminCard({ c, onOpen, onEdit }){
         </div>
         <div className="mt-3 flex items-center gap-1.5">
           <Button variant="soft" size="sm" full onClick={onOpen} icon={<Icon name="eye" size={14}/>}>Preview</Button>
-          <Button variant="secondary" size="sm" icon={<Icon name="edit" size={14}/>} onClick={()=>onEdit&&onEdit(c)}>Edit</Button>
+          <CampaignOptionMenu c={c} onEdit={()=>onEdit&&onEdit(c)} onPreview={onOpen}/>
         </div>
       </div>
     </Card>

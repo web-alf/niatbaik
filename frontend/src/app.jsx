@@ -343,11 +343,11 @@ function LazyView({ component: Comp, skeleton }) {
   const [ready, setReady] = uS(false);
   uE(() => {
     setReady(false);
+    let tid;
     const frame = requestAnimationFrame(() => {
-      const t = setTimeout(() => setReady(true), 300);
-      return () => clearTimeout(t);
+      tid = setTimeout(() => setReady(true), 300);
     });
-    return () => cancelAnimationFrame(frame);
+    return () => { cancelAnimationFrame(frame); clearTimeout(tid); };
   }, [Comp]);
 
   if (!ready) return <PageSkeleton type={skeleton}/>;

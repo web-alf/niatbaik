@@ -6,128 +6,11 @@
 const { useState: uS, useEffect: uE, useMemo: uM } = React;
 
 /* ================================================================== */
-/*  Local helper components                                           */
+/*  Use shared components from components.jsx (loaded before this)     */
+/*  Btn, StatCard, SearchInput, SourcePill, Empty, DateRangePill,      */
+/*  exportCSV, exportExcel, parseTxnDate, formatRangeLabel             */
+/*  are all available as window globals                                */
 /* ================================================================== */
-
-function Btn({ children, icon, iconRight, variant='solid', tone='brand', size='md', className='', disabled, ...rest }) {
-  const base = 'inline-flex items-center justify-center gap-1.5 font-bold rounded-lg transition-all shrink-0 disabled:opacity-40 disabled:pointer-events-none';
-  const sz = size === 'sm' ? 'h-8 px-3 text-xs' : size === 'lg' ? 'h-12 px-5 text-base' : 'h-10 px-4 text-sm';
-  const tones = {
-    brand: variant === 'solid' ? 'bg-brand-600 hover:bg-brand-700 text-white' : variant === 'outline' ? 'border border-brand-600 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/30' : 'text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/30',
-    ok:    variant === 'solid' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : variant === 'outline' ? 'border border-emerald-600 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30' : 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30',
-    bad:   variant === 'solid' ? 'bg-rose-600 hover:bg-rose-700 text-white' : variant === 'outline' ? 'border border-rose-600 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30' : 'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30',
-    warn:  variant === 'solid' ? 'bg-amber-500 hover:bg-amber-600 text-white' : variant === 'outline' ? 'border border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30' : 'text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30',
-    ink:   variant === 'solid' ? 'bg-slate-800 hover:bg-slate-900 text-white' : variant === 'outline' ? 'border border-line dark:border-slate-700 text-ink dark:text-slate-100 hover:bg-bg2 dark:hover:bg-slate-800' : 'text-ink dark:text-slate-100 hover:bg-bg2 dark:hover:bg-slate-800',
-  };
-  return (
-    <button disabled={disabled} className={`${base} ${sz} ${tones[tone] || tones.brand} ${className}`} {...rest}>
-      {icon && <Icon name={icon} size={size === 'sm' ? 13 : 15}/>}
-      {children}
-      {iconRight && <Icon name={iconRight} size={size === 'sm' ? 13 : 15}/>}
-    </button>
-  );
-}
-
-function StatCard({ icon, label, value, accent = 'brand', sub, delta }) {
-  const bg = { brand: 'bg-brand-50 text-brand-600', ok: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600', bad: 'bg-rose-50 dark:bg-rose-900/30 text-rose-600', warn: 'bg-amber-50 dark:bg-amber-900/30 text-amber-600', sky: 'bg-sky-50 dark:bg-sky-900/30 text-sky-600' };
-  return (
-    <Card>
-      <div className="flex items-start gap-3">
-        <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${bg[accent] || bg.brand}`}>
-          <Icon name={icon || 'chart'} size={18}/>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-xs text-muted dark:text-slate-400 font-semibold">{label}</div>
-          <div className="text-xl font-extrabold text-ink dark:text-slate-100 tnum">{value}</div>
-          {(sub || delta) && (
-            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted dark:text-slate-400">
-              {delta && <span className={delta.startsWith('+') ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>{delta}</span>}
-              {sub && <span>{sub}</span>}
-            </div>
-          )}
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function SearchInput({ placeholder, value, onChange }) {
-  return (
-    <div className="relative">
-      <Icon name="search" size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted dark:text-slate-400 pointer-events-none"/>
-      <input
-        type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full h-9 pl-9 pr-3 rounded-lg border border-line bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-400 dark:bg-slate-900 dark:border-slate-700"
-      />
-    </div>
-  );
-}
-
-function SourcePill({ source }) {
-  const colors = {
-    facebook: 'bg-blue-50 text-blue-700', meta: 'bg-blue-50 text-blue-700',
-    google: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700', tiktok: 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200',
-    instagram: 'bg-pink-50 dark:bg-pink-900/30 text-pink-700', '(direct)': 'bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400',
-  };
-  const c = colors[source?.toLowerCase?.()] || colors['(direct)'];
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${c}`}>{source || '(direct)'}</span>;
-}
-
-function Empty({ title, sub }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <Icon name="inbox" size={40} className="text-muted dark:text-slate-400 opacity-40"/>
-      <div className="mt-3 font-bold text-ink dark:text-slate-100">{title}</div>
-      {sub && <div className="mt-1 text-sm text-muted dark:text-slate-400">{sub}</div>}
-    </div>
-  );
-}
-
-function DateRangePill({ value, onChange, label }) {
-  const txt = value?.start
-    ? `${new Date(value.start).toLocaleDateString('id-ID',{day:'numeric',month:'short'})} – ${new Date(value.end||value.start).toLocaleDateString('id-ID',{day:'numeric',month:'short'})}`
-    : (label || 'Pilih tanggal');
-  // simple date picker trigger
-  return (
-    <button onClick={() => {
-      const s = prompt('Tanggal mulai (YYYY-MM-DD):');
-      if (!s) return;
-      const e = prompt('Tanggal akhir (YYYY-MM-DD):') || s;
-      onChange?.({ start: s, end: e });
-    }}
-      className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg border border-line dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold text-ink dark:text-slate-100 hover:bg-bg2 dark:hover:bg-slate-800">
-      <Icon name="calendar" size={14}/> {txt}
-    </button>
-  );
-}
-
-function formatRangeLabel(s, e) {
-  const fmt = d => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-  return e ? `${fmt(s)} – ${fmt(e)}` : fmt(s);
-}
-
-function parseTxnDate(dateStr) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  return isNaN(d) ? null : d;
-}
-
-function exportCSV(rows, prefix, range) {
-  if (!rows.length) return;
-  const keys = Object.keys(rows[0]);
-  const csv = [keys.join(','), ...rows.map(r => keys.map(k => `"${(r[k]+'').replace(/"/g,'""')}"`).join(','))].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `${prefix}_${new Date().toISOString().slice(0,10)}.csv`; a.click();
-}
-
-function exportExcel(rows, prefix, range, sheetName) {
-  // fallback to CSV if no XLSX lib
-  exportCSV(rows, prefix, range);
-}
 
 /* ================================================================== */
 /*  Group / FilterChip — shared by advanced filter modal               */
@@ -1157,11 +1040,4 @@ function AdvertiserDashboard() {
 /*  Window exports                                                     */
 /* ================================================================== */
 
-Object.assign(window, {
-  CsInbox,
-  AdvertiserDashboard,
-  // Local helpers exposed for other files
-  Btn, StatCard, SearchInput, SourcePill, Empty, DateRangePill,
-  exportCSV, exportExcel, parseTxnDate, formatRangeLabel,
-  ActiveFilterChips, AdvFilterModal, ExportLimitedModal, CSDetail,
-});
+Object.assign(window, { CsInbox, AdvertiserDashboard });

@@ -216,9 +216,10 @@ function CampaignsPage(){
     }).catch(()=>{});
   },[]);
 
+  const [previewCampaign, setPreviewCampaign] = uS_adm(null);
   const ranged = typeof filterByRange==='function' ? filterByRange(campaigns, range, 'createdAt') : campaigns;
   const filtered = ranged.filter(c=>(filter==='all'||(c.status||'').toLowerCase()===filter) && (c.title||'').toLowerCase().includes(search.toLowerCase()));
-  const { openCampaign, setEditingCampaign, setView: navigateTo, showToast } = useApp();
+  const { setEditingCampaign, setView: navigateTo, showToast } = useApp();
   const editCampaign = (c) => { setEditingCampaign(c); navigateTo('campaign-editor'); };
   const deleteCampaign = async (c) => {
     if (!confirm('Hapus campaign "'+c.title+'"?')) return;
@@ -259,7 +260,7 @@ function CampaignsPage(){
       {view==='grid' ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map(c=>(
-            <CampaignAdminCard key={c.id} c={c} onOpen={()=>openCampaign(c.id)} onEdit={()=>editCampaign(c)}/>
+            <CampaignAdminCard key={c.id} c={c} onOpen={()=>setPreviewCampaign(c)} onEdit={()=>editCampaign(c)}/>
           ))}
         </div>
       ) : (
@@ -296,7 +297,7 @@ function CampaignsPage(){
                     <td className="px-5 py-3"><StatusBadge status={c.status}/></td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-1">
-                        <button onClick={()=>openCampaign(c.id)} className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300" title="Preview"><Icon name="eye" size={16}/></button>
+                        <button onClick={()=>setPreviewCampaign(c)} className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300" title="Preview"><Icon name="eye" size={16}/></button>
                         <button onClick={()=>editCampaign(c)} className="h-8 w-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300" title="Edit"><Icon name="edit" size={16}/></button>
                         <button onClick={()=>deleteCampaign(c)} className="h-8 w-8 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/30 flex items-center justify-center text-rose-500" title="Trash"><Icon name="trash" size={16}/></button>
                       </div>
@@ -308,7 +309,78 @@ function CampaignsPage(){
           </div>
         </Card>
       )}
+
+      {/* Preview Modal */}
+      {previewCampaign && <CampaignPreviewModal campaign={previewCampaign} onClose={()=>setPreviewCampaign(null)} onEdit={()=>{setPreviewCampaign(null);editCampaign(previewCampaign);}}/>}
     </div>
+  );
+}
+
+function CampaignPreviewModal({ campaign, onClose, onEdit }){
+  const c = campaign;
+  const pct = c.target ? Math.min(100, Math.round((c.raised/c.target)*100)) : 0;
+  const slug = c.slug || c.id;
+  return (
+    <Modal open={true} onClose={onClose} title="Preview Halaman Campaign" size="xl">
+      <div className="bg-bg2 dark:bg-slate-950 -m-5 p-5">
+        <div className="rounded-2xl border border-line dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+          {/* Browser chrome */}
+          <div className="h-9 px-3 flex items-center gap-2 border-b border-line dark:border-slate-700 bg-bg2 dark:bg-slate-800">
+            <div className="flex gap-1.5">
+              <span className="h-3 w-3 rounded-full bg-rose-400"/>
+              <span className="h-3 w-3 rounded-full bg-amber-400"/>
+              <span className="h-3 w-3 rounded-full bg-emerald-400"/>
+            </div>
+            <div className="ml-2 flex-1 h-6 rounded-md bg-white dark:bg-slate-900 border border-line dark:border-slate-700 flex items-center px-2.5 text-[11px] font-mono text-muted dark:text-slate-400">
+              <Icon name="shield" size={12} className="mr-1.5 text-emerald-600"/>
+              niatbaik.org/c/{slug}
+            </div>
+          </div>
+
+          <div className="grid lg:grid-cols-5 gap-0">
+            {/* Left: banner + info */}
+            <div className="lg:col-span-3">
+              <div className="relative aspect-[16/9]" style={{background:c.thumb||'linear-gradient(135deg,#2E4191,#38B6FF)'}}>
+                {c.img ? <img src={c.img} className="absolute inset-0 w-full h-full object-cover" alt=""/> : <div className="absolute inset-0 flex items-center justify-center text-white/90"><Icon name={c.icon||'heart'} size={100} strokeWidth={1}/></div>}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/0 to-transparent"/>
+                <div className="absolute top-4 left-4 flex gap-2">
+                  <span className="px-2 py-1 rounded-md bg-white/90 text-[11px] font-bold text-ink">{c.category||'Uncategorized'}</span>
+                  <span className="px-2 py-1 rounded-md bg-emerald-600 text-[11px] font-bold text-white">{c.status}</span>
+                </div>
+                <div className="absolute bottom-4 left-4 right-4 text-white">
+                  <div className="text-xs font-semibold opacity-80">YAYASAN NIAT BAIK · KAMPANYE TERVERIFIKASI</div>
+                  <h2 className="mt-1 text-xl font-extrabold leading-tight">{c.title}</h2>
+                </div>
+              </div>
+              <div className="p-5">
+                <div className="text-sm text-muted dark:text-slate-400">{c.short_description||c.shortDesc||''}</div>
+                <div className="mt-3 prose prose-sm max-w-none text-ink dark:text-slate-200" dangerouslySetInnerHTML={{__html:c.description||c.content||'<p>Belum ada deskripsi.</p>'}}/>
+              </div>
+            </div>
+
+            {/* Right: donation card */}
+            <div className="lg:col-span-2 p-5 border-l border-line dark:border-slate-700">
+              <div className="text-xs font-bold uppercase tracking-wider text-muted dark:text-slate-400">Donasi terkumpul</div>
+              <div className="mt-1 text-2xl font-extrabold text-brand-600 tnum">{fmtIDR(c.raised||0)}</div>
+              <div className="text-sm text-muted dark:text-slate-400">dari target <b className="tnum">{fmtIDR(c.target||0)}</b></div>
+              <ProgressBar value={c.raised||0} max={c.target||1} size="lg"/>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="p-2 rounded-lg bg-bg2 dark:bg-slate-800"><div className="text-muted dark:text-slate-400">Donatur</div><div className="font-bold tnum">{fmtNum(c.donors||0)}</div></div>
+                <div className="p-2 rounded-lg bg-bg2 dark:bg-slate-800"><div className="text-muted dark:text-slate-400">Sisa hari</div><div className="font-bold tnum">{c.days||c.daysLeft||0}</div></div>
+                <div className="p-2 rounded-lg bg-bg2 dark:bg-slate-800"><div className="text-muted dark:text-slate-400">Tercapai</div><div className="font-bold text-emerald-600 tnum">{pct}%</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer actions */}
+        <div className="mt-4 flex items-center gap-2 justify-end">
+          <span className="text-xs text-muted dark:text-slate-400 mr-auto flex items-center gap-1.5"><Icon name="globe" size={14}/> niatbaik.org/c/{slug}</span>
+          <Button variant="secondary" size="sm" icon={<Icon name="edit" size={14}/>} onClick={onEdit}>Edit campaign</Button>
+          <Button variant="primary" size="sm" icon={<Icon name="eye" size={14}/>} onClick={()=>window.open('/donasi/'+slug,'_blank')}>Buka di tab baru</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -532,14 +604,18 @@ function CampaignEditorView() {
   const c = editingCampaign;
 
   const [title, setTitle] = uS_adm(c?.title || '');
-  const [content, setContent] = uS_adm(c ? `<h2>Bingung Mau Bayar Fidyah Kemana?</h2>\n<p><em>Fidyah Disini Aja, Semuanya Kami Handle!</em></p>\n<p>Fidyah merupakan istilah dalam agama Islam yang mengacu pada kewajiban membayar denda atau ganti rugi atas ketidakmampuan seseorang untuk melakukan ibadah puasa selama bulan Ramadhan karena ada alasan tertentu.</p>\n<p><b>Cara Menghitung Fidyah:</b><br/>Jika hutang puasamu 10 hari maka dikalikan dengan 45.000, jadi 10 × 45.000 = 450.000, untuk 10 paket nasi.</p>` : '');
+  const [shortDesc, setShortDesc] = uS_adm(c?.short_description || c?.shortDesc || '');
+  const [content, setContent] = uS_adm(c?.description || c?.content || '');
   const [target, setTarget] = uS_adm(c?.target || 0);
-  const [endDate, setEndDate] = uS_adm('2026-08-31');
-  const [location, setLocation] = uS_adm('');
-  const [gmaps, setGmaps] = uS_adm('');
-  const [category, setCategory] = uS_adm(c?.category || 'Uncategorized');
+  const [durationDays, setDurationDays] = uS_adm(c?.duration_days || 90);
+  const [location, setLocation] = uS_adm(c?.location_name || c?.location || '');
+  const [gmaps, setGmaps] = uS_adm(c?.location_gmaps || c?.gmaps || '');
+  const [categoryId, setCategoryId] = uS_adm(c?.category_id || '');
+  const [categories, setCategories] = uS_adm([]);
   const [status, setStatus] = uS_adm(c?.status || 'Draft');
-  const [thumb, setThumb] = uS_adm(c?.thumb || null);
+  const [thumb, setThumb] = uS_adm(c?.image || c?.thumb || null);
+
+  uE_adm(()=>{ api.categories().then(r=>{ if(r?.data) setCategories(r.data); }).catch(()=>{}); },[]);
 
   const autoSlug = (title || c?.title || 'kampanye-baru').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
   const [longSlug, setLongSlug] = uS_adm(c?.id ? autoSlug : autoSlug);
@@ -577,12 +653,26 @@ function CampaignEditorView() {
   const back = () => { setEditingCampaign(null); setView('campaigns'); };
 
   const handleSave = (publish) => {
-    const data = { title, content, target, end_date: endDate, location, gmaps, category, status: publish ? 'Published' : 'Draft', form_mode: formMode, form_style: formStyle, nominals, min_donation: minDonasi, max_donation: maxDonasi, slug: longSlug, short_slug: shortSlug };
+    if (!title.trim()) { showToast('Judul campaign wajib diisi'); return; }
+    if (!shortDesc.trim()) { showToast('Deskripsi singkat wajib diisi'); return; }
+    if (!content.trim()) { showToast('Deskripsi lengkap wajib diisi'); return; }
+    const data = {
+      title, short_description: shortDesc, description: content, target: Number(target),
+      duration_days: Number(durationDays), location_name: location, location_gmaps: gmaps,
+      category_id: categoryId, status: publish ? 'Published' : 'Draft',
+      form_type: formMode.toLowerCase(), form_style: formStyle,
+      opt_nominal: JSON.stringify(nominals), min_donation: minDonasi, max_donation: maxDonasi,
+      slug: longSlug, image: thumb || '',
+      socialproof: adv.socialProof !== 'Hide', fundraiser_setting: adv.fundraising !== 'Default',
+      wa_notification: adv.wa !== 'Default', followup_enabled: adv.followup !== 'Default',
+      popup_info: adv.popupInfo !== 'Hide', wa_flying_button: adv.waFlying !== 'Default',
+    };
     const promise = isEdit ? api.updateCampaign(c.id, data) : api.createCampaign(data);
-    promise.then(() => {
+    promise.then((res) => {
+      if (res?.success === false) { showToast(res.message || 'Gagal menyimpan'); return; }
       showToast(publish ? 'Campaign berhasil dipublish' : 'Campaign disimpan sebagai draft');
       setTimeout(back, 700);
-    }).catch(() => showToast('Gagal menyimpan campaign'));
+    }).catch((e) => showToast('Gagal: ' + (e.message || 'Error')));
   };
 
   return (
@@ -598,7 +688,7 @@ function CampaignEditorView() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" icon={<Icon name="chevronL" size={16}/>} onClick={back}>Kembali</Button>
-          {isEdit && <Button variant="secondary" icon={<Icon name="eye" size={16}/>}>View Public</Button>}
+          {isEdit && <Button variant="secondary" icon={<Icon name="eye" size={16}/>} onClick={()=>window.open('/donasi/'+(c.slug||c.id),'_blank')}>View Public</Button>}
         </div>
       </div>
 
@@ -613,12 +703,16 @@ function CampaignEditorView() {
                   <label className="text-sm font-semibold text-ink dark:text-slate-100">Title / Judul <span className="text-rose-600">*</span></label>
                   <input value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1.5 w-full h-10 px-3 rounded-xl border border-line bg-white dark:bg-slate-800 dark:border-slate-700 text-sm text-ink dark:text-slate-100" placeholder="Cth: Lunasi Hutang Puasamu, Bayar Fidyahmu!"/>
                 </div>
+                <div>
+                  <label className="text-sm font-semibold text-ink dark:text-slate-100">Deskripsi Singkat <span className="text-rose-600">*</span></label>
+                  <input value={shortDesc} onChange={(e) => setShortDesc(e.target.value)} className="mt-1.5 w-full h-10 px-3 rounded-xl border border-line bg-white dark:bg-slate-800 dark:border-slate-700 text-sm text-ink dark:text-slate-100" placeholder="Ringkasan 1-2 kalimat untuk tampil di daftar campaign"/>
+                </div>
               </div>
               <CEditorThumb thumb={thumb} onChange={setThumb}/>
             </div>
 
             <div className="mt-5">
-              <label className="text-sm font-semibold text-ink dark:text-slate-100">Information / Keterangan <span className="text-rose-600">*</span></label>
+              <label className="text-sm font-semibold text-ink dark:text-slate-100">Deskripsi Lengkap <span className="text-rose-600">*</span></label>
               <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={10} className="mt-1.5 w-full px-3 py-2 rounded-xl border border-line bg-white dark:bg-slate-800 dark:border-slate-700 text-sm text-ink dark:text-slate-100"/>
             </div>
 
@@ -631,8 +725,8 @@ function CampaignEditorView() {
                 </div>
               </div>
               <div>
-                <label className="text-sm font-semibold text-ink dark:text-slate-100">Tanggal berakhir <span className="text-rose-600">*</span></label>
-                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1.5 w-full h-10 px-3 rounded-xl border border-line bg-white dark:bg-slate-800 dark:border-slate-700 text-sm text-ink dark:text-slate-100"/>
+                <label className="text-sm font-semibold text-ink dark:text-slate-100">Durasi (hari) <span className="text-rose-600">*</span></label>
+                <input type="number" value={durationDays} onChange={(e) => setDurationDays(+e.target.value)} className="mt-1.5 w-full h-10 px-3 rounded-xl border border-line bg-white dark:bg-slate-800 dark:border-slate-700 text-sm text-ink dark:text-slate-100" placeholder="90"/>
               </div>
               <div>
                 <label className="text-sm font-semibold text-ink dark:text-slate-100">Location / Lokasi</label>
@@ -757,8 +851,9 @@ function CampaignEditorView() {
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-[80px_1fr] items-center gap-3">
                 <div className="text-muted dark:text-slate-400">Category</div>
-                <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-10 px-3 rounded-xl border border-line bg-white dark:bg-slate-800 dark:border-slate-700 text-sm">
-                  {['Uncategorized','Medis','Pendidikan','Wakaf','Bencana','Ramadan','Fidyah','Qurban','Zakat'].map(o=><option key={o}>{o}</option>)}
+                <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-10 px-3 rounded-xl border border-line bg-white dark:bg-slate-800 dark:border-slate-700 text-sm text-ink dark:text-slate-100">
+                  <option value="">Pilih kategori</option>
+                  {categories.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-[80px_1fr] items-center gap-3">

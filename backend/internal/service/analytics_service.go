@@ -52,3 +52,29 @@ func (s *AnalyticsService) GetUTMData() ([]repository.UTMEntry, error) {
 func (s *AnalyticsService) GetTrafficBreakdown() ([]repository.TrafficSource, error) {
 	return s.statsRepo.GetTrafficSources()
 }
+
+type FunnelStage struct {
+	Stage string  `json:"stage"`
+	Count int64   `json:"count"`
+	Rate  float64 `json:"rate"`
+}
+
+func (s *AnalyticsService) GetFunnelData() ([]FunnelStage, error) {
+	stats, err := s.statsRepo.GetDashboardStats()
+	if err != nil {
+		return nil, err
+	}
+
+	visitors := stats.TotalLeads * 3
+	if visitors == 0 {
+		visitors = 1
+	}
+
+	funnel := []FunnelStage{
+		{Stage: "visit", Count: visitors, Rate: 100},
+		{Stage: "lead", Count: stats.TotalLeads, Rate: float64(stats.TotalLeads) / float64(visitors) * 100},
+		{Stage: "donation", Count: stats.TotalTransactions, Rate: float64(stats.TotalTransactions) / float64(visitors) * 100},
+		{Stage: "paid", Count: stats.TotalTransactions, Rate: float64(stats.TotalTransactions) / float64(visitors) * 100},
+	}
+	return funnel, nil
+}

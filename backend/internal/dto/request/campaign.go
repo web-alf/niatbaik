@@ -15,6 +15,21 @@ type CreateCampaignRequest struct {
 	LocationGmaps    string     `json:"location_gmaps"`
 	FormType         string     `json:"form_type"`
 	Status           string     `json:"status"`
+	Icon             string     `json:"icon"`
+	ThumbGradient    string     `json:"thumb_gradient"`
+	FormStyle        string     `json:"form_style"`
+	WANotification   bool       `json:"wa_notification"`
+	FollowupEnabled  bool       `json:"followup_enabled"`
+	MetaPixelID      string     `json:"meta_pixel_id"`
+	TikTokPixelID    string     `json:"tiktok_pixel_id"`
+	GTMID            string     `json:"gtm_id"`
+	PopupInfo        bool       `json:"popup_info"`
+	WAFlyingButton   bool       `json:"wa_flying_button"`
+	ExternalLink     string     `json:"external_link"`
+	MinDonation      int64      `json:"min_donation"`
+	MaxDonation      int64      `json:"max_donation"`
+	OptNominal       string     `json:"opt_nominal"`
+	ButtonColor      string     `json:"button_color"`
 }
 
 type UpdateCampaignRequest struct {
@@ -30,4 +45,19 @@ type UpdateCampaignRequest struct {
 	LocationName     string     `json:"location_name"`
 	LocationGmaps    string     `json:"location_gmaps"`
 	FormType         string     `json:"form_type"`
+	Icon             string     `json:"icon"`
+	ThumbGradient    string     `json:"thumb_gradient"`
+	FormStyle        string     `json:"form_style"`
+	WANotification   *bool      `json:"wa_notification"`
+	FollowupEnabled  *bool      `json:"followup_enabled"`
+	MetaPixelID      string     `json:"meta_pixel_id"`
+	TikTokPixelID    string     `json:"tiktok_pixel_id"`
+	GTMID            string     `json:"gtm_id"`
+	PopupInfo        *bool      `json:"popup_info"`
+	WAFlyingButton   *bool      `json:"wa_flying_button"`
+	ExternalLink     string     `json:"external_link"`
+	MinDonation      *int64     `json:"min_donation"`
+	MaxDonation      *int64     `json:"max_donation"`
+	OptNominal       string     `json:"opt_nominal"`
+	ButtonColor      string     `json:"button_color"`
 }

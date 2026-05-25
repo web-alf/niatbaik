@@ -1,19 +1,33 @@
-// Dummy data for NIATBAIK.ORG
-// All campaigns are pendidikan-themed (beasiswa, sekolah, dhuafa pendidikan)
+// data.jsx — Formatting helpers + seed/mock data for NiatBaik donation platform.
+// Shared across all views (public, admin, CS, advertiser).
 
-const fmtIDR = (n) => 'Rp' + (n||0).toLocaleString('id-ID');
-const fmtShort = (n) => {
-  if (n >= 1e9) return 'Rp' + (n/1e9).toFixed(1).replace(/\.0$/,'') + 'M';
-  if (n >= 1e6) return 'Rp' + (n/1e6).toFixed(1).replace(/\.0$/,'') + 'jt';
-  if (n >= 1e3) return 'Rp' + (n/1e3).toFixed(0) + 'rb';
-  return 'Rp' + n;
+/* ------------------------------------------------------------------ */
+/*  Formatting helpers                                                 */
+/* ------------------------------------------------------------------ */
+
+const fmtIDR = (n) => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
+
+const fmtIDRShort = (n) => {
+  if (n >= 1e9) return 'Rp ' + (n / 1e9).toFixed(1).replace(/\.0$/, '') + ' M';
+  if (n >= 1e6) return 'Rp ' + (n / 1e6).toFixed(1).replace(/\.0$/, '') + ' jt';
+  if (n >= 1e3) return 'Rp ' + (n / 1e3).toFixed(0) + ' rb';
+  return 'Rp ' + n;
 };
-const fmtNum = (n) => (n||0).toLocaleString('id-ID');
 
-// SVG placeholder image generator - returns data URI for a "photo-like" gradient w/ icon
-function placeholderImg(seed, label){
-  const hues = [['#2E4191','#38B6FF'],['#2563eb','#22d3ee'],['#0e7490','#38B6FF'],['#1e40af','#60a5fa'],['#0369a1','#7dd3fc'],['#1e3a8a','#38bdf8']];
-  const [a,b] = hues[seed % hues.length];
+const fmtNum = (n) => (n || 0).toLocaleString('id-ID');
+
+const fmtPct = (n) => (n * 100).toFixed(1) + '%';
+
+/* ------------------------------------------------------------------ */
+/*  SVG placeholder generators (kept from original)                    */
+/* ------------------------------------------------------------------ */
+
+function placeholderImg(seed, label) {
+  const hues = [
+    ['#2E4191', '#38B6FF'], ['#2563eb', '#22d3ee'], ['#0e7490', '#38B6FF'],
+    ['#1e40af', '#60a5fa'], ['#0369a1', '#7dd3fc'], ['#1e3a8a', '#38bdf8'],
+  ];
+  const [a, b] = hues[seed % hues.length];
   return `data:image/svg+xml;utf8,` + encodeURIComponent(
     `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500'>
       <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
@@ -25,7 +39,7 @@ function placeholderImg(seed, label){
       <rect width='800' height='500' fill='url(#g)'/>
       <rect width='800' height='500' fill='url(#p)'/>
       <g transform='translate(400 230)' fill='rgba(255,255,255,0.92)' text-anchor='middle' font-family='DM Sans, sans-serif'>
-        <text font-size='28' font-weight='700' letter-spacing='1'>${label||'PENDIDIKAN'}</text>
+        <text font-size='28' font-weight='700' letter-spacing='1'>${label || 'DONASI'}</text>
         <text y='40' font-size='15' opacity='0.75'>niatbaik.org</text>
       </g>
       <g transform='translate(400 360)' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2'>
@@ -35,8 +49,8 @@ function placeholderImg(seed, label){
   );
 }
 
-function avatarSvg(initials, seed){
-  const hues = ['#2E4191','#38B6FF','#0e83c8','#4762bd','#1aa1ee','#125883'];
+function avatarSvg(initials, seed) {
+  const hues = ['#2E4191', '#38B6FF', '#0e83c8', '#4762bd', '#1aa1ee', '#125883'];
   const bg = hues[seed % hues.length];
   return `data:image/svg+xml;utf8,` + encodeURIComponent(
     `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'>
@@ -46,162 +60,291 @@ function avatarSvg(initials, seed){
   );
 }
 
-const CAMPAIGNS = [
-  { id:'c1', slug:'beasiswa-1000-anak-dhuafa', title:'Beasiswa 1000 Anak Dhuafa Lanjut Sekolah', target: 1_500_000_000, raised: 1_127_450_000, donors: 8432, days: 14, status:'Running', category:'Beasiswa', img: placeholderImg(0,'BEASISWA'), description:'Banyak anak putus sekolah karena ekonomi. Dengan donasi Anda, mereka bisa kembali ke bangku sekolah tahun ini.' },
-  { id:'c2', slug:'bangun-sekolah-pelosok-ntt', title:'Bangun Sekolah di Pelosok NTT', target: 850_000_000, raised: 642_300_000, donors: 4120, days: 32, status:'Running', category:'Sekolah', img: placeholderImg(1,'SEKOLAH NTT'), description:'Ratusan anak harus berjalan 3 jam ke sekolah terdekat. Mari bangun ruang kelas baru di desa terpencil NTT.' },
-  { id:'c3', slug:'paket-sekolah-yatim', title:'Paket Sekolah Anak Yatim 2026', target: 500_000_000, raised: 489_200_000, donors: 5320, days: 4, status:'Running', category:'Yatim', img: placeholderImg(2,'PAKET SEKOLAH'), description:'Seragam, sepatu, tas, dan buku untuk anak-anak yatim agar siap masuk tahun ajaran baru.' },
-  { id:'c4', slug:'tahfidz-quran-pesantren', title:'Beasiswa Tahfidz Qur’an Santri', target: 300_000_000, raised: 178_400_000, donors: 2240, days: 21, status:'Running', category:'Tahfidz', img: placeholderImg(3,'TAHFIDZ'), description:'Dukung 200 santri penghafal Al-Qur’an menyelesaikan hafalan 30 juz tahun ini.' },
-  { id:'c5', slug:'laptop-untuk-mahasiswa', title:'Laptop untuk Mahasiswa Tidak Mampu', target: 250_000_000, raised: 92_500_000, donors: 873, days: 45, status:'Running', category:'Mahasiswa', img: placeholderImg(4,'LAPTOP'), description:'Banyak mahasiswa tertinggal pelajaran karena tidak punya laptop. Bantu satu mahasiswa lulus tepat waktu.' },
-  { id:'c6', slug:'guru-honorer-pelosok', title:'Tunjangan Guru Honorer Pelosok', target: 200_000_000, raised: 200_000_000, donors: 3210, days: 0, status:'Ended', category:'Guru', img: placeholderImg(5,'GURU'), description:'Penghargaan untuk para guru honorer yang mengabdi di daerah 3T dengan gaji terbatas.' },
-  { id:'c7', slug:'sahabat-sekolah', title:'Sahabat Sekolah — Bantu Iuran Sekolah', target: 400_000_000, raised: 0, donors: 0, days: 60, status:'Draft', category:'Iuran', img: placeholderImg(0,'IURAN SEKOLAH'), description:'Program patungan menutup tunggakan iuran sekolah anak-anak prasejahtera di Jabodetabek.' },
-  { id:'c8', slug:'perpustakaan-desa', title:'Perpustakaan Mini untuk 50 Desa', target: 350_000_000, raised: 0, donors: 0, days: 0, status:'Published', category:'Literasi', img: placeholderImg(1,'PERPUSTAKAAN'), description:'Sudut baca berisi 500 buku untuk anak-anak desa, lengkap dengan rak dan furniture sederhana.' },
+/* ------------------------------------------------------------------ */
+/*  Campaign seed data (8 campaigns)                                   */
+/* ------------------------------------------------------------------ */
+
+const campaignSeed = [
+  {
+    id: 'c-001',
+    title: 'Sumur Bersih untuk Desa Lengkong, NTT',
+    category: 'Air Bersih',
+    target: 250_000_000,
+    raised: 184_320_000,
+    donors: 2147,
+    status: 'Running',
+    daysLeft: 18,
+    thumb: 'linear-gradient(135deg, #38B6FF 0%, #2E4191 100%)',
+    icon: 'droplet',
+    updatedAt: '2 jam lalu',
+  },
+  {
+    id: 'c-002',
+    title: 'Bantuan Operasi Jantung untuk Aira (4 thn)',
+    category: 'Medis',
+    target: 180_000_000,
+    raised: 162_540_000,
+    donors: 4318,
+    status: 'Running',
+    daysLeft: 6,
+    thumb: 'linear-gradient(135deg, #F59E0B 0%, #DC2626 100%)',
+    icon: 'heart',
+    updatedAt: '12 menit lalu',
+  },
+  {
+    id: 'c-003',
+    title: 'Buka Puasa untuk 5.000 Yatim Jabodetabek',
+    category: 'Ramadan',
+    target: 500_000_000,
+    raised: 312_780_500,
+    donors: 8920,
+    status: 'Running',
+    daysLeft: 24,
+    thumb: 'linear-gradient(135deg, #16A34A 0%, #2E4191 100%)',
+    icon: 'moon',
+    updatedAt: '1 jam lalu',
+  },
+  {
+    id: 'c-004',
+    title: 'Renovasi Madrasah Al-Hikmah, Lombok Timur',
+    category: 'Pendidikan',
+    target: 320_000_000,
+    raised: 87_410_000,
+    donors: 612,
+    status: 'Running',
+    daysLeft: 41,
+    thumb: 'linear-gradient(135deg, #2E4191 0%, #38B6FF 100%)',
+    icon: 'book',
+    updatedAt: 'kemarin',
+  },
+  {
+    id: 'c-005',
+    title: 'Bantuan Korban Banjir Demak',
+    category: 'Bencana',
+    target: 150_000_000,
+    raised: 150_000_000,
+    donors: 3402,
+    status: 'Ended',
+    daysLeft: 0,
+    thumb: 'linear-gradient(135deg, #64748B 0%, #1E293B 100%)',
+    icon: 'cloud',
+    updatedAt: '3 hari lalu',
+  },
+  {
+    id: 'c-006',
+    title: 'Wakaf Quran untuk Pesantren Pelosok',
+    category: 'Wakaf',
+    target: 100_000_000,
+    raised: 12_400_000,
+    donors: 184,
+    status: 'Draft',
+    daysLeft: 30,
+    thumb: 'linear-gradient(135deg, #38B6FF 0%, #16A34A 100%)',
+    icon: 'book',
+    updatedAt: '5 jam lalu',
+  },
+  {
+    id: 'c-007',
+    title: 'Modal Usaha untuk Janda Kepala Keluarga',
+    category: 'Ekonomi',
+    target: 80_000_000,
+    raised: 0,
+    donors: 0,
+    status: 'Published',
+    daysLeft: 60,
+    thumb: 'linear-gradient(135deg, #F59E0B 0%, #38B6FF 100%)',
+    icon: 'briefcase',
+    updatedAt: 'baru saja',
+  },
+  {
+    id: 'c-008',
+    title: 'Beasiswa 1000 Anak Dhuafa Lanjut Sekolah',
+    category: 'Beasiswa',
+    target: 1_500_000_000,
+    raised: 1_127_450_000,
+    donors: 8432,
+    status: 'Running',
+    daysLeft: 14,
+    thumb: 'linear-gradient(135deg, #2563eb 0%, #22d3ee 100%)',
+    icon: 'graduation-cap',
+    updatedAt: '30 menit lalu',
+  },
 ];
 
-const DONORS = [
-  { name:'Ahmad Fauzi', initials:'AF' },
-  { name:'Hamba Allah', initials:'HA', anon:true },
-  { name:'Siti Nurhaliza', initials:'SN' },
-  { name:'Budi Santoso', initials:'BS' },
-  { name:'Rina Marlina', initials:'RM' },
-  { name:'Dewi Lestari', initials:'DL' },
-  { name:'Pak Anto', initials:'PA' },
-  { name:'Ibu Wati', initials:'IW' },
-  { name:'Hamba Allah', initials:'HA', anon:true },
-  { name:'Faisal Rahman', initials:'FR' },
-  { name:'Citra Ayu', initials:'CA' },
-  { name:'Tono Wiratmo', initials:'TW' },
+/* ------------------------------------------------------------------ */
+/*  Donor names + payment methods                                      */
+/* ------------------------------------------------------------------ */
+
+const donorNames = [
+  'Rizky H.', 'Hamba Allah', 'Siti Nurhaliza', 'Andi P.', 'Hamba Allah',
+  'Budi Santoso', 'Maya Wijaya', 'Hamba Allah', 'Dewi A.', 'Fajar Ramadhan',
+  'Hamba Allah', 'Nadia P.', 'Iqbal R.', 'Hamba Allah', 'Lestari K.',
+  'Hamba Allah', 'Yusuf M.', 'Aisha N.', 'Hamba Allah', 'Rangga D.',
 ];
 
-const PRAYERS = [
-  'Semoga semua anak Indonesia bisa lanjut sekolah. Aamiin.',
-  'Sedikit yang saya bisa, semoga jadi amal jariyah.',
-  'Untuk almarhumah ibu saya, semoga jadi pemberat timbangan kebaikannya.',
-  'Barakallah… semoga sampai ke tangan yang berhak.',
-  'Semangat adik-adik, raih cita-cita setinggi langit!',
-  'Lillahi ta’ala. Mohon doakan keluarga kami.',
-];
+const paymentMethods = ['QRIS', 'BCA VA (Moota)', 'Mandiri VA (Moota)', 'BNI VA (Moota)', 'Flip', 'GoPay', 'OVO', 'Dana', 'ShopeePay'];
+const autoConfirmMethods = ['BCA VA (Moota)', 'Mandiri VA (Moota)', 'BNI VA (Moota)', 'Flip'];
+const isAutoConfirmMethod = (m) => autoConfirmMethods.includes(m);
 
-const NOMINAL_PRESETS = [25000, 50000, 100000, 250000, 500000, 1000000];
+const NOMINAL_PRESETS = [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
 
-// Generate fake transactions
-const PAYMENT_METHODS = ['BCA VA','BNI VA','Mandiri VA','BSI VA','QRIS','GoPay','OVO','DANA','ShopeePay','Bank Transfer'];
-const STATUSES = ['Sukses','Pending','Gagal','Sukses','Sukses','Sukses'];
-const UTM_SOURCES = ['facebook','google','tiktok','instagram','organic','whatsapp'];
+/* ------------------------------------------------------------------ */
+/*  Transaction generator                                              */
+/* ------------------------------------------------------------------ */
 
-function genTx(n){
-  const out = [];
-  const now = Date.now();
-  for(let i=0;i<n;i++){
-    const c = CAMPAIGNS[i % 6];
-    const d = DONORS[i % DONORS.length];
-    const amt = NOMINAL_PRESETS[i % NOMINAL_PRESETS.length] + (i*1000 % 25000);
-    const stat = STATUSES[i % STATUSES.length];
-    const days = Math.floor(i/3);
-    out.push({
-      id: 'INV-' + String(20260000 + i).slice(-7),
-      donor: d.name,
-      initials: d.initials,
-      anon: d.anon,
+function makeTxns(n) {
+  const rows = [];
+  const statuses = ['Paid', 'Paid', 'Paid', 'Paid', 'Pending', 'Failed', 'Paid', 'Paid'];
+  const utm = [
+    { source: 'facebook',  medium: 'paid',   campaign: 'aira-jantung-q2',    content: 'hero-vid-01',  term: 'donasi-medis', id: 'fb-29384' },
+    { source: 'google',    medium: 'cpc',    campaign: 'wakaf-quran-search', content: 'text-ad-3',    term: 'wakaf-quran',  id: 'gg-71028' },
+    { source: 'tiktok',    medium: 'paid',   campaign: 'bukber-yatim-tt',    content: 'bantu-rans',   term: 'organik',      id: 'tt-rian-01' },
+    { source: 'instagram', medium: 'social', campaign: 'organic-bio',        content: 'reels-04',     term: 'sedekah',      id: 'ig-bio-link' },
+    { source: '(direct)',  medium: '(none)', campaign: '(direct)',           content: '',             term: '',             id: '' },
+  ];
+  const amounts = [25_000, 50_000, 100_000, 150_000, 200_000, 250_000, 500_000, 1_000_000];
+  const messages = [
+    'Semoga Allah balas dengan kebaikan berlipat.',
+    'Mohon doakan keluarga kami.',
+    'Sedikit dari kami, semoga bermanfaat.',
+    'Niat baik, semoga terlaksana.',
+    '-',
+  ];
+  const emails = ['rizky', 'siti', 'andi', 'budi', 'maya', 'dewi', 'fajar', 'nadia'];
+
+  for (let i = 0; i < n; i++) {
+    const c = campaignSeed[i % campaignSeed.length];
+    const u = utm[i % utm.length];
+    rows.push({
+      id: 'INV-' + (2025_1100 + i).toString(),
+      donor: donorNames[i % donorNames.length],
       campaign: c.title,
       campaignId: c.id,
-      amount: amt,
-      method: PAYMENT_METHODS[i % PAYMENT_METHODS.length],
-      status: stat,
-      ts: now - (i*3600_000) - (days*86400_000*0.4),
-      utm_source: UTM_SOURCES[i % UTM_SOURCES.length],
-      utm_campaign: 'ramadhan-2026',
-      utm_medium: i%3===0?'cpc':'social',
-      phone: '+62 81' + String(10000000 + i*137).slice(-8),
-      email: d.name.toLowerCase().replace(/[^a-z]/g,'.').slice(0,12) + '@gmail.com',
-      prayer: PRAYERS[i % PRAYERS.length],
-      note: i%5===0 ? 'Donor follow-up untuk pengulangan donasi bulanan.' : '',
+      amount: amounts[i % amounts.length],
+      method: paymentMethods[i % paymentMethods.length],
+      status: statuses[i % statuses.length],
+      date: `${(i % 28) + 1} Mei 2026, ${(8 + (i % 12)).toString().padStart(2, '0')}:${(i * 7 % 60).toString().padStart(2, '0')}`,
+      utm: u,
+      whatsapp: '+62 81' + (200000000 + i * 137).toString().slice(0, 9),
+      email: emails[i % emails.length] + '@mail.com',
+      note: i % 5 === 0 ? 'Donatur minta dikirimkan kuitansi via WA.' : '',
+      anon: i % 6 === 0,
+      message: messages[i % messages.length],
     });
   }
-  return out;
+  return rows;
 }
 
-const TRANSACTIONS = genTx(48);
+const txns = makeTxns(48);
 
-// Analytics daily series (30 days)
-function genDaily(){
-  const out = [];
-  for(let i=29;i>=0;i--){
-    const d = new Date(Date.now() - i*86400_000);
-    // base trend + weekly cycle + spikes
-    const base = 12_000_000 + i*350_000;
-    const cycle = Math.sin(i/3)*4_000_000;
-    const noise = (Math.cos(i*1.7)+1)*2_000_000;
-    const spike = (i===6 || i===15) ? 18_000_000 : 0;
-    const amount = Math.max(2_000_000, Math.round(base + cycle + noise + spike));
-    out.push({ date: d, amount, count: Math.round(amount/85_000) });
-  }
-  return out;
-}
-const DAILY = genDaily();
+/* ------------------------------------------------------------------ */
+/*  Traffic sources                                                    */
+/* ------------------------------------------------------------------ */
 
-const TOTAL_RAISED = CAMPAIGNS.reduce((s,c)=>s+c.raised,0);
-const TOTAL_DONORS = CAMPAIGNS.reduce((s,c)=>s+c.donors,0);
-const TOTAL_TX = TRANSACTIONS.length * 537; // multiplier for realism
-const ACTIVE_CAMPAIGNS = CAMPAIGNS.filter(c=>c.status==='Running').length;
-const TOTAL_FUNDRAISER = 142;
-const TOTAL_LEADS = 18420;
-const CONV_RATE = 4.7; // %
-const TODAY_RAISED = DAILY[DAILY.length-1].amount;
-const MONTH_RAISED = DAILY.reduce((s,d)=>s+d.amount,0);
-
-const FUNDRAISERS = [
-  { id:'f1', name:'Ust. Ahmad Dahlan', campaign:'Beasiswa 1000 Anak Dhuafa', raised:78_400_000, tx:312, commission:3_920_000, status:'paid', ref:'AHMAD' },
-  { id:'f2', name:'Komunitas Peduli Anak', campaign:'Bangun Sekolah NTT', raised:54_200_000, tx:198, commission:2_710_000, status:'pending', ref:'KPA' },
-  { id:'f3', name:'Indah Ramadhani', campaign:'Paket Sekolah Yatim', raised:46_120_000, tx:243, commission:2_306_000, status:'pending', ref:'INDAH' },
-  { id:'f4', name:'Pesantren Al-Hikmah', campaign:'Beasiswa Tahfidz', raised:38_900_000, tx:172, commission:1_945_000, status:'paid', ref:'ALHIKMAH' },
-  { id:'f5', name:'Rumah Belajar Senyum', campaign:'Laptop Mahasiswa', raised:12_300_000, tx:64, commission:615_000, status:'pending', ref:'SENYUM' },
+const trafficSources = [
+  { name: 'Meta Ads',   visits: 48230, leads: 5612, donations: 1842, spend: 92_400_000, color: '#1877F2' },
+  { name: 'TikTok Ads', visits: 31840, leads: 3210, donations: 980,  spend: 41_800_000, color: '#000000' },
+  { name: 'Google Ads', visits: 22150, leads: 2840, donations: 1124, spend: 58_300_000, color: '#34A853' },
+  { name: 'Organic',    visits: 18920, leads: 1410, donations: 612,  spend: 0,          color: '#2E4191' },
 ];
 
-const USERS = [
-  { id:'u1', name:'Admin Pusat', email:'admin@niatbaik.org', role:'Admin', status:'active', last:'2 menit lalu', initials:'AP' },
-  { id:'u2', name:'Rizki Adhitama', email:'rizki@niatbaik.org', role:'Admin', status:'active', last:'1 jam lalu', initials:'RA' },
-  { id:'u3', name:'Sari Maharani', email:'sari@niatbaik.org', role:'CS', status:'active', last:'5 menit lalu', initials:'SM' },
-  { id:'u4', name:'Bayu Pratama', email:'bayu@niatbaik.org', role:'CS', status:'active', last:'12 menit lalu', initials:'BP' },
-  { id:'u5', name:'Dimas Iklan', email:'dimas@niatbaik.org', role:'Advertiser', status:'active', last:'30 menit lalu', initials:'DI' },
-  { id:'u6', name:'Putri Marketing', email:'putri@niatbaik.org', role:'Advertiser', status:'active', last:'kemarin', initials:'PM' },
-  { id:'u7', name:'Andi Lama', email:'andi@niatbaik.org', role:'CS', status:'inactive', last:'2 minggu lalu', initials:'AL' },
+/* ------------------------------------------------------------------ */
+/*  Fundraisers                                                        */
+/* ------------------------------------------------------------------ */
+
+const fundraisers = [
+  { id: 'f-01', name: 'Ust. Ahmad Fauzi',            campaign: 'Buka Puasa 5.000 Yatim', raised: 84_320_000, txn: 612, commission: 8_432_000,  status: 'pending', ref: 'NB/AHMAD' },
+  { id: 'f-02', name: 'Komunitas Pejuang Subuh',     campaign: 'Sumur Bersih NTT',       raised: 41_500_000, txn: 318, commission: 4_150_000,  status: 'paid',    ref: 'NB/PSUBUH' },
+  { id: 'f-03', name: 'Influencer @hijrahbersama',   campaign: 'Bantuan Aira',            raised: 38_120_000, txn: 884, commission: 3_812_000,  status: 'pending', ref: 'NB/HIJRAH' },
+  { id: 'f-04', name: 'Masjid Al-Falah Bandung',     campaign: 'Wakaf Quran',             raised: 12_400_000, txn: 142, commission: 1_240_000,  status: 'paid',    ref: 'NB/ALFALAH' },
+  { id: 'f-05', name: 'Rizal Pratama',                campaign: 'Madrasah Lombok',         raised: 8_750_000,  txn: 67,  commission: 875_000,   status: 'pending', ref: 'NB/RIZAL' },
 ];
 
-const NOTIFICATIONS = [
-  { id:1, type:'donation', title:'Donasi baru Rp250.000', sub:'Ahmad Fauzi · Beasiswa 1000 Anak', ts:'baru saja' },
-  { id:2, type:'campaign', title:'Campaign "Paket Sekolah Yatim" tercapai 97%', sub:'Sisa 4 hari', ts:'10 menit lalu' },
-  { id:3, type:'system', title:'Meta Pixel reconnected', sub:'Event tracking aktif kembali', ts:'1 jam lalu' },
-  { id:4, type:'donation', title:'Donasi baru Rp1.000.000', sub:'Hamba Allah · Bangun Sekolah NTT', ts:'2 jam lalu' },
-  { id:5, type:'fundraiser', title:'Fundraiser baru bergabung', sub:'Komunitas Peduli Anak', ts:'kemarin' },
+/* ------------------------------------------------------------------ */
+/*  Members / Users                                                    */
+/* ------------------------------------------------------------------ */
+
+const members = [
+  { id: 'u-01', name: 'Andre Wicaksono', email: 'andre@niatbaik.org',  role: 'Admin',      status: 'active',   lastLogin: 'baru saja' },
+  { id: 'u-02', name: 'Putri Maharani',  email: 'putri@niatbaik.org',  role: 'CS',          status: 'active',   lastLogin: '5 menit lalu' },
+  { id: 'u-03', name: 'Bagus Santoso',   email: 'bagus@niatbaik.org',  role: 'CS',          status: 'active',   lastLogin: '20 menit lalu' },
+  { id: 'u-04', name: 'Dewi Lestari',    email: 'dewi@niatbaik.org',   role: 'Advertiser',  status: 'active',   lastLogin: '1 jam lalu' },
+  { id: 'u-05', name: 'Rahmat Hidayat',  email: 'rahmat@niatbaik.org', role: 'Advertiser',  status: 'inactive', lastLogin: '3 hari lalu' },
+  { id: 'u-06', name: 'Sinta Aulia',     email: 'sinta@niatbaik.org',  role: 'CS',          status: 'active',   lastLogin: 'kemarin' },
 ];
 
-// Source / channel breakdown
-const TRAFFIC_SOURCES = [
-  { src:'Meta Ads', visits: 124_800, leads: 5240, donations: 2180, spend: 38_500_000, color:'#2E4191' },
-  { src:'Google Ads', visits: 86_200, leads: 3120, donations: 1480, spend: 28_200_000, color:'#38B6FF' },
-  { src:'TikTok Ads', visits: 62_400, leads: 1840, donations: 720, spend: 14_800_000, color:'#0e83c8' },
-  { src:'Organic', visits: 41_300, leads: 980, donations: 540, spend: 0, color:'#94a3b8' },
-];
+/* ------------------------------------------------------------------ */
+/*  Daily donations (30-day series for charts)                         */
+/* ------------------------------------------------------------------ */
 
-// Trash items
-const TRASH = [
-  { id:'t1', kind:'campaign', title:'Bantu Renovasi Madrasah (lama)', deleted:'3 hari lalu', by:'Rizki Adhitama' },
-  { id:'t2', kind:'user', title:'Test Account', deleted:'1 minggu lalu', by:'Admin Pusat' },
-  { id:'t3', kind:'transaction', title:'INV-2025993', deleted:'2 minggu lalu', by:'Sari Maharani' },
-  { id:'t4', kind:'campaign', title:'Kurban 2025', deleted:'1 bulan lalu', by:'Admin Pusat' },
-];
-
-Object.assign(window, {
-  fmtIDR, fmtShort, fmtNum, placeholderImg, avatarSvg,
-  CAMPAIGNS, DONORS, PRAYERS, NOMINAL_PRESETS, PAYMENT_METHODS,
-  TRANSACTIONS, DAILY, TOTAL_RAISED, TOTAL_DONORS, TOTAL_TX, ACTIVE_CAMPAIGNS,
-  TOTAL_FUNDRAISER, TOTAL_LEADS, CONV_RATE, TODAY_RAISED, MONTH_RAISED,
-  FUNDRAISERS, USERS, NOTIFICATIONS, TRAFFIC_SOURCES, TRASH
+const dailyDonations = Array.from({ length: 30 }, (_, i) => {
+  const base = 18_000_000 + Math.sin(i / 3) * 8_000_000 + (i / 30) * 12_000_000;
+  const noise = ((i * 9301 + 49297) % 233280) / 233280;
+  const amount = Math.max(2_500_000, Math.round(base + noise * 14_000_000));
+  const d = new Date(Date.now() - (29 - i) * 86400_000);
+  return { date: d.toISOString().slice(0, 10), amount };
 });
 
-// API data loader — replaces dummy data when backend is available
+/* ------------------------------------------------------------------ */
+/*  Notifications                                                      */
+/* ------------------------------------------------------------------ */
+
+const NOTIFICATIONS = [
+  { id: 1, type: 'donation',   title: 'Donasi baru Rp250.000',                       sub: 'Rizky H. · Sumur Bersih NTT',        ts: 'baru saja' },
+  { id: 2, type: 'campaign',   title: 'Campaign "Bantuan Aira" tercapai 90%',        sub: 'Sisa 6 hari',                              ts: '10 menit lalu' },
+  { id: 3, type: 'system',     title: 'Meta Pixel reconnected',                       sub: 'Event tracking aktif kembali',             ts: '1 jam lalu' },
+  { id: 4, type: 'donation',   title: 'Donasi baru Rp1.000.000',                     sub: 'Hamba Allah · Buka Puasa 5.000 Yatim', ts: '2 jam lalu' },
+  { id: 5, type: 'fundraiser', title: 'Fundraiser baru bergabung',                    sub: 'Komunitas Pejuang Subuh',                  ts: 'kemarin' },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Social proof lines (public page ticker)                            */
+/* ------------------------------------------------------------------ */
+
+const socialProofLines = [
+  { name: 'Hamba Allah', amount: 100_000, campaign: 'Bantuan Aira',           when: 'baru saja' },
+  { name: 'Rizky H.',    amount: 50_000,  campaign: 'Sumur Bersih NTT',       when: '12 detik lalu' },
+  { name: 'Hamba Allah', amount: 250_000, campaign: 'Buka Puasa 5.000 Yatim', when: '34 detik lalu' },
+  { name: 'Siti N.',     amount: 500_000, campaign: 'Bantuan Aira',           when: '1 menit lalu' },
+  { name: 'Hamba Allah', amount: 25_000,  campaign: 'Wakaf Quran',            when: '2 menit lalu' },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Trash items                                                        */
+/* ------------------------------------------------------------------ */
+
+const TRASH = [
+  { id: 't1', kind: 'campaign',    title: 'Bantu Renovasi Madrasah (lama)', deleted: '3 hari lalu',  by: 'Andre Wicaksono' },
+  { id: 't2', kind: 'user',        title: 'Test Account',                   deleted: '1 minggu lalu', by: 'Andre Wicaksono' },
+  { id: 't3', kind: 'transaction', title: 'INV-20251099',                   deleted: '2 minggu lalu', by: 'Putri Maharani' },
+  { id: 't4', kind: 'campaign',    title: 'Kurban 2025',                    deleted: '1 bulan lalu',  by: 'Andre Wicaksono' },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Computed aggregates                                                */
+/* ------------------------------------------------------------------ */
+
+const TOTAL_RAISED     = campaignSeed.reduce((s, c) => s + c.raised, 0);
+const TOTAL_DONORS     = campaignSeed.reduce((s, c) => s + c.donors, 0);
+const TOTAL_TX         = txns.length * 537; // multiplier for realism
+const ACTIVE_CAMPAIGNS = campaignSeed.filter(c => c.status === 'Running').length;
+const TOTAL_FUNDRAISER = 142;
+const TOTAL_LEADS      = 18420;
+const CONV_RATE        = 4.7; // %
+const TODAY_RAISED     = dailyDonations[dailyDonations.length - 1].amount;
+const MONTH_RAISED     = dailyDonations.reduce((s, d) => s + d.amount, 0);
+
+/* ------------------------------------------------------------------ */
+/*  API data loaders — replace seed data when backend available        */
+/* ------------------------------------------------------------------ */
+
 async function loadApiData() {
+  if (typeof window.api === 'undefined') {
+    console.log('[data] No API client — using seed data');
+    return;
+  }
   try {
+    const api = window.api;
     const [statsRes, campaignsRes, categoriesRes] = await Promise.all([
       api.publicStats(),
       api.campaigns(),
@@ -209,8 +352,8 @@ async function loadApiData() {
     ]);
 
     if (statsRes?.data) {
-      window.TOTAL_RAISED = statsRes.data.total_raised || TOTAL_RAISED;
-      window.TOTAL_DONORS = statsRes.data.total_donors || TOTAL_DONORS;
+      window.TOTAL_RAISED     = statsRes.data.total_raised     || TOTAL_RAISED;
+      window.TOTAL_DONORS     = statsRes.data.total_donors     || TOTAL_DONORS;
       window.ACTIVE_CAMPAIGNS = statsRes.data.active_campaigns || ACTIVE_CAMPAIGNS;
     }
 
@@ -219,37 +362,119 @@ async function loadApiData() {
         id: c.id,
         slug: c.slug,
         title: c.title,
+        category: c.category || '',
         target: c.target,
         raised: c.total_raised || 0,
         donors: c.donor_count || 0,
-        days: c.days_left || 0,
         status: c.status,
-        category: c.category || '',
-        img: c.image ? '/uploads/' + c.image : placeholderImg(0, c.title?.substring(0,12) || 'CAMPAIGN'),
+        daysLeft: c.days_left || 0,
+        thumb: c.image ? '/uploads/' + c.image : placeholderImg(0, c.title?.substring(0, 12) || 'CAMPAIGN'),
+        icon: c.icon || 'heart',
+        updatedAt: c.updated_at || '',
         description: c.short_description || c.description || '',
       }));
-      window.ACTIVE_CAMPAIGNS = CAMPAIGNS.filter(c => c.status === 'Berjalan').length;
+      window.ACTIVE_CAMPAIGNS = window.CAMPAIGNS.filter(c => c.status === 'Berjalan' || c.status === 'Running').length;
     }
 
-    console.log('API data loaded successfully');
+    if (categoriesRes?.data) {
+      window.CATEGORIES = categoriesRes.data;
+    }
+
+    console.log('[data] API data loaded');
   } catch (e) {
-    console.log('Using fallback dummy data:', e?.message || e);
+    console.log('[data] API fallback — using seed data:', e?.message || e);
   }
 }
 
-window.loadApiData = loadApiData;
-
-// Admin/CS data loader — fetch transactions, notifications, fundraisers for panel pages
 async function loadAdminData() {
+  if (typeof window.api === 'undefined') return;
   try {
-    const [txRes, notifRes, fundraiserRes] = await Promise.all([
-      api.recentTransactions(48),
-      api.notifications(),
-      api.fundraisers(),
+    const api = window.api;
+    const [txRes, notifRes, fundraiserRes, usersRes, settingsRes] = await Promise.all([
+      api.recentTransactions?.(48),
+      api.notifications?.(),
+      api.fundraisers?.(),
+      api.users?.(),
+      api.settings?.(),
     ]);
-    if (txRes?.data) window.TRANSACTIONS = txRes.data;
-    if (notifRes?.data) window.NOTIFICATIONS = notifRes.data;
-    if (fundraiserRes?.data) window.FUNDRAISERS = fundraiserRes.data;
-  } catch(e) { console.log('Admin data fallback:', e); }
+    if (txRes?.data)        window.TRANSACTIONS  = txRes.data;
+    if (notifRes?.data)     window.NOTIFICATIONS = notifRes.data;
+    if (fundraiserRes?.data) window.FUNDRAISERS   = fundraiserRes.data;
+    if (usersRes?.data)     window.USERS          = usersRes.data;
+    if (settingsRes?.data)  window.SETTINGS       = settingsRes.data;
+  } catch (e) {
+    console.log('[data] Admin data fallback:', e?.message || e);
+  }
 }
-window.loadAdminData = loadAdminData;
+
+async function loadDashboardChart() {
+  if (typeof window.api === 'undefined') return;
+  try {
+    const res = await window.api.dailyChart?.(30);
+    if (res?.data) window.DAILY_DONATIONS = res.data;
+  } catch (e) {
+    console.log('[data] Chart data fallback:', e?.message || e);
+  }
+}
+
+async function loadProfile() {
+  if (typeof window.api === 'undefined') return;
+  try {
+    const res = await window.api.profile?.();
+    if (res?.data) window.PROFILE = res.data;
+  } catch (e) {
+    console.log('[data] Profile fallback:', e?.message || e);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Export to window scope                                             */
+/* ------------------------------------------------------------------ */
+
+// Namespace object
+window.NB = {
+  fmtIDR, fmtIDRShort, fmtNum, fmtPct,
+  campaignSeed, txns, fundraisers, members,
+  dailyDonations, trafficSources, paymentMethods, autoConfirmMethods, isAutoConfirmMethod,
+  socialProofLines, donorNames, NOMINAL_PRESETS, NOTIFICATIONS, TRASH,
+  TOTAL_RAISED, TOTAL_DONORS, TOTAL_TX, ACTIVE_CAMPAIGNS,
+  TOTAL_FUNDRAISER, TOTAL_LEADS, CONV_RATE, TODAY_RAISED, MONTH_RAISED,
+  placeholderImg, avatarSvg, makeTxns,
+  loadApiData, loadAdminData, loadDashboardChart, loadProfile,
+};
+
+// Individual window exports (backward compat)
+window.fmtIDR           = fmtIDR;
+window.fmtIDRShort      = fmtIDRShort;
+window.fmtShort         = fmtIDRShort; // alias
+window.fmtNum           = fmtNum;
+window.fmtPct           = fmtPct;
+window.placeholderImg   = placeholderImg;
+window.avatarSvg        = avatarSvg;
+window.CAMPAIGNS        = campaignSeed;
+window.TRANSACTIONS     = txns;
+window.DAILY            = dailyDonations;
+window.DAILY_DONATIONS  = dailyDonations;
+window.TRAFFIC_SOURCES  = trafficSources;
+window.FUNDRAISERS      = fundraisers;
+window.USERS            = members;
+window.NOTIFICATIONS    = NOTIFICATIONS;
+window.TRASH            = TRASH;
+window.DONORS           = donorNames;
+window.NOMINAL_PRESETS  = NOMINAL_PRESETS;
+window.PAYMENT_METHODS  = paymentMethods;
+window.TOTAL_RAISED     = TOTAL_RAISED;
+window.TOTAL_DONORS     = TOTAL_DONORS;
+window.TOTAL_TX         = TOTAL_TX;
+window.ACTIVE_CAMPAIGNS = ACTIVE_CAMPAIGNS;
+window.TOTAL_FUNDRAISER = TOTAL_FUNDRAISER;
+window.TOTAL_LEADS      = TOTAL_LEADS;
+window.CONV_RATE        = CONV_RATE;
+window.TODAY_RAISED     = TODAY_RAISED;
+window.MONTH_RAISED     = MONTH_RAISED;
+window.socialProofLines = socialProofLines;
+window.loadApiData      = loadApiData;
+window.loadAdminData    = loadAdminData;
+window.loadDashboardChart = loadDashboardChart;
+window.loadProfile      = loadProfile;
+window.makeTxns         = makeTxns;

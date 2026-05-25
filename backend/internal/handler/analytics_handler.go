@@ -51,3 +51,12 @@ func (h *AnalyticsHandler) GetTrafficBreakdown(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, response.SuccessResponse(data, "success"))
 }
+
+func (h *AnalyticsHandler) GetFunnel(c echo.Context) error {
+	data, err := h.service.GetFunnelData()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch funnel data"))
+	}
+
+	return c.JSON(http.StatusOK, response.SuccessResponse(data, "success"))
+}

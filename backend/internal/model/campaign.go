@@ -33,6 +33,20 @@ type Campaign struct {
 	Socialproof      bool           `gorm:"default:false" json:"socialproof"`
 	FundraiserSetting bool          `gorm:"default:false" json:"fundraiser_setting"`
 
+	Icon             string  `gorm:"size:50" json:"icon"`
+	ThumbGradient    string  `gorm:"size:255" json:"thumb_gradient"`
+	FormStyle        string  `gorm:"size:50;default:'Card'" json:"form_style"`
+	WANotification   bool    `gorm:"default:false" json:"wa_notification"`
+	FollowupEnabled  bool    `gorm:"default:false" json:"followup_enabled"`
+	MetaPixelID      string  `gorm:"size:100" json:"meta_pixel_id"`
+	TikTokPixelID    string  `gorm:"size:100" json:"tiktok_pixel_id"`
+	GTMID            string  `gorm:"size:100" json:"gtm_id"`
+	PopupInfo        bool    `gorm:"default:false" json:"popup_info"`
+	WAFlyingButton   bool    `gorm:"default:false" json:"wa_flying_button"`
+	ExternalLink     string  `gorm:"size:500" json:"external_link"`
+	MinDonation      int64   `gorm:"default:0" json:"min_donation"`
+	MaxDonation      int64   `gorm:"default:0" json:"max_donation"`
+
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`

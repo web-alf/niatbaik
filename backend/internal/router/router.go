@@ -27,6 +27,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	activityRepo := repository.NewActivityRepo(db)
 	fundraiserRepo := repository.NewFundraiserRepo(db)
 	commissionRepo := repository.NewCommissionRepo(db)
+	adCostRepo := repository.NewAdCostRepo(db)
 
 	// Initialize services
 	authService := service.NewAuthService(db, cfg)
@@ -46,6 +47,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	notificationService := service.NewNotificationService(notificationRepo)
 	profileService := service.NewProfileService(db, activityRepo)
 	uploadService := service.NewUploadService(cfg.UploadDir, cfg.MaxUploadSize)
+	adCostService := service.NewAdCostService(adCostRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -65,6 +67,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	profileHandler := handler.NewProfileHandler(profileService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
 	uploadHandler := handler.NewUploadHandler(uploadService)
+	adCostHandler := handler.NewAdCostHandler(adCostService)
 
 	// API group
 	api := e.Group("/api")
@@ -175,4 +178,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	analytics.GET("/campaigns", analyticsHandler.GetCampaignPerformance)
 	analytics.GET("/utm", analyticsHandler.GetUTMTracking)
 	analytics.GET("/traffic", analyticsHandler.GetTrafficBreakdown)
+	analytics.GET("/funnel", analyticsHandler.GetFunnel)
+	analytics.POST("/ad-costs", adCostHandler.Create)
+	analytics.GET("/ad-costs", adCostHandler.List)
 }

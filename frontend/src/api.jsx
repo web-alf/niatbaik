@@ -75,12 +75,16 @@ const api = {
   invoices(params = '') { return this.get('/invoices' + (params ? '?' + params : '')); },
   invoice(id) { return this.get('/invoices/' + id); },
   updateInvoiceStatus(id, status) { return this.put('/invoices/' + id + '/status', { status }); },
+  addInvoiceNote(id, note) { return this.put('/invoices/' + id + '/note', { note }); },
 
   // Analytics
   analyticsOverview() { return this.get('/analytics/overview'); },
   analyticsCampaigns() { return this.get('/analytics/campaigns'); },
   analyticsUTM() { return this.get('/analytics/utm'); },
   analyticsTraffic() { return this.get('/analytics/traffic'); },
+  analyticsFunnel() { return this.get('/analytics/funnel'); },
+  adCosts(params = '') { return this.get('/analytics/ad-costs' + (params ? '?' + params : '')); },
+  createAdCost(data) { return this.post('/analytics/ad-costs', data); },
 
   // Settings
   settings() { return this.get('/settings'); },

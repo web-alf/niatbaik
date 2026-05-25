@@ -112,6 +112,36 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	if req.FlipEnabled != nil {
 		setting.FlipEnabled = *req.FlipEnabled
 	}
+	if req.FontFamily != "" {
+		setting.FontFamily = req.FontFamily
+	}
+	if req.BorderRadius != nil {
+		setting.BorderRadius = *req.BorderRadius
+	}
+	if req.ButtonStyle != "" {
+		setting.ButtonStyle = req.ButtonStyle
+	}
+	if req.FormFieldsConfig != "" {
+		setting.FormFieldsConfig = req.FormFieldsConfig
+	}
+	if req.NominalPresets != "" {
+		setting.NominalPresets = req.NominalPresets
+	}
+	if req.MinDonationGlobal != nil {
+		setting.MinDonationGlobal = *req.MinDonationGlobal
+	}
+	if req.AnonymousDefault != nil {
+		setting.AnonymousDefault = *req.AnonymousDefault
+	}
+	if req.MessageEnabled != nil {
+		setting.MessageEnabled = *req.MessageEnabled
+	}
+	if req.SocialProofEnabled != nil {
+		setting.SocialProofEnabled = *req.SocialProofEnabled
+	}
+	if req.SocialProofConfig != "" {
+		setting.SocialProofConfig = req.SocialProofConfig
+	}
 
 	return s.settingRepo.Update(setting)
 }

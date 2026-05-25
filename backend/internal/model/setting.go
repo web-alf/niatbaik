@@ -62,6 +62,17 @@ type Setting struct {
 	PoweredBy          bool   `gorm:"default:true" json:"powered_by"`
 	SocialproofSetting bool   `gorm:"default:false" json:"socialproof_setting"`
 
+	FontFamily          string `gorm:"size:100" json:"font_family"`
+	BorderRadius        int    `gorm:"default:12" json:"border_radius"`
+	ButtonStyle         string `gorm:"size:50" json:"button_style"`
+	FormFieldsConfig    string `gorm:"type:text" json:"form_fields_config"`
+	NominalPresets      string `gorm:"type:text" json:"nominal_presets"`
+	MinDonationGlobal   int64  `gorm:"default:0" json:"min_donation_global"`
+	AnonymousDefault    bool   `gorm:"default:false" json:"anonymous_default"`
+	MessageEnabled      bool   `gorm:"default:true" json:"message_enabled"`
+	SocialProofEnabled  bool   `gorm:"default:false" json:"social_proof_enabled"`
+	SocialProofConfig   string `gorm:"type:text" json:"social_proof_config"`
+
 	// Messaging
 	WhatsappAdmin    string `gorm:"size:20" json:"whatsapp_admin"`
 	TelegramBotToken string `gorm:"size:255" json:"-"`

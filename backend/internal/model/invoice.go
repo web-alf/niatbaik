@@ -51,6 +51,11 @@ type Invoice struct {
 	UTMSource   string `gorm:"size:100" json:"utm_source"`
 	UTMMedium   string `gorm:"size:100" json:"utm_medium"`
 	UTMCampaign string `gorm:"size:100" json:"utm_campaign"`
+	UTMContent  string `gorm:"size:100" json:"utm_content"`
+	UTMTerm     string `gorm:"size:100" json:"utm_term"`
+	UTMID       string `gorm:"size:100" json:"utm_id"`
+	ClickID     string `gorm:"size:255" json:"click_id"`
+	CSNote      string `gorm:"type:text" json:"cs_note"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

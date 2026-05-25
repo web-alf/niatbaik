@@ -40,6 +40,21 @@ func (s *CampaignService) Create(req *request.CreateCampaignRequest, userID uuid
 		FormType:         req.FormType,
 		Status:           "Berjalan",
 		PostedAt:         &now,
+		Icon:             req.Icon,
+		ThumbGradient:    req.ThumbGradient,
+		FormStyle:        req.FormStyle,
+		WANotification:   req.WANotification,
+		FollowupEnabled:  req.FollowupEnabled,
+		MetaPixelID:      req.MetaPixelID,
+		TikTokPixelID:    req.TikTokPixelID,
+		GTMID:            req.GTMID,
+		PopupInfo:        req.PopupInfo,
+		WAFlyingButton:   req.WAFlyingButton,
+		ExternalLink:     req.ExternalLink,
+		MinDonation:      req.MinDonation,
+		MaxDonation:      req.MaxDonation,
+		OptNominal:       req.OptNominal,
+		ButtonColor:      req.ButtonColor,
 	}
 
 	if req.Target != nil {
@@ -107,6 +122,51 @@ func (s *CampaignService) Update(id uuid.UUID, req *request.UpdateCampaignReques
 	}
 	if req.FormType != "" {
 		c.FormType = req.FormType
+	}
+	if req.Icon != "" {
+		c.Icon = req.Icon
+	}
+	if req.ThumbGradient != "" {
+		c.ThumbGradient = req.ThumbGradient
+	}
+	if req.FormStyle != "" {
+		c.FormStyle = req.FormStyle
+	}
+	if req.MetaPixelID != "" {
+		c.MetaPixelID = req.MetaPixelID
+	}
+	if req.TikTokPixelID != "" {
+		c.TikTokPixelID = req.TikTokPixelID
+	}
+	if req.GTMID != "" {
+		c.GTMID = req.GTMID
+	}
+	if req.ExternalLink != "" {
+		c.ExternalLink = req.ExternalLink
+	}
+	if req.OptNominal != "" {
+		c.OptNominal = req.OptNominal
+	}
+	if req.ButtonColor != "" {
+		c.ButtonColor = req.ButtonColor
+	}
+	if req.WANotification != nil {
+		c.WANotification = *req.WANotification
+	}
+	if req.FollowupEnabled != nil {
+		c.FollowupEnabled = *req.FollowupEnabled
+	}
+	if req.PopupInfo != nil {
+		c.PopupInfo = *req.PopupInfo
+	}
+	if req.WAFlyingButton != nil {
+		c.WAFlyingButton = *req.WAFlyingButton
+	}
+	if req.MinDonation != nil {
+		c.MinDonation = *req.MinDonation
+	}
+	if req.MaxDonation != nil {
+		c.MaxDonation = *req.MaxDonation
 	}
 	c.Unlimited = req.Unlimited
 	c.Featured = req.Featured

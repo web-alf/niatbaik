@@ -34,4 +34,20 @@ type UpdateSettingRequest struct {
 	FlipValidationToken string `json:"flip_validation_token"`
 	FlipBaseURL         string `json:"flip_base_url"`
 	FlipEnabled         *bool  `json:"flip_enabled"`
+
+	// Theme extended
+	FontFamily    string `json:"font_family"`
+	BorderRadius  *int   `json:"border_radius"`
+	ButtonStyle   string `json:"button_style"`
+
+	// Form
+	FormFieldsConfig  string `json:"form_fields_config"`
+	NominalPresets    string `json:"nominal_presets"`
+	MinDonationGlobal *int64 `json:"min_donation_global"`
+	AnonymousDefault  *bool  `json:"anonymous_default"`
+	MessageEnabled    *bool  `json:"message_enabled"`
+
+	// Social proof
+	SocialProofEnabled *bool  `json:"social_proof_enabled"`
+	SocialProofConfig  string `json:"social_proof_config"`
 }

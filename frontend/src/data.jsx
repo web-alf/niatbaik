@@ -341,7 +341,7 @@ const MONTH_RAISED     = dailyDonations.reduce((s, d) => s + d.amount, 0);
 function mapCampaign(c) {
   return {
     id: c.id, slug: c.slug, title: c.title,
-    category: c.category || '',
+    category: (typeof c.category === 'object' ? c.category?.name : c.category) || '',
     target: c.target || 0,
     raised: c.total_raised ?? c.raised ?? 0,
     donors: c.donor_count ?? c.donors ?? 0,

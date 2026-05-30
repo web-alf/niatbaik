@@ -3,7 +3,9 @@ package handler
 import (
 	"net/http"
 
+	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
+	"github.com/anrdart/niatbaik-api/internal/middleware"
 	"github.com/anrdart/niatbaik-api/internal/repository"
 	"github.com/anrdart/niatbaik-api/internal/service"
 	"github.com/anrdart/niatbaik-api/pkg/pagination"
@@ -18,6 +20,28 @@ type WithdrawalHandler struct {
 
 func NewWithdrawalHandler(svc *service.WithdrawalService, repo *repository.WithdrawalRepo) *WithdrawalHandler {
 	return &WithdrawalHandler{service: svc, withdrawalRepo: repo}
+}
+
+func (h *WithdrawalHandler) CreateRequest(c echo.Context) error {
+	claims := middleware.GetUserFromContext(c)
+	if claims == nil {
+		return c.JSON(http.StatusUnauthorized, response.ErrorResponse("unauthorized"))
+	}
+
+	var req request.CreateWithdrawalRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid payload"))
+	}
+	if err := c.Validate(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+	}
+
+	withdrawal, err := h.service.CreateRequest(claims.UserID, &req)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))
+	}
+
+	return c.JSON(http.StatusCreated, response.SuccessResponse(withdrawal, "pengajuan penarikan dana berhasil dibuat"))
 }
 
 func (h *WithdrawalHandler) List(c echo.Context) error {

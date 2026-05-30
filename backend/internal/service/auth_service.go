@@ -2,6 +2,8 @@ package service
 
 import (
 	"errors"
+	"fmt"
+	"log"
 	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/config"
@@ -10,6 +12,7 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/pkg/hash"
 	jwtpkg "github.com/anrdart/niatbaik-api/pkg/jwt"
+	"github.com/anrdart/niatbaik-api/pkg/mailer"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -75,6 +78,14 @@ func (s *AuthService) Register(req *request.RegisterRequest) (*response.UserResp
 		return nil, errors.New("email already registered")
 	}
 
+	if req.Phone != "" {
+		var phoneCount int64
+		s.db.Model(&model.User{}).Where("phone = ?", req.Phone).Count(&phoneCount)
+		if phoneCount > 0 {
+			return nil, errors.New("nomor telepon sudah digunakan")
+		}
+	}
+
 	hashed, err := hash.HashPassword(req.Password)
 	if err != nil {
 		return nil, err
@@ -132,8 +143,38 @@ func (s *AuthService) ForgotPassword(email string) error {
 	user.ResetToken = token
 	user.ResetTokenExpiry = &expiry
 
-	return s.db.Save(&user).Error
-	// TODO: send password reset email
+	if err := s.db.Save(&user).Error; err != nil {
+		return err
+	}
+
+	// Send reset email via SMTP (best-effort: log on failure, don't leak to client).
+	var settings model.Setting
+	if err := s.db.First(&settings).Error; err == nil {
+		resetURL := fmt.Sprintf("https://donasi.niatbaik.org/reset-password?email=%s&token=%s", user.Email, token)
+		body := fmt.Sprintf(`
+			<div style="font-family:sans-serif;max-width:480px;margin:auto">
+			  <h2 style="color:#2E4191">Reset Password NIATBAIK.ORG</h2>
+			  <p>Halo %s,</p>
+			  <p>Kami menerima permintaan reset password untuk akun Anda. Klik tombol di bawah untuk membuat password baru. Tautan berlaku 1 jam.</p>
+			  <p style="text-align:center;margin:24px 0">
+			    <a href="%s" style="background:#2E4191;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Reset Password</a>
+			  </p>
+			  <p style="color:#64748B;font-size:13px">Jika Anda tidak meminta ini, abaikan email ini.</p>
+			</div>`, user.Name, resetURL)
+
+		cfg := mailer.Config{
+			Host:     settings.SMTPHost,
+			Port:     settings.SMTPPort,
+			Email:    settings.SMTPEmail,
+			Password: settings.SMTPPassword,
+			Name:     settings.SMTPName,
+		}
+		if err := mailer.Send(cfg, user.Email, "Reset Password NIATBAIK.ORG", body); err != nil {
+			log.Printf("[ForgotPassword] failed to send email to %s: %v", user.Email, err)
+		}
+	}
+
+	return nil
 }
 
 func (s *AuthService) ResetPassword(req *request.ResetPasswordRequest) error {

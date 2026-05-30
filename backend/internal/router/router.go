@@ -35,12 +35,11 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	mootaService := service.NewMootaService(cfg, paymentService, invoiceRepo, settingRepo)
 	flipService := service.NewFlipService(cfg, paymentService, invoiceRepo, settingRepo)
 	donationService := service.NewDonationService(db, cfg, invoiceRepo, campaignRepo, donationRepo, settingRepo, flipService)
-	webhookService := service.NewWebhookService(paymentService, invoiceRepo)
 	dashboardService := service.NewDashboardService(statsRepo)
 	campaignService := service.NewCampaignService(campaignRepo, categoryRepo)
 	userService := service.NewUserService(userRepo)
 	analyticsService := service.NewAnalyticsService(statsRepo)
-	withdrawalService := service.NewWithdrawalService(withdrawalRepo)
+	withdrawalService := service.NewWithdrawalService(db, withdrawalRepo)
 	verificationService := service.NewVerificationService(verificationRepo, userRepo)
 	settingService := service.NewSettingService(settingRepo)
 	trashService := service.NewTrashService(trashRepo)
@@ -53,7 +52,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	authHandler := handler.NewAuthHandler(authService)
 	publicHandler := handler.NewPublicHandler(campaignRepo, categoryRepo, settingRepo, invoiceRepo, donationRepo)
 	donationHandler := handler.NewDonationHandler(donationService)
-	webhookHandler := handler.NewWebhookHandler(webhookService, mootaService, flipService)
+	webhookHandler := handler.NewWebhookHandler(mootaService, flipService)
 	dashboardHandler := handler.NewDashboardHandler(dashboardService)
 	adminCampaignHandler := handler.NewAdminCampaignHandler(campaignService, campaignRepo)
 	userHandler := handler.NewUserHandler(userService, userRepo)
@@ -85,8 +84,6 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	api.GET("/donations/:invoice", donationHandler.GetPaymentStatus)
 
 	// Webhooks (no auth, no CSRF)
-	api.POST("/webhooks/ipaymu", webhookHandler.HandleIpaymu)
-	api.POST("/webhooks/cekmutasi", webhookHandler.HandleCekmutasi)
 	api.POST("/webhooks/moota", webhookHandler.HandleMoota)
 	api.POST("/webhooks/flip", webhookHandler.HandleFlip)
 
@@ -120,6 +117,9 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 
 	// Uploads (any authenticated user)
 	protected.POST("/uploads/image", uploadHandler.UploadImage)
+
+	// Withdrawal request (campaign owner / fundraiser)
+	protected.POST("/withdrawals", withdrawalHandler.CreateRequest)
 
 	// Dashboard (admin + cs + advertiser)
 	dashboard := protected.Group("/dashboard")

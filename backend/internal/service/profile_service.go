@@ -37,6 +37,11 @@ func (s *ProfileService) UpdateProfile(userID uuid.UUID, req *request.UpdateProf
 		updates["name"] = req.Name
 	}
 	if req.Phone != "" {
+		var count int64
+		s.db.Model(&model.User{}).Where("phone = ? AND id != ?", req.Phone, userID).Count(&count)
+		if count > 0 {
+			return errors.New("nomor telepon sudah digunakan oleh pengguna lain")
+		}
 		updates["phone"] = req.Phone
 	}
 	if req.Address != "" {

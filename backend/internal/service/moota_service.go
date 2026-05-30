@@ -46,7 +46,7 @@ type MootaWebhookPayload struct {
 func (s *MootaService) VerifySignature(payload []byte, signature string) bool {
 	secret := s.getWebhookSecret()
 	if secret == "" {
-		return true
+		return false // Fail-closed: reject if not configured
 	}
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(payload)

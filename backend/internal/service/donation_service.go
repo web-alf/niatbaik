@@ -2,6 +2,7 @@ package service
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -53,53 +54,107 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 		return nil, fmt.Errorf("campaign is not active")
 	}
 
-	invoiceNumber := "INV-" + randomAlphanumeric(8)
+	// Validate donation limits (global + per-campaign).
+	if settings, err := s.settingRepo.Get(); err == nil && settings != nil {
+		if settings.MinDonationGlobal > 0 && req.Amount < settings.MinDonationGlobal {
+			return nil, fmt.Errorf("donasi minimal adalah Rp %d", settings.MinDonationGlobal)
+		}
+	}
+	if campaign.MinDonation > 0 && req.Amount < campaign.MinDonation {
+		return nil, fmt.Errorf("donasi minimal untuk program ini adalah Rp %d", campaign.MinDonation)
+	}
+	if campaign.MaxDonation > 0 && req.Amount > campaign.MaxDonation {
+		return nil, fmt.Errorf("donasi maksimal untuk program ini adalah Rp %d", campaign.MaxDonation)
+	}
+
+	// Idempotency: reject identical donation from same phone within 10s.
+	var recentCount int64
+	s.db.Model(&model.Invoice{}).
+		Where("campaign_id = ? AND donor_phone = ? AND subtotal = ? AND created_at >= ?",
+			campaign.ID, req.DonorPhone, req.Amount, time.Now().Add(-10*time.Second)).
+		Count(&recentCount)
+	if recentCount > 0 {
+		return nil, fmt.Errorf("permintaan donasi serupa baru saja dibuat, mohon tunggu sebentar")
+	}
+
+	// Unique code (1-999) for manual bank transfer to disambiguate mutations.
+	var uniqueCode int64 = 0
+	method := strings.ToUpper(req.PaymentMethod)
+	isGateway := method == "QRIS" || method == "FLIP"
+	if !isGateway {
+		if nBig, err := rand.Int(rand.Reader, big.NewInt(999)); err == nil {
+			uniqueCode = nBig.Int64() + 1
+		}
+	}
+	totalAmount := req.Amount + uniqueCode
 
 	msg := req.Message
+	var invoice model.Invoice
 
-	invoice := model.Invoice{
-		InvoiceNumber: invoiceNumber,
-		CampaignID:    campaign.ID,
-		Subtotal:      req.Amount,
-		Total:         req.Amount,
-		DonorName:     req.DonorName,
-		DonorPhone:    req.DonorPhone,
-		DonorEmail:    req.DonorEmail,
-		Message:       &msg,
-		IsAnonymous:   req.IsAnonymous,
-		ExpiredAt:     time.Now().Add(24 * time.Hour),
-		Status:        "Menunggu Pembayaran",
-		IP:            ip,
-		UTMSource:     req.UTMSource,
-		UTMMedium:     req.UTMMedium,
-		UTMCampaign:   req.UTMCampaign,
-	}
-
-	if err := s.invoiceRepo.Create(&invoice); err != nil {
-		return nil, fmt.Errorf("failed to create invoice: %w", err)
-	}
-
-	donation := model.Donation{
-		InvoiceID:  invoice.ID,
-		CampaignID: campaign.ID,
-		DonorName:  req.DonorName,
-		Amount:     req.Amount,
-	}
-	if err := s.donationRepo.Create(&donation); err != nil {
-		return nil, fmt.Errorf("failed to create donation: %w", err)
-	}
-
-	// Create Flip payment bill if configured
-	if s.flipService != nil && s.cfg.FlipSecretKey != "" {
-		redirectURL := fmt.Sprintf("https://donasi.niatbaik.org/donations/%s", invoice.InvoiceNumber)
-		bill, err := s.flipService.CreateBill(&invoice, redirectURL)
-		if err == nil && bill != nil {
-			invoice.PayCode = fmt.Sprintf("%d", bill.LinkID)
-			invoice.QrURL = bill.PaymentURL
-			invoice.URLAlternative = bill.LinkURL
-			invoice.TypePayment = "Flip"
-			_ = s.invoiceRepo.Update(&invoice)
+	// Create invoice + donation atomically, with invoice-number collision retry.
+	txErr := s.db.Transaction(func(tx *gorm.DB) error {
+		var lastErr error
+		for attempt := 0; attempt < 3; attempt++ {
+			invoice = model.Invoice{
+				InvoiceNumber: "INV-" + randomAlphanumeric(8),
+				CampaignID:    campaign.ID,
+				Subtotal:      req.Amount,
+				Total:         totalAmount,
+				DonorName:     req.DonorName,
+				DonorPhone:    req.DonorPhone,
+				DonorEmail:    req.DonorEmail,
+				Message:       &msg,
+				IsAnonymous:   req.IsAnonymous,
+				ExpiredAt:     time.Now().Add(24 * time.Hour),
+				Status:        "Menunggu Pembayaran",
+				IP:            ip,
+				UTMSource:     req.UTMSource,
+				UTMMedium:     req.UTMMedium,
+				UTMCampaign:   req.UTMCampaign,
+			}
+			lastErr = tx.Create(&invoice).Error
+			if lastErr == nil {
+				break
+			}
+			if !strings.Contains(strings.ToLower(lastErr.Error()), "duplicate") &&
+				!strings.Contains(strings.ToLower(lastErr.Error()), "unique") {
+				return fmt.Errorf("failed to create invoice: %w", lastErr)
+			}
 		}
+		if lastErr != nil {
+			return fmt.Errorf("failed to create invoice after retries: %w", lastErr)
+		}
+
+		donation := model.Donation{
+			InvoiceID:  invoice.ID,
+			CampaignID: campaign.ID,
+			DonorName:  req.DonorName,
+			Amount:     req.Amount,
+		}
+		if err := tx.Create(&donation).Error; err != nil {
+			return fmt.Errorf("failed to create donation: %w", err)
+		}
+		return nil
+	})
+	if txErr != nil {
+		return nil, txErr
+	}
+
+	// Create Flip payment bill if gateway selected and configured.
+	if isGateway && s.flipService != nil {
+		redirectURL := fmt.Sprintf("https://donasi.niatbaik.org/donations/%s", invoice.InvoiceNumber)
+		bill, flipErr := s.flipService.CreateBill(&invoice, redirectURL)
+		if flipErr != nil || bill == nil {
+			// Flip timeout/failure — mark invoice so it doesn't hang without instructions.
+			invoice.Status = "Gagal Gateway"
+			_ = s.invoiceRepo.Update(&invoice)
+			return nil, errors.New("gagal membuat tagihan pembayaran, silakan coba lagi")
+		}
+		invoice.PayCode = fmt.Sprintf("%d", bill.LinkID)
+		invoice.QrURL = bill.PaymentURL
+		invoice.URLAlternative = bill.LinkURL
+		invoice.TypePayment = "Flip"
+		_ = s.invoiceRepo.Update(&invoice)
 	}
 
 	invoice.Campaign = *campaign

@@ -149,10 +149,11 @@ func (s *FlipService) CreateBill(invoice *model.Invoice, redirectURL string) (*F
 }
 
 func (s *FlipService) VerifyWebhookToken(token string) bool {
-	if s.cfg.FlipValidationToken == "" {
-		return true
+	_, validationToken, _ := s.getCredentials()
+	if validationToken == "" {
+		return false // Fail-closed: reject if not configured
 	}
-	return token == s.cfg.FlipValidationToken
+	return token == validationToken
 }
 
 func (s *FlipService) HandleWebhook(payload FlipWebhookPayload) error {

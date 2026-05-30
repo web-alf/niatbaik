@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
 	"github.com/anrdart/niatbaik-api/internal/service"
@@ -12,43 +11,12 @@ import (
 )
 
 type WebhookHandler struct {
-	webhookService *service.WebhookService
-	mootaService   *service.MootaService
-	flipService    *service.FlipService
+	mootaService *service.MootaService
+	flipService  *service.FlipService
 }
 
-func NewWebhookHandler(webhookService *service.WebhookService, mootaService *service.MootaService, flipService *service.FlipService) *WebhookHandler {
-	return &WebhookHandler{webhookService: webhookService, mootaService: mootaService, flipService: flipService}
-}
-
-func (h *WebhookHandler) HandleIpaymu(c echo.Context) error {
-	status := strings.ToLower(c.FormValue("status"))
-	sid := c.FormValue("sid")
-
-	if err := h.webhookService.HandleIpaymu(status, sid); err != nil {
-		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))
-	}
-
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-	})
-}
-
-func (h *WebhookHandler) HandleCekmutasi(c echo.Context) error {
-	var payload service.CekmutasiPayload
-	if err := c.Bind(&payload); err != nil {
-		return c.JSON(http.StatusBadRequest, response.ErrorResponse("Invalid payload"))
-	}
-
-	processed, err := h.webhookService.HandleCekmutasi(payload)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))
-	}
-
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success":   true,
-		"processed": processed,
-	})
+func NewWebhookHandler(mootaService *service.MootaService, flipService *service.FlipService) *WebhookHandler {
+	return &WebhookHandler{mootaService: mootaService, flipService: flipService}
 }
 
 func (h *WebhookHandler) HandleMoota(c echo.Context) error {

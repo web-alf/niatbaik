@@ -31,26 +31,6 @@ func (r *InvoiceRepo) FindByInvoiceNumber(number string) (*model.Invoice, error)
 	return &invoice, nil
 }
 
-func (r *InvoiceRepo) FindByPayCode(payCode string) (*model.Invoice, error) {
-	var invoice model.Invoice
-	if err := r.db.Preload("Campaign").Preload("Referrer").
-		Where("pay_code = ? AND is_paid = ? AND expired_at >= ?", payCode, false, time.Now()).
-		First(&invoice).Error; err != nil {
-		return nil, err
-	}
-	return &invoice, nil
-}
-
-func (r *InvoiceRepo) FindUnpaidByAmount(amount int64) (*model.Invoice, error) {
-	var invoice model.Invoice
-	if err := r.db.Preload("Campaign").Preload("Referrer").
-		Where("total = ? AND is_paid = ? AND expired_at >= ?", amount, false, time.Now()).
-		Order("created_at asc").First(&invoice).Error; err != nil {
-		return nil, err
-	}
-	return &invoice, nil
-}
-
 func (r *InvoiceRepo) FindUnpaidByInvoiceNumber(number string) (*model.Invoice, error) {
 	var invoice model.Invoice
 	if err := r.db.Preload("Campaign").Preload("Referrer").

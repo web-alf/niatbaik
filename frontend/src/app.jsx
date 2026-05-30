@@ -215,7 +215,7 @@ function App() {
         <div className="flex-1 min-w-0 flex flex-col">
           <Topbar onMenu={() => setSidebarOpen(true)} role={role}/>
           <main className="flex-1 p-4 lg:p-6">
-            <LazyView key={route} component={ViewComponent} skeleton={skeletonType}/>
+            <LazyView key={route} component={ViewComponent} skeleton={skeletonType} route={route}/>
           </main>
         </div>
       </div>
@@ -316,8 +316,47 @@ const SKELETON_MAP = {
   'adv-dashboard': 'adv-dashboard',
 };
 
+// --- ErrorBoundary: prevents a single view crash from blanking the whole app ---
+class ViewErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    console.error('[ViewError]', this.props.route, error, info?.componentStack);
+  }
+  componentDidUpdate(prevProps) {
+    if (prevProps.route !== this.props.route && this.state.error) {
+      this.setState({ error: null });
+    }
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="max-w-md text-center">
+            <div className="mx-auto h-16 w-16 rounded-2xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center">
+              <Icon name="bolt" size={28}/>
+            </div>
+            <h2 className="mt-4 text-xl font-extrabold text-ink dark:text-slate-100">Halaman gagal dimuat</h2>
+            <p className="mt-2 text-sm text-muted">Terjadi kesalahan saat menampilkan halaman ini. Coba muat ulang.</p>
+            <pre className="mt-3 text-left text-[11px] text-rose-600 bg-rose-50 dark:bg-rose-900/20 rounded-lg p-3 overflow-auto max-h-32">{String(this.state.error?.message || this.state.error)}</pre>
+            <button onClick={() => window.location.reload()} className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white font-bold text-sm hover:bg-brand-700">
+              Muat ulang
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // --- LazyView: shows skeleton then fades in the real view ---
-function LazyView({ component: Comp, skeleton }) {
+function LazyView({ component: Comp, skeleton, route }) {
   const [ready, setReady] = uS(false);
   uE(() => {
     setReady(false);
@@ -330,9 +369,11 @@ function LazyView({ component: Comp, skeleton }) {
 
   if (!ready) return <PageSkeleton type={skeleton}/>;
   return (
-    <div className="fadeup">
-      <Comp/>
-    </div>
+    <ViewErrorBoundary route={route}>
+      <div className="fadeup">
+        <Comp/>
+      </div>
+    </ViewErrorBoundary>
   );
 }
 

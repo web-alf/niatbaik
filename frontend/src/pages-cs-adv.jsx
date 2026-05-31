@@ -369,7 +369,7 @@ function CSDetail({ t, onOpen, onCopy, onMarkPaid, showToast }) {
 
   const saveNote = async () => {
     setNoteSaving(true);
-    try { await api.addInvoiceNote(t.id, noteVal); showToast('Catatan disimpan'); }
+    try { await api.addInvoiceNote(t.uid || t.id, noteVal); showToast('Catatan disimpan'); }
     catch(e) { console.error(e); showToast('Gagal menyimpan catatan'); }
     setNoteSaving(false);
   };
@@ -557,6 +557,16 @@ function CsInbox() {
   const { openInvoice, showToast: appToast } = useApp();
   const showToast = appToast || ((msg) => console.log('[toast]', msg));
 
+  // Backend uses Indonesian status labels; normalize them to the canonical
+  // UI buckets the filters / badges / stat cards expect.
+  const normalizeStatus = (s) => {
+    const v = (s || '').toLowerCase();
+    if (v === 'terbayar' || v === 'sukses' || v === 'paid') return 'Paid';
+    if (v === 'gagal' || v === 'failed' || v === 'expired' || v === 'kadaluarsa') return 'Failed';
+    if (v === 'pending' || v === 'menunggu pembayaran' || v === 'menunggu') return 'Pending';
+    return s || 'Pending';
+  };
+
   const seedTxns = window.TRANSACTIONS || [];
   const [txns, setTxns] = uS(() => seedTxns.map(t => ({ ...t })));
   const [filter, setFilter] = uS('all');
@@ -573,24 +583,26 @@ function CsInbox() {
 
   // Load from API
   uE(() => {
-    api.invoices().then(r => {
+    api.invoices('limit=100&sort=created_at desc').then(r => {
       if (r?.data && r.data.length > 0) {
         const mapped = r.data.map(inv => ({
-          id: inv.invoice_number || inv.id,
-          donor: inv.donor_name || inv.donor || 'Hamba Allah',
-          anon: inv.is_anonymous || inv.anon || false,
-          campaign: inv.campaign_title || inv.campaign || '',
+          uid: inv.id,                                  // real UUID — used for API calls
+          id: inv.invoice_number || inv.id,             // human invoice code — used for display
+          donor: inv.donor_name || 'Hamba Allah',
+          anon: inv.is_anonymous || false,
+          campaign: inv.campaign_title || '',
           campaignId: inv.campaign_id || '',
           amount: inv.amount || 0,
-          method: inv.payment_method || inv.method || '',
-          status: inv.status || 'Pending',
-          date: inv.date || new Date(inv.created_at || inv.ts || Date.now()).toLocaleString('id-ID'),
-          ts: inv.created_at || inv.ts || Date.now(),
-          whatsapp: inv.phone || inv.donor_phone || inv.whatsapp || '',
-          phone: inv.phone || inv.donor_phone || '',
-          email: inv.email || inv.donor_email || '',
-          message: inv.prayer || inv.message || '',
-          note: inv.note || '',
+          method: inv.payment_method || '',
+          status: normalizeStatus(inv.status),
+          rawStatus: inv.status || '',
+          date: inv.created_at ? new Date(inv.created_at).toLocaleString('id-ID') : '',
+          ts: inv.created_at || Date.now(),
+          whatsapp: inv.donor_phone || '',
+          phone: inv.donor_phone || '',
+          email: inv.donor_email || '',
+          message: inv.message || '',
+          note: inv.cs_note || '',
           utm: {
             source: inv.utm_source || '',
             medium: inv.utm_medium || '',
@@ -655,10 +667,19 @@ function CsInbox() {
   const paged = filtered.slice((page-1)*PER_PAGE, page*PER_PAGE);
 
   const updateStatusToPaid = (t) => {
-    setTxns(prev => prev.map(x => x.id === t.id ? { ...x, status: 'Paid' } : x));
-    setSelected(prev => prev && prev.id === t.id ? { ...prev, status: 'Paid' } : prev);
-    api.updateInvoiceStatus(t.id, 'Paid').catch(() => {});
-    showToast(`Invoice ${t.id} -> Paid`);
+    setTxns(prev => prev.map(x => x.id === t.id ? { ...x, status: 'Paid', rawStatus: 'Terbayar' } : x));
+    setSelected(prev => prev && prev.id === t.id ? { ...prev, status: 'Paid', rawStatus: 'Terbayar' } : prev);
+    // Backend validates oneof=Sukses Pending Gagal Terbayar and keys off the
+    // UUID, so send "Terbayar" against t.uid (fall back to t.id for seed data).
+    api.updateInvoiceStatus(t.uid || t.id, 'Terbayar')
+      .then(r => {
+        if (r && r.success === false) {
+          showToast('Gagal memperbarui status di server');
+        } else {
+          showToast(`Invoice ${t.id} -> Paid`);
+        }
+      })
+      .catch(() => showToast('Gagal memperbarui status di server'));
   };
 
   const copyInvoice = (t) => {

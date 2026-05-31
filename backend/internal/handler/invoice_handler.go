@@ -72,7 +72,7 @@ func (h *InvoiceHandler) List(c echo.Context) error {
 	}
 
 	p := pagination.Paginate(params, total)
-	return c.JSON(http.StatusOK, response.PaginatedResponse(invoices, p))
+	return c.JSON(http.StatusOK, response.PaginatedResponse(response.ToInvoiceListResponse(invoices), p))
 }
 
 func (h *InvoiceHandler) GetDetail(c echo.Context) error {
@@ -94,7 +94,7 @@ func (h *InvoiceHandler) GetDetail(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch invoice"))
 	}
 
-	return c.JSON(http.StatusOK, response.SuccessResponse(invoice, "success"))
+	return c.JSON(http.StatusOK, response.SuccessResponse(response.ToInvoiceResponse(&invoice), "success"))
 }
 
 func (h *InvoiceHandler) UpdateStatus(c echo.Context) error {
@@ -119,15 +119,28 @@ func (h *InvoiceHandler) UpdateStatus(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch invoice"))
 	}
 
+	// Marking an invoice paid must run the full bookkeeping flow (campaign
+	// balance, global balance, fundraiser commission, mutation records) and
+	// is idempotent thanks to the locking guard inside ProcessPayment.
+	if req.Status == "Sukses" || req.Status == "Terbayar" {
+		if !invoice.IsPaid {
+			if err := h.paymentService.ProcessPayment(&invoice); err != nil {
+				return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to process payment"))
+			}
+		}
+		// ProcessPayment sets status to "Terbayar"; honor an explicit "Sukses"
+		// label if the caller asked for it.
+		if req.Status != invoice.Status {
+			if err := h.db.Model(&model.Invoice{}).Where("id = ?", id).Update("status", req.Status).Error; err != nil {
+				return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to update status"))
+			}
+		}
+		return c.JSON(http.StatusOK, response.SuccessResponse(nil, "invoice status updated"))
+	}
+
 	updates := map[string]interface{}{
 		"status": req.Status,
 	}
-	if req.Status == "Sukses" || req.Status == "Terbayar" {
-		now := time.Now()
-		updates["is_paid"] = true
-		updates["paid_at"] = &now
-	}
-
 	if err := h.db.Model(&invoice).Updates(updates).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to update status"))
 	}
@@ -150,7 +163,7 @@ func (h *InvoiceHandler) AddNote(c echo.Context) error {
 	}
 
 	result := h.db.Model(&model.Invoice{}).Where("id = ?", id).
-		Update("gateway_info", req.Note)
+		Update("cs_note", req.Note)
 	if result.Error != nil {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to add note"))
 	}

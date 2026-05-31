@@ -7,15 +7,30 @@ import (
 )
 
 type InvoiceResponse struct {
+	ID            string     `json:"id"`
 	InvoiceNumber string     `json:"invoice_number"`
+	CampaignID    string     `json:"campaign_id"`
 	CampaignTitle string     `json:"campaign_title"`
 	DonorName     string     `json:"donor_name"`
+	DonorEmail    string     `json:"donor_email"`
+	DonorPhone    string     `json:"donor_phone"`
+	IsAnonymous   bool       `json:"is_anonymous"`
+	Subtotal      int64      `json:"subtotal"`
 	Amount        int64      `json:"amount"`
 	Status        string     `json:"status"`
 	IsPaid        bool       `json:"is_paid"`
 	PaymentMethod string     `json:"payment_method"`
+	Message       string     `json:"message"`
+	CSNote        string     `json:"cs_note"`
 	QRUrl         string     `json:"qr_url"`
 	PayCode       string     `json:"pay_code"`
+	UTMSource     string     `json:"utm_source"`
+	UTMMedium     string     `json:"utm_medium"`
+	UTMCampaign   string     `json:"utm_campaign"`
+	UTMContent    string     `json:"utm_content"`
+	UTMID         string     `json:"utm_id"`
+	ClickID       string     `json:"click_id"`
+	PaidAt        *time.Time `json:"paid_at"`
 	ExpiredAt     time.Time  `json:"expired_at"`
 	CreatedAt     time.Time  `json:"created_at"`
 }
@@ -28,23 +43,54 @@ type PaymentStatusResponse struct {
 }
 
 func ToInvoiceResponse(inv *model.Invoice) InvoiceResponse {
-	pm := ""
-	if inv.PaymentMethod != nil {
+	// Prefer the dedicated payment_method_name column; fall back to the
+	// preloaded PaymentMethod relation's bank name when available.
+	pm := inv.PaymentMethodName
+	if pm == "" && inv.PaymentMethod != nil {
 		pm = inv.PaymentMethod.BankName
 	}
+
+	message := ""
+	if inv.Message != nil {
+		message = *inv.Message
+	}
+
 	return InvoiceResponse{
+		ID:            inv.ID.String(),
 		InvoiceNumber: inv.InvoiceNumber,
+		CampaignID:    inv.CampaignID.String(),
 		CampaignTitle: inv.Campaign.Title,
 		DonorName:     inv.DonorName,
+		DonorEmail:    inv.DonorEmail,
+		DonorPhone:    inv.DonorPhone,
+		IsAnonymous:   inv.IsAnonymous,
+		Subtotal:      inv.Subtotal,
 		Amount:        inv.Total,
 		Status:        inv.Status,
 		IsPaid:        inv.IsPaid,
 		PaymentMethod: pm,
+		Message:       message,
+		CSNote:        inv.CSNote,
 		QRUrl:         inv.QrURL,
 		PayCode:       inv.PayCode,
+		UTMSource:     inv.UTMSource,
+		UTMMedium:     inv.UTMMedium,
+		UTMCampaign:   inv.UTMCampaign,
+		UTMContent:    inv.UTMContent,
+		UTMID:         inv.UTMID,
+		ClickID:       inv.ClickID,
+		PaidAt:        inv.PaidAt,
 		ExpiredAt:     inv.ExpiredAt,
 		CreatedAt:     inv.CreatedAt,
 	}
+}
+
+func ToInvoiceListResponse(invoices []model.Invoice) []InvoiceResponse {
+	list := make([]InvoiceResponse, 0, len(invoices))
+	for i := range invoices {
+		list = append(list, ToInvoiceResponse(&invoices[i]))
+	}
+	return list
 }
 
 func ToPaymentStatusResponse(inv *model.Invoice) PaymentStatusResponse {

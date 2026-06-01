@@ -64,6 +64,16 @@ const Icon = ({ name, size = 18, className = '', strokeWidth = 1.8 }) => {
     phone: <><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></>,
     lock: <><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></>,
     send: <><path d="m22 2-7 20-3-9-9-3 19-8z"/></>,
+    bold: <><path d="M7 5h6a3.5 3.5 0 010 7H7z"/><path d="M7 12h7a3.5 3.5 0 010 7H7z"/></>,
+    italic: <><path d="M19 5h-6M14 19H8M15 5L9 19"/></>,
+    underline: <><path d="M7 4v6a5 5 0 0010 0V4"/><path d="M5 21h14"/></>,
+    listUL: <><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.2" fill="currentColor" stroke="none"/></>,
+    listOL: <><path d="M10 6h10M10 12h10M10 18h10"/><path d="M4 5l1-.5V8M3.5 14.5c0-.8.6-1 1-1s1 .4 1 1c0 1-2 1.5-2 2.5h2"/></>,
+    quote: <><path d="M7 7H4a1 1 0 00-1 1v3a1 1 0 001 1h2v2a2 2 0 01-2 2"/><path d="M17 7h-3a1 1 0 00-1 1v3a1 1 0 001 1h2v2a2 2 0 01-2 2"/></>,
+    h2: <><path d="M3 5v14M11 5v14M3 12h8"/><path d="M15 10a2 2 0 113.5 1.3L15 16h4"/></>,
+    h3: <><path d="M3 5v14M11 5v14M3 12h8"/><path d="M15 9.5A2 2 0 1117 12a2 2 0 11-1.8 2.8"/></>,
+    paragraph: <><path d="M13 4v16M17 4v16M9 4a5 5 0 000 10h4"/></>,
+    image: <><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5L5 20"/></>,
   };
   return (
     <svg viewBox="0 0 24 24" style={s} className={className} {...base}>

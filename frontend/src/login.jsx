@@ -168,15 +168,16 @@ function LoginPage({ onLogin }) {
               <div>
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-muted">Password</label>
-                  <a href="#" onClick={(e) => e.preventDefault()} className="text-xs font-semibold text-brand-600 hover:underline cursor-pointer">Lupa password?</a>
+                  <button type="button" onClick={(e) => e.preventDefault()} className="text-xs font-semibold text-brand-600 hover:underline cursor-pointer">Lupa password?</button>
                 </div>
                 <div className="mt-1 relative">
                   <input type={showPwd ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
                     className="w-full rounded-lg border border-line dark:border-slate-700 bg-white dark:bg-slate-800 pl-3 pr-10 py-2.5 text-sm text-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600"
                     placeholder="••••••••" required/>
                   <button type="button" onClick={() => setShowPwd(!showPwd)}
+                    aria-label={showPwd ? 'Sembunyikan password' : 'Tampilkan password'}
                     className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-md hover:bg-bg2 dark:hover:bg-slate-700 flex items-center justify-center text-muted">
-                    <Icon name="eye" size={14}/>
+                    <Icon name="eye" size={14} className={showPwd ? 'text-brand-600' : ''}/>
                   </button>
                 </div>
               </div>
@@ -220,7 +221,7 @@ function LoginPage({ onLogin }) {
           </div>
 
           <div className="mt-4 text-center text-xs text-muted">
-            Butuh bantuan login? <a href="#" onClick={(e) => { e.preventDefault(); }} className="font-bold text-brand-600 hover:underline cursor-pointer">Hubungi admin</a>
+            Butuh bantuan login? <button type="button" onClick={(e) => { e.preventDefault(); }} className="font-bold text-brand-600 hover:underline cursor-pointer">Hubungi admin</button>
             <span className="mx-2">&middot;</span>
             <a href="#" onClick={(e) => { e.preventDefault(); window.__nbNavigateLanding && window.__nbNavigateLanding(); }} className="font-bold text-brand-600 hover:underline">Lihat situs publik &rarr;</a>
           </div>

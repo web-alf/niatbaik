@@ -128,6 +128,20 @@ const api = {
   trash() { return this.get('/trash'); },
   restoreTrash(type, id) { return this.post('/trash/' + type + '/' + id + '/restore'); },
 
+  // Data Studio
+  dataStudioOverview() { return this.get('/datastudio/overview'); },
+  dataStudioMeta()     { return this.get('/datastudio/meta'); },
+  dataStudioGoogle()   { return this.get('/datastudio/google'); },
+  dataStudioTiktok()   { return this.get('/datastudio/tiktok'); },
+  dataStudioFunnel()   { return this.get('/datastudio/funnel'); },
+  dataStudioGeo()      { return this.get('/datastudio/geo'); },
+
+  // Payment methods (admin)
+  paymentMethods()              { return this.get('/admin/payment-methods'); },
+  createPaymentMethod(data)     { return this.post('/admin/payment-methods', data); },
+  updatePaymentMethod(id, data) { return this.put('/admin/payment-methods/' + id, data); },
+  deletePaymentMethod(id)       { return this.del('/admin/payment-methods/' + id); },
+
   // Upload
   async uploadImage(file) {
     const formData = new FormData();

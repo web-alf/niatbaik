@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>NIATBAIK.ORG — Salurkan Niat Baik, Wujudkan Kebaikan</title>
+<meta name="description" content="Platform donasi & crowdfunding terpercaya. Salurkan zakat, sedekah, wakaf, dan donasi kemanusiaan dengan mudah, transparan, dan terverifikasi."/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brand: { 50:'#EEF2FF', 100:'#E0E7FF', 200:'#C7D2FE', 600:'#2E4191', 700:'#283881', 800:'#1F2C66', 900:'#172148' },
+          sky2:  { 50:'#ECFAFF', 100:'#D6F3FF', 400:'#38B6FF', 500:'#1AA1ED' },
+          ink:'#1E293B', mute:'#64748B', line:'#E2E8F0', bg2:'#F7FAFC',
+          ok:'#16A34A', warn:'#F59E0B', bad:'#DC2626',
+        },
+        fontFamily: { sans:['Plus Jakarta Sans','ui-sans-serif','system-ui','sans-serif'] },
+        boxShadow: {
+          card:'0 1px 2px 0 rgba(15,23,42,.04), 0 1px 3px 0 rgba(15,23,42,.06)',
+          pop:'0 12px 32px -8px rgba(15,23,42,.18), 0 4px 12px -2px rgba(15,23,42,.08)',
+          glow:'0 12px 40px -8px rgba(46,65,145,.45)',
+        },
+      },
+    },
+  }
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style type="text/tailwindcss">
+  html, body { font-family:'Plus Jakarta Sans', system-ui, sans-serif; color:#1E293B; }
+  .field { @apply w-full rounded-lg border border-line bg-white px-3 py-2.5 text-sm text-ink placeholder:text-mute focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600; }
+  .ctaPulse { box-shadow: 0 0 0 0 rgba(46,65,145,.5); animation: pulse 2.4s infinite; }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 14px rgba(46,65,145,0); } 100% { box-shadow: 0 0 0 0 rgba(46,65,145,0); } }
+  .marquee { display:flex; gap:24px; animation: scroll 30s linear infinite; }
+  @keyframes scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .float-in { animation: floatIn .5s ease-out; }
+  @keyframes floatIn { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body class="bg-white">
+  <div id="root"></div>
+
+  <script type="text/babel" src="src/data.js"></script>
+  <script type="text/babel" src="src/icons.jsx"></script>
+  <script type="text/babel" src="src/public/public-app.jsx"></script>
+</body>
+</html>

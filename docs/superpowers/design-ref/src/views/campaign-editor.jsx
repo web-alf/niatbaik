@@ -1,0 +1,689 @@
+// Full-page Campaign editor (Create / Edit). Matches the spec from the attached doc.
+function CampaignEditorView() {
+  const { editingCampaign, setView, setEditingCampaign, showToast } = useApp();
+  const isEdit = !!editingCampaign;
+  const c = editingCampaign;
+
+  // ---- form state ----
+  const [title, setTitle] = useStateA(c?.title || '');
+  const [content, setContent] = useStateA(c ? `<h2>Bingung Mau Bayar Fidyah Kemana?</h2>\n<p><em>Fidyah Disini Aja, Semuanya Kami Handle!</em></p>\n<p>Fidyah merupakan istilah dalam agama Islam yang mengacu pada kewajiban membayar denda atau ganti rugi atas ketidakmampuan seseorang untuk melakukan ibadah puasa selama bulan Ramadhan karena ada alasan tertentu.</p>\n<p><b>Cara Menghitung Fidyah:</b><br/>Jika hutang puasamu 10 hari maka dikalikan dengan 45.000, jadi 10 × 45.000 = 450.000, untuk 10 paket nasi.</p>` : '');
+  const [target, setTarget] = useStateA(c?.target || 0);
+  const [endDate, setEndDate] = useStateA('2026-08-31');
+  const [location, setLocation] = useStateA('');
+  const [gmaps, setGmaps] = useStateA('');
+  const [category, setCategory] = useStateA(c?.category || 'Uncategorized');
+  const [status, setStatus] = useStateA(c?.status || 'Draft');
+  const [thumb, setThumb] = useStateA(c?.thumb || null);
+
+  // Editable URL slugs
+  const autoSlug = (title || c?.title || 'kampanye-baru').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  const [longSlug, setLongSlug] = useStateA(c?.id ? autoSlug : autoSlug);
+  const [shortSlug, setShortSlug] = useStateA(c?.id || 'djag7hj20pg');
+  // Re-sync long slug if title changes AND user hasn't custom-edited it
+  const [longTouched, setLongTouched] = useStateA(false);
+  useEffectA(() => {
+    if (!longTouched) setLongSlug((title || 'kampanye-baru').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''));
+  }, [title]);
+
+  // ---- form type panel ----
+  const [formMode, setFormMode] = useStateA('Donation'); // Donation | Zakat
+  const [formStyle, setFormStyle] = useStateA('Card');   // List | Typing | Package | Card | Package2 | Qurban
+
+  // ---- advanced sections ----
+  const [adv, setAdv] = useStateA({
+    payment: 'Default',
+    form: 'Default',
+    fundraising: 'Default',
+    wa: 'Default',
+    followup: 'Default',
+    metaPixel: 'Default',
+    tiktokPixel: 'Default',
+    gtm: 'Default',
+    socialProof: 'Hide',
+    popupInfo: 'Hide',
+    waFlying: 'Default',
+    extLink: 'Default',
+    general: 'Default',
+  });
+
+  // Form custom panel state
+  const [formCustom, setFormCustom] = useStateA({
+    button1: 'Tunaikan Fidyah',
+    button2: 'Tunaikan Fidyah Sekarang',
+    smallTitleCampaign: '',
+    smallTitleDonate: '',
+    anonim: true,
+    email: false,
+    comment: true,
+  });
+
+  // Nominal preset rows
+  const [nominals, setNominals] = useStateA([
+    { amount: 45000,  label: '1 Hari : 45k',  fav: false },
+    { amount: 90000,  label: '2 Hari : 90K',  fav: false },
+    { amount: 135000, label: '3 Hari : 135K', fav: false },
+    { amount: 225000, label: '5 Hari : 225K', fav: true  },
+  ]);
+  const [minDonasi, setMinDonasi] = useStateA(45000);
+  const [maxDonasi, setMaxDonasi] = useStateA(0);
+
+  const [advOpen, setAdvOpen] = useStateA(true);
+
+  const back = () => { setEditingCampaign(null); setView('campaigns'); };
+
+  const handleSave = (publish) => {
+    showToast(publish ? 'Campaign berhasil dipublish' : 'Campaign disimpan sebagai draft');
+    setTimeout(back, 700);
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-ink tracking-tight">{isEdit ? 'Edit Campaign' : 'Add New Campaign'}</h1>
+          <div className="mt-1 flex items-center gap-1.5 text-sm">
+            <button onClick={back} className="text-mute hover:text-ink font-medium">Data Campaign</button>
+            <Icon name="chevronR" size={12} className="text-mute"/>
+            <span className="text-brand-600 font-semibold">{isEdit ? 'Edit Campaign' : 'Add New'}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Btn variant="outline" tone="ink" icon="chevronL" onClick={back}>Kembali</Btn>
+          {isEdit && <Btn variant="outline" tone="ink" icon="eye">View Public</Btn>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* ============ LEFT: Campaign card + Advanced Option ============ */}
+        <div className="lg:col-span-2 space-y-5">
+          {/* Campaign basic */}
+          <Card className="p-5 lg:p-6">
+            <div className="font-bold text-ink text-lg mb-5">Campaign</div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_220px] gap-5">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-semibold text-ink">Title / Judul <span className="text-rose-600">*</span></label>
+                  <input value={title} onChange={(e) => setTitle(e.target.value)} className="field mt-1.5" placeholder="Cth: Lunasi Hutang Puasamu, Bayar Fidyahmu!"/>
+                </div>
+              </div>
+
+              {/* Thumbnail uploader */}
+              <ThumbUploader thumb={thumb} icon={c?.icon} onChange={setThumb}/>
+            </div>
+
+            <div className="mt-5">
+              <label className="text-sm font-semibold text-ink">Information / Keterangan <span className="text-rose-600">*</span></label>
+              <RichEditor value={content} onChange={setContent}/>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-semibold text-ink">Target donasi <span className="text-rose-600">*</span></label>
+                <div className="mt-1.5 flex items-center rounded-lg border border-line bg-white focus-within:border-brand-600 focus-within:ring-2 focus-within:ring-brand-600/20">
+                  <span className="pl-3 text-brand-600 font-bold">Rp</span>
+                  <input type="number" value={target} onChange={(e) => setTarget(+e.target.value)} className="flex-1 px-2 py-2.5 outline-none font-bold text-ink text-right" placeholder="1.000.000"/>
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-ink">Tanggal berakhir donasi <span className="text-rose-600">*</span></label>
+                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="field mt-1.5"/>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-ink">Location / Lokasi</label>
+                <input value={location} onChange={(e) => setLocation(e.target.value)} className="field mt-1.5" placeholder="Contoh: Bandung, Jawa Barat"/>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-ink">Link Gmaps</label>
+                <input value={gmaps} onChange={(e) => setGmaps(e.target.value)} className="field mt-1.5" placeholder="https://maps.google.com/…"/>
+              </div>
+            </div>
+
+            <div className="mt-4 text-xs text-mute">
+              <b className="text-ink">Note:</b> <span className="text-rose-600">*</span> Wajib diisi
+            </div>
+          </Card>
+
+          {/* Advanced option */}
+          <Card className="p-5 lg:p-6">
+            <button onClick={() => setAdvOpen(!advOpen)} className="w-full flex items-center justify-between">
+              <div className="font-bold text-ink text-lg">Advanced Option</div>
+              <Icon name="chevronD" size={18} className={`text-mute transition-transform ${advOpen ? 'rotate-180' : ''}`}/>
+            </button>
+
+            {advOpen && (
+              <div className="mt-5 space-y-6">
+                <AdvRadio label="Payment"                value={adv.payment}      options={['Default','Custom']} onChange={(v) => setAdv({...adv, payment:v})}/>
+
+                <div>
+                  <AdvRadio label="Form" value={adv.form} options={['Default','Custom']} onChange={(v) => setAdv({...adv, form:v})}/>
+
+                  {adv.form === 'Custom' && (
+                    <div className="mt-4 p-4 lg:p-5 rounded-xl bg-bg2 border border-line space-y-5">
+                      <div>
+                        <div className="font-bold text-ink mb-3">Page Campaign</div>
+                        <div>
+                          <label className="text-xs font-semibold text-mute">Button 1</label>
+                          <input value={formCustom.button1} onChange={(e) => setFormCustom({...formCustom, button1:e.target.value})} className="field mt-1 bg-white"/>
+                        </div>
+                      </div>
+
+                      <div className="pt-5 border-t border-line">
+                        <div className="font-bold text-ink mb-3">Page Form</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div><label className="text-xs font-semibold text-mute">Button 2</label><input value={formCustom.button2} onChange={(e) => setFormCustom({...formCustom, button2:e.target.value})} className="field mt-1 bg-white"/></div>
+                          <div><label className="text-xs font-semibold text-mute">Small Title Campaign</label><input value={formCustom.smallTitleCampaign} onChange={(e) => setFormCustom({...formCustom, smallTitleCampaign:e.target.value})} className="field mt-1 bg-white"/></div>
+                          <div><label className="text-xs font-semibold text-mute">Small Title Donate</label><input value={formCustom.smallTitleDonate} onChange={(e) => setFormCustom({...formCustom, smallTitleDonate:e.target.value})} className="field mt-1 bg-white"/></div>
+                        </div>
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <FieldToggle label="Anonim" value={formCustom.anonim} onChange={(v) => setFormCustom({...formCustom, anonim:v})}/>
+                          <FieldToggle label="Email"  value={formCustom.email}  onChange={(v) => setFormCustom({...formCustom, email:v})}/>
+                          <FieldToggle label="Comment" value={formCustom.comment} onChange={(v) => setFormCustom({...formCustom, comment:v})}/>
+                        </div>
+                      </div>
+
+                      {formStyle === 'Qurban' && (
+                        <div className="pt-5 border-t border-line">
+                          <div className="font-bold text-ink">Qurban</div>
+                          <div className="text-xs text-mute mt-1">Jika anda memilih form type Qurban, silahkan tambahkan qurban anda.</div>
+                          <button className="mt-3 px-3 py-2 rounded-lg border border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50">+ Add Qurban</button>
+                        </div>
+                      )}
+
+                      {formStyle === 'Package2' && (
+                        <div className="pt-5 border-t border-line">
+                          <div className="font-bold text-ink">Package 2</div>
+                          <div className="text-xs text-mute mt-1">Jika anda memilih form type Package 2, silahkan tambahkan paket anda.</div>
+                          <button className="mt-3 px-3 py-2 rounded-lg border border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50">+ Add Package</button>
+                        </div>
+                      )}
+
+                      {formMode === 'Zakat' && (
+                        <div className="pt-5 border-t border-line">
+                          <div className="font-bold text-ink">Zakat Fitrah</div>
+                          <div className="text-xs text-mute mt-1">Silahkan tambahkan paket zakat fitrah anda.</div>
+                          <button className="mt-3 px-3 py-2 rounded-lg border border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50">+ Add</button>
+                        </div>
+                      )}
+
+                      <div className="pt-5 border-t border-line">
+                        <div className="font-bold text-ink mb-3">Pilihan Nominal Donasi</div>
+                        <div className="space-y-2">
+                          {nominals.map((n, i) => (
+                            <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] gap-3 items-center">
+                              <input type="number" value={n.amount} onChange={(e) => { const arr = [...nominals]; arr[i].amount = +e.target.value; setNominals(arr); }} className="field bg-white"/>
+                              <input value={n.label} onChange={(e) => { const arr = [...nominals]; arr[i].label = e.target.value; setNominals(arr); }} className="field bg-white"/>
+                              <label className="inline-flex items-center gap-2 text-xs font-semibold text-ink whitespace-nowrap pl-2">
+                                <input type="radio" checked={n.fav} onChange={() => setNominals(nominals.map((x, j) => ({ ...x, fav: i === j })))} className="accent-emerald-600 h-4 w-4"/>
+                                Sering di Pilih
+                              </label>
+                              <button onClick={() => setNominals(nominals.filter((_, j) => j !== i))} className="h-9 w-9 rounded-md text-mute hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center">
+                                <Icon name="trash" size={14}/>
+                              </button>
+                            </div>
+                          ))}
+                          <button onClick={() => setNominals([...nominals, { amount:0, label:'', fav:false }])} className="mt-2 px-3 py-2 rounded-lg border border-dashed border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50">+ Tambah Nominal</button>
+                        </div>
+                      </div>
+
+                      <div className="pt-5 border-t border-line grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <div className="font-bold text-ink mb-1">Minimum Donasi</div>
+                          <input type="number" value={minDonasi} onChange={(e) => setMinDonasi(+e.target.value)} className="field bg-white"/>
+                          <div className="text-[11px] text-mute mt-1">Minimum Donasi yang diperbolehkan ketika donatur mengetik donasi pada form.</div>
+                        </div>
+                        <div>
+                          <div className="font-bold text-ink mb-1">Maximum Donasi</div>
+                          <input type="number" value={maxDonasi} onChange={(e) => setMaxDonasi(+e.target.value)} className="field bg-white"/>
+                          <div className="text-[11px] text-mute mt-1">Maximum Donasi yang diperbolehkan ketika donatur mengetik donasi pada form. (0 = tanpa batas)</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <AdvRadio label="Fundraising"                         value={adv.fundraising}  options={['Default','Custom']} onChange={(v) => setAdv({...adv, fundraising:v})}/>
+                <AdvRadio label="Whatsapp Notification"               value={adv.wa}           options={['Default','Custom']} onChange={(v) => setAdv({...adv, wa:v})}/>
+                <AdvRadio label="Multiple Follow-Up & Payment Success Message (Format)" sub="( Trigger by Button Follow-up & Payment Status Button )" value={adv.followup} options={['Default','Custom']} onChange={(v) => setAdv({...adv, followup:v})}/>
+                <AdvRadio label="Meta Pixel (Facebook)"               value={adv.metaPixel}    options={['Default','Custom']} onChange={(v) => setAdv({...adv, metaPixel:v})}/>
+                <AdvRadio label="Tiktok Pixel"                         value={adv.tiktokPixel}  options={['Default','Custom']} onChange={(v) => setAdv({...adv, tiktokPixel:v})}/>
+                <AdvRadio label="Google Tag Manager"                   value={adv.gtm}          options={['Default','Custom']} onChange={(v) => setAdv({...adv, gtm:v})}/>
+                <AdvRadio label="Social Proof"                         value={adv.socialProof}  options={['Hide','Show']}      onChange={(v) => setAdv({...adv, socialProof:v})}/>
+                <AdvRadio label="Popup Info (Form)"                    value={adv.popupInfo}    options={['Hide','Show']}      onChange={(v) => setAdv({...adv, popupInfo:v})}/>
+                <AdvRadio label="Whatsapp Flying Button"               value={adv.waFlying}     options={['Default','Custom']} onChange={(v) => setAdv({...adv, waFlying:v})}/>
+                <AdvRadio label="External Link Button"                 value={adv.extLink}      options={['Default','Custom']} onChange={(v) => setAdv({...adv, extLink:v})}/>
+                <AdvRadio label="General"                              value={adv.general}      options={['Default','Custom']} onChange={(v) => setAdv({...adv, general:v})}/>
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* ============ RIGHT: Form Type + Publish (+ CS Rotator if edit) ============ */}
+        <div className="lg:col-span-1 space-y-5">
+          {/* Form Type */}
+          <Card className="p-5">
+            <div className="font-bold text-ink text-lg mb-4">Form Type</div>
+
+            <div className="inline-flex p-1 bg-bg2 rounded-lg border border-line w-full">
+              {['Donation','Zakat'].map((m) => (
+                <button key={m} onClick={() => setFormMode(m)}
+                  className={`flex-1 px-3 py-2 text-sm font-bold rounded-md transition-all ${formMode === m ? 'bg-brand-600 text-white shadow-sm' : 'text-mute hover:text-ink'}`}>
+                  {m}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2.5">
+              {['List','Typing','Package','Card','Package2','Qurban'].map((s) => (
+                <label key={s} className="inline-flex items-center gap-2 cursor-pointer text-sm">
+                  <input type="radio" checked={formStyle === s} onChange={() => setFormStyle(s)} className="accent-emerald-600 h-4 w-4"/>
+                  <span className={formStyle === s ? 'font-bold text-ink' : 'text-ink/85'}>{s === 'Package2' ? 'Package 2' : s}</span>
+                </label>
+              ))}
+            </div>
+
+            {/* Preview */}
+            <FormTypePreview style={formStyle}/>
+
+            {formMode === 'Zakat' && (
+              <div className="mt-4 pt-4 border-t border-line">
+                <div className="font-bold text-ink">Note :</div>
+                <p className="text-sm text-ink/80 mt-1 leading-relaxed">
+                  Selepas memilih Borang Zakat Fitrah, jangan lupa untuk menambahkan pakej zakat fitrah anda pada :
+                  <br/>
+                  <span className="font-bold text-brand-600 mt-1 inline-block">Advanced Option &gt; Form &gt; Custom &gt; Zakat Fitrah.</span>
+                </p>
+              </div>
+            )}
+          </Card>
+
+          {/* Publish */}
+          <Card className="p-5">
+            <div className="font-bold text-ink text-lg mb-4">Publish</div>
+
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-[80px_1fr] items-center gap-3">
+                <div className="text-mute">Category</div>
+                <select value={category} onChange={(e) => setCategory(e.target.value)} className="field py-2">
+                  <option>Uncategorized</option>
+                  <option>Medis</option>
+                  <option>Pendidikan</option>
+                  <option>Wakaf</option>
+                  <option>Bencana</option>
+                  <option>Ramadan</option>
+                  <option>Fidyah</option>
+                  <option>Qurban</option>
+                  <option>Zakat</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-[80px_1fr] items-center gap-3">
+                <div className="text-mute">Status</div>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={status}/>
+                  <button className="h-7 w-7 rounded-md hover:bg-bg2 text-mute hover:text-ink flex items-center justify-center"><Icon name="edit" size={13}/></button>
+                </div>
+              </div>
+
+              {isEdit && (
+                <>
+                  <EditableUrlRow
+                    label="Long URL"
+                    prefix="https://niatbaik.org/c/"
+                    value={longSlug}
+                    onChange={(v) => { setLongSlug(v); setLongTouched(true); }}
+                    onCopy={() => showToast('Long URL disalin')}
+                    sanitize={(v) => v.toLowerCase().replace(/[^a-z0-9-]/g,'-').replace(/-+/g,'-').replace(/^-+|-+$/g,'')}
+                    helper="Hanya huruf kecil, angka, dan tanda strip (-)."
+                    minLen={3}
+                  />
+                  <EditableUrlRow
+                    label="Short URL"
+                    prefix="https://niatbaik.org/c/"
+                    value={shortSlug}
+                    onChange={setShortSlug}
+                    onCopy={() => showToast('Short URL disalin')}
+                    sanitize={(v) => v.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0, 16)}
+                    helper="Maks 16 karakter alfanumerik. Gunakan untuk iklan & QR code."
+                    minLen={4}
+                    maxLen={16}
+                    short
+                  />
+                </>
+              )}
+            </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button onClick={() => handleSave(false)} className="px-3 py-2.5 rounded-lg border-2 border-brand-600 text-brand-600 font-bold text-sm hover:bg-brand-50">
+                {isEdit ? 'View' : 'Save to Draft'}
+              </button>
+              <button onClick={() => handleSave(true)} className="px-3 py-2.5 rounded-lg bg-brand-600 text-white font-bold text-sm hover:bg-brand-700 shadow-sm">
+                {isEdit ? 'Update' : 'Publish'}
+              </button>
+            </div>
+          </Card>
+
+          {/* CS Rotator only in edit mode */}
+          {isEdit && (
+            <Card className="p-5">
+              <div className="font-bold text-ink text-lg mb-3">CS Rotator</div>
+              <div className="space-y-2">
+                {['Putri Maharani', 'Bagus Santoso'].map((n, i) => (
+                  <div key={i} className="flex items-center gap-2 p-2 rounded-lg border border-line">
+                    <div className="h-8 w-8 rounded-full bg-sky2-50 text-sky2-600 flex items-center justify-center font-bold text-xs">{n.split(' ').map(s=>s[0]).join('')}</div>
+                    <div className="flex-1 text-sm font-semibold text-ink">{n}</div>
+                    <Badge tone="ok" size="sm" dot>aktif</Badge>
+                    <button className="h-7 w-7 rounded-md text-mute hover:text-rose-600 hover:bg-rose-50"><Icon name="close" size={13}/></button>
+                  </div>
+                ))}
+              </div>
+              <button className="mt-3 w-full px-3 py-2 rounded-lg border border-dashed border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50">+ Add CS</button>
+            </Card>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom sticky action bar on mobile */}
+      <div className="lg:hidden sticky bottom-0 -mx-4 px-4 py-3 bg-white border-t border-line flex gap-2">
+        <button onClick={() => handleSave(false)} className="flex-1 px-3 py-2.5 rounded-lg border-2 border-brand-600 text-brand-600 font-bold text-sm">Save Draft</button>
+        <button onClick={() => handleSave(true)} className="flex-1 px-3 py-2.5 rounded-lg bg-brand-600 text-white font-bold text-sm">Publish</button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Subcomponents
+// ============================================================
+function EditableUrlRow({ label, prefix, value, onChange, onCopy, sanitize, helper, minLen = 3, maxLen, short }) {
+  const [editing, setEditing] = useStateA(false);
+  const [draft, setDraft] = useStateA(value);
+  const inputRef = React.useRef();
+
+  useEffectA(() => { if (editing) { setDraft(value); setTimeout(() => inputRef.current?.focus(), 0); } }, [editing]);
+
+  const save = () => {
+    const clean = sanitize ? sanitize(draft.trim()) : draft.trim();
+    if (clean.length < minLen) return;
+    onChange(clean);
+    setEditing(false);
+  };
+  const cancel = () => { setDraft(value); setEditing(false); };
+  const cleaned = sanitize ? sanitize(draft) : draft;
+  const tooShort = cleaned.length < minLen;
+  const tooLong  = maxLen && cleaned.length > maxLen;
+
+  return (
+    <div className="grid grid-cols-[80px_1fr] items-start gap-3 pt-2 border-t border-line">
+      <div className="text-mute pt-0.5">{label}</div>
+      <div>
+        {!editing ? (
+          <div className="flex items-start gap-1">
+            <div className="text-xs font-mono text-ink leading-snug break-all flex-1 group">
+              <span className="text-mute">{prefix}</span>
+              <span className="bg-brand-50 text-brand-700 px-1 rounded font-bold">{value}</span>
+            </div>
+            <button
+              onClick={() => setEditing(true)}
+              aria-label={`Edit ${label}`}
+              className="shrink-0 h-7 w-7 rounded-md hover:bg-brand-50 text-mute hover:text-brand-600 flex items-center justify-center transition-colors">
+              <Icon name="edit" size={13}/>
+            </button>
+            <button
+              onClick={onCopy}
+              aria-label={`Copy ${label}`}
+              className="shrink-0 h-7 w-7 rounded-md hover:bg-bg2 text-mute hover:text-ink flex items-center justify-center">
+              <Icon name="copy" size={13}/>
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="rounded-lg border-2 border-brand-600 bg-white overflow-hidden ring-2 ring-brand-600/15">
+              <div className="px-2 py-1.5 text-[11px] font-mono text-mute bg-bg2 border-b border-line break-all">{prefix}</div>
+              <input
+                ref={inputRef}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel(); }}
+                placeholder={short ? 'kode-unik' : 'slug-campaign'}
+                className="w-full px-2.5 py-1.5 font-mono text-sm text-ink focus:outline-none"/>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[10px]">
+                {tooShort && <span className="text-rose-600 font-semibold">Minimal {minLen} karakter</span>}
+                {tooLong && <span className="text-rose-600 font-semibold">Maksimal {maxLen} karakter</span>}
+                {!tooShort && !tooLong && helper && <span className="text-mute">{helper}</span>}
+              </div>
+              <div className="flex gap-1.5 shrink-0">
+                <button onClick={cancel} className="px-2 py-1 rounded-md text-xs font-bold text-ink hover:bg-bg2 border border-line">Batal</button>
+                <button onClick={save} disabled={tooShort || tooLong}
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold text-white ${tooShort || tooLong ? 'bg-slate-300 cursor-not-allowed' : 'bg-brand-600 hover:bg-brand-700'}`}>
+                  Simpan
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ThumbUploader({ thumb, icon, onChange }) {
+  return (
+    <div>
+      <label className="block">
+        <div className="aspect-[13/7] rounded-xl bg-bg2 border-2 border-dashed border-line hover:border-brand-400 cursor-pointer overflow-hidden relative group" style={ thumb ? { background: thumb } : {} }>
+          {thumb && (
+            <div className="absolute inset-0 flex items-center justify-center text-white/80">
+              <Icon name={icon || 'heart'} size={48} strokeWidth={1.2}/>
+            </div>
+          )}
+          {!thumb && (
+            <div className="h-full w-full flex items-center justify-center text-mute text-xs font-semibold">
+              650 x 350
+            </div>
+          )}
+          <div className="absolute top-2 right-2 h-9 w-9 rounded-full bg-brand-600 text-white flex items-center justify-center shadow-pop group-hover:scale-110 transition-transform">
+            <Icon name="upload" size={14}/>
+          </div>
+        </div>
+      </label>
+      <button onClick={() => onChange(thumb ? null : 'linear-gradient(135deg, #38B6FF 0%, #2E4191 100%)')}
+        className="mt-2 w-full text-xs font-semibold text-brand-600 hover:underline">
+        {thumb ? 'Hapus gambar' : 'Pilih dari galeri'}
+      </button>
+    </div>
+  );
+}
+
+function RichEditor({ value, onChange }) {
+  const ref = React.useRef();
+  // Initialize once
+  useEffectA(() => {
+    if (ref.current && ref.current.innerHTML !== value) ref.current.innerHTML = value || '';
+    // eslint-disable-next-line
+  }, []);
+  const exec = (cmd, val) => { document.execCommand(cmd, false, val); ref.current && onChange(ref.current.innerHTML); };
+  const tools = [
+    { icon:'refresh', cmd:'undo', title:'Undo' },
+    { icon:'refresh', cmd:'redo', title:'Redo', flip:true },
+  ];
+  const wordCount = (value || '').replace(/<[^>]+>/g,'').trim().split(/\s+/).filter(Boolean).length;
+
+  return (
+    <div className="mt-1.5 rounded-xl border border-line bg-white overflow-hidden">
+      <div className="flex items-center gap-1 px-2 py-1.5 bg-bg2 border-b border-line flex-wrap">
+        <button onClick={() => exec('undo')} title="Undo" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="refresh" size={14} className="-scale-x-100"/></button>
+        <button onClick={() => exec('redo')} title="Redo" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="refresh" size={14}/></button>
+        <span className="h-5 w-px bg-line mx-1"/>
+        <select onChange={(e) => exec('formatBlock', e.target.value)} defaultValue="" className="h-7 px-2 rounded bg-white border border-line text-xs font-semibold text-ink">
+          <option value="" disabled>Formats</option>
+          <option value="p">Paragraph</option>
+          <option value="h2">Heading 2</option>
+          <option value="h3">Heading 3</option>
+          <option value="blockquote">Quote</option>
+        </select>
+        <span className="h-5 w-px bg-line mx-1"/>
+        <button onClick={() => exec('bold')} title="Bold" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center font-bold text-ink">B</button>
+        <button onClick={() => exec('italic')} title="Italic" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center italic text-ink">I</button>
+        <span className="h-5 w-px bg-line mx-1"/>
+        <button onClick={() => exec('justifyLeft')} title="Left" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><AlignIcon a="left"/></button>
+        <button onClick={() => exec('justifyCenter')} title="Center" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><AlignIcon a="center"/></button>
+        <button onClick={() => exec('justifyRight')} title="Right" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><AlignIcon a="right"/></button>
+        <button onClick={() => exec('justifyFull')} title="Justify" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><AlignIcon a="full"/></button>
+        <span className="h-5 w-px bg-line mx-1"/>
+        <button onClick={() => exec('insertUnorderedList')} title="Bulleted list" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><ListIcon ordered={false}/></button>
+        <button onClick={() => exec('insertOrderedList')} title="Numbered list" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><ListIcon ordered={true}/></button>
+        <span className="h-5 w-px bg-line mx-1"/>
+        <button onClick={() => { const u = prompt('URL'); if (u) exec('createLink', u); }} title="Link" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="link" size={14}/></button>
+        <button title="Insert image" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="upload" size={14}/></button>
+        <button title="Preview"      className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="eye" size={14}/></button>
+        <button title="Video"        className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="play" size={14}/></button>
+        <span className="h-5 w-px bg-line mx-1"/>
+        <button onClick={() => { const c = prompt('Color (#hex or name)','#2E4191'); if (c) exec('foreColor', c); }} title="Text color" className="h-7 px-2 rounded hover:bg-white flex items-center gap-1 text-ink"><b>A</b><span className="h-2 w-2 rounded-sm bg-brand-600"/></button>
+      </div>
+
+      <div
+        ref={ref}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={(e) => onChange(e.currentTarget.innerHTML)}
+        className="min-h-[260px] max-h-[420px] overflow-y-auto p-4 text-sm text-ink/90 leading-relaxed focus:outline-none prose prose-sm max-w-none"
+      />
+
+      <div className="flex justify-end px-3 py-1.5 bg-bg2 border-t border-line text-[11px] font-bold uppercase text-mute">
+        {wordCount} WORDS
+        <span className="ml-2 inline-block w-2 h-2 border-r-2 border-b-2 border-mute opacity-50"/>
+      </div>
+    </div>
+  );
+}
+
+const AlignIcon = ({ a }) => (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+    <rect x="2" y="3" width={a==='full' ? 12 : a==='center' ? 8 : 10} height="1.5" rx="0.5" transform={a==='right' ? 'translate(2 0)' : a==='center' ? 'translate(2 0)' : ''}/>
+    <rect x="2" y="7" width="12" height="1.5" rx="0.5"/>
+    <rect x="2" y="11" width={a==='full' ? 12 : a==='center' ? 8 : 10} height="1.5" rx="0.5" transform={a==='right' ? 'translate(2 0)' : a==='center' ? 'translate(2 0)' : ''}/>
+  </svg>
+);
+
+const ListIcon = ({ ordered }) => (
+  <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+    {ordered ? (
+      <>
+        <text x="0" y="6" fontSize="5" fontWeight="700">1</text>
+        <text x="0" y="13" fontSize="5" fontWeight="700">2</text>
+      </>
+    ) : (
+      <>
+        <circle cx="3" cy="5" r="1.3"/>
+        <circle cx="3" cy="11" r="1.3"/>
+      </>
+    )}
+    <rect x="6" y="4" width="9" height="1.5" rx="0.5"/>
+    <rect x="6" y="10" width="9" height="1.5" rx="0.5"/>
+  </svg>
+);
+
+function FieldToggle({ label, value, onChange }) {
+  return (
+    <div>
+      <div className="text-xs font-semibold text-mute mb-1.5">{label}</div>
+      <button onClick={() => onChange(!value)} className="inline-flex items-center gap-2">
+        <span className={`relative h-6 w-11 rounded-full transition-colors ${value ? 'bg-emerald-500' : 'bg-rose-500'}`}>
+          <span className={`absolute top-0.5 h-5 w-5 bg-white rounded-full shadow transition-all ${value ? 'left-[22px]' : 'left-0.5'}`}/>
+        </span>
+        <span className={`text-sm font-bold ${value ? 'text-ink' : 'text-mute'}`}>{value ? 'Show' : 'Hide'}</span>
+      </button>
+    </div>
+  );
+}
+
+function AdvRadio({ label, sub, value, options, onChange }) {
+  // Color hint per option
+  const color = (o) => {
+    if (o === 'Default' || o === 'Hide') return 'accent-emerald-600';
+    return 'accent-emerald-600';
+  };
+  return (
+    <div className="pb-5 border-b border-line last:border-0 last:pb-0">
+      <div className="font-bold text-ink">{label}</div>
+      {sub && <div className="text-xs text-mute mt-0.5">{sub}</div>}
+      <div className="mt-2.5 flex flex-wrap items-center gap-5">
+        {options.map((o) => (
+          <label key={o} className="inline-flex items-center gap-2 cursor-pointer text-sm">
+            <input type="radio" checked={value === o} onChange={() => onChange(o)} className={`h-4 w-4 ${color(o)}`}/>
+            <span className={value === o ? 'font-bold text-ink' : 'text-ink/80'}>{o}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FormTypePreview({ style }) {
+  const presets = ['Rp', 'Rp', 'Rp', 'Rp', 'OTHER NOMINAL'];
+  return (
+    <div className="mt-4 rounded-xl bg-bg2 border border-line p-4">
+      {style === 'List' && (
+        <div className="space-y-2">
+          {presets.slice(0,4).map((p, i) => (
+            <div key={i} className="h-10 rounded-lg bg-white border border-line flex items-center px-3 text-xs font-bold text-mute">{p}</div>
+          ))}
+        </div>
+      )}
+      {style === 'Typing' && (
+        <div className="h-12 rounded-lg bg-white border border-line flex items-center px-3 text-xs font-bold text-mute">Rp [ ketik nominal… ]</div>
+      )}
+      {style === 'Package' && (
+        <div className="grid grid-cols-2 gap-2">
+          {[1,2,3,4].map((i) => (
+            <div key={i} className="aspect-[3/2] rounded-lg bg-white border border-line flex items-center justify-center text-xs font-bold text-mute">Paket {i}</div>
+          ))}
+        </div>
+      )}
+      {style === 'Card' && (
+        <div className="grid grid-cols-3 gap-2">
+          {presets.slice(0,3).map((p, i) => (
+            <div key={i} className="h-9 rounded-md bg-white border border-line flex items-center justify-center text-xs font-bold text-mute">{p}</div>
+          ))}
+          <div className="h-9 rounded-md bg-white border border-line flex items-center justify-center text-xs font-bold text-mute">{presets[3]}</div>
+          <div className="col-span-2 h-9 rounded-md bg-white border border-line flex items-center justify-center text-[10px] font-bold text-mute">OTHER NOMINAL</div>
+        </div>
+      )}
+      {style === 'Package2' && (
+        <div className="grid grid-cols-2 gap-2">
+          {[1,2,3,4].map((i) => (
+            <div key={i} className="aspect-square rounded-lg bg-white border border-line p-2 flex flex-col">
+              <div className="h-3/5 bg-bg2 rounded-md"/>
+              <div className="mt-1 text-[10px] font-bold text-mute">Paket {i}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {style === 'Qurban' && (
+        <div className="space-y-2">
+          <div className="rounded-lg bg-white border border-line p-3 flex items-center gap-2">
+            <div className="h-10 w-10 rounded-md bg-bg2"/>
+            <div className="flex-1">
+              <div className="text-xs font-bold text-ink">Kambing — Rp 2.500.000</div>
+              <div className="text-[10px] text-mute">Bobot 28-32 kg</div>
+            </div>
+            <div className="text-[10px] font-bold text-brand-600">QURBAN</div>
+          </div>
+          <div className="rounded-lg bg-white border border-line p-3 flex items-center gap-2">
+            <div className="h-10 w-10 rounded-md bg-bg2"/>
+            <div className="flex-1">
+              <div className="text-xs font-bold text-ink">Sapi (1/7) — Rp 3.200.000</div>
+              <div className="text-[10px] text-mute">Per kavling</div>
+            </div>
+            <div className="text-[10px] font-bold text-brand-600">QURBAN</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+window.CampaignEditorView = CampaignEditorView;

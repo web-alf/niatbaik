@@ -65,32 +65,17 @@ function LoginPage({ onLogin }) {
 
   const handleSubmit = async (e) => {
     e && e.preventDefault();
-    setError('');
-    setLoading(true);
+    setError(''); setLoading(true);
     try {
-      const res = await api.login(email, password);
-      if (res?.success && (res?.data?.token?.access_token || res?.data?.access_token)) {
-        const meRes = await api.me();
-        if (meRes?.success && meRes?.data) {
-          onLogin(meRes.data);
-          setLoading(false);
-          return;
-        }
-      }
-      if (res === null) {
-        setError('Tidak dapat terhubung ke server. Periksa koneksi Anda.');
+      const res = await window.api.login(email.trim().toLowerCase(), password);
+      if (res?.data?.user) {
+        onLogin(res.data.user);
       } else {
         setError(res?.message || 'Email atau password salah.');
       }
     } catch (err) {
-      const msg = err?.message || '';
-      if (msg.includes('invalid') || msg.includes('password') || msg.includes('email')) {
-        setError('Email atau password salah.');
-      } else {
-        setError(msg || 'Login gagal. Silakan coba lagi.');
-      }
-    }
-    setLoading(false);
+      setError(err?.message || 'Gagal masuk. Periksa koneksi.');
+    } finally { setLoading(false); }
   };
 
   return (
@@ -104,7 +89,7 @@ function LoginPage({ onLogin }) {
 
         {/* Logo */}
         <div className="relative">
-          <img src="assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-9 brightness-200 invert"/>
+          <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-9 brightness-200 invert"/>
         </div>
 
         {/* Main content — pushed to bottom */}
@@ -144,7 +129,7 @@ function LoginPage({ onLogin }) {
         <div className="w-full max-w-md">
           {/* Mobile-only logo */}
           <div className="lg:hidden mb-6 flex justify-center">
-            <img src="assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-8"/>
+            <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-8"/>
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-card border border-line dark:border-slate-700 p-7">

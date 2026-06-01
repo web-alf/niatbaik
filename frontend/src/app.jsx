@@ -294,7 +294,7 @@ function Placeholder() {
 // --- Campaign detail wrapper (public) ---
 function CampaignDetailWrap() {
   const { navigate, campaignDetail } = useApp();
-  const id = campaignDetail || (typeof CAMPAIGNS !== 'undefined' && CAMPAIGNS[0]?.id);
+  const id = campaignDetail || (typeof CAMPAIGNS !== 'undefined' && (CAMPAIGNS[0]?.slug || CAMPAIGNS[0]?.id));
   return <CampaignDetail id={id} onBack={() => navigate('landing')}/>;
 }
 

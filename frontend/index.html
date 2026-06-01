@@ -11,49 +11,9 @@
 <link rel="preconnect" href="https://unpkg.com" crossorigin>
 <link rel="preload" href="https://unpkg.com/react@18.3.1/umd/react.production.min.js" as="script" crossorigin>
 <link rel="preload" href="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" as="script" crossorigin>
-<link rel="preload" href="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" as="script" crossorigin>
+<link rel="preload" href="/app.min.js?v=__ASSET_VER__" as="script">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
-<script>
-tailwind.config = {
-  darkMode: 'class',
-  theme: {
-    extend: {
-      fontFamily: {
-        sans: ['Plus Jakarta Sans','ui-sans-serif','system-ui','sans-serif'],
-      },
-      colors: {
-        brand: {
-          50:'#EEF2FF',100:'#E0E7FF',200:'#C7D2FE',300:'#A5B4FC',400:'#6366F1',
-          500:'#3B4FAF',600:'#2E4191',700:'#283881',800:'#1F2C66',900:'#172148'
-        },
-        cyan2: {
-          50:'#eaf7ff',100:'#cfeefe',200:'#a7e0fd',300:'#74cefb',400:'#38B6FF',
-          500:'#1aa1ee',600:'#0e83c8',700:'#0e69a0',800:'#125883',900:'#114a6e'
-        },
-        sky2: {
-          50:'#ECFAFF',100:'#D6F3FF',300:'#7DD0FF',400:'#38B6FF',500:'#1AA1ED',600:'#0E89CC'
-        },
-        ink: '#1E293B',
-        mute: '#64748B',
-        line: '#E2E8F0',
-        bg1: '#FFFFFF',
-        bg2: '#F7FAFC',
-        ok: '#16A34A',
-        warn: '#F59E0B',
-        bad: '#DC2626',
-      },
-      boxShadow: {
-        card: '0 1px 2px 0 rgba(15,23,42,.04), 0 1px 3px 0 rgba(15,23,42,.06)',
-        pop: '0 12px 32px -8px rgba(15,23,42,.18), 0 4px 12px -2px rgba(15,23,42,.08)'
-      },
-      borderRadius: {
-        'xl2': '1rem'
-      }
-    }
-  }
-}
-</script>
+<link rel="stylesheet" href="/app.css?v=__ASSET_VER__">
 <style>
   html,body{background:#F7FAFC;color:#1E293B;font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 
@@ -222,18 +182,9 @@ try{if(localStorage.getItem('niatbaik_dark')==='1'){document.documentElement.cla
 
 <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
 
-<script type="text/babel" src="src/api.jsx?v=20260531"></script>
-<script type="text/babel" src="src/data.jsx?v=20260531"></script>
-<script type="text/babel" src="src/icons.jsx?v=20260531"></script>
-<script type="text/babel" src="src/components.jsx?v=20260531"></script>
-<script type="text/babel" src="src/pages-public.jsx?v=20260531"></script>
-<script type="text/babel" src="src/pages-admin.jsx?v=20260531"></script>
-<script type="text/babel" src="src/pages-cs-adv.jsx?v=20260531"></script>
-<script type="text/babel" src="src/pages-misc.jsx?v=20260531"></script>
-<script type="text/babel" src="src/settings.jsx?v=20260531"></script>
-<script type="text/babel" src="src/login.jsx?v=20260531"></script>
-<script type="text/babel" src="src/app.jsx?v=20260531"></script>
+<!-- Prebuilt bundle (see frontend/build.mjs). JSX is transpiled at build time;
+     no @babel/standalone in the browser anymore. -->
+<script src="/app.min.js?v=__ASSET_VER__" defer></script>
 </body>
 </html>

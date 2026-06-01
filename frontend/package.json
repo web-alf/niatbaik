@@ -5,9 +5,8 @@
   "scripts": {
     "start": "bun run server.js",
     "dev": "bun --watch run server.js",
-    "build:js": "bun build.mjs",
     "build:css": "bunx tailwindcss -c tailwind.config.js -i styles/input.css -o public/app.css --minify",
-    "build": "node build.mjs"
+    "build": "bun build.mjs"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",

@@ -455,7 +455,7 @@ async function loadAnalytics() {
     if (ov?.data) window.ANALYTICS_OVERVIEW = ov.data;
     if (camp?.data) window.ANALYTICS_CAMPAIGNS = camp.data;
     if (utm?.data) window.ANALYTICS_UTM = utm.data;
-    if (traf?.data) window.TRAFFIC_SOURCES = traf.data;
+    if (traf?.data) window.ANALYTICS_TRAFFIC = traf.data;
     if (fun?.data) window.ANALYTICS_FUNNEL = fun.data;
   } catch (e) { console.log('[data] analytics fallback', e?.message); }
 }
@@ -475,12 +475,28 @@ async function loadPaymentMethods() {
 
 async function loadDashboardStats() {
   if (typeof window.api === 'undefined') return;
-  try { const [s,pm,tr]=await Promise.all([window.api.dashboardStats?.(),window.api.paymentMethodChart?.(),window.api.trafficSourceChart?.()]); if(s?.data)window.DASHBOARD_STATS=s.data; if(pm?.data)window.PAYMENT_BREAKDOWN=pm.data; if(tr?.data)window.TRAFFIC_SOURCES=tr.data; } catch(e){ console.log('[data] dashboard stats fallback',e?.message); }
+  try {
+    const [s, pm, tr] = await Promise.all([
+      window.api.dashboardStats?.(),
+      window.api.paymentMethodChart?.(),
+      window.api.trafficSourceChart?.(),
+    ]);
+    if (s?.data)  window.DASHBOARD_STATS    = s.data;
+    if (pm?.data) window.PAYMENT_BREAKDOWN  = pm.data;
+    if (tr?.data) window.TRAFFIC_SOURCES    = tr.data;
+  } catch (e) {
+    console.log('[data] dashboard stats fallback', e?.message);
+  }
 }
 
 async function loadAdCosts() {
   if (typeof window.api === 'undefined') return;
-  try { const r=await window.api.adCosts?.(); if(r?.data)window.AD_COSTS=r.data; } catch(e){ console.log('[data] adcosts fallback',e?.message); }
+  try {
+    const r = await window.api.adCosts?.();
+    if (r?.data) window.AD_COSTS = r.data;
+  } catch (e) {
+    console.log('[data] adcosts fallback', e?.message);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -514,6 +530,7 @@ window.TRANSACTIONS     = txns;
 window.DAILY            = dailyDonations;
 window.DAILY_DONATIONS  = dailyDonations;
 window.TRAFFIC_SOURCES  = trafficSources;
+window.ANALYTICS_TRAFFIC = window.ANALYTICS_TRAFFIC || trafficSources;
 window.FUNDRAISERS      = fundraisers;
 window.USERS            = members;
 window.NOTIFICATIONS    = NOTIFICATIONS;

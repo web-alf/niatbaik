@@ -440,6 +440,49 @@ async function loadProfile() {
   }
 }
 
+async function loadInvoices() {
+  if (typeof window.api === 'undefined') return;
+  try { const r = await window.api.invoices?.('limit=100'); if (r?.data) window.TRANSACTIONS = r.data; } catch (e) { console.log('[data] invoices fallback', e?.message); }
+}
+
+async function loadAnalytics() {
+  if (typeof window.api === 'undefined') return;
+  try {
+    const [ov, camp, utm, traf, fun] = await Promise.all([
+      window.api.analyticsOverview?.(), window.api.analyticsCampaigns?.(),
+      window.api.analyticsUTM?.(), window.api.analyticsTraffic?.(), window.api.analyticsFunnel?.(),
+    ]);
+    if (ov?.data) window.ANALYTICS_OVERVIEW = ov.data;
+    if (camp?.data) window.ANALYTICS_CAMPAIGNS = camp.data;
+    if (utm?.data) window.ANALYTICS_UTM = utm.data;
+    if (traf?.data) window.TRAFFIC_SOURCES = traf.data;
+    if (fun?.data) window.ANALYTICS_FUNNEL = fun.data;
+  } catch (e) { console.log('[data] analytics fallback', e?.message); }
+}
+
+async function loadDataStudio() {
+  if (typeof window.api === 'undefined') return;
+  try {
+    const r = await window.api.dataStudioOverview?.();
+    if (r?.data) window.DATASTUDIO = r.data;
+  } catch (e) { console.log('[data] datastudio fallback', e?.message); }
+}
+
+async function loadPaymentMethods() {
+  if (typeof window.api === 'undefined') return;
+  try { const r = await window.api.paymentMethods?.(); if (r?.data) window.PAYMENT_METHODS_LIST = r.data; } catch (e) { console.log('[data] pm fallback', e?.message); }
+}
+
+async function loadDashboardStats() {
+  if (typeof window.api === 'undefined') return;
+  try { const [s,pm,tr]=await Promise.all([window.api.dashboardStats?.(),window.api.paymentMethodChart?.(),window.api.trafficSourceChart?.()]); if(s?.data)window.DASHBOARD_STATS=s.data; if(pm?.data)window.PAYMENT_BREAKDOWN=pm.data; if(tr?.data)window.TRAFFIC_SOURCES=tr.data; } catch(e){ console.log('[data] dashboard stats fallback',e?.message); }
+}
+
+async function loadAdCosts() {
+  if (typeof window.api === 'undefined') return;
+  try { const r=await window.api.adCosts?.(); if(r?.data)window.AD_COSTS=r.data; } catch(e){ console.log('[data] adcosts fallback',e?.message); }
+}
+
 /* ------------------------------------------------------------------ */
 /*  Export to window scope                                             */
 /* ------------------------------------------------------------------ */
@@ -454,6 +497,8 @@ window.NB = {
   TOTAL_FUNDRAISER, TOTAL_LEADS, CONV_RATE, TODAY_RAISED, MONTH_RAISED,
   placeholderImg, avatarSvg, makeTxns,
   loadApiData, loadAdminData, loadDashboardChart, loadProfile,
+  loadInvoices, loadAnalytics, loadDataStudio, loadPaymentMethods,
+  loadDashboardStats, loadAdCosts,
 };
 
 // Individual window exports (backward compat)
@@ -486,8 +531,14 @@ window.CONV_RATE        = CONV_RATE;
 window.TODAY_RAISED     = TODAY_RAISED;
 window.MONTH_RAISED     = MONTH_RAISED;
 window.socialProofLines = socialProofLines;
-window.loadApiData      = loadApiData;
-window.loadAdminData    = loadAdminData;
+window.loadApiData        = loadApiData;
+window.loadAdminData      = loadAdminData;
 window.loadDashboardChart = loadDashboardChart;
-window.loadProfile      = loadProfile;
-window.makeTxns         = makeTxns;
+window.loadProfile        = loadProfile;
+window.loadInvoices       = loadInvoices;
+window.loadAnalytics      = loadAnalytics;
+window.loadDataStudio     = loadDataStudio;
+window.loadPaymentMethods = loadPaymentMethods;
+window.loadDashboardStats = loadDashboardStats;
+window.loadAdCosts        = loadAdCosts;
+window.makeTxns           = makeTxns;

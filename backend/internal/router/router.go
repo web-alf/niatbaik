@@ -28,6 +28,8 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	fundraiserRepo := repository.NewFundraiserRepo(db)
 	commissionRepo := repository.NewCommissionRepo(db)
 	adCostRepo := repository.NewAdCostRepo(db)
+	paymentMethodRepo := repository.NewPaymentMethodRepo(db)
+	dataStudioRepo := repository.NewDataStudioRepo(db)
 
 	// Initialize services
 	authService := service.NewAuthService(db, cfg)
@@ -47,6 +49,8 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	profileService := service.NewProfileService(db, activityRepo)
 	uploadService := service.NewUploadService(cfg.UploadDir, cfg.MaxUploadSize)
 	adCostService := service.NewAdCostService(adCostRepo)
+	paymentMethodService := service.NewPaymentMethodService(paymentMethodRepo)
+	dataStudioService := service.NewDataStudioService(dataStudioRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -67,6 +71,8 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	notificationHandler := handler.NewNotificationHandler(notificationService)
 	uploadHandler := handler.NewUploadHandler(uploadService)
 	adCostHandler := handler.NewAdCostHandler(adCostService)
+	paymentMethodHandler := handler.NewPaymentMethodHandler(paymentMethodService)
+	dataStudioHandler := handler.NewDataStudioHandler(dataStudioService)
 
 	// API group
 	api := e.Group("/api")
@@ -146,6 +152,11 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	admin.GET("/settings", settingHandler.Get)
 	admin.PUT("/settings", settingHandler.Update)
 
+	admin.GET("/admin/payment-methods", paymentMethodHandler.List)
+	admin.POST("/admin/payment-methods", paymentMethodHandler.Create)
+	admin.PUT("/admin/payment-methods/:id", paymentMethodHandler.Update)
+	admin.DELETE("/admin/payment-methods/:id", paymentMethodHandler.Delete)
+
 	admin.GET("/withdrawals", withdrawalHandler.List)
 	admin.POST("/withdrawals/:id/approve", withdrawalHandler.Approve)
 	admin.POST("/withdrawals/:id/reject", withdrawalHandler.Reject)
@@ -181,4 +192,14 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	analytics.GET("/funnel", analyticsHandler.GetFunnel)
 	analytics.POST("/ad-costs", adCostHandler.Create)
 	analytics.GET("/ad-costs", adCostHandler.List)
+
+	// Data Studio (admin + advertiser)
+	ds := protected.Group("/datastudio")
+	ds.Use(middleware.RequireAdvertiser())
+	ds.GET("/overview", dataStudioHandler.GetOverview)
+	ds.GET("/funnel", dataStudioHandler.GetFunnel)
+	ds.GET("/meta", dataStudioHandler.GetMeta)
+	ds.GET("/google", dataStudioHandler.GetGoogle)
+	ds.GET("/tiktok", dataStudioHandler.GetTiktok)
+	ds.GET("/geo", dataStudioHandler.GetGeo)
 }

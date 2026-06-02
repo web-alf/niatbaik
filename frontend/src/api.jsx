@@ -86,6 +86,7 @@ const api = {
   users(params = '') { return this.get('/users' + (params ? '?' + params : '')); },
   createUser(data) { return this.post('/users', data); },
   updateUser(id, data) { return this.put('/users/' + id, data); },
+  deleteUser(id) { return this.del('/users/' + id); },
 
   // Invoices (CS)
   invoices(params = '') { return this.get('/invoices' + (params ? '?' + params : '')); },
@@ -127,6 +128,21 @@ const api = {
   // Trash
   trash() { return this.get('/trash'); },
   restoreTrash(type, id) { return this.post('/trash/' + type + '/' + id + '/restore'); },
+  permanentDelete(type, id) { return this.del('/trash/' + type + '/' + id); },
+
+  // Data Studio
+  dataStudioOverview() { return this.get('/datastudio/overview'); },
+  dataStudioMeta()     { return this.get('/datastudio/meta'); },
+  dataStudioGoogle()   { return this.get('/datastudio/google'); },
+  dataStudioTiktok()   { return this.get('/datastudio/tiktok'); },
+  dataStudioFunnel()   { return this.get('/datastudio/funnel'); },
+  dataStudioGeo()      { return this.get('/datastudio/geo'); },
+
+  // Payment methods (admin)
+  paymentMethods()              { return this.get('/admin/payment-methods'); },
+  createPaymentMethod(data)     { return this.post('/admin/payment-methods', data); },
+  updatePaymentMethod(id, data) { return this.put('/admin/payment-methods/' + id, data); },
+  deletePaymentMethod(id)       { return this.del('/admin/payment-methods/' + id); },
 
   // Upload
   async uploadImage(file) {

@@ -65,32 +65,17 @@ function LoginPage({ onLogin }) {
 
   const handleSubmit = async (e) => {
     e && e.preventDefault();
-    setError('');
-    setLoading(true);
+    setError(''); setLoading(true);
     try {
-      const res = await api.login(email, password);
-      if (res?.success && (res?.data?.token?.access_token || res?.data?.access_token)) {
-        const meRes = await api.me();
-        if (meRes?.success && meRes?.data) {
-          onLogin(meRes.data);
-          setLoading(false);
-          return;
-        }
-      }
-      if (res === null) {
-        setError('Tidak dapat terhubung ke server. Periksa koneksi Anda.');
+      const res = await window.api.login(email.trim().toLowerCase(), password);
+      if (res?.data?.user) {
+        onLogin(res.data.user);
       } else {
         setError(res?.message || 'Email atau password salah.');
       }
     } catch (err) {
-      const msg = err?.message || '';
-      if (msg.includes('invalid') || msg.includes('password') || msg.includes('email')) {
-        setError('Email atau password salah.');
-      } else {
-        setError(msg || 'Login gagal. Silakan coba lagi.');
-      }
-    }
-    setLoading(false);
+      setError(err?.message || 'Gagal masuk. Periksa koneksi.');
+    } finally { setLoading(false); }
   };
 
   return (
@@ -104,7 +89,7 @@ function LoginPage({ onLogin }) {
 
         {/* Logo */}
         <div className="relative">
-          <img src="assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-9 brightness-200 invert"/>
+          <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-9 brightness-200 invert"/>
         </div>
 
         {/* Main content — pushed to bottom */}
@@ -144,7 +129,7 @@ function LoginPage({ onLogin }) {
         <div className="w-full max-w-md">
           {/* Mobile-only logo */}
           <div className="lg:hidden mb-6 flex justify-center">
-            <img src="assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-8"/>
+            <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-8"/>
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-card border border-line dark:border-slate-700 p-7">
@@ -183,15 +168,16 @@ function LoginPage({ onLogin }) {
               <div>
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-muted">Password</label>
-                  <a href="#" onClick={(e) => e.preventDefault()} className="text-xs font-semibold text-brand-600 hover:underline cursor-pointer">Lupa password?</a>
+                  <button type="button" onClick={(e) => e.preventDefault()} className="text-xs font-semibold text-brand-600 hover:underline cursor-pointer">Lupa password?</button>
                 </div>
                 <div className="mt-1 relative">
                   <input type={showPwd ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
                     className="w-full rounded-lg border border-line dark:border-slate-700 bg-white dark:bg-slate-800 pl-3 pr-10 py-2.5 text-sm text-ink dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600"
                     placeholder="••••••••" required/>
                   <button type="button" onClick={() => setShowPwd(!showPwd)}
+                    aria-label={showPwd ? 'Sembunyikan password' : 'Tampilkan password'}
                     className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-md hover:bg-bg2 dark:hover:bg-slate-700 flex items-center justify-center text-muted">
-                    <Icon name="eye" size={14}/>
+                    <Icon name="eye" size={14} className={showPwd ? 'text-brand-600' : ''}/>
                   </button>
                 </div>
               </div>
@@ -235,7 +221,7 @@ function LoginPage({ onLogin }) {
           </div>
 
           <div className="mt-4 text-center text-xs text-muted">
-            Butuh bantuan login? <a href="#" onClick={(e) => { e.preventDefault(); }} className="font-bold text-brand-600 hover:underline cursor-pointer">Hubungi admin</a>
+            Butuh bantuan login? <button type="button" onClick={(e) => { e.preventDefault(); }} className="font-bold text-brand-600 hover:underline cursor-pointer">Hubungi admin</button>
             <span className="mx-2">&middot;</span>
             <a href="#" onClick={(e) => { e.preventDefault(); window.__nbNavigateLanding && window.__nbNavigateLanding(); }} className="font-bold text-brand-600 hover:underline">Lihat situs publik &rarr;</a>
           </div>

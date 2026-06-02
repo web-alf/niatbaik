@@ -440,6 +440,101 @@ async function loadProfile() {
   }
 }
 
+// Map a backend InvoiceResponse → the row shape views expect (design seed shape).
+function mapInvoice(inv) {
+  if (!inv) return inv;
+  // Already in seed shape (has .donor / .utm object) → pass through.
+  if (inv.donor !== undefined && inv.utm && typeof inv.utm === 'object') return inv;
+  const status = inv.status || (inv.is_paid ? 'Paid' : 'Pending');
+  const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+  return {
+    id: inv.invoice_number || inv.id || '',
+    donor: inv.donor_name || inv.donor || '',
+    campaign: inv.campaign_title || inv.campaign || '',
+    campaignId: inv.campaign_id || inv.campaignId || '',
+    amount: inv.amount ?? inv.total ?? 0,
+    method: inv.payment_method || inv.method || '',
+    status: ['Paid','Pending','Failed'].includes(status) ? status : cap(status),
+    date: inv.paid_at || inv.created_at || inv.date || '',
+    utm: {
+      source:   inv.utm_source   ?? inv.utm?.source   ?? '',
+      medium:   inv.utm_medium   ?? inv.utm?.medium   ?? '',
+      content:  inv.utm_content  ?? inv.utm?.content  ?? '',
+      campaign: inv.utm_campaign ?? inv.utm?.campaign ?? '',
+      term:     inv.utm_term     ?? inv.utm?.term     ?? '',
+      id:       inv.utm_id       ?? inv.utm?.id       ?? '',
+    },
+    whatsapp: inv.donor_phone || inv.whatsapp || '',
+    email: inv.donor_email || inv.email || '',
+    note: inv.cs_note || inv.note || '',
+    anon: inv.is_anonymous ?? inv.anon ?? false,
+    message: inv.message || '',
+  };
+}
+window.mapInvoice = mapInvoice;
+
+async function loadInvoices() {
+  if (typeof window.api === 'undefined') return;
+  try {
+    const r = await window.api.invoices?.('limit=100');
+    if (r?.data && Array.isArray(r.data)) window.TRANSACTIONS = r.data.map(mapInvoice);
+  } catch (e) { console.log('[data] invoices fallback', e?.message); }
+}
+
+async function loadAnalytics() {
+  if (typeof window.api === 'undefined') return;
+  try {
+    const [ov, camp, utm, traf, fun] = await Promise.all([
+      window.api.analyticsOverview?.(), window.api.analyticsCampaigns?.(),
+      window.api.analyticsUTM?.(), window.api.analyticsTraffic?.(), window.api.analyticsFunnel?.(),
+    ]);
+    if (ov?.data) window.ANALYTICS_OVERVIEW = ov.data;
+    if (camp?.data) window.ANALYTICS_CAMPAIGNS = camp.data;
+    if (utm?.data) window.ANALYTICS_UTM = utm.data;
+    if (traf?.data) window.ANALYTICS_TRAFFIC = traf.data;
+    if (fun?.data) window.ANALYTICS_FUNNEL = fun.data;
+  } catch (e) { console.log('[data] analytics fallback', e?.message); }
+}
+
+async function loadDataStudio() {
+  if (typeof window.api === 'undefined') return;
+  try {
+    const r = await window.api.dataStudioOverview?.();
+    if (r?.data) window.DATASTUDIO = r.data;
+  } catch (e) { console.log('[data] datastudio fallback', e?.message); }
+}
+
+async function loadPaymentMethods() {
+  if (typeof window.api === 'undefined') return;
+  try { const r = await window.api.paymentMethods?.(); if (r?.data) window.PAYMENT_METHODS_LIST = r.data; } catch (e) { console.log('[data] pm fallback', e?.message); }
+}
+
+async function loadDashboardStats() {
+  if (typeof window.api === 'undefined') return;
+  try {
+    const [s, pm, tr] = await Promise.all([
+      window.api.dashboardStats?.(),
+      window.api.paymentMethodChart?.(),
+      window.api.trafficSourceChart?.(),
+    ]);
+    if (s?.data)  window.DASHBOARD_STATS    = s.data;
+    if (pm?.data) window.PAYMENT_BREAKDOWN  = pm.data;
+    if (tr?.data) window.TRAFFIC_SOURCES    = tr.data;
+  } catch (e) {
+    console.log('[data] dashboard stats fallback', e?.message);
+  }
+}
+
+async function loadAdCosts() {
+  if (typeof window.api === 'undefined') return;
+  try {
+    const r = await window.api.adCosts?.();
+    if (r?.data) window.AD_COSTS = r.data;
+  } catch (e) {
+    console.log('[data] adcosts fallback', e?.message);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /*  Export to window scope                                             */
 /* ------------------------------------------------------------------ */
@@ -454,6 +549,8 @@ window.NB = {
   TOTAL_FUNDRAISER, TOTAL_LEADS, CONV_RATE, TODAY_RAISED, MONTH_RAISED,
   placeholderImg, avatarSvg, makeTxns,
   loadApiData, loadAdminData, loadDashboardChart, loadProfile,
+  loadInvoices, loadAnalytics, loadDataStudio, loadPaymentMethods,
+  loadDashboardStats, loadAdCosts,
 };
 
 // Individual window exports (backward compat)
@@ -469,6 +566,7 @@ window.TRANSACTIONS     = txns;
 window.DAILY            = dailyDonations;
 window.DAILY_DONATIONS  = dailyDonations;
 window.TRAFFIC_SOURCES  = trafficSources;
+window.ANALYTICS_TRAFFIC = window.ANALYTICS_TRAFFIC || trafficSources;
 window.FUNDRAISERS      = fundraisers;
 window.USERS            = members;
 window.NOTIFICATIONS    = NOTIFICATIONS;
@@ -486,8 +584,14 @@ window.CONV_RATE        = CONV_RATE;
 window.TODAY_RAISED     = TODAY_RAISED;
 window.MONTH_RAISED     = MONTH_RAISED;
 window.socialProofLines = socialProofLines;
-window.loadApiData      = loadApiData;
-window.loadAdminData    = loadAdminData;
+window.loadApiData        = loadApiData;
+window.loadAdminData      = loadAdminData;
 window.loadDashboardChart = loadDashboardChart;
-window.loadProfile      = loadProfile;
-window.makeTxns         = makeTxns;
+window.loadProfile        = loadProfile;
+window.loadInvoices       = loadInvoices;
+window.loadAnalytics      = loadAnalytics;
+window.loadDataStudio     = loadDataStudio;
+window.loadPaymentMethods = loadPaymentMethods;
+window.loadDashboardStats = loadDashboardStats;
+window.loadAdCosts        = loadAdCosts;
+window.makeTxns           = makeTxns;

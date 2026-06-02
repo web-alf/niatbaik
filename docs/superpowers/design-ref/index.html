@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>NIATBAIK.ORG — Admin Console</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          brand: {
+            50:  '#EEF2FF',
+            100: '#E0E7FF',
+            200: '#C7D2FE',
+            300: '#A5B4FC',
+            400: '#6366F1',
+            500: '#3B4FAF',
+            600: '#2E4191',   /* primary */
+            700: '#283881',
+            800: '#1F2C66',
+            900: '#172148',
+          },
+          sky2: {
+            50:  '#ECFAFF',
+            100: '#D6F3FF',
+            300: '#7DD0FF',
+            400: '#38B6FF',   /* secondary */
+            500: '#1AA1ED',
+            600: '#0E89CC',
+          },
+          ink: '#1E293B',
+          mute: '#64748B',
+          line: '#E2E8F0',
+          bg2:  '#F7FAFC',
+          ok:   '#16A34A',
+          warn: '#F59E0B',
+          bad:  '#DC2626',
+        },
+        fontFamily: {
+          sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        },
+        boxShadow: {
+          card: '0 1px 2px 0 rgba(15,23,42,.04), 0 1px 3px 0 rgba(15,23,42,.06)',
+          pop:  '0 12px 32px -8px rgba(15,23,42,.18), 0 4px 12px -2px rgba(15,23,42,.08)',
+        },
+        borderRadius: {
+          'xl2': '1rem',
+        }
+      }
+    }
+  }
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style type="text/tailwindcss">
+  html, body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #1E293B; background: #F7FAFC; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 999px; border: 2px solid #F7FAFC; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .field { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-mute focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600; }
+  .dot::before{content:""; display:inline-block; width:6px; height:6px; border-radius:999px; margin-right:6px; background: currentColor; vertical-align: middle;}
+
+  /* ============ DARK MODE OVERRIDES ============ */
+  html.dark { color-scheme: dark; }
+  html.dark body { background: #0B1220; color: #E2E8F0; }
+  html.dark ::-webkit-scrollbar-thumb { background: #334155; border-color: #0B1220; }
+
+  /* Surfaces */
+  html.dark .bg-white { background-color: #131C2E !important; }
+  html.dark .bg-bg2 { background-color: #0F172A !important; }
+  html.dark .bg-bg2\/40, html.dark .bg-bg2\/50, html.dark .bg-bg2\/60 { background-color: rgba(15,23,42,.6) !important; }
+  html.dark .bg-white\/85 { background-color: rgba(19,28,46,.88) !important; }
+  html.dark .bg-white\/95, html.dark .bg-white\/90 { background-color: rgba(19,28,46,.95) !important; }
+  html.dark .bg-white\/10, html.dark .bg-white\/15, html.dark .bg-white\/20, html.dark .bg-white\/30 { /* on dark hero - keep */ }
+  html.dark .bg-slate-50  { background-color: #1A2540 !important; }
+  html.dark .bg-slate-100 { background-color: #1E2A47 !important; }
+
+  /* Text */
+  html.dark .text-ink { color: #E2E8F0 !important; }
+  html.dark .text-ink\/80, html.dark .text-ink\/85, html.dark .text-ink\/90 { color: rgba(226,232,240,.85) !important; }
+  html.dark .text-mute { color: #94A3B8 !important; }
+  html.dark .text-slate-700 { color: #CBD5E1 !important; }
+  html.dark .text-slate-600 { color: #94A3B8 !important; }
+  html.dark .text-slate-500, html.dark .text-slate-400 { color: #64748B !important; }
+
+  /* Borders */
+  html.dark .border-line { border-color: #2A3656 !important; }
+  html.dark .border-slate-100, html.dark .border-slate-200 { border-color: #2A3656 !important; }
+  html.dark .divide-line > * + * { border-color: #2A3656 !important; }
+  html.dark .ring-white { --tw-ring-color: #131C2E !important; }
+
+  /* Brand tints become slightly translucent on dark */
+  html.dark .bg-brand-50  { background-color: rgba(46,65,145,.18) !important; }
+  html.dark .bg-brand-50\/40, html.dark .bg-brand-50\/60 { background-color: rgba(46,65,145,.12) !important; }
+  html.dark .bg-brand-100 { background-color: rgba(46,65,145,.28) !important; }
+  html.dark .text-brand-700 { color: #A5B4FC !important; }
+  html.dark .text-brand-600 { color: #93B0FF !important; }
+  html.dark .border-brand-100, html.dark .border-brand-200 { border-color: rgba(99,121,209,.4) !important; }
+
+  html.dark .bg-sky2-50  { background-color: rgba(56,182,255,.15) !important; }
+  html.dark .text-sky2-600, html.dark .text-sky2-500 { color: #7DD0FF !important; }
+
+  html.dark .bg-emerald-50 { background-color: rgba(16,185,129,.18) !important; }
+  html.dark .text-emerald-700, html.dark .text-emerald-600 { color: #34D399 !important; }
+  html.dark .border-emerald-200 { border-color: rgba(16,185,129,.4) !important; }
+
+  html.dark .bg-rose-50 { background-color: rgba(244,63,94,.18) !important; }
+  html.dark .text-rose-700, html.dark .text-rose-600 { color: #FB7185 !important; }
+  html.dark .border-rose-200 { border-color: rgba(244,63,94,.4) !important; }
+
+  html.dark .bg-amber-50 { background-color: rgba(245,158,11,.18) !important; }
+  html.dark .text-amber-700, html.dark .text-amber-600, html.dark .text-amber-800 { color: #FBBF24 !important; }
+  html.dark .border-amber-200 { border-color: rgba(245,158,11,.4) !important; }
+
+  html.dark .bg-violet-50 { background-color: rgba(124,58,237,.18) !important; }
+  html.dark .text-violet-700, html.dark .text-violet-600 { color: #C4B5FD !important; }
+
+  /* Form fields */
+  html.dark .field { background-color: #0F172A !important; border-color: #2A3656 !important; color: #E2E8F0 !important; }
+  html.dark input, html.dark textarea, html.dark select { color-scheme: dark; }
+  html.dark input[type="text"], html.dark input[type="email"], html.dark input[type="number"],
+  html.dark input[type="password"], html.dark input[type="date"], html.dark input[type="tel"],
+  html.dark textarea, html.dark select { background-color: #0F172A !important; border-color: #2A3656 !important; color: #E2E8F0 !important; }
+  html.dark input::placeholder, html.dark textarea::placeholder { color: #64748B !important; }
+
+  /* Hover backgrounds */
+  html.dark .hover\:bg-bg2:hover { background-color: #1A2540 !important; }
+  html.dark .hover\:bg-white:hover { background-color: #1A2540 !important; }
+  html.dark .hover\:bg-slate-100:hover { background-color: #1E2A47 !important; }
+  html.dark .hover\:bg-brand-50:hover { background-color: rgba(46,65,145,.25) !important; }
+  html.dark .hover\:bg-rose-50:hover { background-color: rgba(244,63,94,.18) !important; }
+  html.dark .hover\:bg-emerald-50:hover { background-color: rgba(16,185,129,.18) !important; }
+
+  /* Shadows on dark - tone them down */
+  html.dark .shadow-card { box-shadow: 0 1px 2px 0 rgba(0,0,0,.5), 0 1px 3px 0 rgba(0,0,0,.4) !important; }
+  html.dark .shadow-pop  { box-shadow: 0 12px 32px -8px rgba(0,0,0,.65), 0 4px 12px -2px rgba(0,0,0,.45) !important; }
+
+  /* Code snippets dark-friendly */
+  html.dark pre.bg-ink { background-color: #060B17 !important; }
+
+  /* Modal backdrop */
+  html.dark .bg-ink\/30, html.dark .bg-ink\/40 { background-color: rgba(0,0,0,.7) !important; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+    window.NB_TWEAKS = /*EDITMODE-BEGIN*/{
+      "txnRowCount": 8,
+      "txnDensity": "regular",
+      "txnStriped": false,
+      "txnShowToolbar": true,
+      "txnShowDonatur": true,
+      "txnShowCampaign": true,
+      "txnShowMetode": true,
+      "txnShowSumber": true,
+      "txnShowStatus": true,
+      "txnShowTanggal": true,
+      "txnAnonymizeAll": false,
+      "txnAccent": "#2E4191",
+      "txnTitle": "10 transaksi paling baru",
+      "txnAutoConfirmMoota": true,
+      "txnShowMethodFilter": true,
+      "txnHighlightAutoConfirm": true
+    }/*EDITMODE-END*/;
+  </script>
+
+  <script type="text/babel" src="src/tweaks-panel.jsx"></script>
+  <script type="text/babel" src="src/data.js"></script>
+  <script type="text/babel" src="src/icons.jsx"></script>
+  <script type="text/babel" src="src/components.jsx"></script>
+  <script type="text/babel" src="src/views/dashboard.jsx"></script>
+  <script type="text/babel" src="src/views/campaigns.jsx"></script>
+  <script type="text/babel" src="src/views/campaign-editor.jsx"></script>
+  <script type="text/babel" src="src/views/analytics.jsx"></script>
+  <script type="text/babel" src="src/views/fundraiser.jsx"></script>
+  <script type="text/babel" src="src/views/shortcode.jsx"></script>
+  <script type="text/babel" src="src/views/members.jsx"></script>
+  <script type="text/babel" src="src/views/profile.jsx"></script>
+  <script type="text/babel" src="src/views/settings.jsx"></script>
+  <script type="text/babel" src="src/views/notifications.jsx"></script>
+  <script type="text/babel" src="src/views/trash.jsx"></script>
+  <script type="text/babel" src="src/views/data-studio.jsx"></script>
+  <script type="text/babel" src="src/views/ads-guide.jsx"></script>
+  <script type="text/babel" src="src/views/cs-inbox.jsx"></script>
+  <script type="text/babel" src="src/views/advertiser.jsx"></script>
+  <script type="text/babel" src="src/app.jsx"></script>
+</body>
+</html>

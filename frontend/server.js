@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs");
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -18,6 +19,28 @@ const MIME_TYPES = {
 
 const PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
+const PUBLIC_DIR = path.join(ROOT, "public");
+
+// Cache-bust version derived from the built bundle (changes on every build).
+function assetVersion() {
+  try {
+    const st = fs.statSync(path.join(PUBLIC_DIR, "app.min.js"));
+    return String(Math.floor(st.mtimeMs));
+  } catch {
+    return String(Date.now());
+  }
+}
+const ASSET_VER = assetVersion();
+
+// index.html is small — read once, inject the asset version.
+function indexHtml() {
+  const raw = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  return raw.replace(/__ASSET_VER__/g, ASSET_VER);
+}
+let INDEX_HTML = indexHtml();
+
+// Built assets live in public/ and are served immutably (cache-busted via ?v=).
+const BUILT_ASSETS = new Set(["/app.min.js", "/app.css", "/app.bundle.js"]);
 
 Bun.serve({
   port: PORT,
@@ -25,7 +48,25 @@ Bun.serve({
     const url = new URL(req.url);
     let pathname = url.pathname;
 
-    if (pathname === "/") pathname = "/index.html";
+    if (pathname === "/" || pathname === "/index.html") {
+      return new Response(INDEX_HTML, {
+        headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" },
+      });
+    }
+
+    // Built bundle / stylesheet → public/, immutable.
+    if (BUILT_ASSETS.has(pathname)) {
+      const file = Bun.file(path.join(PUBLIC_DIR, pathname));
+      if (await file.exists()) {
+        const ext = path.extname(pathname).toLowerCase();
+        return new Response(file, {
+          headers: {
+            "Content-Type": MIME_TYPES[ext] || "application/octet-stream",
+            "Cache-Control": "public, max-age=31536000, immutable",
+          },
+        });
+      }
+    }
 
     const filePath = path.join(ROOT, pathname);
 
@@ -34,9 +75,9 @@ Bun.serve({
       const exists = await file.exists();
 
       if (!exists) {
-        const indexFile = Bun.file(path.join(ROOT, "index.html"));
-        return new Response(indexFile, {
-          headers: { "Content-Type": "text/html; charset=utf-8" },
+        // SPA fallback → index.html (with injected asset version).
+        return new Response(INDEX_HTML, {
+          headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" },
         });
       }
 
@@ -55,4 +96,4 @@ Bun.serve({
   },
 });
 
-console.log(`NIATBAIK.ORG frontend running on http://localhost:${PORT}`);
+console.log(`NIATBAIK.ORG frontend running on http://localhost:${PORT} (assets v${ASSET_VER})`);

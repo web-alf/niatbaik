@@ -143,5 +143,54 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 		setting.SocialProofConfig = req.SocialProofConfig
 	}
 
+	// Ads tracking & pixels
+	if req.MetaPixelID != "" {
+		setting.MetaPixelID = req.MetaPixelID
+	}
+	if req.MetaCAPIEnabled != nil {
+		setting.MetaCAPIEnabled = *req.MetaCAPIEnabled
+	}
+	if req.GTMID != "" {
+		setting.GTMID = req.GTMID
+	}
+	if req.GoogleAdsConversionID != "" {
+		setting.GoogleAdsConversionID = req.GoogleAdsConversionID
+	}
+	if req.GA4MeasurementID != "" {
+		setting.GA4MeasurementID = req.GA4MeasurementID
+	}
+	if req.TiktokPixelID != "" {
+		setting.TiktokPixelID = req.TiktokPixelID
+	}
+	if req.TiktokEAPIEnabled != nil {
+		setting.TiktokEAPIEnabled = *req.TiktokEAPIEnabled
+	}
+	if req.LookerStudioEmbed != "" {
+		setting.LookerStudioEmbed = req.LookerStudioEmbed
+	}
+	if req.EventTrackingConfig != "" {
+		setting.EventTrackingConfig = req.EventTrackingConfig
+	}
+
+	// Moota / Flip detail
+	if req.MootaEndpoint != "" {
+		setting.MootaEndpoint = req.MootaEndpoint
+	}
+	if req.MootaSignatureEnabled != nil {
+		setting.MootaSignatureEnabled = *req.MootaSignatureEnabled
+	}
+	if req.MootaDateRange != nil {
+		setting.MootaDateRange = *req.MootaDateRange
+	}
+	if req.FlipMode != "" {
+		setting.FlipMode = req.FlipMode
+	}
+	if req.FlipAutoRedirect != nil {
+		setting.FlipAutoRedirect = *req.FlipAutoRedirect
+	}
+	if req.FlipChargeFee != "" {
+		setting.FlipChargeFee = req.FlipChargeFee
+	}
+
 	return s.settingRepo.Update(setting)
 }

@@ -1,5 +1,988 @@
-// views/settings.jsx (stub — replaced in its phase)
 function SettingsView() {
-  return <div className="min-h-[40vh] flex items-center justify-center text-mute text-sm">Settings — segera hadir</div>;
+  const [tab, setTab] = useStateA('themes');
+  const tabs = [
+    { value:'themes',       label:'Themes',         icon:'palette' },
+    { value:'form',         label:'Form',           icon:'edit' },
+    { value:'payment',      label:'Payment',        icon:'creditcard' },
+    { value:'tracking',     label:'Tracking & Ads', icon:'pixel' },
+    { value:'notification', label:'Notification',   icon:'bell' },
+    { value:'social',       label:'Social Proof',   icon:'smile' },
+    { value:'fundraising',  label:'Fundraising',    icon:'handshake' },
+    { value:'general',      label:'General',        icon:'cog' },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <PageHeader title="Settings" subtitle="Pengaturan platform NIATBAIK.ORG."/>
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
+        <Card className="lg:col-span-1 p-3 h-fit lg:sticky top-20">
+          <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto no-scrollbar">
+            {tabs.map((t) => (
+              <button key={t.value} onClick={() => setTab(t.value)}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap ${tab===t.value ? 'bg-brand-50 text-brand-700' : 'text-ink/80 hover:bg-bg2'}`}>
+                <Icon name={t.icon} size={16} className={tab===t.value ? 'text-brand-600' : 'text-mute'}/>
+                {t.label}
+              </button>
+            ))}
+          </nav>
+        </Card>
+
+        <div className="lg:col-span-4 space-y-5">
+          {tab === 'themes' && <ThemesPanel/>}
+          {tab === 'form' && <FormPanel/>}
+          {tab === 'payment' && <PaymentPanel/>}
+          {tab === 'tracking' && <TrackingPanel/>}
+          {tab === 'notification' && <NotificationPanel/>}
+          {tab === 'social' && <SocialPanel/>}
+          {tab === 'fundraising' && <FundraisingPanel/>}
+          {tab === 'general' && <GeneralPanel/>}
+        </div>
+      </div>
+    </div>
+  );
 }
+
+function Section({ title, sub, children, actions }) {
+  return (
+    <Card className="p-5">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <div className="font-bold text-ink">{title}</div>
+          {sub && <div className="text-xs text-mute mt-0.5">{sub}</div>}
+        </div>
+        {actions}
+      </div>
+      {children}
+    </Card>
+  );
+}
+
+function ThemesPanel() {
+  const [color, setColor] = useStateA('#2E4191');
+  const [radius, setRadius] = useStateA(16);
+  return (
+    <>
+      <Section title="Logo & Brand">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="rounded-xl border border-dashed border-line bg-bg2 p-6 flex items-center justify-center min-h-[140px]">
+            <div className="text-center">
+              <img src="assets/logo.png" alt="logo" className="mx-auto h-12"/>
+              <Btn size="sm" variant="outline" tone="ink" icon="upload" className="mt-3">Upload Logo</Btn>
+              <div className="text-xs text-mute mt-2">PNG / SVG · max 1MB</div>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-semibold text-mute">Primary Color</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-10 w-10 rounded-lg border border-line cursor-pointer"/>
+                <input value={color} onChange={(e) => setColor(e.target.value)} className="field font-mono"/>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-mute">Secondary Color</label>
+              <div className="mt-1 flex items-center gap-2">
+                <div className="h-10 w-10 rounded-lg border border-line" style={{background:'#38B6FF'}}/>
+                <input className="field font-mono" defaultValue="#38B6FF"/>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-mute">Font</label>
+              <Select value="plus-jakarta" onChange={()=>{}} options={[
+                {value:'plus-jakarta', label:'Plus Jakarta Sans'},
+                {value:'inter', label:'Inter'},
+                {value:'manrope', label:'Manrope'},
+                {value:'poppins', label:'Poppins'},
+              ]} className="mt-1"/>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-mute flex items-center justify-between">Border Radius <span className="text-ink font-bold">{radius}px</span></label>
+              <input type="range" min="0" max="24" step="2" value={radius} onChange={(e) => setRadius(+e.target.value)} className="w-full mt-1 accent-brand-600"/>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-mute">Button Style</label>
+              <div className="grid grid-cols-3 gap-2 mt-1">
+                {['Solid','Outline','Ghost'].map((s) => (
+                  <button key={s} className="py-2 rounded-lg border border-line text-xs font-bold hover:border-brand-600 hover:bg-brand-50 hover:text-brand-700">{s}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Preview Theme" sub="Lihat tampilan komponen dengan tema saat ini.">
+        <div className="rounded-xl bg-bg2 p-6">
+          <div className="bg-white rounded-2xl p-5 border border-line shadow-card max-w-md mx-auto" style={{ borderRadius: radius + 'px' }}>
+            <div className="font-bold text-lg text-ink">Donasi Hari Ini</div>
+            <div className="text-mute text-sm">Bersama untuk Indonesia lebih baik.</div>
+            <button className="mt-4 px-5 py-2.5 rounded-xl text-white font-bold w-full"
+              style={{ background: color, borderRadius: radius + 'px' }}>
+              Donasi Sekarang
+            </button>
+            <Progress value={75} max={100} height="h-2" className="mt-3"/>
+          </div>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+function FormPanel() {
+  return (
+    <>
+      <Section title="Field Form Donasi" sub="Atur field yang muncul pada form donasi.">
+        <div className="space-y-3">
+          {[
+            { label:'Nama donatur',       def:true,  req:true },
+            { label:'No. WhatsApp',       def:true,  req:true },
+            { label:'Email',              def:true,  req:false },
+            { label:'Alamat',             def:false, req:false },
+            { label:'NPWP (zakat)',       def:false, req:false },
+            { label:'Doa / pesan donatur', def:true, req:false },
+            { label:'Checkbox anonim',    def:true,  req:false },
+          ].map((f, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-line">
+              <div className="font-semibold text-ink flex-1">{f.label}</div>
+              <label className="text-xs text-mute flex items-center gap-2">Required <input type="checkbox" defaultChecked={f.req}/></label>
+              <Toggle value={f.def} onChange={()=>{}}/>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Nominal Preset & Minimum">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-semibold text-mute">Preset nominal</label>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {[25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000].map((p) => (
+                <span key={p} className="px-2.5 py-1 rounded-md border border-line bg-bg2 text-xs font-bold text-ink inline-flex items-center gap-1">
+                  {fmtIDRShort(p)}
+                  <button className="text-mute hover:text-rose-600"><Icon name="close" size={12}/></button>
+                </span>
+              ))}
+              <button className="px-2.5 py-1 rounded-md border border-dashed border-line text-xs font-bold text-mute hover:text-brand-600 hover:border-brand-300">+ Tambah</button>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div><label className="text-xs font-semibold text-mute">Minimum donasi</label><input className="field mt-1" defaultValue="Rp 10.000"/></div>
+            <Toggle value={true} onChange={()=>{}} label="Izinkan donasi anonim" sub="Donatur bisa tampil sebagai Hamba Allah."/>
+            <Toggle value={true} onChange={()=>{}} label="Aktifkan doa / pesan donatur" sub="Field doa akan tampil di form donasi."/>
+          </div>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+function PaymentPanel() {
+  const { showToast } = useApp();
+  const [methods, setMethods] = useStateA([
+    { id:'m1', name:'QRIS',                provider:'QRIS',         type:'QRIS',          holder:'Yayasan Niat Baik', account:'-',                  fee:'0.7%',           active:true,  locked:true },
+    { id:'m2', name:'BCA Virtual Account', provider:'Bank BCA',     type:'Bank Transfer', holder:'Yayasan Niat Baik', account:'8901234567',         fee:'Rp 4.000',       active:true },
+    { id:'m3', name:'Mandiri VA',          provider:'Bank Mandiri', type:'Bank Transfer', holder:'Yayasan Niat Baik', account:'8908765432',         fee:'Rp 4.000',       active:true },
+    { id:'m4', name:'BNI VA',              provider:'Bank BNI',     type:'Bank Transfer', holder:'Yayasan Niat Baik', account:'8901122334',         fee:'Rp 4.000',       active:true },
+    { id:'m5', name:'GoPay',               provider:'GoPay',        type:'E-wallet',      holder:'Yayasan Niat Baik', account:'08123456789',        fee:'2%',             active:true,  locked:true },
+    { id:'m6', name:'OVO',                 provider:'OVO',          type:'E-wallet',      holder:'Yayasan Niat Baik', account:'08129876543',        fee:'2%',             active:true,  locked:true },
+    { id:'m7', name:'Dana',                provider:'Dana',         type:'E-wallet',      holder:'Yayasan Niat Baik', account:'08118887766',        fee:'2%',             active:true,  locked:true },
+    { id:'m8', name:'ShopeePay',           provider:'ShopeePay',    type:'E-wallet',      holder:'Yayasan Niat Baik', account:'08113334455',        fee:'2%',             active:false, locked:true },
+    { id:'m9', name:'Kartu Kredit',        provider:'Visa/Master',  type:'Card',          holder:'-',                 account:'-',                   fee:'2.9% + Rp 2.000', active:false, locked:true },
+  ]);
+  const [modalOpen, setModalOpen] = useStateA(false);
+  const [editing, setEditing]     = useStateA(null);
+  const [confirmDel, setConfirmDel] = useStateA(null);
+
+  const openAdd  = () => { setEditing(null); setModalOpen(true); };
+  const openEdit = (m) => { setEditing(m);  setModalOpen(true); };
+
+  const handleSave = (data) => {
+    if (editing) {
+      setMethods((prev) => prev.map(x => x.id === editing.id ? { ...x, ...data } : x));
+      showToast(`Payment "${data.name}" diperbarui`);
+    } else {
+      const id = 'm' + (Date.now() % 100000);
+      setMethods((prev) => [...prev, { id, active:true, ...data }]);
+      showToast(`Payment "${data.name}" ditambahkan`);
+    }
+    setModalOpen(false);
+    setEditing(null);
+  };
+
+  const handleDelete = () => {
+    setMethods((prev) => prev.filter(x => x.id !== confirmDel.id));
+    showToast(`Payment "${confirmDel.name}" dihapus`);
+    setConfirmDel(null);
+  };
+
+  const toggle = (m) => setMethods((prev) => prev.map(x => x.id === m.id ? { ...x, active: !x.active } : x));
+
+  return (
+    <>
+      <Section title="Payment Gateway" sub="Kelola metode pembayaran yang tersedia bagi donatur. Tambah rekening bank tujuan, atau aktifkan/nonaktifkan metode existing."
+        actions={<Btn size="sm" icon="plus" onClick={openAdd}>Add Payment</Btn>}>
+
+        <div className="space-y-2">
+          {methods.map((m) => (
+            <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl border border-line hover:border-brand-200 transition-colors group">
+              <PaymentLogo provider={m.provider}/>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="font-bold text-ink">{m.name}</div>
+                  <Badge tone={m.type === 'QRIS' ? 'brand' : m.type === 'Bank Transfer' ? 'sky' : m.type === 'E-wallet' ? 'purple' : 'slate'} size="sm">
+                    {m.type}
+                  </Badge>
+                  {m.locked && <Badge tone="outline" size="sm">default</Badge>}
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-mute">
+                  {m.account && m.account !== '-' && (
+                    <span className="font-mono">
+                      <span className="text-mute">No. Rek:</span> <b className="text-ink">{m.account}</b>
+                    </span>
+                  )}
+                  {m.holder && m.holder !== '-' && <span>a.n. {m.holder}</span>}
+                  <span>fee {m.fee}</span>
+                </div>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2">
+                <StatusBadge status={m.active ? 'active' : 'inactive'}/>
+                <Toggle value={m.active} onChange={() => toggle(m)}/>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button onClick={() => openEdit(m)} title="Edit"
+                  className="h-8 w-8 rounded-md text-mute hover:bg-brand-50 hover:text-brand-600 flex items-center justify-center">
+                  <Icon name="edit" size={14}/>
+                </button>
+                <button onClick={() => setConfirmDel(m)} disabled={m.locked} title={m.locked ? 'Default · tidak bisa dihapus' : 'Hapus'}
+                  className={`h-8 w-8 rounded-md flex items-center justify-center ${m.locked ? 'text-mute/40 cursor-not-allowed' : 'text-mute hover:bg-rose-50 hover:text-rose-600'}`}>
+                  <Icon name="trash" size={14}/>
+                </button>
+              </div>
+            </div>
+          ))}
+
+          <button onClick={openAdd}
+            className="w-full px-3 py-3 rounded-xl border border-dashed border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50 hover:border-brand-300 flex items-center justify-center gap-2">
+            <Icon name="plus" size={14}/> Add Payment Method
+          </button>
+        </div>
+      </Section>
+
+      <Section title="Payment Report" sub="Unduh laporan berdasarkan metode pembayaran." actions={<Btn size="sm" icon="download">Download semua</Btn>}>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {['QRIS','Bank VA','GoPay','OVO','Dana','ShopeePay','Card','Lainnya'].map((p) => (
+            <button key={p} className="p-3 rounded-xl border border-line hover:border-brand-600 hover:bg-brand-50 text-left">
+              <div className="text-xs text-mute">Metode</div>
+              <div className="font-bold text-ink">{p}</div>
+              <div className="mt-2 text-[11px] inline-flex items-center gap-1 text-brand-600 font-semibold"><Icon name="download" size={12}/> Unduh CSV</div>
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <PaymentEditorModal open={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }} editing={editing} onSave={handleSave}/>
+
+      <Modal open={!!confirmDel} onClose={() => setConfirmDel(null)} title="Hapus Metode Pembayaran" size="sm"
+        footer={<>
+          <Btn variant="outline" tone="ink" onClick={() => setConfirmDel(null)}>Batal</Btn>
+          <Btn tone="bad" icon="trash" onClick={handleDelete}>Hapus permanen</Btn>
+        </>}>
+        <div className="text-sm text-ink/85">
+          Hapus <b>{confirmDel?.name}</b> dari daftar metode pembayaran?
+        </div>
+        {confirmDel?.account && confirmDel.account !== '-' && (
+          <div className="mt-3 rounded-lg bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800">
+            <Icon name="shield" size={12} className="inline mr-1"/>
+            No. Rek <b className="font-mono">{confirmDel.account}</b> a.n. <b>{confirmDel.holder}</b> tidak akan tersedia lagi untuk donatur baru.
+          </div>
+        )}
+      </Modal>
+    </>
+  );
+}
+
+// =========================================================
+// Payment provider logo / acronym tile
+// =========================================================
+function PaymentLogo({ provider }) {
+  const palette = {
+    'QRIS':         { bg:'bg-rose-50',     fg:'text-rose-700',     label:'QRIS' },
+    'Bank BCA':     { bg:'bg-blue-50',     fg:'text-blue-700',     label:'BCA' },
+    'Bank Mandiri': { bg:'bg-yellow-50',   fg:'text-amber-700',    label:'MAND' },
+    'Bank BNI':     { bg:'bg-orange-50',   fg:'text-orange-700',   label:'BNI' },
+    'Bank BRI':     { bg:'bg-sky-50',      fg:'text-sky-700',      label:'BRI' },
+    'Bank Syariah Indonesia': { bg:'bg-emerald-50', fg:'text-emerald-700', label:'BSI' },
+    'CIMB Niaga':   { bg:'bg-red-50',      fg:'text-red-700',      label:'CIMB' },
+    'Permata Bank': { bg:'bg-emerald-50',  fg:'text-emerald-700',  label:'PRMT' },
+    'BTN':          { bg:'bg-blue-50',     fg:'text-blue-700',     label:'BTN' },
+    'Maybank':      { bg:'bg-amber-50',    fg:'text-amber-700',    label:'MAYB' },
+    'GoPay':        { bg:'bg-sky-50',      fg:'text-sky-700',      label:'GOPA' },
+    'OVO':          { bg:'bg-violet-50',   fg:'text-violet-700',   label:'OVO' },
+    'Dana':         { bg:'bg-blue-50',     fg:'text-blue-700',     label:'DANA' },
+    'ShopeePay':    { bg:'bg-orange-50',   fg:'text-orange-700',   label:'SHPE' },
+    'LinkAja':      { bg:'bg-red-50',      fg:'text-red-700',      label:'LINK' },
+    'Visa/Master':  { bg:'bg-slate-100',   fg:'text-slate-700',    label:'CC' },
+    'Moota':        { bg:'bg-indigo-50',   fg:'text-indigo-700',   label:'MOOTA' },
+    'Flip':         { bg:'bg-orange-50',   fg:'text-orange-700',   label:'FLIP' },
+  };
+  const p = palette[provider] || { bg:'bg-bg2', fg:'text-ink/70', label: (provider || '??').slice(0,4).toUpperCase() };
+  return (
+    <div className={`h-10 w-14 rounded-md border border-line flex items-center justify-center text-[10px] font-extrabold tracking-wider shrink-0 ${p.bg} ${p.fg}`}>
+      {p.label}
+    </div>
+  );
+}
+
+// =========================================================
+// Payment Editor Modal
+// =========================================================
+const PAYMENT_TYPES = ['Bank Transfer', 'Virtual Account (VA)', 'QRIS', 'E-wallet', 'Card (CC/Debit)'];
+const BANKS = [
+  'Bank BCA', 'Bank Mandiri', 'Bank BNI', 'Bank BRI', 'Bank Syariah Indonesia',
+  'CIMB Niaga', 'Permata Bank', 'BTN', 'Maybank', 'OCBC NISP', 'Danamon', 'Panin',
+  'Bank Mega', 'Bank Jago', 'SeaBank', 'Jenius',
+];
+const EWALLETS = ['GoPay', 'OVO', 'Dana', 'ShopeePay', 'LinkAja'];
+// Payment-gateway aggregators offered under the Virtual Account section
+const VA_GATEWAYS = ['Moota', 'Flip'];
+
+function PaymentEditorModal({ open, onClose, editing, onSave }) {
+  const isEdit = !!editing;
+
+  const blankMoota = () => ({
+    signature:   true,
+    endpoint:    'https://donasi.rumahanaksurga.com/push',
+    secretToken: '',
+    dateRange:   2,
+  });
+  const blankFlip = () => ({
+    mode:           'live',          // 'sandbox' | 'live'
+    secretKey:      '',
+    validationToken:'',
+    callbackUrl:    'https://donasi.rumahanaksurga.com/callback_flip/',
+    autoRedirect:   false,
+    chargeFee:      'merchant',      // 'merchant' | 'donatur'
+  });
+
+  const [form, setForm] = useStateA(() => ({
+    type:     editing?.type     || 'Bank Transfer',
+    provider: editing?.provider || 'Bank BCA',
+    name:     editing?.name     || '',
+    holder:   editing?.holder   || '',
+    account:  editing?.account  || '',
+    fee:      editing?.fee      || 'Rp 4.000',
+    moota:    editing?.moota    || blankMoota(),
+    flip:     editing?.flip     || blankFlip(),
+  }));
+  const [error, setError] = useStateA({});
+
+  useEffectA(() => {
+    if (open) {
+      setForm({
+        type:     editing?.type     || 'Bank Transfer',
+        provider: editing?.provider || 'Bank BCA',
+        name:     editing?.name     || '',
+        holder:   editing?.holder   || 'Yayasan Niat Baik',
+        account:  editing?.account  || '',
+        fee:      editing?.fee      || 'Rp 4.000',
+        moota:    editing?.moota    || blankMoota(),
+        flip:     editing?.flip     || blankFlip(),
+      });
+      setError({});
+    }
+  }, [open, editing?.id]);
+
+  // Provider options reflect type
+  const providerOptions = useMemoA(() => {
+    if (form.type === 'QRIS') return ['QRIS'];
+    if (form.type === 'E-wallet') return EWALLETS;
+    if (form.type === 'Card (CC/Debit)') return ['Visa/Master', 'JCB', 'AMEX'];
+    if (form.type === 'Virtual Account (VA)') return [...VA_GATEWAYS, ...BANKS];
+    return BANKS;
+  }, [form.type]);
+
+  // When type changes, snap provider to first valid option
+  useEffectA(() => {
+    if (!providerOptions.includes(form.provider)) {
+      setForm((f) => ({ ...f, provider: providerOptions[0] }));
+    }
+  }, [providerOptions]);
+
+  // Auto-suggest name: "BCA Virtual Account", "Bank BCA Transfer", "GoPay", etc.
+  useEffectA(() => {
+    if (!form.name || (editing && editing.name === form.name)) {
+      let auto = form.provider;
+      if (form.type === 'Virtual Account (VA)' && VA_GATEWAYS.includes(form.provider)) auto = form.provider + ' Payment Gateway';
+      else if (form.type === 'Virtual Account (VA)') auto = form.provider.replace(/^Bank\s+/i, '') + ' Virtual Account';
+      else if (form.type === 'Bank Transfer') auto = form.provider.replace(/^Bank\s+/i, '') + ' Transfer';
+      else if (form.type === 'Card (CC/Debit)') auto = 'Kartu Kredit / Debit';
+      else if (form.type === 'QRIS') auto = 'QRIS';
+      if (!isEdit) setForm((f) => ({ ...f, name: auto }));
+    }
+  }, [form.type, form.provider]);
+
+  const isGateway = form.type === 'Virtual Account (VA)' && VA_GATEWAYS.includes(form.provider);
+  const needsAccount = !isGateway && (form.type === 'Bank Transfer' || form.type === 'Virtual Account (VA)' || form.type === 'E-wallet');
+  const setMoota = (patch) => setForm((f) => ({ ...f, moota: { ...f.moota, ...patch } }));
+  const setFlip  = (patch) => setForm((f) => ({ ...f, flip:  { ...f.flip,  ...patch } }));
+  const accountLabel = form.type === 'E-wallet' ? 'No. HP / akun e-wallet' : 'Nomor Rekening';
+  const accountPattern = form.type === 'E-wallet' ? /^[0-9+]+$/ : /^\d+$/;
+
+  const validate = () => {
+    const e = {};
+    if (!form.name.trim()) e.name = 'Nama metode wajib diisi';
+    if (isGateway) {
+      if (form.provider === 'Moota' && !form.moota.secretToken.trim()) e.secretToken = 'Moota Secret Token wajib diisi';
+      if (form.provider === 'Flip') {
+        if (!form.flip.secretKey.trim()) e.secretKey = 'Flip API Secret Key wajib diisi';
+        if (!form.flip.validationToken.trim()) e.validationToken = 'Flip Validation Token wajib diisi';
+      }
+    } else if (needsAccount) {
+      if (!form.holder.trim()) e.holder = 'Atas nama wajib diisi';
+      if (!form.account.trim()) e.account = 'Nomor rekening / akun wajib diisi';
+      else if (!accountPattern.test(form.account.replace(/\s|-/g, ''))) e.account = 'Hanya angka diperbolehkan';
+      else if (form.account.replace(/\D/g,'').length < 6) e.account = 'Minimal 6 digit';
+    }
+    if (!form.fee.trim()) e.fee = 'Fee wajib diisi';
+    setError(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const submit = () => {
+    if (!validate()) return;
+    onSave({
+      type:     form.type === 'Virtual Account (VA)' ? 'Bank Transfer' : form.type,
+      provider: form.provider,
+      name:     form.name.trim(),
+      holder:   (!isGateway && needsAccount) ? form.holder.trim() : '-',
+      account:  (!isGateway && needsAccount) ? form.account.replace(/\s|-/g, '') : '-',
+      fee:      form.fee.trim(),
+      ...(form.provider === 'Moota' ? { moota: form.moota } : {}),
+      ...(form.provider === 'Flip'  ? { flip:  form.flip  } : {}),
+    });
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} size="lg"
+      title={<span className="flex items-center gap-2">
+        <span className="h-7 w-7 rounded-md bg-brand-50 text-brand-600 flex items-center justify-center"><Icon name={isEdit ? 'edit' : 'plus'} size={14}/></span>
+        {isEdit ? 'Edit Payment Method' : 'Add Payment Method'}
+      </span>}
+      footer={<>
+        <Btn variant="outline" tone="ink" onClick={onClose}>Batal</Btn>
+        <Btn icon={isEdit ? 'check' : 'plus'} onClick={submit}>{isEdit ? 'Simpan perubahan' : 'Tambah Metode'}</Btn>
+      </>}>
+
+      <div className="space-y-5">
+        {/* Type */}
+        <div>
+          <label className="text-sm font-semibold text-ink">Methode Pembayaran <span className="text-rose-600">*</span></label>
+          <div className="mt-2 grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {PAYMENT_TYPES.map((t) => (
+              <button key={t} type="button" onClick={() => setForm({ ...form, type: t })}
+                className={`p-2.5 rounded-lg border-2 text-xs font-bold text-left transition-all ${form.type === t ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:bg-bg2'}`}>
+                <Icon name={t === 'QRIS' ? 'pix' : t.includes('Card') ? 'creditcard' : t === 'E-wallet' ? 'wallet' : 'briefcase'} size={14}
+                  className={form.type === t ? 'text-brand-600 mb-1' : 'text-mute mb-1'}/>
+                <div className="leading-tight">{t}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Provider / Bank */}
+          <div>
+            <label className="text-sm font-semibold text-ink">
+              {form.type === 'E-wallet' ? 'Provider E-wallet' : form.type === 'Card (CC/Debit)' ? 'Jaringan Kartu' : form.type === 'QRIS' ? 'Penerbit QRIS' : 'Nama Bank'}
+              <span className="text-rose-600"> *</span>
+            </label>
+            <div className="mt-1.5 relative">
+              <select value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })}
+                className="appearance-none w-full h-10 rounded-lg border border-line bg-white pl-3 pr-9 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600">
+                {providerOptions.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <Icon name="chevronD" size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-mute pointer-events-none"/>
+            </div>
+          </div>
+
+          {/* Name */}
+          <div>
+            <label className="text-sm font-semibold text-ink">Nama Tampilan <span className="text-rose-600">*</span></label>
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className={`field mt-1.5 ${error.name ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
+              placeholder="cth: BCA Virtual Account"/>
+            {error.name && <div className="text-[11px] text-rose-600 font-semibold mt-1">{error.name}</div>}
+          </div>
+        </div>
+
+        {needsAccount && (
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr] gap-4 pt-4 border-t border-line">
+            <div className="sm:col-span-2 text-xs font-bold uppercase tracking-wider text-mute">Detail Rekening</div>
+            <div>
+              <label className="text-sm font-semibold text-ink">Atas Nama <span className="text-rose-600">*</span></label>
+              <input value={form.holder} onChange={(e) => setForm({ ...form, holder: e.target.value })}
+                className={`field mt-1.5 ${error.holder ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
+                placeholder="cth: Yayasan Niat Baik"/>
+              {error.holder && <div className="text-[11px] text-rose-600 font-semibold mt-1">{error.holder}</div>}
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-ink">{accountLabel} <span className="text-rose-600">*</span></label>
+              <input value={form.account} onChange={(e) => setForm({ ...form, account: e.target.value })}
+                className={`field mt-1.5 font-mono ${error.account ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
+                placeholder={form.type === 'E-wallet' ? '081234567890' : '8901234567'}/>
+              {error.account && <div className="text-[11px] text-rose-600 font-semibold mt-1">{error.account}</div>}
+            </div>
+          </div>
+        )}
+
+        {isGateway && form.provider === 'Moota' && <MootaConfig moota={form.moota} setMoota={setMoota} error={error}/>}
+        {isGateway && form.provider === 'Flip'  && <FlipConfig  flip={form.flip}   setFlip={setFlip}   error={error}/>}
+
+        <div className="pt-4 border-t border-line">
+          <label className="text-sm font-semibold text-ink">Fee Transaksi <span className="text-rose-600">*</span></label>
+          <input value={form.fee} onChange={(e) => setForm({ ...form, fee: e.target.value })}
+            className={`field mt-1.5 ${error.fee ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
+            placeholder="cth: Rp 4.000 atau 2%"/>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {['Gratis', 'Rp 2.500', 'Rp 4.000', '0.7%', '2%', '2.9% + Rp 2.000'].map((f) => (
+              <button key={f} type="button" onClick={() => setForm({ ...form, fee: f })}
+                className="px-2 py-0.5 rounded-full bg-bg2 hover:bg-brand-50 hover:text-brand-700 text-[10px] font-bold text-ink/80 border border-line">
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Live preview */}
+        <div className="pt-4 border-t border-line">
+          <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Preview Item</div>
+          <div className="flex items-center gap-3 p-3 rounded-xl border border-line bg-bg2/40">
+            <PaymentLogo provider={form.provider}/>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="font-bold text-ink">{form.name || 'Nama metode…'}</div>
+                <Badge tone="sky" size="sm">{form.type === 'Virtual Account (VA)' ? 'Bank Transfer' : form.type}</Badge>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-mute">
+                {needsAccount && form.account && (
+                  <span className="font-mono"><span>No. Rek:</span> <b className="text-ink">{form.account}</b></span>
+                )}
+                {needsAccount && form.holder && <span>a.n. {form.holder}</span>}
+                <span>fee {form.fee || '—'}</span>
+              </div>
+            </div>
+            <Badge tone="ok" dot>active</Badge>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// =========================================================
+// Moota gateway config (Signature, URL Endpoint, Secret Token, Date Range)
+// =========================================================
+function MootaConfig({ moota, setMoota, error }) {
+  const { showToast } = useApp();
+  const copy = (txt) => { try { navigator.clipboard.writeText(txt); } catch{} showToast('URL endpoint disalin'); };
+  return (
+    <div className="pt-4 border-t border-line space-y-5">
+      <div className="flex items-center gap-2">
+        <div className="h-7 w-7 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center"><Icon name="shield" size={14}/></div>
+        <div className="text-xs font-bold uppercase tracking-wider text-mute">Konfigurasi Moota</div>
+      </div>
+
+      {/* Signature */}
+      <div>
+        <label className="text-sm font-semibold text-ink">Signature Moota</label>
+        <p className="text-xs text-mute mt-0.5 max-w-md">Default aktif untuk keamanan. Non-aktifkan jika website Anda mengalami kendala dengan pembuatan Signature Moota.</p>
+        <div className="mt-2 flex items-center gap-2">
+          <Toggle value={moota.signature} onChange={(v) => setMoota({ signature: v })}/>
+          <span className={`text-sm font-semibold ${moota.signature ? 'text-emerald-600' : 'text-mute'}`}>{moota.signature ? 'Active' : 'Nonaktif'}</span>
+        </div>
+      </div>
+
+      {/* URL Endpoint */}
+      <div>
+        <label className="text-sm font-semibold text-ink">URL Endpoint</label>
+        <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-line bg-bg2 px-3 h-10">
+          <span className="flex-1 min-w-0 truncate text-sm text-mute font-mono">{moota.endpoint}</span>
+          <button type="button" onClick={() => copy(moota.endpoint)}
+            className="shrink-0 inline-flex items-center gap-1 text-brand-600 text-xs font-bold hover:underline">
+            <Icon name="copy" size={12}/> Copy
+          </button>
+        </div>
+        <p className="text-[11px] text-mute mt-1">Tambahkan URL ini sebagai webhook di dashboard Moota Anda.</p>
+      </div>
+
+      {/* Secret Token */}
+      <div>
+        <label className="text-sm font-semibold text-ink">Moota Secret Token <span className="text-rose-600">*</span></label>
+        <input value={moota.secretToken} onChange={(e) => setMoota({ secretToken: e.target.value })}
+          className={`field mt-1.5 font-mono ${error.secretToken ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
+          placeholder="cth: RHRbv4xy"/>
+        {error.secretToken && <div className="text-[11px] text-rose-600 font-semibold mt-1">{error.secretToken}</div>}
+      </div>
+
+      {/* Date Range */}
+      <div>
+        <label className="text-sm font-semibold text-ink">Moota Date Range</label>
+        <input type="number" min={1} max={30} value={moota.dateRange}
+          onChange={(e) => setMoota({ dateRange: Math.max(1, Math.min(30, Number(e.target.value) || 1)) })}
+          className="field mt-1.5 w-32"/>
+        <p className="text-[11px] text-mute mt-1">Rentang hari pengecekan mutasi (1–30 hari).</p>
+      </div>
+    </div>
+  );
+}
+
+// =========================================================
+// Flip gateway config (Sandbox / LIVE Production)
+// =========================================================
+function FlipConfig({ flip, setFlip, error }) {
+  const { showToast } = useApp();
+  const isLive = flip.mode === 'live';
+  const envLabel = isLive ? 'Production' : 'Sandbox';
+  const copy = (txt) => { try { navigator.clipboard.writeText(txt); } catch{} showToast('URL callback disalin'); };
+  return (
+    <div className="pt-4 border-t border-line space-y-5">
+      <div className="flex items-center gap-2">
+        <div className="h-7 w-7 rounded-md bg-orange-50 text-orange-600 flex items-center justify-center"><Icon name="creditcard" size={14}/></div>
+        <div className="text-xs font-bold uppercase tracking-wider text-mute">Konfigurasi Flip</div>
+      </div>
+
+      {/* Flip Mode */}
+      <div>
+        <label className="text-sm font-semibold text-ink">Flip Mode</label>
+        <p className="text-xs text-mute mt-0.5 max-w-md">Gunakan mode Sandbox (Development) untuk uji coba, dan LIVE jika sistem sudah berjalan.</p>
+        <div className="mt-2 grid grid-cols-2 gap-2 max-w-sm">
+          {[{ v:'sandbox', label:'Sandbox', sub:'Development' }, { v:'live', label:'LIVE', sub:'Production' }].map((o) => (
+            <button key={o.v} type="button" onClick={() => setFlip({ mode: o.v })}
+              className={`p-2.5 rounded-lg border-2 text-left transition-all ${flip.mode === o.v ? (o.v === 'live' ? 'border-emerald-500 bg-emerald-50' : 'border-amber-500 bg-amber-50') : 'border-line hover:bg-bg2'}`}>
+              <div className="flex items-center gap-1.5">
+                <span className={`h-2.5 w-2.5 rounded-full ${flip.mode === o.v ? (o.v === 'live' ? 'bg-emerald-500' : 'bg-amber-500') : 'bg-slate-300'}`}/>
+                <span className="text-sm font-bold text-ink">{o.label}</span>
+              </div>
+              <div className="text-[11px] text-mute mt-0.5 ml-4">{o.sub}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* API Secret Key */}
+      <div>
+        <label className="text-sm font-semibold text-ink">Flip API Secret Key — {envLabel} <span className="text-rose-600">*</span></label>
+        <input value={flip.secretKey} onChange={(e) => setFlip({ secretKey: e.target.value })}
+          className={`field mt-1.5 font-mono text-xs ${error.secretKey ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
+          placeholder={isLive ? 'JDJ5JDEzJExHYnIITUpRbFVqaEVlRlIPeGVT…' : 'sandbox_xxxxxxxxxxxxxxxxxxxx'}/>
+        {error.secretKey && <div className="text-[11px] text-rose-600 font-semibold mt-1">{error.secretKey}</div>}
+      </div>
+
+      {/* Validation Token */}
+      <div>
+        <label className="text-sm font-semibold text-ink">Flip Validation Token — {envLabel} <span className="text-rose-600">*</span></label>
+        <input value={flip.validationToken} onChange={(e) => setFlip({ validationToken: e.target.value })}
+          className={`field mt-1.5 font-mono text-xs ${error.validationToken ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
+          placeholder="cth: $2y$13$gE087s82sD7K8ze8P2G6…"/>
+        {error.validationToken && <div className="text-[11px] text-rose-600 font-semibold mt-1">{error.validationToken}</div>}
+      </div>
+
+      {/* URL Callback */}
+      <div>
+        <label className="text-sm font-semibold text-ink">URL Callback — {envLabel}</label>
+        <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-line bg-bg2 px-3 h-10">
+          <span className="flex-1 min-w-0 truncate text-sm text-mute font-mono">{flip.callbackUrl}</span>
+          <button type="button" onClick={() => copy(flip.callbackUrl)}
+            className="shrink-0 inline-flex items-center gap-1 text-brand-600 text-xs font-bold hover:underline">
+            <Icon name="copy" size={12}/> Copy
+          </button>
+        </div>
+      </div>
+
+      {/* Auto Redirect */}
+      <div>
+        <label className="text-sm font-semibold text-ink">Flip Auto Redirect</label>
+        <p className="text-xs text-mute mt-0.5">Hanya berlaku untuk metode Instant &amp; Transfer Flip.</p>
+        <div className="mt-2 flex items-center gap-2">
+          <Toggle value={flip.autoRedirect} onChange={(v) => setFlip({ autoRedirect: v })}/>
+          <span className={`text-sm font-semibold ${flip.autoRedirect ? 'text-emerald-600' : 'text-mute'}`}>{flip.autoRedirect ? 'ON' : 'OFF'}</span>
+        </div>
+      </div>
+
+      {/* Charge Fee */}
+      <div>
+        <label className="text-sm font-semibold text-ink">Flip Charge Fee</label>
+        <p className="text-xs text-mute mt-0.5 max-w-md">Biaya admin transaksi dapat dibebankan kepada Donatur atau ditanggung oleh Merchant.</p>
+        <div className="mt-2 grid grid-cols-2 gap-2 max-w-sm">
+          {[{ v:'merchant', label:'Merchant' }, { v:'donatur', label:'Donatur' }].map((o) => (
+            <button key={o.v} type="button" onClick={() => setFlip({ chargeFee: o.v })}
+              className={`p-2.5 rounded-lg border-2 text-sm font-bold transition-all ${flip.chargeFee === o.v ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:bg-bg2'}`}>
+              <span className="inline-flex items-center gap-1.5">
+                <span className={`h-2.5 w-2.5 rounded-full ${flip.chargeFee === o.v ? 'bg-brand-600' : 'bg-slate-300'}`}/>
+                {o.label}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isLive && (
+        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 flex items-start gap-2">
+          <Icon name="shield" size={13} className="mt-0.5 shrink-0"/>
+          <div>Mode <b>LIVE (Production)</b> aktif — transaksi akan diproses secara nyata. Pastikan kredensial sudah benar.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TrackingPanel() {
+  const pixels = [
+    { name:'Meta Pixel',         id:'PXL-928374',   status:'active',   icon:'pixel',  color:'bg-[#1877F2]' },
+    { name:'Meta Conversions API', id:'CAPI Token',  status:'active',   icon:'shield', color:'bg-[#1877F2]' },
+    { name:'Google Tag Manager', id:'GTM-7K9XYZ',   status:'active',   icon:'code',   color:'bg-emerald-600' },
+    { name:'Google Ads Conversion', id:'AW-1029384', status:'not',     icon:'target', color:'bg-emerald-600' },
+    { name:'Google Analytics 4', id:'G-X8K2J9LM',   status:'active',   icon:'chart',  color:'bg-amber-500' },
+    { name:'TikTok Pixel',       id:'CIK29JLM3',    status:'error',    icon:'pixel',  color:'bg-black' },
+    { name:'TikTok Events API',  id:'EvT-29JM',     status:'not',      icon:'shield', color:'bg-black' },
+    { name:'Looker Studio (Data Studio)', id:'a1b2c3d4-e5f6-7890-abcd-ef1234567890', status:'active', icon:'chart',  color:'bg-gradient-to-br from-[#4285F4] via-[#0F9D58] to-[#F4B400]' },
+  ];
+  const events = ['PageView','ViewContent','InitiateCheckout','AddPaymentInfo','Lead','CompleteDonation','Purchase'];
+
+  const statusMap = {
+    active: { label:'Active', tone:'ok', dot:true },
+    not:    { label:'Not Connected', tone:'slate' },
+    error:  { label:'Error', tone:'bad', dot:true },
+  };
+  return (
+    <>
+      <Section title="Pixel & Tracking Integrations" sub="Hubungkan Meta, Google, dan TikTok untuk optimasi iklan.">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {pixels.map((p) => (
+            <div key={p.name} className="rounded-xl border border-line p-4">
+              <div className="flex items-start gap-3">
+                <div className={`h-10 w-10 rounded-lg ${p.color} text-white flex items-center justify-center`}><Icon name={p.icon} size={18}/></div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <div className="font-bold text-ink">{p.name}</div>
+                    <Badge tone={statusMap[p.status].tone} dot={statusMap[p.status].dot} size="sm">{statusMap[p.status].label}</Badge>
+                  </div>
+                  <input className="field mt-2 font-mono text-xs" defaultValue={p.id} placeholder="Masukkan ID…"/>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-xs">
+                <span className="text-mute">Last fired: 12 detik lalu</span>
+                <button className="text-brand-600 font-semibold hover:underline">Test event</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Looker Studio Reports" sub="Hubungkan dashboard Looker Studio (Data Studio) untuk konsolidasi semua data ads & donasi dalam satu tampilan."
+        actions={<Btn size="sm" tone="brand" icon="chart" onClick={() => { try { window.dispatchEvent(new CustomEvent('nb-go-datastudio')); } catch{} }}>Buka Data Studio</Btn>}>
+        <div className="space-y-3">
+          {[
+            { name:'Overview Donasi (Master)',   url:'lookerstudio.google.com/reporting/a1b2-…',  updated:'baru saja', status:'active', dim:'47 widget · 6 page', owner:'andre@niatbaik.org' },
+            { name:'Performa Meta Ads',          url:'lookerstudio.google.com/reporting/x9y8-…',  updated:'5 menit lalu', status:'active', dim:'18 widget · 2 page', owner:'dewi@niatbaik.org' },
+            { name:'Performa Google Ads + GA4',  url:'lookerstudio.google.com/reporting/k3l4-…',  updated:'1 jam lalu',  status:'active', dim:'22 widget · 3 page', owner:'dewi@niatbaik.org' },
+            { name:'TikTok Ads Funnel',          url:'lookerstudio.google.com/reporting/p7q8-…',  updated:'belum sync',  status:'error',  dim:'14 widget · 2 page', owner:'rahmat@niatbaik.org' },
+          ].map((r, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-line">
+              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-[#4285F4] via-[#0F9D58] to-[#F4B400] text-white flex items-center justify-center shrink-0">
+                <Icon name="chart" size={18}/>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-ink truncate">{r.name}</div>
+                <div className="text-xs text-mute truncate">{r.url} · {r.dim}</div>
+              </div>
+              <div className="hidden sm:block text-xs text-mute">{r.updated}</div>
+              <StatusBadge status={r.status === 'active' ? 'active' : 'inactive'}/>
+              <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink"><Icon name="refresh" size={14}/></button>
+              <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink"><Icon name="more" size={14}/></button>
+            </div>
+          ))}
+          <button className="w-full px-3 py-2.5 rounded-xl border border-dashed border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50">
+            + Tambah Looker Studio Report
+          </button>
+        </div>
+
+        <div className="mt-4 rounded-xl bg-bg2 p-3 text-xs text-ink/80 flex items-start gap-2">
+          <Icon name="shield" size={14} className="text-emerald-600 mt-0.5 shrink-0"/>
+          <div>
+            <b className="text-ink">Tip:</b> Hubungkan Looker Studio dengan akun Google yang memiliki akses ke <code>Meta Ads</code>, <code>Google Ads</code>, dan <code>GA4</code>.
+            Setelah report tervalidasi, embed-nya akan otomatis tampil di halaman <a className="text-brand-600 font-bold cursor-pointer hover:underline" onClick={() => { try { window.dispatchEvent(new CustomEvent('nb-go-datastudio')); } catch{} }}>Data Studio</a>.
+          </div>
+        </div>
+      </Section>
+
+      <Section title="Event Tracking" sub="Event yang otomatis dipicu di funnel donasi.">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wider text-mute">
+                <th className="py-2 font-semibold">Event</th>
+                <th className="py-2 font-semibold text-center">Meta</th>
+                <th className="py-2 font-semibold text-center">Google</th>
+                <th className="py-2 font-semibold text-center">TikTok</th>
+                <th className="py-2 font-semibold text-right">24h fired</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((e, i) => (
+                <tr key={e} className="border-t border-line">
+                  <td className="py-2.5"><code className="text-xs font-mono font-bold bg-bg2 px-2 py-0.5 rounded text-ink">{e}</code></td>
+                  {[true, true, i!==2].map((on, j) => (
+                    <td key={j} className="py-2.5 text-center">
+                      {on ? <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-bold"><span className="h-1.5 w-1.5 rounded-full bg-emerald-600"/>ON</span>
+                          : <span className="text-mute text-xs">OFF</span>}
+                    </td>
+                  ))}
+                  <td className="py-2.5 text-right text-mute">{fmtNum(12340 - i*1820)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+function NotificationPanel() {
+  return (
+    <Section title="Notifikasi" sub="Atur channel notifikasi untuk admin & donatur.">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {[
+          { label:'WhatsApp ke donatur',          sub:'Konfirmasi pembayaran via WA',          v:true },
+          { label:'Email ke donatur',             sub:'Kuitansi & terima kasih',                 v:true },
+          { label:'Notifikasi admin (donasi sukses)', sub:'Telegram bot ke channel admin',       v:true },
+          { label:'Notifikasi admin (donasi pending)', sub:'Pengingat ke tim CS',                v:true },
+          { label:'Notifikasi admin (donasi gagal)',  sub:'Alert ke channel admin',              v:true },
+          { label:'Weekly performance digest',    sub:'Email mingguan ringkasan performa',      v:false },
+          { label:'Pengingat campaign berakhir',  sub:'5 hari sebelum campaign berakhir',       v:true },
+          { label:'Alert pixel error',            sub:'Saat Meta/Google/TikTok gagal merespons', v:true },
+        ].map((n, i) => (
+          <div key={i} className="p-3 rounded-xl border border-line">
+            <Toggle value={n.v} onChange={()=>{}} label={n.label} sub={n.sub}/>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function SocialPanel() {
+  return (
+    <>
+      <Section title="Popup Social Proof" sub="Tingkatkan kepercayaan donatur dengan notifikasi donasi terbaru.">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div className="space-y-3">
+            <Toggle value={true} onChange={()=>{}} label="Aktifkan popup social proof" sub="Tampil di landing & halaman campaign."/>
+            <div>
+              <label className="text-xs font-semibold text-mute">Interval muncul</label>
+              <Select value="8" onChange={()=>{}} options={[
+                {value:'5', label:'Setiap 5 detik'},
+                {value:'8', label:'Setiap 8 detik'},
+                {value:'15', label:'Setiap 15 detik'},
+                {value:'30', label:'Setiap 30 detik'},
+              ]} className="mt-1"/>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-mute">Posisi popup</label>
+              <div className="mt-1 grid grid-cols-4 gap-2">
+                {['Top L','Top R','Bottom L','Bottom R'].map((p, i) => (
+                  <button key={p} className={`py-2 rounded-lg border text-xs font-bold ${i===2 ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line hover:bg-bg2'}`}>{p}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-mute">Template kalimat</label>
+              <textarea className="field mt-1" rows="3" defaultValue="{{nama}} baru saja berdonasi {{nominal}} untuk {{campaign}}"/>
+              <div className="text-[11px] text-mute mt-1">Variabel: <code>&#123;&#123;nama&#125;&#125;</code>, <code>&#123;&#123;nominal&#125;&#125;</code>, <code>&#123;&#123;campaign&#125;&#125;</code></div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-mute">Data fallback (saat sepi)</label>
+              <input className="field mt-1" defaultValue="Hamba Allah, Rizky H., Siti N., Hamba Allah"/>
+            </div>
+          </div>
+
+          {/* Live preview */}
+          <div className="rounded-xl bg-bg2 p-6 flex items-end justify-start min-h-[260px] border border-dashed border-line">
+            <div className="bg-white rounded-xl shadow-pop border border-line p-3 flex items-center gap-3 w-72">
+              <div className="h-10 w-10 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center"><Icon name="heart" size={18}/></div>
+              <div>
+                <div className="text-xs font-semibold text-ink"><b>Hamba Allah</b> baru saja berdonasi</div>
+                <div className="text-sm font-bold text-brand-600">Rp 250.000</div>
+                <div className="text-[10px] text-mute">untuk "Bantuan Aira" · 12 detik lalu</div>
+              </div>
+              <button className="self-start text-mute"><Icon name="close" size={12}/></button>
+            </div>
+          </div>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+function FundraisingPanel() {
+  return (
+    <Section title="Program Fundraiser" sub="Aktifkan program afiliasi/fundraiser & atur skema komisi.">
+      <div className="space-y-3">
+        <Toggle value={true} onChange={()=>{}} label="Aktifkan fundraiser" sub="Izinkan mitra mempromosikan campaign dengan link referral."/>
+        <Toggle value={true} onChange={()=>{}} label="Otomatis hitung komisi" sub="Komisi dihitung tiap minggu, payout manual oleh admin."/>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div><label className="text-xs font-semibold text-mute">Default komisi</label><div className="mt-1 flex items-center gap-2"><input className="field" defaultValue="10"/><span className="text-mute">%</span></div></div>
+          <div><label className="text-xs font-semibold text-mute">Minimum payout</label><input className="field mt-1" defaultValue="Rp 100.000"/></div>
+          <div><label className="text-xs font-semibold text-mute">Periode payout</label><Select value="month" onChange={()=>{}} options={[{value:'week',label:'Mingguan'},{value:'month',label:'Bulanan'}]} className="mt-1"/></div>
+        </div>
+        <div className="rounded-xl border border-line p-4">
+          <div className="font-semibold text-ink mb-2">Aturan khusus per campaign</div>
+          <div className="space-y-2">
+            {[
+              { c:'Bantuan Aira', pct:12 },
+              { c:'Sumur Bersih NTT', pct:10 },
+              { c:'Wakaf Quran', pct:8 },
+            ].map((r, i) => (
+              <div key={i} className="flex items-center gap-3 text-sm">
+                <span className="flex-1 font-medium text-ink">{r.c}</span>
+                <span className="font-bold text-brand-600">{r.pct}%</span>
+                <button className="text-mute hover:text-ink"><Icon name="edit" size={14}/></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function GeneralPanel() {
+  return (
+    <>
+      <Section title="Identitas Website">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div><label className="text-xs font-semibold text-mute">Nama Website</label><input className="field mt-1" defaultValue="NIATBAIK.ORG"/></div>
+          <div><label className="text-xs font-semibold text-mute">Domain</label><input className="field mt-1" defaultValue="niatbaik.org"/></div>
+          <div><label className="text-xs font-semibold text-mute">Timezone</label><Select value="WIB" onChange={()=>{}} options={['Asia/Jakarta (WIB) · GMT+7','Asia/Makassar (WITA) · GMT+8','Asia/Jayapura (WIT) · GMT+9']} className="mt-1"/></div>
+          <div><label className="text-xs font-semibold text-mute">Mata uang</label><Select value="IDR" onChange={()=>{}} options={['IDR (Rp)','USD ($)','MYR (RM)','SGD (S$)']} className="mt-1"/></div>
+        </div>
+      </Section>
+      <Section title="SEO">
+        <div className="space-y-3">
+          <div><label className="text-xs font-semibold text-mute">SEO Title</label><input className="field mt-1" defaultValue="NIATBAIK.ORG — Salurkan Kebaikan, Wujudkan Niat Baik"/></div>
+          <div><label className="text-xs font-semibold text-mute">SEO Description</label><textarea className="field mt-1" rows="3" defaultValue="Platform donasi & crowdfunding terpercaya untuk kemanusiaan, pendidikan, dan kesehatan di seluruh Indonesia."/></div>
+        </div>
+      </Section>
+      <Section title="Maintenance Mode" sub="Aktifkan untuk menutup akses publik sementara saat update besar.">
+        <Toggle value={false} onChange={()=>{}} label="Aktifkan maintenance mode" sub="Pengunjung akan melihat halaman maintenance."/>
+      </Section>
+    </>
+  );
+}
+
 window.SettingsView = SettingsView;

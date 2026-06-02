@@ -50,4 +50,23 @@ type UpdateSettingRequest struct {
 	// Social proof
 	SocialProofEnabled *bool  `json:"social_proof_enabled"`
 	SocialProofConfig  string `json:"social_proof_config"`
+
+	// Ads tracking & pixels
+	MetaPixelID           string `json:"meta_pixel_id"`
+	MetaCAPIEnabled       *bool  `json:"meta_capi_enabled"`
+	GTMID                 string `json:"gtm_id"`
+	GoogleAdsConversionID string `json:"google_ads_conversion_id"`
+	GA4MeasurementID      string `json:"ga4_measurement_id"`
+	TiktokPixelID         string `json:"tiktok_pixel_id"`
+	TiktokEAPIEnabled     *bool  `json:"tiktok_eapi_enabled"`
+	LookerStudioEmbed     string `json:"looker_studio_embed"`
+	EventTrackingConfig   string `json:"event_tracking_config"`
+
+	// Moota / Flip detail
+	MootaEndpoint         string `json:"moota_endpoint"`
+	MootaSignatureEnabled *bool  `json:"moota_signature_enabled"`
+	MootaDateRange        *int   `json:"moota_date_range"`
+	FlipMode              string `json:"flip_mode"`
+	FlipAutoRedirect      *bool  `json:"flip_auto_redirect"`
+	FlipChargeFee         string `json:"flip_charge_fee"`
 }

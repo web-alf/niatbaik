@@ -78,6 +78,25 @@ type Setting struct {
 	TelegramBotToken string `gorm:"size:255" json:"-"`
 	TelegramChatID   string `gorm:"size:100" json:"telegram_chat_id"`
 
+	// Ads tracking & pixels
+	MetaPixelID           string `gorm:"size:100" json:"meta_pixel_id"`
+	MetaCAPIEnabled       bool   `gorm:"default:false" json:"meta_capi_enabled"`
+	GTMID                 string `gorm:"size:100" json:"gtm_id"`
+	GoogleAdsConversionID string `gorm:"size:100" json:"google_ads_conversion_id"`
+	GA4MeasurementID      string `gorm:"size:100" json:"ga4_measurement_id"`
+	TiktokPixelID         string `gorm:"size:100" json:"tiktok_pixel_id"`
+	TiktokEAPIEnabled     bool   `gorm:"default:false" json:"tiktok_eapi_enabled"`
+	LookerStudioEmbed     string `gorm:"type:text" json:"looker_studio_embed"`
+	EventTrackingConfig   string `gorm:"type:text" json:"event_tracking_config"` // JSON
+
+	// Moota / Flip detail
+	MootaEndpoint         string `gorm:"size:255" json:"moota_endpoint"`
+	MootaSignatureEnabled bool   `gorm:"default:true" json:"moota_signature_enabled"`
+	MootaDateRange        int    `gorm:"default:7" json:"moota_date_range"`
+	FlipMode              string `gorm:"size:20;default:'sandbox'" json:"flip_mode"`
+	FlipAutoRedirect      bool   `gorm:"default:true" json:"flip_auto_redirect"`
+	FlipChargeFee         string `gorm:"size:20;default:'merchant'" json:"flip_charge_fee"`
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

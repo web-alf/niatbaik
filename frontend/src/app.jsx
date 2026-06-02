@@ -1,18 +1,22 @@
-// Root app shell: auth flow, routing, context, layout
+// Root app shell: auth flow, role-isolated routing, sidebar/topbar, public routes.
+// Ported from canonical design (docs/superpowers/design-ref/src/app.jsx) and
+// wired to the real Go backend (window.api) + seed fallback (window.NB).
 const { useState: uS, useEffect: uE, useMemo: uM } = React;
 
+// =============================================================
+// NAV — canonical design keys
+// =============================================================
 const NAV = [
-  { key: 'dashboard',     label: 'Dashboard',        icon: 'home',      roles: ['Admin', 'CS'] },
-  { key: 'adv-dashboard', label: 'Dashboard Iklan',   icon: 'home',      roles: ['Advertiser'] },
-  { key: 'campaigns',     label: 'Campaigns',        icon: 'megaphone', roles: ['Admin', 'CS', 'Advertiser'] },
-  { key: 'analytics',     label: 'Analytics',        icon: 'chart',     roles: ['Admin', 'Advertiser'] },
-  { key: 'data-studio',   label: 'Data Studio',      icon: 'sparkle',   roles: ['Admin', 'Advertiser'] },
-  { key: 'cs-inbox',      label: 'Inbox Donatur',    icon: 'inbox',     roles: ['Admin', 'CS'], badge: 12 },
-  { key: 'fundraiser',    label: 'Fundraiser',       icon: 'handshake', roles: ['Admin', 'CS'] },
-  { key: 'shortcode',     label: 'Shortcode',        icon: 'code',      roles: ['Admin', 'Advertiser'] },
-  { key: 'members',       label: 'Members / User',   icon: 'users',     roles: ['Admin'] },
-  { key: 'notification',  label: 'Notification',     icon: 'bell',      roles: ['Admin', 'CS', 'Advertiser'], badge: 4 },
-  { key: 'trash',         label: 'Trash',            icon: 'trash',     roles: ['Admin'] }
+  { key: 'dashboard',     label: 'Dashboard',      icon: 'home',      roles: ['Admin', 'CS', 'Advertiser'] },
+  { key: 'campaigns',     label: 'Campaigns',      icon: 'megaphone', roles: ['Admin', 'CS', 'Advertiser'] },
+  { key: 'analytics',     label: 'Analytics',      icon: 'chart',     roles: ['Admin', 'Advertiser'] },
+  { key: 'data-studio',   label: 'Data Studio',    icon: 'sparkle',   roles: ['Admin', 'Advertiser'] },
+  { key: 'inbox',         label: 'CS Inbox',       icon: 'inbox',     roles: ['Admin', 'CS'], badge: 12 },
+  { key: 'fundraiser',    label: 'Fundraiser',     icon: 'handshake', roles: ['Admin', 'CS'] },
+  { key: 'shortcode',     label: 'Shortcode',      icon: 'code',      roles: ['Admin', 'Advertiser'] },
+  { key: 'members',       label: 'Members / User', icon: 'users',     roles: ['Admin'] },
+  { key: 'notifications', label: 'Notification',   icon: 'bell',      roles: ['Admin', 'CS', 'Advertiser'], badge: 4 },
+  { key: 'trash',         label: 'Trash',          icon: 'trash',     roles: ['Admin'] }
 ];
 
 const SECONDARY_NAV = [
@@ -20,44 +24,250 @@ const SECONDARY_NAV = [
   { key: 'settings', label: 'Settings', icon: 'cog', roles: ['Admin'] }
 ];
 
+const ROLE_META = {
+  Admin:      { color: 'bg-brand-600',  ring: 'ring-brand-600',  light: 'bg-brand-50',  text: 'text-brand-700',  icon: 'shield',  tag: 'Full Access' },
+  CS:         { color: 'bg-sky2-500',   ring: 'ring-sky2-500',   light: 'bg-sky2-50',   text: 'text-sky2-600',   icon: 'inbox',   tag: 'Operasional' },
+  Advertiser: { color: 'bg-violet-600', ring: 'ring-violet-600', light: 'bg-violet-50', text: 'text-violet-700', icon: 'chart',   tag: 'Marketing' }
+};
+
+// Backend role (admin/cs/advertiser/fundraiser/user) → design role
+const ROLE_MAP = { admin: 'Admin', cs: 'CS', advertiser: 'Advertiser', fundraiser: 'Admin', user: 'Admin' };
+const toDesignRole = (u) => ROLE_META[u?.role] ? u.role : (ROLE_MAP[u?.role] || u?.role || 'Admin');
+
 // Build role → allowed nav keys lookup
 const NAV_ROLE_KEYS = {};
 ['Admin', 'CS', 'Advertiser'].forEach(r => {
   NAV_ROLE_KEYS[r] = NAV.filter(n => n.roles.includes(r)).map(n => n.key);
 });
 
+// =============================================================
+// SIDEBAR
+// =============================================================
+function Sidebar({ open, onClose }) {
+  const { view, setView, role } = useApp();
+  const visible = NAV.filter((n) => n.roles.includes(role));
+  const visibleSecondary = SECONDARY_NAV.filter((n) => !n.roles || n.roles.includes(role));
+  const m = ROLE_META[role] || ROLE_META.Admin;
+
+  return (
+    <>
+      {open && <div className="fixed inset-0 z-30 bg-ink/30 lg:hidden" onClick={onClose}/>}
+      <aside className={`fixed lg:sticky top-0 left-0 z-40 h-screen w-64 shrink-0 bg-white border-r border-line flex flex-col transition-transform ${open ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+        <div className="h-16 px-5 flex items-center border-b border-line">
+          <Logo size={28}/>
+        </div>
+
+        <div className="px-3 pt-3">
+          <div className={`flex items-center gap-2.5 p-2.5 rounded-xl ${m.light} border border-line/60`}>
+            <div className={`h-8 w-8 rounded-md ${m.color} text-white flex items-center justify-center shrink-0`}>
+              <Icon name={m.icon} size={14}/>
+            </div>
+            <div className="min-w-0">
+              <div className={`text-[10px] font-bold uppercase tracking-wider ${m.text}`}>Logged in as</div>
+              <div className="text-sm font-extrabold text-ink">{role}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 py-4 nice-scroll">
+          <div className="px-2 mb-2 text-[11px] font-semibold uppercase tracking-wider text-mute">Menu Utama</div>
+          <nav className="flex flex-col gap-1">
+            {visible.map((n) => (
+              <button key={n.key} onClick={() => { setView(n.key); onClose && onClose(); }}
+                className={`group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${view === n.key ? 'bg-brand-50 text-brand-700' : 'text-ink/80 hover:bg-bg2 hover:text-ink'}`}>
+                <Icon name={n.icon} size={18} className={view === n.key ? 'text-brand-600' : 'text-mute group-hover:text-ink'}/>
+                <span className="flex-1 text-left">{n.label}</span>
+                {n.badge && <span className="text-[10px] font-bold bg-sky2-400 text-white px-1.5 py-0.5 rounded-full">{n.badge}</span>}
+              </button>
+            ))}
+          </nav>
+
+          <div className="px-2 mt-6 mb-2 text-[11px] font-semibold uppercase tracking-wider text-mute">Akun</div>
+          <nav className="flex flex-col gap-1">
+            {visibleSecondary.map((n) => (
+              <button key={n.key} onClick={() => { setView(n.key); onClose && onClose(); }}
+                className={`group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${view === n.key ? 'bg-brand-50 text-brand-700' : 'text-ink/80 hover:bg-bg2 hover:text-ink'}`}>
+                <Icon name={n.icon} size={18} className={view === n.key ? 'text-brand-600' : 'text-mute group-hover:text-ink'}/>
+                <span className="flex-1 text-left">{n.label}</span>
+              </button>
+            ))}
+          </nav>
+
+          <div className="mt-6 rounded-xl bg-gradient-to-br from-brand-600 to-sky2-400 text-white p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-90">
+              <Icon name="sparkle" size={14}/> Tips
+            </div>
+            <div className="mt-1.5 text-sm font-semibold leading-snug">
+              {role === 'Admin' && 'Naikkan ROAS dengan menyalakan Conversions API di Tracking & Ads.'}
+              {role === 'CS' && 'Manfaatkan template WA untuk follow-up donatur lebih cepat.'}
+              {role === 'Advertiser' && 'Cek rekomendasi campaign di dashboard untuk scaling ads optimal.'}
+            </div>
+            <button onClick={() => window.dispatchEvent(new CustomEvent('nb-open-ads-guide'))} className="mt-3 text-xs font-bold bg-white/20 hover:bg-white/30 backdrop-blur px-2.5 py-1.5 rounded-md">
+              Buka panduan →
+            </button>
+          </div>
+        </div>
+
+        <div className="border-t border-line p-3">
+          <button onClick={() => { setView('landing'); onClose && onClose(); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2 hover:text-ink">
+            <Icon name="globe" size={18} className="text-mute"/>
+            <span className="flex-1 text-left">Lihat situs publik</span>
+            <Icon name="arrowR" size={14} className="text-mute"/>
+          </button>
+        </div>
+      </aside>
+    </>
+  );
+}
+
+// =============================================================
+// USER MENU
+// =============================================================
+function UserMenu() {
+  const { user, role, setView, logout, dark, setDark } = useApp();
+  const [open, setOpen] = uS(false);
+  const m = ROLE_META[role] || ROLE_META.Admin;
+
+  uE(() => {
+    if (!open) return;
+    const handler = (e) => { if (!e.target.closest('[data-usermenu]')) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div className="relative" data-usermenu>
+      <button onClick={() => setOpen(!open)}
+        className="flex items-center gap-2.5 pl-1 pr-2.5 py-1 rounded-lg border border-line bg-white hover:bg-bg2 transition-colors">
+        {user.avatar ? (
+          <img src={user.avatar} alt={user.name} className="h-8 w-8 rounded-md object-cover"/>
+        ) : (
+          <div className={`h-8 w-8 rounded-md flex items-center justify-center text-white font-bold text-xs ${m.color}`}>
+            {user.initial || (user.name || 'U').slice(0, 2).toUpperCase()}
+          </div>
+        )}
+        <div className="hidden sm:block text-left">
+          <div className="text-xs font-bold text-ink leading-tight">{user.name}</div>
+          <div className="text-[10px] text-mute">{role}</div>
+        </div>
+        <Icon name="chevronD" size={14} className="text-mute hidden sm:block"/>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-72 rounded-xl bg-white border border-line shadow-pop z-50 overflow-hidden">
+          <div className={`px-4 py-3.5 ${m.light} flex items-center gap-3 border-b border-line`}>
+            {user.avatar ? (
+              <img src={user.avatar} alt={user.name} className="h-10 w-10 rounded-lg object-cover"/>
+            ) : (
+              <div className={`h-10 w-10 rounded-lg ${m.color} text-white flex items-center justify-center font-bold text-sm`}>
+                {user.initial || (user.name || 'U').slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="font-extrabold text-ink truncate">{user.name}</div>
+              <div className="text-xs text-mute truncate">{user.email}</div>
+            </div>
+            <span className={`px-2 py-0.5 rounded-md ${m.color} text-white text-[10px] font-bold`}>{role}</span>
+          </div>
+
+          {user.access && (
+            <div className="px-4 py-2.5 border-b border-line">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-mute">Akses</div>
+              <div className="text-xs text-ink/80 mt-0.5">{user.access}</div>
+            </div>
+          )}
+
+          <div className="p-1.5">
+            <button onClick={() => { setView('profile'); setOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold text-ink hover:bg-bg2 text-left">
+              <Icon name="user" size={16} className="text-mute"/> Profile saya
+            </button>
+            {SECONDARY_NAV.find(n => n.key === 'settings' && (!n.roles || n.roles.includes(role))) && (
+              <button onClick={() => { setView('settings'); setOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold text-ink hover:bg-bg2 text-left">
+                <Icon name="cog" size={16} className="text-mute"/> Settings
+              </button>
+            )}
+            <button onClick={() => { setView('notifications'); setOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold text-ink hover:bg-bg2 text-left">
+              <Icon name="bell" size={16} className="text-mute"/> Notifikasi
+            </button>
+            <button onClick={() => setDark(!dark)} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold text-ink hover:bg-bg2 text-left">
+              <Icon name={dark ? 'sun' : 'moon'} size={16} className="text-mute"/>
+              <span className="flex-1">Dark mode</span>
+              <span className={`relative h-5 w-9 rounded-full transition-colors ${dark ? 'bg-brand-600' : 'bg-slate-300'}`}>
+                <span className={`absolute top-0.5 h-4 w-4 bg-white rounded-full shadow transition-all ${dark ? 'left-[18px]' : 'left-0.5'}`}/>
+              </span>
+            </button>
+          </div>
+
+          <div className="p-1.5 border-t border-line">
+            <button onClick={() => { logout(); setOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-bold text-rose-600 hover:bg-rose-50 text-left">
+              <Icon name="logout" size={16}/> Logout
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =============================================================
+// TOPBAR
+// =============================================================
+function Topbar({ onMenu }) {
+  return (
+    <header className="sticky top-0 z-20 h-16 bg-white/85 backdrop-blur border-b border-line">
+      <div className="h-full px-4 lg:px-6 flex items-center gap-3">
+        <button onClick={onMenu} className="lg:hidden h-9 w-9 rounded-lg hover:bg-bg2 flex items-center justify-center text-mute">
+          <Icon name="menu" size={20}/>
+        </button>
+
+        <div className="flex-1 max-w-xl hidden md:block">
+          <div className="relative">
+            <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-mute"/>
+            <input
+              placeholder="Cari campaign, donatur, invoice…"
+              className="w-full h-10 rounded-lg border border-line bg-bg2 pl-9 pr-3 text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600"/>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-mute bg-white border border-line rounded px-1.5 py-0.5">⌘K</span>
+          </div>
+        </div>
+
+        <button className="md:hidden h-10 w-10 rounded-lg border border-line bg-white hover:bg-bg2 flex items-center justify-center text-ink" aria-label="Search">
+          <Icon name="search" size={18}/>
+        </button>
+
+        <div className="flex-1"/>
+
+        <UserMenu/>
+      </div>
+    </header>
+  );
+}
+
+// =============================================================
+// APP
+// =============================================================
 function App() {
   const [user, setUser] = uS(null);
   const [route, setRouteRaw] = uS('landing');
   const [authLoading, setAuthLoading] = uS(true);
-  const [toast, setToast] = uS(null);
-  const [editingCampaign, setEditingCampaign] = uS(null);
-  const [campaignDetail, setCampaignDetail] = uS(null);
-  const [invoiceTxn, setInvoiceTxn] = uS(null);
+  const [toast, setToast] = uS('');
   const [sidebarOpen, setSidebarOpen] = uS(false);
+  const [invoiceTxn, setInvoiceTxn] = uS(null);
+  const [campaignDetail, setCampaignDetail] = uS(null);
+  const [editingCampaign, setEditingCampaign] = uS(null);
+  const [adsGuideOpen, setAdsGuideOpen] = uS(false);
   const [dark, setDarkRaw] = uS(() => {
     try { return localStorage.getItem('niatbaik_dark') === '1'; } catch { return false; }
   });
-  const [tweaks, setTweaksRaw] = uS(() => {
-    const d = localStorage.getItem('niatbaik_dark') === '1';
-    return { dark: d, primary: '#2E4191', density: 'comfortable', sidebar: 'expanded' };
-  });
 
-  const ROLE_MAP = { admin: 'Admin', cs: 'CS', advertiser: 'Advertiser', fundraiser: 'Admin', user: 'Admin' };
-  const role = ROLE_MAP[user?.role] || user?.role || 'Admin';
+  const role = toDesignRole(user);
 
   // --- Dark mode ---
-  const applyDark = (v) => {
+  const setDark = (v) => {
+    setDarkRaw(v);
+    try { localStorage.setItem('niatbaik_dark', v ? '1' : '0'); } catch {}
     document.documentElement.classList.toggle('dark', v);
     document.body.classList.toggle('dark', v);
-    try { localStorage.setItem('niatbaik_dark', v ? '1' : '0'); } catch {}
   };
-  const setDark = (v) => { setDarkRaw(v); setTweaksRaw(prev => ({ ...prev, dark: v })); applyDark(v); };
-  const setTweak = (key, val) => {
-    setTweaksRaw(prev => ({ ...prev, [key]: val }));
-    if (key === 'dark') { setDarkRaw(val); applyDark(val); }
-  };
-
   uE(() => {
     document.documentElement.classList.toggle('dark', dark);
     document.body.classList.toggle('dark', dark);
@@ -68,53 +278,66 @@ function App() {
 
   // --- Auth: check token on mount ---
   uE(() => {
-    const token = api.getToken();
+    const token = api.getToken && api.getToken();
     if (token) {
       api.me().then(res => {
         if (res?.success && res?.data) {
           setUser(res.data);
           setRouteRaw('dashboard');
+        } else if (res?.data) {
+          setUser(res.data);
+          setRouteRaw('dashboard');
         } else {
-          api.clearToken();
+          api.clearToken && api.clearToken();
         }
       }).catch(() => {
-        api.clearToken();
+        api.clearToken && api.clearToken();
       }).finally(() => setAuthLoading(false));
     } else {
       setAuthLoading(false);
     }
   }, []);
 
-  // --- Landing nav helper (used by login page) ---
+  // --- Load API data (public + admin overlays; all no-op-safe + seed fallback) ---
   uE(() => {
-    window.__nbNavigateLanding = () => { setView('landing'); };
+    const NB = window;
+    [NB.loadApiData, NB.loadAdminData, NB.loadDashboardChart, NB.loadDashboardStats,
+     NB.loadProfile, NB.loadInvoices, NB.loadAnalytics, NB.loadDataStudio,
+     NB.loadPaymentMethods, NB.loadAdCosts].forEach(fn => {
+      if (typeof fn === 'function') { try { fn(); } catch (e) { /* seed fallback */ } }
+    });
+  }, [user]);
+
+  // --- Landing nav helper (used by login page link) ---
+  uE(() => {
+    window.__nbNavigateLanding = () => setView('landing');
     return () => { delete window.__nbNavigateLanding; };
   }, []);
-
-  // --- Load API data ---
-  uE(() => { if (typeof loadApiData === 'function') loadApiData(); }, []);
 
   // --- Cross-component navigation events ---
   uE(() => {
     const goDS = () => setView('data-studio');
+    const openGuide = () => setAdsGuideOpen(true);
     window.addEventListener('nb-go-datastudio', goDS);
-    return () => window.removeEventListener('nb-go-datastudio', goDS);
+    window.addEventListener('nb-open-ads-guide', openGuide);
+    return () => {
+      window.removeEventListener('nb-go-datastudio', goDS);
+      window.removeEventListener('nb-open-ads-guide', openGuide);
+    };
   }, []);
 
-  // --- Login handler ---
+  // --- Login handler (accepts backend user object) ---
   const handleLogin = (userData) => {
     setUser(userData);
-    // Persist session for demo accounts (no token)
     try { localStorage.setItem('niatbaik_session', JSON.stringify(userData)); } catch {}
-    // Navigate to first allowed nav item for role
-    const r = ROLE_MAP[userData.role] || userData.role || 'Admin';
+    const r = toDesignRole(userData);
     const firstKey = NAV_ROLE_KEYS[r]?.[0] || 'dashboard';
     setView(firstKey);
   };
 
-  // --- Logout handler ---
+  // --- Logout ---
   const handleLogout = () => {
-    api.logout();
+    api.logout && api.logout();
     setUser(null);
     try { localStorage.removeItem('niatbaik_session'); } catch {}
     setView('landing');
@@ -130,67 +353,59 @@ function App() {
     });
   };
 
-  // --- Toast ---
-  const showToast = (titleOrObj, sub, tone) => {
-    let t;
-    if (typeof titleOrObj === 'string') {
-      t = { title: titleOrObj, sub: sub || '', tone: tone || 'ok' };
-    } else {
-      t = titleOrObj;
-    }
-    setToast(t);
-    setTimeout(() => setToast(null), 3000);
+  // --- Toast (string or {title,...}) ---
+  const showToast = (msg) => {
+    const text = typeof msg === 'string' ? msg : (msg?.title || '');
+    setToast(text);
+    setTimeout(() => setToast(''), 2600);
   };
 
   // --- Role access guard ---
   uE(() => {
     if (!user) return;
-    const allNav = [...NAV, ...SECONDARY_NAV];
-    const cur = allNav.find(n => n.key === route);
-    if (cur && cur.roles && !cur.roles.includes(role)) {
-      setRouteRaw('dashboard');
-    }
+    const all = [...NAV, ...SECONDARY_NAV];
+    const cur = all.find(n => n.key === route);
+    if (cur && cur.roles && !cur.roles.includes(role)) setRouteRaw('dashboard');
   }, [route, user, role]);
 
-  // --- Context value ---
+  // --- Context ---
   const ctx = uM(() => ({
     user, role,
     view: route, setView,
     route, navigate: setView,
-    tweaks, setTweak,
     login: handleLogin, logout: handleLogout, updateUser,
-    editingCampaign, setEditingCampaign,
-    campaignDetail, setCampaignDetail,
     invoiceTxn, setInvoiceTxn,
+    campaignDetail, setCampaignDetail,
+    editingCampaign, setEditingCampaign,
     showToast,
     dark, setDark,
-    // Back-compat aliases
     openCampaign: (id) => { setCampaignDetail(id); setView('campaign-detail'); },
     openInvoice: (tx) => setInvoiceTxn(tx),
     setRole: () => {}
-  }), [user, role, route, tweaks, editingCampaign, campaignDetail, invoiceTxn, dark]);
+  }), [user, role, route, invoiceTxn, campaignDetail, editingCampaign, dark]);
 
   // --- Auth loading spinner ---
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg2 dark:bg-slate-950">
+      <div className="min-h-screen flex items-center justify-center bg-bg2">
         <div className="text-center">
           <Logo size={36}/>
-          <div className="mt-4 text-sm text-muted">Memuat...</div>
+          <div className="mt-4 text-sm text-mute">Memuat…</div>
         </div>
       </div>
     );
   }
 
-  // --- Public routes ---
+  // --- Public routes (no auth required) ---
   const isPublicRoute = route === 'landing' || route === 'campaign-detail';
-
   if (isPublicRoute) {
     return (
       <AppCtx.Provider value={ctx}>
-        {route === 'landing' && <LandingPage/>}
-        {route === 'campaign-detail' && <CampaignDetailWrap/>}
-        <Toast toast={toast} onClose={() => setToast(null)}/>
+        <ViewErrorBoundary route={route}>
+          {route === 'landing' && <LandingPage/>}
+          {route === 'campaign-detail' && <CampaignDetailWrap/>}
+        </ViewErrorBoundary>
+        <Toast message={toast}/>
       </AppCtx.Provider>
     );
   }
@@ -200,66 +415,61 @@ function App() {
     return (
       <AppCtx.Provider value={ctx}>
         <LoginPage onLogin={handleLogin}/>
+        <Toast message={toast}/>
       </AppCtx.Provider>
     );
   }
 
-  // --- Logged in: admin layout ---
-  const ViewComponent = resolveView(route, role);
-  const skeletonType = SKELETON_MAP[route] || 'dashboard';
+  // --- Resolve view (window globals from view files) ---
+  const Views = {
+    dashboard:         window.DashboardView,
+    campaigns:         window.CampaignsView,
+    'campaign-editor': window.CampaignEditorView,
+    analytics:         role === 'Advertiser' ? window.AdvertiserView : window.AnalyticsView,
+    'data-studio':     window.DataStudioView,
+    inbox:             window.CSInboxView,
+    fundraiser:        window.FundraiserView,
+    shortcode:         window.ShortcodeView,
+    members:           window.MembersView,
+    profile:           window.ProfileView,
+    settings:          window.SettingsView,
+    notifications:     window.NotificationsView,
+    trash:             window.TrashView,
+  };
+
+  const navEntry = [...NAV, ...SECONDARY_NAV].find(n => n.key === route);
+  let Cur = Views[route] || window.DashboardView || Placeholder;
+  if (navEntry?.roles && !navEntry.roles.includes(role)) Cur = AccessDenied;
 
   return (
     <AppCtx.Provider value={ctx}>
-      <div className="flex min-h-screen bg-bg2 dark:bg-slate-950">
+      <div className="min-h-screen flex bg-bg2">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)}/>
         <div className="flex-1 min-w-0 flex flex-col">
-          <Topbar onMenu={() => setSidebarOpen(true)} role={role}/>
-          <main className="flex-1 p-4 lg:p-6">
-            <LazyView key={route} component={ViewComponent} skeleton={skeletonType} route={route}/>
+          <Topbar onMenu={() => setSidebarOpen(true)}/>
+          <main className="flex-1 px-4 lg:px-6 py-6">
+            <ViewErrorBoundary route={route}>
+              <div className="fadeup">
+                <Cur/>
+              </div>
+            </ViewErrorBoundary>
           </main>
         </div>
       </div>
 
-      {/* Modals */}
       {invoiceTxn && (
-        <InvoiceModal
-          txn={invoiceTxn}
-          onClose={() => setInvoiceTxn(null)}
+        <InvoiceModal txn={invoiceTxn} onClose={() => setInvoiceTxn(null)}
           onCopy={(id) => showToast('Kode invoice ' + id + ' disalin')}/>
       )}
-
-      {/* Toast */}
-      <Toast toast={toast} onClose={() => setToast(null)}/>
+      {campaignDetail && route !== 'campaign-detail' && typeof window.CampaignDetailModal === 'function' && (
+        <CampaignDetailModal campaign={campaignDetail} onClose={() => setCampaignDetail(null)}/>
+      )}
+      {typeof window.AdsGuideModal === 'function' && (
+        <AdsGuideModal open={adsGuideOpen} onClose={() => setAdsGuideOpen(false)}/>
+      )}
+      <Toast message={toast}/>
     </AppCtx.Provider>
   );
-}
-
-// --- Resolve view component by route + role ---
-function resolveView(route, role) {
-  const views = {
-    'dashboard':        typeof AdminDashboard !== 'undefined' ? AdminDashboard : Placeholder,
-    'campaigns':        typeof CampaignsPage !== 'undefined' ? CampaignsPage : Placeholder,
-    'campaign-editor':  typeof CampaignEditorView !== 'undefined' ? CampaignEditorView : Placeholder,
-    'analytics':        typeof AnalyticsPage !== 'undefined' ? AnalyticsPage : Placeholder,
-    'data-studio':      typeof DataStudioView !== 'undefined' ? DataStudioView : Placeholder,
-    'cs-inbox':         typeof CsInbox !== 'undefined' ? CsInbox : Placeholder,
-    'fundraiser':       typeof FundraiserPage !== 'undefined' ? FundraiserPage : Placeholder,
-    'shortcode':        typeof ShortcodePage !== 'undefined' ? ShortcodePage : Placeholder,
-    'members':          typeof MembersPage !== 'undefined' ? MembersPage : Placeholder,
-    'profile':          typeof ProfilePage !== 'undefined' ? ProfilePage : Placeholder,
-    'settings':         typeof SettingsPage !== 'undefined' ? SettingsPage : Placeholder,
-    'notification':     typeof NotificationPage !== 'undefined' ? NotificationPage : Placeholder,
-    'trash':            typeof TrashPage !== 'undefined' ? TrashPage : Placeholder,
-    'adv-dashboard':    typeof AdvertiserDashboard !== 'undefined' ? AdvertiserDashboard : Placeholder,
-  };
-
-  // Check role access
-  const navEntry = [...NAV, ...SECONDARY_NAV].find(n => n.key === route);
-  if (navEntry?.roles && !navEntry.roles.includes(role)) {
-    return AccessDenied;
-  }
-
-  return views[route] || views['dashboard'];
 }
 
 // --- Access Denied view ---
@@ -268,11 +478,11 @@ function AccessDenied() {
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
       <div className="max-w-md text-center">
-        <div className="mx-auto h-16 w-16 rounded-2xl bg-rose-50 dark:bg-rose-900/30 text-rose-600 flex items-center justify-center">
+        <div className="mx-auto h-16 w-16 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
           <Icon name="shield" size={28}/>
         </div>
-        <h2 className="mt-4 text-2xl font-extrabold text-ink dark:text-slate-100">Akses ditolak</h2>
-        <p className="mt-2 text-muted">Role <b className="text-ink dark:text-slate-100">{role}</b> tidak memiliki akses ke halaman ini.</p>
+        <h2 className="mt-4 text-2xl font-extrabold text-ink">Akses ditolak</h2>
+        <p className="mt-2 text-mute">Role <b className="text-ink">{role}</b> tidak memiliki akses ke halaman ini.</p>
         <button onClick={() => setView('dashboard')} className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white font-bold text-sm hover:bg-brand-700">
           Kembali ke Dashboard
         </button>
@@ -283,67 +493,39 @@ function AccessDenied() {
 
 // --- Placeholder for views not yet loaded ---
 function Placeholder() {
-  return (
-    <div className="min-h-[40vh] flex items-center justify-center text-muted text-sm">
-      Halaman ini belum tersedia.
-    </div>
-  );
+  return <div className="min-h-[40vh] flex items-center justify-center text-mute text-sm">Halaman ini belum tersedia.</div>;
 }
 
-
-// --- Campaign detail wrapper (public) ---
+// --- Campaign detail wrapper (public route) ---
 function CampaignDetailWrap() {
   const { navigate, campaignDetail } = useApp();
-  const id = campaignDetail || (typeof CAMPAIGNS !== 'undefined' && (CAMPAIGNS[0]?.slug || CAMPAIGNS[0]?.id));
+  const list = window.CAMPAIGNS || (window.NB && window.NB.campaignSeed) || [];
+  const id = campaignDetail || list[0]?.slug || list[0]?.id;
+  if (typeof window.CampaignDetail !== 'function') {
+    return <div className="min-h-screen flex items-center justify-center text-mute">Memuat campaign…</div>;
+  }
   return <CampaignDetail id={id} onBack={() => navigate('landing')}/>;
 }
 
-// --- Skeleton type mapping per route ---
-const SKELETON_MAP = {
-  'dashboard': 'dashboard',
-  'campaigns': 'campaigns',
-  'campaign-editor': 'campaign-editor',
-  'analytics': 'analytics',
-  'data-studio': 'data-studio',
-  'cs-inbox': 'cs-inbox',
-  'fundraiser': 'fundraiser',
-  'shortcode': 'shortcode',
-  'members': 'members',
-  'profile': 'profile',
-  'settings': 'settings',
-  'notification': 'notification',
-  'trash': 'trash',
-  'adv-dashboard': 'adv-dashboard',
-};
-
-// --- ErrorBoundary: prevents a single view crash from blanking the whole app ---
+// --- ErrorBoundary: a single view crash never blanks the whole app ---
 class ViewErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { error: null };
-  }
-  static getDerivedStateFromError(error) {
-    return { error };
-  }
-  componentDidCatch(error, info) {
-    console.error('[ViewError]', this.props.route, error, info?.componentStack);
-  }
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error('[ViewError]', this.props.route, error, info?.componentStack); }
   componentDidUpdate(prevProps) {
-    if (prevProps.route !== this.props.route && this.state.error) {
-      this.setState({ error: null });
-    }
+    if (prevProps.route !== this.props.route && this.state.error) this.setState({ error: null });
   }
   render() {
     if (this.state.error) {
       return (
         <div className="min-h-[50vh] flex items-center justify-center">
           <div className="max-w-md text-center">
-            <div className="mx-auto h-16 w-16 rounded-2xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 flex items-center justify-center">
+            <div className="mx-auto h-16 w-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
               <Icon name="bolt" size={28}/>
             </div>
-            <h2 className="mt-4 text-xl font-extrabold text-ink dark:text-slate-100">Halaman gagal dimuat</h2>
-            <p className="mt-2 text-sm text-muted">Terjadi kesalahan saat menampilkan halaman ini. Coba muat ulang.</p>
-            <pre className="mt-3 text-left text-[11px] text-rose-600 bg-rose-50 dark:bg-rose-900/20 rounded-lg p-3 overflow-auto max-h-32">{String(this.state.error?.message || this.state.error)}</pre>
+            <h2 className="mt-4 text-xl font-extrabold text-ink">Halaman gagal dimuat</h2>
+            <p className="mt-2 text-sm text-mute">Terjadi kesalahan saat menampilkan halaman ini. Coba muat ulang.</p>
+            <pre className="mt-3 text-left text-[11px] text-rose-600 bg-rose-50 rounded-lg p-3 overflow-auto max-h-32">{String(this.state.error?.message || this.state.error)}</pre>
             <button onClick={() => window.location.reload()} className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 text-white font-bold text-sm hover:bg-brand-700">
               Muat ulang
             </button>
@@ -353,28 +535,6 @@ class ViewErrorBoundary extends React.Component {
     }
     return this.props.children;
   }
-}
-
-// --- LazyView: shows skeleton then fades in the real view ---
-function LazyView({ component: Comp, skeleton, route }) {
-  const [ready, setReady] = uS(false);
-  uE(() => {
-    setReady(false);
-    let tid;
-    const frame = requestAnimationFrame(() => {
-      tid = setTimeout(() => setReady(true), 300);
-    });
-    return () => { cancelAnimationFrame(frame); clearTimeout(tid); };
-  }, [Comp]);
-
-  if (!ready) return <PageSkeleton type={skeleton}/>;
-  return (
-    <ViewErrorBoundary route={route}>
-      <div className="fadeup">
-        <Comp/>
-      </div>
-    </ViewErrorBoundary>
-  );
 }
 
 // --- Mount ---

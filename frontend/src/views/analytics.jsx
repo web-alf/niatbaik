@@ -1,5 +1,201 @@
-// views/analytics.jsx (stub — replaced in its phase)
+// Analytics - performance, UTM, source breakdown
 function AnalyticsView() {
-  return <div className="min-h-[40vh] flex items-center justify-center text-mute text-sm">Analytics — segera hadir</div>;
+  const { trafficSources, dailyDonations, campaignSeed } = window.NB;
+  const [platform, setPlatform] = useStateA('all');
+
+  const totals = {
+    visitors: 121140,
+    leads: 13072,
+    donations: 4558,
+    convRate: 0.0376,
+    cpl: 15400,
+    cpd: 48900,
+    revenue: 1_842_315_500,
+    roas: 3.8,
+  };
+
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        title="Analytics"
+        subtitle="Bedah performa campaign, ads, dan funnel donasi."
+        actions={<>
+          <Select value={platform} onChange={setPlatform} icon="filter" options={[
+            {value:'all', label:'Semua platform'},
+            {value:'meta', label:'Meta Ads'},
+            {value:'google', label:'Google Ads'},
+            {value:'tiktok', label:'TikTok Ads'},
+            {value:'organic', label:'Organic'},
+          ]}/>
+          <DateRangePill/>
+          <Btn variant="outline" tone="ink" icon="download">CSV</Btn>
+          <Btn icon="download">Excel</Btn>
+        </>}
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon="eye"    label="Total Visitor"   value={fmtNum(totals.visitors)} delta="+24.1%" accent="brand"/>
+        <StatCard icon="target" label="Total Leads"     value={fmtNum(totals.leads)}    delta="+18.0%" accent="sky"/>
+        <StatCard icon="heart"  label="Total Donasi"    value={fmtNum(totals.donations)} delta="+12.4%" accent="ok"/>
+        <StatCard icon="bolt"   label="Conversion Rate" value={(totals.convRate*100).toFixed(2)+'%'} delta="+0.4pp" accent="warn"/>
+        <StatCard icon="creditcard" label="Cost / Lead" value={fmtIDRShort(totals.cpl)} delta="-8.2%" deltaTone="down" accent="bad"/>
+        <StatCard icon="wallet" label="Cost / Donation" value={fmtIDRShort(totals.cpd)} delta="-4.6%" deltaTone="down" accent="bad"/>
+        <StatCard icon="flame"  label="Revenue"         value={fmtIDRShort(totals.revenue)} delta="+22.1%" accent="ok"/>
+        <StatCard icon="sparkle" label="ROAS Estimasi"  value={totals.roas+'x'} delta="+0.3x" accent="brand"/>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <Card className="lg:col-span-2 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-mute">Performa Iklan vs Organik</div>
+              <div className="mt-1 text-xl font-bold text-ink">Visit, Lead & Donasi · 30 hari</div>
+            </div>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-brand-600"/>Visits</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-sky2-400"/>Leads</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500"/>Donations</span>
+            </div>
+          </div>
+          <LineChart data={dailyDonations} height={250} color="#2E4191" secondary="#38B6FF"/>
+        </Card>
+
+        <Card className="p-5">
+          <div className="text-xs font-semibold uppercase tracking-wider text-mute">Sumber Traffic</div>
+          <div className="flex items-center justify-center my-4">
+            <Donut size={170} data={trafficSources.map(t => ({ value: t.visits, color: t.color }))}/>
+          </div>
+          <div className="space-y-2">
+            {trafficSources.map((t) => (
+              <div key={t.name} className="flex items-center gap-2 text-sm">
+                <span className="h-2.5 w-2.5 rounded-full" style={{background: t.color}}/>
+                <span className="flex-1 font-semibold text-ink">{t.name}</span>
+                <span className="text-mute text-xs">{fmtNum(t.visits)}</span>
+                <span className="w-14 text-right font-bold">{Math.round(t.visits/121140*100)}%</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      {/* Campaign performance table */}
+      <Card className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="font-bold text-ink">Campaign Performance</div>
+            <div className="text-xs text-mute mt-0.5">Diurutkan berdasarkan donasi 30 hari terakhir</div>
+          </div>
+          <div className="flex items-center gap-2">
+            <SearchInput placeholder="Filter campaign…" className="w-56"/>
+            <Btn variant="outline" tone="ink" size="sm" icon="download">Export</Btn>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto -mx-5">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase tracking-wider text-mute border-y border-line bg-bg2/60">
+                <th className="px-5 py-2.5 font-semibold">Campaign</th>
+                <th className="py-2.5 font-semibold text-right">Visits</th>
+                <th className="py-2.5 font-semibold text-right">Leads</th>
+                <th className="py-2.5 font-semibold text-right">Donasi</th>
+                <th className="py-2.5 font-semibold text-right">CVR</th>
+                <th className="py-2.5 font-semibold text-right">CPL</th>
+                <th className="py-2.5 font-semibold text-right">CPD</th>
+                <th className="py-2.5 font-semibold text-right">Revenue</th>
+                <th className="pr-5 py-2.5 font-semibold text-right">ROAS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {campaignSeed.slice(0,6).map((c, i) => {
+                const v = 4000 + i*1820 + (i%3)*900;
+                const l = Math.round(v * (0.06 + (i%5)*0.012));
+                const d = Math.round(l * (0.18 + (i%4)*0.05));
+                const cpl = [12500, 18900, 14200, 23400, 11500, 19800][i];
+                const cpd = [45000, 78000, 51000, 92000, 42000, 88000][i];
+                const rev = d * (60_000 + i*20_000);
+                const spend = d * cpd;
+                const roas = (rev / Math.max(1, spend)).toFixed(1);
+                return (
+                  <tr key={c.id} className="border-b border-line last:border-0 hover:bg-bg2/60">
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-8 w-8 rounded-md shrink-0" style={{background: c.thumb}}/>
+                        <div className="font-semibold text-ink line-clamp-1 max-w-[280px]">{c.title}</div>
+                      </div>
+                    </td>
+                    <td className="py-3 text-right text-ink">{fmtNum(v)}</td>
+                    <td className="py-3 text-right text-ink">{fmtNum(l)}</td>
+                    <td className="py-3 text-right text-ink font-semibold">{fmtNum(d)}</td>
+                    <td className="py-3 text-right text-ink">{(d/l*100).toFixed(1)}%</td>
+                    <td className="py-3 text-right text-mute">{fmtIDRShort(cpl)}</td>
+                    <td className="py-3 text-right text-mute">{fmtIDRShort(cpd)}</td>
+                    <td className="py-3 text-right font-bold text-ink">{fmtIDRShort(rev)}</td>
+                    <td className="pr-5 py-3 text-right">
+                      <span className={'font-bold ' + (roas >= 3 ? 'text-emerald-600' : roas >= 1.5 ? 'text-amber-600' : 'text-rose-600')}>{roas}x</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* UTM tracking */}
+      <Card className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="font-bold text-ink">UTM Tracking Fields</div>
+            <div className="text-xs text-mute mt-0.5">Field yang otomatis di-capture pada setiap donasi.</div>
+          </div>
+          <Btn variant="ghost" tone="ink" size="sm" icon="copy">Salin URL builder</Btn>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          {[
+            { f:'utm_source',   v:'facebook · google · tiktok · instagram', tone:'brand' },
+            { f:'utm_medium',   v:'paid · cpc · cpm · social · email',      tone:'sky' },
+            { f:'utm_content',  v:'hero-vid-01 · carousel-3 · bantu-rans',  tone:'warn' },
+            { f:'utm_campaign', v:'aira-jantung-q2 · sumur-ntt · pelindung', tone:'ok' },
+            { f:'utm_term',     v:'donasi · sedekah · zakat · organik',     tone:'purple' },
+            { f:'utm_id',       v:'rian · fb-29384 · gg-71028',             tone:'brand' },
+          ].map((u) => (
+            <div key={u.f} className="rounded-xl border border-line p-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <code className="text-xs font-mono font-bold text-ink bg-bg2 px-2 py-0.5 rounded">{u.f}</code>
+                <Badge tone={u.tone} size="sm">active</Badge>
+              </div>
+              <div className="text-xs text-mute">{u.v}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 pt-4 border-t border-line">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="font-bold text-ink text-sm">Click IDs (auto-forwarded)</div>
+              <div className="text-xs text-mute mt-0.5">Diteruskan ke Conversions API masing-masing platform.</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              { f:'fbclid', v:'Meta Conversions API', tone:'brand' },
+              { f:'gclid',  v:'Google Ads',          tone:'ok' },
+              { f:'ttclid', v:'TikTok Events API',   tone:'slate' },
+            ].map((u) => (
+              <div key={u.f} className="rounded-xl border border-line p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <code className="text-xs font-mono font-bold text-ink bg-bg2 px-2 py-0.5 rounded">{u.f}</code>
+                  <Badge tone={u.tone} size="sm" dot>auto</Badge>
+                </div>
+                <div className="text-xs text-mute">{u.v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
 }
+
 window.AnalyticsView = AnalyticsView;

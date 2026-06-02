@@ -2,6 +2,15 @@
 const { useState, useEffect, useRef, useMemo, createContext, useContext } = React;
 const { fmtIDR, fmtIDRShort, fmtNum, fmtPct } = window.NB;
 
+// Hook aliases used across the design-ported view files. In the original
+// (babel/standalone, shared scope) these leaked from app.jsx; under the
+// IIFE-per-file build each file is isolated, so expose them as window globals.
+// Bare references like `useStateA(...)` resolve to window.useStateA in browser.
+window.useStateA = React.useState;
+window.useEffectA = React.useEffect;
+window.useMemoA = React.useMemo;
+window.useRefA = React.useRef;
+
 // --------- App context (role, view, modal) ---------
 const AppCtx = createContext(null);
 const useApp = () => useContext(AppCtx);

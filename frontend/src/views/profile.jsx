@@ -100,7 +100,7 @@ function ProfileView() {
     return { score, label: labels[score], color: colors[score] };
   }, [pwd.neu]);
 
-  const updatePassword = () => {
+  const updatePassword = async () => {
     const e = {};
     if (!pwd.old) e.old = 'Password lama wajib diisi';
     if (!pwd.neu) e.neu = 'Password baru wajib diisi';
@@ -110,7 +110,11 @@ function ProfileView() {
     else if (pwd.con !== pwd.neu) e.con = 'Konfirmasi tidak cocok';
     setPwdErrors(e);
     if (Object.keys(e).length > 0) { showToast('Periksa kembali password Anda'); return; }
-    try { window.api?.changePassword?.({ old_password: pwd.old, new_password: pwd.neu }); } catch (err) { /* offline */ }
+    // Confirm with the API before claiming success (wrong old password → error).
+    let res;
+    try { res = await window.api?.changePassword?.({ old_password: pwd.old, new_password: pwd.neu }); }
+    catch (err) { setPwdErrors({ old: err?.message || 'Password lama salah' }); showToast('Gagal mengubah password'); return; }
+    if (res && res.success === false) { setPwdErrors({ old: res.message || 'Password lama salah' }); showToast('Gagal mengubah password'); return; }
     setPwd({ old:'', neu:'', con:'' });
     showToast('Password berhasil diubah · sesi lain akan diminta login ulang');
   };

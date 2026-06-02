@@ -440,9 +440,45 @@ async function loadProfile() {
   }
 }
 
+// Map a backend InvoiceResponse → the row shape views expect (design seed shape).
+function mapInvoice(inv) {
+  if (!inv) return inv;
+  // Already in seed shape (has .donor / .utm object) → pass through.
+  if (inv.donor !== undefined && inv.utm && typeof inv.utm === 'object') return inv;
+  const status = inv.status || (inv.is_paid ? 'Paid' : 'Pending');
+  const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+  return {
+    id: inv.invoice_number || inv.id || '',
+    donor: inv.donor_name || inv.donor || '',
+    campaign: inv.campaign_title || inv.campaign || '',
+    campaignId: inv.campaign_id || inv.campaignId || '',
+    amount: inv.amount ?? inv.total ?? 0,
+    method: inv.payment_method || inv.method || '',
+    status: ['Paid','Pending','Failed'].includes(status) ? status : cap(status),
+    date: inv.paid_at || inv.created_at || inv.date || '',
+    utm: {
+      source:   inv.utm_source   ?? inv.utm?.source   ?? '',
+      medium:   inv.utm_medium   ?? inv.utm?.medium   ?? '',
+      content:  inv.utm_content  ?? inv.utm?.content  ?? '',
+      campaign: inv.utm_campaign ?? inv.utm?.campaign ?? '',
+      term:     inv.utm_term     ?? inv.utm?.term     ?? '',
+      id:       inv.utm_id       ?? inv.utm?.id       ?? '',
+    },
+    whatsapp: inv.donor_phone || inv.whatsapp || '',
+    email: inv.donor_email || inv.email || '',
+    note: inv.cs_note || inv.note || '',
+    anon: inv.is_anonymous ?? inv.anon ?? false,
+    message: inv.message || '',
+  };
+}
+window.mapInvoice = mapInvoice;
+
 async function loadInvoices() {
   if (typeof window.api === 'undefined') return;
-  try { const r = await window.api.invoices?.('limit=100'); if (r?.data) window.TRANSACTIONS = r.data; } catch (e) { console.log('[data] invoices fallback', e?.message); }
+  try {
+    const r = await window.api.invoices?.('limit=100');
+    if (r?.data && Array.isArray(r.data)) window.TRANSACTIONS = r.data.map(mapInvoice);
+  } catch (e) { console.log('[data] invoices fallback', e?.message); }
 }
 
 async function loadAnalytics() {

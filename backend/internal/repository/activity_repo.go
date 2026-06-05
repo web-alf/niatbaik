@@ -30,7 +30,7 @@ func (r *ActivityRepo) FindByUser(userID uuid.UUID, limit int) ([]model.Activity
 
 func (r *ActivityRepo) FindLoginHistory(userID uuid.UUID, limit int) ([]model.LoginHistory, error) {
 	var histories []model.LoginHistory
-	query := r.db.Where("user_id = ?", userID).Order("created_at desc")
+	query := r.db.Where("user_id = ?", userID).Order("logged_in_at desc")
 	if limit > 0 {
 		query = query.Limit(limit)
 	}

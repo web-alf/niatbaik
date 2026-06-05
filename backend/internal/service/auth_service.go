@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/config"
@@ -48,10 +49,15 @@ func (s *AuthService) Login(email, password, ip, userAgent string) (*response.To
 	}
 
 	// Record login history
+	s.db.Model(&model.LoginHistory{}).Where("user_id = ? AND is_current = ?", user.ID, true).Update("is_current", false)
 	history := model.LoginHistory{
-		UserID:    user.ID,
-		IP:        ip,
-		UserAgent: userAgent,
+		UserID:     user.ID,
+		IP:         ip,
+		UserAgent:  userAgent,
+		Device:     parseDevice(userAgent),
+		Location:   "",
+		LoggedInAt: time.Now(),
+		IsCurrent:  true,
 	}
 	s.db.Create(&history)
 
@@ -212,6 +218,33 @@ func (s *AuthService) GetUserByID(id uuid.UUID) (*response.UserResponse, error) 
 		return nil, err
 	}
 	return userToResponse(&user), nil
+}
+
+func parseDevice(ua string) string {
+	c := strings.Contains
+	browser := "Unknown"
+	os := "Unknown"
+	if c(ua, "Chrome") && !c(ua, "Edg") {
+		browser = "Chrome"
+	} else if c(ua, "Edg") {
+		browser = "Edge"
+	} else if c(ua, "Firefox") {
+		browser = "Firefox"
+	} else if c(ua, "Safari") && !c(ua, "Chrome") {
+		browser = "Safari"
+	}
+	if c(ua, "Windows") {
+		os = "Windows"
+	} else if c(ua, "Macintosh") || c(ua, "Mac OS") {
+		os = "macOS"
+	} else if c(ua, "Linux") && !c(ua, "Android") {
+		os = "Linux"
+	} else if c(ua, "Android") {
+		os = "Android"
+	} else if c(ua, "iPhone") || c(ua, "iPad") {
+		os = "iOS"
+	}
+	return browser + " · " + os
 }
 
 func userToResponse(u *model.User) *response.UserResponse {

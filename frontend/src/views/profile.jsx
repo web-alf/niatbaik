@@ -72,11 +72,11 @@ function ProfileView() {
       })));
     }).catch(() => {});
     fetch('/api/profile/logins', { headers }).then(r => r.json()).then(res => {
-      if (res?.data) setLoginHistory(res.data.map((l, i) => ({
-        d: l.user_agent || 'Unknown browser',
-        ip: (l.ip_address || 'Unknown') + (l.location ? ' · ' + l.location : ''),
-        when: timeAgo(l.created_at),
-        current: i === 0,
+      if (res?.data && Array.isArray(res.data)) setLoginHistory(res.data.map((l) => ({
+        d: l.device || l.user_agent || 'Unknown browser',
+        ip: (l.ip || l.ip_address || 'Unknown') + (l.location ? ' · ' + l.location : ''),
+        when: timeAgo(l.logged_in_at || l.created_at),
+        current: !!l.is_current,
       })));
     }).catch(() => {});
   }, []);

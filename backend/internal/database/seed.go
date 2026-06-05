@@ -71,9 +71,21 @@ func seedDemoStaff(db *gorm.DB) error {
 		{"Dewi Lestari", "advertiser@niatbaik.org", "advertiser123", "advertiser"},
 	}
 	for _, s := range staff {
-		var count int64
-		db.Model(&model.User{}).Where("email = ?", s.Email).Count(&count)
-		if count > 0 {
+		var existing model.User
+		err := db.Where("email = ?", s.Email).First(&existing).Error
+		if err == nil {
+			pwOK := bcrypt.CompareHashAndPassword([]byte(existing.Password), []byte(s.Password)) == nil
+			roleOK := existing.Role == s.Role
+			if pwOK && roleOK {
+				continue
+			}
+			updates := map[string]interface{}{"role": s.Role}
+			if !pwOK {
+				newHash, _ := bcrypt.GenerateFromPassword([]byte(s.Password), bcrypt.DefaultCost)
+				updates["password"] = string(newHash)
+			}
+			db.Model(&existing).Updates(updates)
+			log.Printf("[seed] demo %s user synced: %s\n", s.Role, s.Email)
 			continue
 		}
 		hash, err := bcrypt.GenerateFromPassword([]byte(s.Password), bcrypt.DefaultCost)

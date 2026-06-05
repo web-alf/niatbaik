@@ -72,12 +72,23 @@ function ProfileView() {
       })));
     }).catch(() => {});
     fetch('/api/profile/logins', { headers }).then(r => r.json()).then(res => {
-      if (res?.data && Array.isArray(res.data)) setLoginHistory(res.data.map((l) => ({
-        d: l.device || l.user_agent || 'Unknown browser',
-        ip: (l.ip || l.ip_address || 'Unknown') + (l.location ? ' · ' + l.location : ''),
-        when: timeAgo(l.logged_in_at || l.created_at),
-        current: !!l.is_current,
-      })));
+      if (res?.data && Array.isArray(res.data)) setLoginHistory(res.data.map((l) => {
+        const ts = l.logged_in_at || l.created_at || '';
+        const isZero = !ts || ts.startsWith('0001') || new Date(ts).getFullYear() < 2020;
+        const ua = l.user_agent || '';
+        let device = l.device;
+        if (!device || device === ' · ') {
+          const br = ua.includes('Chrome') && !ua.includes('Edg') ? 'Chrome' : ua.includes('Edg') ? 'Edge' : ua.includes('Firefox') ? 'Firefox' : ua.includes('Safari') ? 'Safari' : 'Browser';
+          const os = ua.includes('Windows') ? 'Windows' : ua.includes('Mac') ? 'macOS' : ua.includes('Linux') ? 'Linux' : ua.includes('Android') ? 'Android' : ua.includes('iPhone') ? 'iOS' : 'Unknown';
+          device = br + ' · ' + os;
+        }
+        return {
+          d: device,
+          ip: (l.ip || l.ip_address || 'Unknown') + (l.location ? ' · ' + l.location : ''),
+          when: isZero ? 'tidak diketahui' : timeAgo(ts),
+          current: !!l.is_current,
+        };
+      }));
     }).catch(() => {});
   }, []);
 

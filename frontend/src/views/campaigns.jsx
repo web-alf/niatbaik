@@ -266,6 +266,7 @@ function CampaignOptionMenu({ c, onEdit, onPreview, onDelete, align = 'right' })
 function CampaignDetailModal({ campaign, onClose }) {
   const [amount, setAmount] = useStateA(100_000);
   const [tab, setTab] = useStateA('story');
+  const { setView, setEditingCampaign, showToast } = useApp();
   const c = campaign;
   const presets = [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
 
@@ -276,9 +277,9 @@ function CampaignDetailModal({ campaign, onClose }) {
         <span className="text-xs text-mute mr-auto flex items-center gap-1.5">
           <Icon name="globe" size={14}/> niatbaik.org/c/{c.id}
         </span>
-        <Btn variant="outline" tone="ink" icon="copy">Salin URL</Btn>
-        <Btn variant="outline" tone="ink" icon="edit">Edit campaign</Btn>
-        <Btn icon="eye">Buka di tab baru</Btn>
+        <Btn variant="outline" tone="ink" icon="copy" onClick={() => { navigator.clipboard?.writeText('https://niatbaik.org/c/' + c.id); showToast('URL disalin'); }}>Salin URL</Btn>
+        <Btn variant="outline" tone="ink" icon="edit" onClick={() => { onClose(); setEditingCampaign(c); setView('campaign-editor'); }}>Edit campaign</Btn>
+        <Btn icon="eye" onClick={() => window.open('https://donasi.niatbaik.org/c/' + (c.slug || c.id), '_blank')}>Buka di tab baru</Btn>
       </>}>
       <div className="bg-bg2 -m-5 p-5">
         <div className="rounded-2xl border border-line bg-white overflow-hidden">

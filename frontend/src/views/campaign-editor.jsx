@@ -67,6 +67,14 @@ function CampaignEditorView() {
   const [minDonasi, setMinDonasi] = useStateA(45000);
   const [maxDonasi, setMaxDonasi] = useStateA(0);
 
+  const [advCustom, setAdvCustom] = useStateA({
+    fundraiserPct: '10', fundraiserEnabled: true,
+    waNumber: '', waTemplate: '',
+    followupMsg: '', paymentSuccessMsg: '',
+    metaPixelId: '', tiktokPixelId: '', gtmId: '',
+    waFlyingNumber: '', waFlyingText: 'Chat via WhatsApp',
+    extLinkUrl: '', extLinkText: 'Kunjungi website',
+  });
   const [advOpen, setAdvOpen] = useStateA(true);
 
   const back = () => { setEditingCampaign(null); setView('campaigns'); };
@@ -282,16 +290,89 @@ function CampaignEditorView() {
                   )}
                 </div>
 
-                <AdvRadio label="Fundraising"                         value={adv.fundraising}  options={['Default','Custom']} onChange={(v) => setAdv({...adv, fundraising:v})}/>
-                <AdvRadio label="Whatsapp Notification"               value={adv.wa}           options={['Default','Custom']} onChange={(v) => setAdv({...adv, wa:v})}/>
-                <AdvRadio label="Multiple Follow-Up & Payment Success Message (Format)" sub="( Trigger by Button Follow-up & Payment Status Button )" value={adv.followup} options={['Default','Custom']} onChange={(v) => setAdv({...adv, followup:v})}/>
-                <AdvRadio label="Meta Pixel (Facebook)"               value={adv.metaPixel}    options={['Default','Custom']} onChange={(v) => setAdv({...adv, metaPixel:v})}/>
-                <AdvRadio label="Tiktok Pixel"                         value={adv.tiktokPixel}  options={['Default','Custom']} onChange={(v) => setAdv({...adv, tiktokPixel:v})}/>
-                <AdvRadio label="Google Tag Manager"                   value={adv.gtm}          options={['Default','Custom']} onChange={(v) => setAdv({...adv, gtm:v})}/>
+                <div>
+                  <AdvRadio label="Fundraising" value={adv.fundraising} options={['Default','Custom']} onChange={(v) => setAdv({...adv, fundraising:v})}/>
+                  {adv.fundraising === 'Custom' && (
+                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-3">
+                      <div><label className="text-xs font-semibold text-mute">Komisi fundraiser (%)</label><input type="number" value={advCustom.fundraiserPct} onChange={(e) => setAdvCustom({...advCustom, fundraiserPct: e.target.value})} className="field mt-1 bg-white" placeholder="10"/></div>
+                      <FieldToggle label="Aktifkan fundraiser untuk campaign ini" value={advCustom.fundraiserEnabled} onChange={(v) => setAdvCustom({...advCustom, fundraiserEnabled:v})}/>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <AdvRadio label="Whatsapp Notification" value={adv.wa} options={['Default','Custom']} onChange={(v) => setAdv({...adv, wa:v})}/>
+                  {adv.wa === 'Custom' && (
+                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-3">
+                      <div><label className="text-xs font-semibold text-mute">No. WhatsApp CS</label><input value={advCustom.waNumber} onChange={(e) => setAdvCustom({...advCustom, waNumber: e.target.value})} className="field mt-1 bg-white" placeholder="6281234567890"/></div>
+                      <div><label className="text-xs font-semibold text-mute">Template pesan</label><textarea value={advCustom.waTemplate} onChange={(e) => setAdvCustom({...advCustom, waTemplate: e.target.value})} className="field mt-1 bg-white" rows="2" placeholder="Halo, saya ingin berdonasi untuk {{campaign}}"/></div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <AdvRadio label="Multiple Follow-Up & Payment Success Message (Format)" sub="( Trigger by Button Follow-up & Payment Status Button )" value={adv.followup} options={['Default','Custom']} onChange={(v) => setAdv({...adv, followup:v})}/>
+                  {adv.followup === 'Custom' && (
+                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-3">
+                      <div><label className="text-xs font-semibold text-mute">Pesan follow-up (WA)</label><textarea value={advCustom.followupMsg} onChange={(e) => setAdvCustom({...advCustom, followupMsg: e.target.value})} className="field mt-1 bg-white" rows="3" placeholder="Assalamualaikum {{nama}}, terima kasih atas donasi Anda..."/></div>
+                      <div><label className="text-xs font-semibold text-mute">Pesan payment sukses</label><textarea value={advCustom.paymentSuccessMsg} onChange={(e) => setAdvCustom({...advCustom, paymentSuccessMsg: e.target.value})} className="field mt-1 bg-white" rows="3" placeholder="Alhamdulillah, donasi Anda sebesar {{nominal}} telah diterima..."/></div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <AdvRadio label="Meta Pixel (Facebook)" value={adv.metaPixel} options={['Default','Custom']} onChange={(v) => setAdv({...adv, metaPixel:v})}/>
+                  {adv.metaPixel === 'Custom' && (
+                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line">
+                      <label className="text-xs font-semibold text-mute">Meta Pixel ID</label>
+                      <input value={advCustom.metaPixelId} onChange={(e) => setAdvCustom({...advCustom, metaPixelId: e.target.value})} className="field mt-1 bg-white font-mono" placeholder="123456789012345"/>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <AdvRadio label="Tiktok Pixel" value={adv.tiktokPixel} options={['Default','Custom']} onChange={(v) => setAdv({...adv, tiktokPixel:v})}/>
+                  {adv.tiktokPixel === 'Custom' && (
+                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line">
+                      <label className="text-xs font-semibold text-mute">TikTok Pixel ID</label>
+                      <input value={advCustom.tiktokPixelId} onChange={(e) => setAdvCustom({...advCustom, tiktokPixelId: e.target.value})} className="field mt-1 bg-white font-mono" placeholder="CIK29JLM3"/>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <AdvRadio label="Google Tag Manager" value={adv.gtm} options={['Default','Custom']} onChange={(v) => setAdv({...adv, gtm:v})}/>
+                  {adv.gtm === 'Custom' && (
+                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line">
+                      <label className="text-xs font-semibold text-mute">GTM Container ID</label>
+                      <input value={advCustom.gtmId} onChange={(e) => setAdvCustom({...advCustom, gtmId: e.target.value})} className="field mt-1 bg-white font-mono" placeholder="GTM-XXXXXXX"/>
+                    </div>
+                  )}
+                </div>
+
                 <AdvRadio label="Social Proof"                         value={adv.socialProof}  options={['Hide','Show']}      onChange={(v) => setAdv({...adv, socialProof:v})}/>
                 <AdvRadio label="Popup Info (Form)"                    value={adv.popupInfo}    options={['Hide','Show']}      onChange={(v) => setAdv({...adv, popupInfo:v})}/>
-                <AdvRadio label="Whatsapp Flying Button"               value={adv.waFlying}     options={['Default','Custom']} onChange={(v) => setAdv({...adv, waFlying:v})}/>
-                <AdvRadio label="External Link Button"                 value={adv.extLink}      options={['Default','Custom']} onChange={(v) => setAdv({...adv, extLink:v})}/>
+
+                <div>
+                  <AdvRadio label="Whatsapp Flying Button" value={adv.waFlying} options={['Default','Custom']} onChange={(v) => setAdv({...adv, waFlying:v})}/>
+                  {adv.waFlying === 'Custom' && (
+                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-3">
+                      <div><label className="text-xs font-semibold text-mute">No. WhatsApp</label><input value={advCustom.waFlyingNumber} onChange={(e) => setAdvCustom({...advCustom, waFlyingNumber: e.target.value})} className="field mt-1 bg-white" placeholder="6281234567890"/></div>
+                      <div><label className="text-xs font-semibold text-mute">Teks tombol</label><input value={advCustom.waFlyingText} onChange={(e) => setAdvCustom({...advCustom, waFlyingText: e.target.value})} className="field mt-1 bg-white" placeholder="Chat via WhatsApp"/></div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <AdvRadio label="External Link Button" value={adv.extLink} options={['Default','Custom']} onChange={(v) => setAdv({...adv, extLink:v})}/>
+                  {adv.extLink === 'Custom' && (
+                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-3">
+                      <div><label className="text-xs font-semibold text-mute">URL tujuan</label><input value={advCustom.extLinkUrl} onChange={(e) => setAdvCustom({...advCustom, extLinkUrl: e.target.value})} className="field mt-1 bg-white" placeholder="https://..."/></div>
+                      <div><label className="text-xs font-semibold text-mute">Teks tombol</label><input value={advCustom.extLinkText} onChange={(e) => setAdvCustom({...advCustom, extLinkText: e.target.value})} className="field mt-1 bg-white" placeholder="Kunjungi website"/></div>
+                    </div>
+                  )}
+                </div>
+
                 <AdvRadio label="General"                              value={adv.general}      options={['Default','Custom']} onChange={(v) => setAdv({...adv, general:v})}/>
               </div>
             )}
@@ -511,16 +592,29 @@ function EditableUrlRow({ label, prefix, value, onChange, onCopy, sanitize, help
 function ThumbUploader({ thumb, icon, onChange }) {
   const fileRef = useRefA();
   const [uploading, setUploading] = useStateA(false);
+  const [uploadError, setUploadError] = useStateA('');
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
   const handleFile = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (f.size > 5 * 1024 * 1024) { alert('Maks 5MB'); return; }
+    setUploadError('');
+    if (!allowedTypes.includes(f.type)) {
+      setUploadError('Format tidak didukung. Gunakan JPG, PNG, WebP, GIF, atau SVG.');
+      e.target.value = '';
+      return;
+    }
+    if (f.size > 5 * 1024 * 1024) {
+      setUploadError('Ukuran file melebihi 5MB. Kompres gambar terlebih dahulu.');
+      e.target.value = '';
+      return;
+    }
     setUploading(true);
     try {
       const res = await api.uploadImage(f);
       const url = res?.data?.url || res?.url;
       if (url) onChange(url);
-    } catch { onChange('linear-gradient(135deg, #38B6FF 0%, #2E4191 100%)'); }
+      else setUploadError('Upload gagal. Coba lagi.');
+    } catch { setUploadError('Upload gagal. Periksa koneksi.'); }
     setUploading(false);
     e.target.value = '';
   };
@@ -544,10 +638,18 @@ function ThumbUploader({ thumb, icon, onChange }) {
           <Icon name="upload" size={14}/>
         </div>
       </div>
-      <button onClick={() => thumb ? onChange(null) : fileRef.current?.click()}
+      <button onClick={() => { thumb ? onChange(null) : fileRef.current?.click(); setUploadError(''); }}
         className="mt-2 w-full text-xs font-semibold text-brand-600 hover:underline">
         {thumb ? 'Hapus gambar' : 'Upload gambar'}
       </button>
+      {uploadError && (
+        <div className="mt-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold px-3 py-2 flex items-center gap-2">
+          <Icon name="close" size={14}/>
+          <span className="flex-1">{uploadError}</span>
+          <button onClick={() => setUploadError('')} className="text-rose-400 hover:text-rose-600"><Icon name="close" size={12}/></button>
+        </div>
+      )}
+      <div className="text-[10px] text-mute mt-1">JPG, PNG, WebP, GIF, SVG · maks 5MB · 650 x 350 px</div>
     </div>
   );
 }
@@ -635,8 +737,8 @@ function RichEditor({ value, onChange }) {
         {/* Image upload */}
         <input ref={imgRef} type="file" accept="image/*" className="hidden" onChange={handleImgUpload}/>
         <button onClick={() => imgRef.current?.click()} title="Insert image" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="upload" size={14}/></button>
-        {/* Preview */}
-        <button onClick={() => setPreview(!preview)} title={preview ? 'Edit' : 'Preview'} className={`h-7 w-7 rounded hover:bg-white flex items-center justify-center ${preview ? 'bg-brand-50 text-brand-600' : 'text-ink'}`}><Icon name="eye" size={14}/></button>
+        {/* Insert image via URL */}
+        <button onClick={() => { const url = prompt('URL gambar (https://...)'); if (url && url.startsWith('http')) exec('insertHTML', '<img src="' + url + '" class="rounded-lg max-w-full my-2"/>'); }} title="Insert image URL" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="eye" size={14}/></button>
         {/* Video */}
         <div className="relative">
           <button onClick={() => { setVideoOpen(!videoOpen); setLinkOpen(false); setColorOpen(false); }} title="Video" className={`h-7 w-7 rounded hover:bg-white flex items-center justify-center ${videoOpen ? 'bg-white ring-2 ring-brand-600/20' : 'text-ink'}`}><Icon name="play" size={14}/></button>
@@ -669,22 +771,16 @@ function RichEditor({ value, onChange }) {
         </div>
       </div>
 
-      {preview ? (
-        <div className="min-h-[260px] max-h-[420px] overflow-y-auto p-4 text-sm text-ink/90 leading-relaxed prose prose-sm max-w-none bg-bg2/30"
-          dangerouslySetInnerHTML={{ __html: value || '<p class="text-mute">Belum ada konten</p>' }}/>
-      ) : (
-        <div
-          ref={ref}
-          contentEditable
-          suppressContentEditableWarning
-          onInput={(e) => onChange(e.currentTarget.innerHTML)}
-          className="min-h-[260px] max-h-[420px] overflow-y-auto p-4 text-sm text-ink/90 leading-relaxed focus:outline-none prose prose-sm max-w-none"
-        />
-      )}
+      <div
+        ref={ref}
+        contentEditable
+        suppressContentEditableWarning
+        onInput={(e) => onChange(e.currentTarget.innerHTML)}
+        className="min-h-[260px] max-h-[420px] overflow-y-auto p-4 text-sm text-ink/90 leading-relaxed focus:outline-none prose prose-sm max-w-none"
+      />
 
-      <div className="flex justify-between px-3 py-1.5 bg-bg2 border-t border-line text-[11px] font-bold uppercase text-mute">
-        <span>{preview ? 'PREVIEW MODE' : 'EDIT MODE'}</span>
-        <span>{wordCount} WORDS</span>
+      <div className="flex justify-end px-3 py-1.5 bg-bg2 border-t border-line text-[11px] font-bold uppercase text-mute">
+        {wordCount} WORDS
       </div>
     </div>
   );

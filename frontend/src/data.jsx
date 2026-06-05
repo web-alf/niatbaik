@@ -401,23 +401,20 @@ async function loadApiData() {
 
 async function loadAdminData() {
   if (typeof window.api === 'undefined') return;
-  try {
-    const api = window.api;
-    const [txRes, notifRes, fundraiserRes, usersRes, settingsRes] = await Promise.all([
-      api.recentTransactions?.(48),
-      api.notifications?.(),
-      api.fundraisers?.(),
-      api.users?.(),
-      api.settings?.(),
-    ]);
-    if (txRes?.data)        window.TRANSACTIONS  = txRes.data;
-    if (notifRes?.data)     window.NOTIFICATIONS = notifRes.data;
-    if (fundraiserRes?.data) window.FUNDRAISERS   = fundraiserRes.data;
-    if (usersRes?.data)     window.USERS          = usersRes.data;
-    if (settingsRes?.data)  window.SETTINGS       = settingsRes.data;
-  } catch (e) {
-    console.log('[data] Admin data fallback:', e?.message || e);
-  }
+  const api = window.api;
+  const safe = async (fn) => { try { return await fn(); } catch { return null; } };
+  const [txRes, notifRes, fundraiserRes, usersRes, settingsRes] = await Promise.all([
+    safe(() => api.recentTransactions?.(48)),
+    safe(() => api.notifications?.()),
+    safe(() => api.fundraisers?.()),
+    safe(() => api.users?.()),
+    safe(() => api.settings?.()),
+  ]);
+  if (txRes?.data)         window.TRANSACTIONS  = txRes.data;
+  if (notifRes?.data)      window.NOTIFICATIONS = notifRes.data;
+  if (fundraiserRes?.data) window.FUNDRAISERS   = fundraiserRes.data;
+  if (usersRes?.data)      window.USERS          = usersRes.data;
+  if (settingsRes?.data)   window.SETTINGS       = settingsRes.data;
 }
 
 async function loadDashboardChart() {

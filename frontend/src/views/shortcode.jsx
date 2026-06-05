@@ -1,12 +1,16 @@
 function ShortcodeView() {
   const [type, setType] = useStateA('button');
-  const [campaign, setCampaign] = useStateA('c-002');
+  const [campaign, setCampaign] = useStateA(() => {
+    const list = (window.CAMPAIGNS && window.CAMPAIGNS.length) ? window.CAMPAIGNS : window.NB.campaignSeed;
+    return list[0]?.id || 'c-002';
+  });
   const [btnStyle, setBtnStyle] = useStateA('solid');
   const [btnColor, setBtnColor] = useStateA('brand');
   const [label, setLabel] = useStateA('Donasi Sekarang');
   const { showToast } = useApp();
 
-  const c = window.NB.campaignSeed.find(x => x.id === campaign);
+  const campaigns = (window.CAMPAIGNS && window.CAMPAIGNS.length) ? window.CAMPAIGNS : window.NB.campaignSeed;
+  const c = campaigns.find(x => x.id === campaign) || campaigns[0];
 
   const codes = {
     button: `<a href="https://niatbaik.org/c/${campaign}?utm_source=embed" class="nb-btn nb-${btnColor}">${label}</a>\n<script src="https://niatbaik.org/embed.js"></script>`,
@@ -46,7 +50,7 @@ function ShortcodeView() {
 
           <div>
             <div className="text-xs font-semibold uppercase tracking-wider text-mute mb-2">Campaign Tujuan</div>
-            <Select value={campaign} onChange={setCampaign} options={window.NB.campaignSeed.map(x => ({ value: x.id, label: x.title }))}/>
+            <Select value={campaign} onChange={setCampaign} options={campaigns.map(x => ({ value: x.id, label: x.title }))}/>
           </div>
 
           {type === 'button' && (
@@ -146,6 +150,10 @@ function ShortcodeView() {
             <div className="mt-3 text-xs text-mute">
               Pasang di tag <code className="bg-bg2 px-1 rounded">&lt;body&gt;</code> halaman Anda.
               Script akan otomatis menjalankan tracking pixel & responsive layout.
+            </div>
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 flex items-start gap-2 mt-3">
+              <Icon name="check" size={13} className="mt-0.5 shrink-0"/>
+              <div>Shortcode siap digunakan. Salin kode di bawah dan tempel di website Anda. Perubahan otomatis berlaku setelah kode di-embed.</div>
             </div>
           </Card>
         </div>

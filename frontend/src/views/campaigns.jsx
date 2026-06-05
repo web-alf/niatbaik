@@ -1,15 +1,17 @@
 // Campaigns list + detail preview modal
 function CampaignsView() {
-  const { setCampaignDetail, setView, setEditingCampaign } = useApp();
+  const { setCampaignDetail, setView, setEditingCampaign, showToast } = useApp();
   const goCreate = () => { setEditingCampaign(null); setView('campaign-editor'); };
   const goEdit = (c) => { setEditingCampaign(c); setView('campaign-editor'); };
   // Live campaigns when API loaded them; else seed. Normalize backend status → design labels.
   const STATUS_NORM = { Berjalan: 'Running', Selesai: 'Ended', Aktif: 'Running' };
+  const [ver, setVer] = useStateA(0);
   const src = (window.CAMPAIGNS && window.CAMPAIGNS.length) ? window.CAMPAIGNS : window.NB.campaignSeed;
-  const all = src.map(c => ({ ...c, status: STATUS_NORM[c.status] || c.status }));
+  const all = useMemoA(() => src.map(c => ({ ...c, status: STATUS_NORM[c.status] || c.status })), [src, ver]);
   const [tab, setTab] = useStateA('all');
   const [q, setQ] = useStateA('');
   const [view, setViewMode] = useStateA('cards');
+  const [catFilter, setCatFilter] = useStateA('all');
 
   const counts = useMemoA(() => ({
     all: all.length,
@@ -21,6 +23,7 @@ function CampaignsView() {
 
   const filtered = all.filter(c =>
     (tab === 'all' || c.status === tab) &&
+    (catFilter === 'all' || c.category === catFilter) &&
     (!q || c.title.toLowerCase().includes(q.toLowerCase()))
   );
 
@@ -30,8 +33,15 @@ function CampaignsView() {
         title="Campaigns"
         subtitle="Kelola seluruh campaign donasi NIATBAIK.ORG."
         actions={<>
-          <Btn variant="outline" tone="ink" icon="upload">Import</Btn>
-          <Btn variant="outline" tone="ink" icon="download">Export</Btn>
+          <Btn variant="outline" tone="ink" icon="download" onClick={() => {
+            const rows = filtered.map(c => ({
+              judul: c.title, kategori: c.category, target: c.target, terkumpul: c.raised,
+              donatur: c.donors, status: c.status, sisa_hari: c.daysLeft
+            }));
+            if (!rows.length) { showToast('Tidak ada data'); return; }
+            exportCSV(rows, 'niatbaik_campaigns');
+            showToast(rows.length + ' campaign diekspor');
+          }}>Export</Btn>
           <Btn icon="plus" onClick={goCreate}>Create Campaign</Btn>
         </>}
       />
@@ -48,7 +58,7 @@ function CampaignsView() {
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <SearchInput placeholder="Cari judul campaign…" value={q} onChange={setQ} className="flex-1 min-w-[220px] max-w-md"/>
-          <Select value="all" onChange={()=>{}} icon="filter" options={[
+          <Select value={catFilter} onChange={setCatFilter} icon="filter" options={[
             {value:'all', label:'Semua kategori'},
             {value:'medis', label:'Medis'},
             {value:'pendidikan', label:'Pendidikan'},
@@ -66,7 +76,16 @@ function CampaignsView() {
 
       {view === 'cards' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((c) => <CampaignCard key={c.id} c={c} onOpen={() => setCampaignDetail(c)} onEdit={() => goEdit(c)}/>)}
+          {filtered.map((c) => <CampaignCard key={c.id} c={c} onOpen={() => setCampaignDetail(c)} onEdit={() => goEdit(c)} onDelete={async () => {
+            if (!confirm('Hapus campaign "' + c.title + '"? Campaign akan dipindah ke Trash.')) return;
+            try {
+              await window.api.deleteCampaign(c.id);
+              const idx = window.CAMPAIGNS?.findIndex(x => x.id === c.id);
+              if (idx >= 0) window.CAMPAIGNS.splice(idx, 1);
+              showToast('Campaign dipindah ke trash');
+              setVer(v => v + 1);
+            } catch (e) { showToast('Gagal menghapus campaign'); }
+          }}/>)}
         </div>
       ) : (
         <Card className="overflow-hidden">
@@ -105,7 +124,16 @@ function CampaignsView() {
                     <div className="inline-flex items-center gap-1">
                       <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink" onClick={() => setCampaignDetail(c)}><Icon name="eye" size={16}/></button>
                       <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink" onClick={() => goEdit(c)}><Icon name="edit" size={16}/></button>
-                      <CampaignOptionMenu c={c} onEdit={() => goEdit(c)} onPreview={() => setCampaignDetail(c)}/>
+                      <CampaignOptionMenu c={c} onEdit={() => goEdit(c)} onPreview={() => setCampaignDetail(c)} onDelete={async () => {
+                        if (!confirm('Hapus campaign "' + c.title + '"? Campaign akan dipindah ke Trash.')) return;
+                        try {
+                          await window.api.deleteCampaign(c.id);
+                          const idx = window.CAMPAIGNS?.findIndex(x => x.id === c.id);
+                          if (idx >= 0) window.CAMPAIGNS.splice(idx, 1);
+                          showToast('Campaign dipindah ke trash');
+                          setVer(v => v + 1);
+                        } catch (e) { showToast('Gagal menghapus campaign'); }
+                      }}/>
                     </div>
                   </td>
                 </tr>
@@ -118,7 +146,7 @@ function CampaignsView() {
   );
 }
 
-function CampaignCard({ c, onOpen, onEdit }) {
+function CampaignCard({ c, onOpen, onEdit, onDelete }) {
   return (
     <Card className="overflow-hidden hover:shadow-pop transition-shadow group">
       <div className="aspect-[16/9]"><CampaignThumb c={c} className="h-full"/></div>
@@ -144,7 +172,7 @@ function CampaignCard({ c, onOpen, onEdit }) {
         <div className="mt-4 flex items-center gap-2">
           <Btn size="sm" variant="outline" tone="ink" icon="eye" onClick={onOpen} className="flex-1">Preview</Btn>
           <Btn size="sm" tone="brand" icon="edit" className="flex-1" onClick={onEdit}>Edit</Btn>
-          <CampaignOptionMenu c={c} onEdit={onEdit} onPreview={onOpen}/>
+          <CampaignOptionMenu c={c} onEdit={onEdit} onPreview={onOpen} onDelete={onDelete}/>
         </div>
       </div>
     </Card>
@@ -152,7 +180,7 @@ function CampaignCard({ c, onOpen, onEdit }) {
 }
 
 // ---------- Option dropdown menu (3-dot) ----------
-function CampaignOptionMenu({ c, onEdit, onPreview, align = 'right' }) {
+function CampaignOptionMenu({ c, onEdit, onPreview, onDelete, align = 'right' }) {
   const [open, setOpen] = useStateA(false);
   const [pos, setPos] = useStateA(null);   // 'up' | 'down'
   const btnRef = React.useRef();
@@ -186,9 +214,10 @@ function CampaignOptionMenu({ c, onEdit, onPreview, align = 'right' }) {
     { l: `Add Info Update (${updateCount})`, icon: 'pin',      onClick: () => { setOpen(false); showToast('Form update campaign dibuka'); } },
     { l: 'Data Donasi',                icon: 'wallet',   onClick: () => { setOpen(false); showToast('Membuka data donasi'); } },
     { l: 'Preview',                    icon: 'eye',      onClick: () => { setOpen(false); onPreview && onPreview(); } },
+    { l: 'Buka di Tab Baru',            icon: 'eye',      onClick: () => { setOpen(false); window.open(`https://niatbaik.org/c/${c.id}`, '_blank'); } },
     { l: 'Salin URL',                  icon: 'copy',     onClick: () => { setOpen(false); navigator.clipboard?.writeText(`https://niatbaik.org/c/${c.id}`); showToast('URL campaign disalin'); } },
     { sep: true },
-    { l: 'Delete Data',                icon: 'trash',    onClick: () => { setOpen(false); showToast('Campaign dipindahkan ke trash'); }, danger: true },
+    { l: 'Delete Data',                icon: 'trash',    onClick: () => { setOpen(false); onDelete && onDelete(); }, danger: true },
     { l: 'Delete All',                 icon: 'trash',    onClick: () => { setOpen(false); showToast('Semua data terkait dihapus'); }, danger: true },
   ];
 

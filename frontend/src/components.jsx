@@ -506,7 +506,9 @@ const BarChart = ({ data, height = 160, accent='brand', labels }) => {
 };
 
 // Simple line chart svg
+let _lcId = 0;
 const LineChart = ({ data, height = 180, color = '#2E4191', secondary = '#38B6FF', fill = true }) => {
+  const gradId = useMemo(() => 'lc-g' + (++_lcId), []);
   const w = 600, h = height;
   const max = Math.max(...data) * 1.15;
   const step = w / (data.length - 1);
@@ -516,7 +518,7 @@ const LineChart = ({ data, height = 180, color = '#2E4191', secondary = '#38B6FF
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }}>
       <defs>
-        <linearGradient id="lg1" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor={secondary} stopOpacity="0.25"/>
           <stop offset="100%" stopColor={secondary} stopOpacity="0"/>
         </linearGradient>
@@ -525,7 +527,7 @@ const LineChart = ({ data, height = 180, color = '#2E4191', secondary = '#38B6FF
       {[0,1,2,3].map(i => (
         <line key={i} x1="0" x2={w} y1={10 + i*(h-30)/3} y2={10 + i*(h-30)/3} stroke="#E2E8F0" strokeDasharray="3 4"/>
       ))}
-      {fill && <path d={dArea} fill="url(#lg1)"/>}
+      {fill && <path d={dArea} fill={`url(#${gradId})`}/>}
       <path d={d} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>
       {pts.filter((_,i)=>i%4===0).map((p,i) => (
         <circle key={i} cx={p[0]} cy={p[1]} r="3" fill="white" stroke={color} strokeWidth="2"/>

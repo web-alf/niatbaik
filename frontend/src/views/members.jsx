@@ -1,7 +1,88 @@
+const mapUser = (u) => ({
+  id: u.id,
+  name: u.name,
+  email: u.email,
+  phone: u.phone,
+  role: (u.role || 'user').charAt(0).toUpperCase() + (u.role || 'user').slice(1),
+  status: u.verification_status === 'verified' ? 'active' : (u.verification_status || 'pending'),
+  lastLogin: u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : 'Belum pernah',
+  joined: u.created_at ? new Date(u.created_at).toLocaleDateString('id-ID') : '-',
+});
+
 function MembersView() {
-  const members = (window.USERS && window.USERS.length) ? window.USERS : window.NB.members;
+  const { showToast } = useApp();
+  const [members, setMembers] = useStateA([]);
+  const [loading, setLoading] = useStateA(true);
   const [tab, setTab] = useStateA('all');
+  const [q, setQ] = useStateA('');
   const [showAdd, setShowAdd] = useStateA(false);
+  const [editing, setEditing] = useStateA(null);
+  const [confirmDel, setConfirmDel] = useStateA(null);
+
+  const [addForm, setAddForm] = useStateA({ name:'', email:'', phone:'', role:'admin', password:'' });
+  const [addErrors, setAddErrors] = useStateA({});
+  const [addLoading, setAddLoading] = useStateA(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await api.users();
+      const list = (res?.data || []).map(mapUser);
+      setMembers(list);
+    } catch {
+      setMembers((window.USERS || window.NB.members || []).map(mapUser));
+    }
+    setLoading(false);
+  };
+  useEffectA(() => { load(); }, []);
+
+  useEffectA(() => {
+    if (editing) setAddForm({ name: editing.name, email: editing.email, phone: editing.phone || '', role: editing.role.toLowerCase(), password: '' });
+    else setAddForm({ name:'', email:'', phone:'', role:'admin', password:'' });
+    setAddErrors({});
+  }, [editing, showAdd]);
+
+  const filtered = useMemoA(() => {
+    return members.filter(m => {
+      if (tab !== 'all' && m.role !== tab) return false;
+      if (q) {
+        const query = q.toLowerCase();
+        return m.name.toLowerCase().includes(query) || m.email.toLowerCase().includes(query);
+      }
+      return true;
+    });
+  }, [members, tab, q]);
+
+  const handleSaveUser = async () => {
+    const e = {};
+    if (!addForm.name.trim()) e.name = 'Nama wajib diisi';
+    if (!addForm.email.trim()) e.email = 'Email wajib diisi';
+    if (!editing && !addForm.password) addForm.password = Math.random().toString(36).slice(-10);
+    setAddErrors(e);
+    if (Object.keys(e).length) return;
+    setAddLoading(true);
+    try {
+      if (editing) {
+        await api.updateUser(editing.id, { name: addForm.name, email: addForm.email, phone: addForm.phone, role: addForm.role });
+        showToast('User berhasil diupdate');
+      } else {
+        await api.createUser({ name: addForm.name, email: addForm.email, phone: addForm.phone, role: addForm.role, password: addForm.password });
+        showToast('User berhasil ditambahkan');
+      }
+      setShowAdd(false); setEditing(null);
+      load();
+    } catch (err) { showToast('Gagal: ' + (err?.message || '')); }
+    setAddLoading(false);
+  };
+
+  const handleDeleteUser = async () => {
+    try {
+      await api.deleteUser(confirmDel.id);
+      showToast('User dipindah ke trash');
+      setConfirmDel(null);
+      load();
+    } catch { showToast('Gagal menghapus user'); }
+  };
 
   return (
     <div className="space-y-5">
@@ -9,20 +90,24 @@ function MembersView() {
         title="Members / User"
         subtitle="Tim NIATBAIK.ORG · Admin, CS, dan Advertiser."
         actions={<>
-          <Btn variant="outline" tone="ink" icon="download">Export</Btn>
-          <Btn icon="plus" onClick={() => setShowAdd(true)}>Add User</Btn>
+          <Btn variant="outline" tone="ink" icon="download" onClick={() => {
+            const rows = filtered.map(m => ({ nama: m.name, email: m.email, role: m.role, status: m.status, last_login: m.lastLogin }));
+            exportCSV(rows, 'niatbaik_users');
+            showToast(rows.length + ' user diekspor');
+          }}>Export</Btn>
+          <Btn icon="plus" onClick={() => { setEditing(null); setShowAdd(true); }}>Add User</Btn>
         </>}
       />
 
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-3">
           <Tabs variant="underline" value={tab} onChange={setTab} tabs={[
-            { value:'all',        label:'Semua', count: members.length },
-            { value:'Admin',      label:'Admin', count: members.filter(m=>m.role==='Admin').length },
-            { value:'CS',         label:'CS',    count: members.filter(m=>m.role==='CS').length },
-            { value:'Advertiser', label:'Advertiser', count: members.filter(m=>m.role==='Advertiser').length },
+            { value:'all',          label:'Semua',      count: members.length },
+            { value:'Admin',        label:'Admin',      count: members.filter(m=>m.role==='Admin').length },
+            { value:'Cs',           label:'CS',         count: members.filter(m=>m.role==='Cs').length },
+            { value:'Advertiser',   label:'Advertiser', count: members.filter(m=>m.role==='Advertiser').length },
           ]}/>
-          <div className="ml-auto"><SearchInput placeholder="Cari nama / email…" className="w-64"/></div>
+          <div className="ml-auto"><SearchInput placeholder="Cari nama / email…" value={q} onChange={setQ} className="w-64"/></div>
         </div>
       </Card>
 
@@ -38,11 +123,15 @@ function MembersView() {
             </tr>
           </thead>
           <tbody>
-            {members.filter(m => tab==='all' || m.role===tab).map((m) => (
+            {loading ? (
+              <tr><td colSpan={5} className="px-5 py-10 text-center text-mute">Memuat data…</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={5} className="px-5 py-10 text-center text-mute">Tidak ada user ditemukan.</td></tr>
+            ) : filtered.map((m) => (
               <tr key={m.id} className="border-b border-line last:border-0 hover:bg-bg2/60">
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-3">
-                    <div className={`h-9 w-9 rounded-full text-white font-bold text-xs flex items-center justify-center ${m.role==='Admin' ? 'bg-brand-600' : m.role==='CS' ? 'bg-sky2-500' : 'bg-violet-600'}`}>
+                    <div className={`h-9 w-9 rounded-full text-white font-bold text-xs flex items-center justify-center ${m.role==='Admin' ? 'bg-brand-600' : m.role==='Cs' ? 'bg-sky2-500' : 'bg-violet-600'}`}>
                       {m.name.split(' ').map(s=>s[0]).join('').slice(0,2)}
                     </div>
                     <div>
@@ -56,9 +145,9 @@ function MembersView() {
                 <td className="py-3 text-mute">{m.lastLogin}</td>
                 <td className="pr-5 py-3 text-right">
                   <div className="inline-flex items-center gap-1">
-                    <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink"><Icon name="edit" size={16}/></button>
-                    <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink"><Icon name="shield" size={16}/></button>
-                    <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-rose-600"><Icon name="trash" size={16}/></button>
+                    <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink" onClick={() => { setEditing(m); setShowAdd(true); }}><Icon name="edit" size={16}/></button>
+                    <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink" onClick={() => { setEditing(m); setShowAdd(true); }}><Icon name="shield" size={16}/></button>
+                    <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-rose-600" onClick={() => setConfirmDel(m)}><Icon name="trash" size={16}/></button>
                   </div>
                 </td>
               </tr>
@@ -118,19 +207,52 @@ function MembersView() {
         </div>
       </Card>
 
-      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Tambah User Baru" size="md"
-        footer={<><Btn variant="outline" tone="ink" onClick={() => setShowAdd(false)}>Batal</Btn><Btn>Kirim Undangan</Btn></>}>
+      {/* Add/Edit User Modal */}
+      <Modal open={showAdd} onClose={() => { setShowAdd(false); setEditing(null); }} title={editing ? 'Edit User' : 'Tambah User Baru'} size="md"
+        footer={<>
+          <Btn variant="outline" tone="ink" onClick={() => { setShowAdd(false); setEditing(null); }}>Batal</Btn>
+          <Btn onClick={handleSaveUser} loading={addLoading}>{editing ? 'Simpan' : 'Kirim Undangan'}</Btn>
+        </>}>
         <div className="space-y-3">
-          <div><label className="text-xs font-semibold text-mute">Nama lengkap</label><input className="field mt-1" placeholder="Nama user"/></div>
-          <div><label className="text-xs font-semibold text-mute">Email</label><input className="field mt-1" placeholder="email@niatbaik.org"/></div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Nama lengkap</label>
+            <input className={`field mt-1 ${addErrors.name ? 'border-rose-500' : ''}`} placeholder="Nama user"
+              value={addForm.name} onChange={(e) => setAddForm({...addForm, name: e.target.value})}/>
+            {addErrors.name && <div className="text-xs text-rose-500 mt-1">{addErrors.name}</div>}
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Email</label>
+            <input className={`field mt-1 ${addErrors.email ? 'border-rose-500' : ''}`} placeholder="email@niatbaik.org"
+              value={addForm.email} onChange={(e) => setAddForm({...addForm, email: e.target.value})}/>
+            {addErrors.email && <div className="text-xs text-rose-500 mt-1">{addErrors.email}</div>}
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Telepon</label>
+            <input className="field mt-1" placeholder="08xxxxxxxxxx"
+              value={addForm.phone} onChange={(e) => setAddForm({...addForm, phone: e.target.value})}/>
+          </div>
           <div>
             <label className="text-xs font-semibold text-mute">Role</label>
             <div className="mt-1 grid grid-cols-3 gap-2">
-              {['Admin','CS','Advertiser'].map((r) => (
-                <button key={r} className="py-2 rounded-lg border border-line text-sm font-bold hover:border-brand-600 hover:bg-brand-50 hover:text-brand-700">{r}</button>
+              {['admin','cs','advertiser'].map((r) => (
+                <button key={r} type="button" onClick={() => setAddForm({...addForm, role: r})}
+                  className={`py-2 rounded-lg border text-sm font-bold ${addForm.role === r ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line hover:bg-bg2'}`}>
+                  {r.charAt(0).toUpperCase() + r.slice(1)}
+                </button>
               ))}
             </div>
           </div>
+        </div>
+      </Modal>
+
+      {/* Delete Confirm Modal */}
+      <Modal open={!!confirmDel} onClose={() => setConfirmDel(null)} title="Hapus User" size="sm"
+        footer={<>
+          <Btn variant="outline" tone="ink" onClick={() => setConfirmDel(null)}>Batal</Btn>
+          <Btn tone="bad" icon="trash" onClick={handleDeleteUser}>Hapus</Btn>
+        </>}>
+        <div className="text-sm text-ink/85">
+          Hapus <b>{confirmDel?.name}</b> ({confirmDel?.email})? User akan dipindah ke Trash.
         </div>
       </Modal>
     </div>

@@ -35,7 +35,7 @@ function DashboardView() {
     if (!tw.txnAutoConfirmMoota) return txns;
     return txns.map((t) => {
       if (t.status === 'Pending' && window.NB.isAutoConfirmMethod(t.method)) {
-        return { ...t, status: 'Paid', _autoConfirmed: true };
+        return { ...t, status: 'Paid', _autoConfirmed: true, _origStatus: 'Pending' };
       }
       return t;
     });
@@ -44,7 +44,10 @@ function DashboardView() {
   const visibleTxns = useMemoA(() => {
     const q = txnQuery.trim().toLowerCase();
     return processedTxns.filter((t) => {
-      if (txnStatusFilter !== 'all' && t.status !== txnStatusFilter) return false;
+      if (txnStatusFilter !== 'all') {
+        if (t._autoConfirmed && txnStatusFilter === 'Pending') { /* show in Pending too */ }
+        else if (t.status !== txnStatusFilter) return false;
+      }
       if (txnMethodFilter !== 'all' && t.method !== txnMethodFilter) return false;
       if (!q) return true;
       const donor = t.anon ? 'hamba allah' : (t.donor || '').toLowerCase();
@@ -100,7 +103,6 @@ function DashboardView() {
         subtitle="Ringkasan performa platform NIATBAIK.ORG."
         actions={<>
           <DateRangePill value={range} onChange={setRange}/>
-          <Btn variant="outline" tone="ink" icon="upload">Import</Btn>
           <Btn variant="outline" tone="ink" icon="download" onClick={() => handleExport('csv')}>Export CSV</Btn>
           <Btn icon="download" onClick={() => handleExport('xls')}>Export Excel</Btn>
         </>}

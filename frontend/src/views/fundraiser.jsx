@@ -2,9 +2,23 @@ function FundraiserView() {
   const fundraisers = (window.FUNDRAISERS && window.FUNDRAISERS.length) ? window.FUNDRAISERS : window.NB.fundraisers;
   const { showToast } = useApp();
   const [tab, setTab] = useStateA('all');
+  const [search, setSearch] = useStateA('');
+  const [showInvite, setShowInvite] = useStateA(false);
+  const [invForm, setInvForm] = useStateA({ name:'', email:'', phone:'', campaign:'' });
 
   const total = fundraisers.reduce((s, f) => s + f.raised, 0);
   const totalComm = fundraisers.reduce((s, f) => s + f.commission, 0);
+
+  const handleInvite = async () => {
+    try {
+      await api.createUser({ name: invForm.name, email: invForm.email, phone: invForm.phone, role: 'fundraiser', password: Math.random().toString(36).slice(-10) });
+      showToast('Undangan fundraiser berhasil dikirim');
+      setShowInvite(false);
+      setInvForm({ name:'', email:'', phone:'', campaign:'' });
+    } catch (e) {
+      showToast('Gagal mengirim undangan: ' + (e.message || 'Error'));
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -12,8 +26,15 @@ function FundraiserView() {
         title="Fundraiser"
         subtitle="Mitra fundraiser yang mempromosikan campaign NIATBAIK.ORG."
         actions={<>
-          <Btn variant="outline" tone="ink" icon="download">Export komisi</Btn>
-          <Btn icon="plus">Undang Fundraiser</Btn>
+          <Btn variant="outline" tone="ink" icon="download" onClick={() => {
+            const rows = fundraisers.map(f => ({
+              nama: f.name, campaign: f.campaign, transaksi: f.txn,
+              terkumpul: f.raised, komisi: f.commission, status: f.status, referral: f.ref
+            }));
+            exportCSV(rows, 'niatbaik_fundraiser_komisi');
+            showToast(rows.length + ' fundraiser diekspor');
+          }}>Export komisi</Btn>
+          <Btn icon="plus" onClick={() => setShowInvite(true)}>Undang Fundraiser</Btn>
         </>}
       />
 
@@ -32,7 +53,7 @@ function FundraiserView() {
             { value:'paid',    label:'Komisi Paid',    count: fundraisers.filter(f => f.status==='paid').length },
           ]}/>
           <div className="ml-auto flex items-center gap-2">
-            <SearchInput placeholder="Cari nama fundraiser…" className="w-64"/>
+            <SearchInput placeholder="Cari nama fundraiser…" className="w-64" value={search} onChange={setSearch}/>
             <Select value="all" onChange={()=>{}} icon="filter" options={[{value:'all', label:'Semua campaign'}, {value:'aira', label:'Bantuan Aira'}, {value:'air', label:'Sumur Bersih'}]}/>
           </div>
         </div>
@@ -55,6 +76,7 @@ function FundraiserView() {
           <tbody>
             {fundraisers
               .filter(f => tab==='all' || f.status===tab)
+              .filter(f => !search || f.name.toLowerCase().includes(search.toLowerCase()))
               .map((f) => (
               <tr key={f.id} className="border-b border-line last:border-0 hover:bg-bg2/60">
                 <td className="px-5 py-3">
@@ -112,6 +134,22 @@ function FundraiserView() {
           ))}
         </div>
       </Card>
+
+      <Modal open={showInvite} onClose={() => setShowInvite(false)} title="Undang Fundraiser" size="md"
+        footer={<>
+          <Btn variant="outline" tone="ink" onClick={() => setShowInvite(false)}>Batal</Btn>
+          <Btn icon="plus" onClick={handleInvite}>Kirim Undangan</Btn>
+        </>}>
+        <div className="space-y-3">
+          <div><label className="text-xs font-semibold text-mute">Nama</label><input className="field mt-1" value={invForm.name} onChange={e => setInvForm({...invForm, name:e.target.value})} placeholder="Nama fundraiser"/></div>
+          <div><label className="text-xs font-semibold text-mute">Email</label><input className="field mt-1" value={invForm.email} onChange={e => setInvForm({...invForm, email:e.target.value})} placeholder="email@domain.com"/></div>
+          <div><label className="text-xs font-semibold text-mute">No. HP</label><input className="field mt-1" value={invForm.phone} onChange={e => setInvForm({...invForm, phone:e.target.value})} placeholder="08xxx"/></div>
+          <div><label className="text-xs font-semibold text-mute">Campaign</label>
+            <Select value={invForm.campaign} onChange={v => setInvForm({...invForm, campaign:v})}
+              options={[{value:'',label:'Semua campaign'}, ...((window.CAMPAIGNS && window.CAMPAIGNS.length ? window.CAMPAIGNS : window.NB.campaignSeed) || []).map(c => ({value:c.id, label:c.title}))]} className="mt-1"/>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

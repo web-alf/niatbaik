@@ -1,7 +1,7 @@
 // Root app shell: auth flow, role-isolated routing, sidebar/topbar, public routes.
 // Ported from canonical design (docs/superpowers/design-ref/src/app.jsx) and
 // wired to the real Go backend (window.api) + seed fallback (window.NB).
-const { useState: uS, useEffect: uE, useMemo: uM } = React;
+const { useState: uS, useEffect: uE, useMemo: uM, useRef: uR, useCallback: uC } = React;
 
 // =============================================================
 // NAV — canonical design keys
@@ -213,6 +213,73 @@ function UserMenu() {
 // TOPBAR
 // =============================================================
 function Topbar({ onMenu }) {
+  const { setView, setInvoiceTxn } = useApp();
+  const [searchQ, setSearchQ] = uS('');
+  const [searchResults, setSearchResults] = uS(null);
+  const [searchOpen, setSearchOpen] = uS(false);
+  const [searchLoading, setSearchLoading] = uS(false);
+  const inputRef = uR(null);
+  const wrapRef = uR(null);
+  const debounceRef = uR(null);
+
+  // Debounced search
+  const doSearch = uC((q) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!q || q.length < 2) { setSearchResults(null); setSearchLoading(false); return; }
+    setSearchLoading(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const [cRes, uRes, iRes] = await Promise.all([
+          api.adminCampaigns('search=' + encodeURIComponent(q) + '&limit=5'),
+          api.users('search=' + encodeURIComponent(q) + '&limit=5'),
+          api.invoices('search=' + encodeURIComponent(q) + '&limit=5'),
+        ]);
+        setSearchResults({
+          campaigns: cRes?.data || [],
+          users: uRes?.data || [],
+          invoices: iRes?.data || [],
+        });
+      } catch (e) {
+        console.error('[Search]', e);
+        setSearchResults({ campaigns: [], users: [], invoices: [] });
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+  }, []);
+
+  // Trigger search on query change
+  uE(() => { doSearch(searchQ); }, [searchQ, doSearch]);
+
+  // Cmd+K shortcut
+  uE(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        inputRef.current?.focus();
+        setSearchOpen(true);
+      }
+      if (e.key === 'Escape') { setSearchOpen(false); setSearchQ(''); }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  // Close on outside click
+  uE(() => {
+    if (!searchOpen) return;
+    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) { setSearchOpen(false); } };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [searchOpen]);
+
+  const hasResults = searchResults && (searchResults.campaigns.length || searchResults.users.length || searchResults.invoices.length);
+  const noResults = searchResults && !hasResults && !searchLoading;
+
+  const pickCampaign = (c) => { setSearchOpen(false); setSearchQ(''); setView('campaigns'); };
+  const pickUser = (u) => { setSearchOpen(false); setSearchQ(''); setView('members'); };
+  const pickInvoice = (inv) => { setSearchOpen(false); setSearchQ(''); setInvoiceTxn(inv); };
+
   return (
     <header className="sticky top-0 z-20 h-16 bg-white/85 backdrop-blur border-b border-line">
       <div className="h-full px-4 lg:px-6 flex items-center gap-3">
@@ -220,13 +287,84 @@ function Topbar({ onMenu }) {
           <Icon name="menu" size={20}/>
         </button>
 
-        <div className="flex-1 max-w-xl hidden md:block">
+        <div className="flex-1 max-w-xl hidden md:block" ref={wrapRef}>
           <div className="relative">
             <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-mute"/>
             <input
+              ref={inputRef}
+              value={searchQ}
+              onChange={(e) => { setSearchQ(e.target.value); setSearchOpen(true); }}
+              onFocus={() => { if (searchQ.length >= 2) setSearchOpen(true); }}
               placeholder="Cari campaign, donatur, invoice…"
-              className="w-full h-10 rounded-lg border border-line bg-bg2 pl-9 pr-3 text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600"/>
+              className="w-full h-10 rounded-lg border border-line bg-bg2 pl-9 pr-14 text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600"/>
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-mute bg-white border border-line rounded px-1.5 py-0.5">⌘K</span>
+
+            {searchOpen && searchQ.length >= 2 && (
+              <div className="absolute z-50 mt-2 left-0 right-0 bg-white rounded-xl shadow-pop border border-line max-h-[400px] overflow-y-auto">
+                {searchLoading && !searchResults && (
+                  <div className="text-sm text-mute text-center py-6">Mencari...</div>
+                )}
+
+                {noResults && (
+                  <div className="text-sm text-mute text-center py-6">Tidak ada hasil untuk "{searchQ}"</div>
+                )}
+
+                {hasResults && (
+                  <>
+                    {searchResults.campaigns.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-mute px-3 py-2 flex items-center gap-1.5">
+                          <Icon name="megaphone" size={12}/> Campaigns
+                        </div>
+                        {searchResults.campaigns.map((c) => (
+                          <div key={c.id || c.slug} onClick={() => pickCampaign(c)} className="flex items-center gap-3 px-3 py-2 hover:bg-bg2 cursor-pointer rounded-lg mx-1">
+                            <div className="h-8 w-8 rounded-md bg-brand-50 text-brand-600 flex items-center justify-center shrink-0"><Icon name="megaphone" size={14}/></div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-semibold text-ink truncate">{c.title}</div>
+                              <div className="text-[11px] text-mute">{c.status || 'campaign'}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {searchResults.users.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-mute px-3 py-2 flex items-center gap-1.5">
+                          <Icon name="users" size={12}/> Users
+                        </div>
+                        {searchResults.users.map((u) => (
+                          <div key={u.id} onClick={() => pickUser(u)} className="flex items-center gap-3 px-3 py-2 hover:bg-bg2 cursor-pointer rounded-lg mx-1">
+                            <div className="h-8 w-8 rounded-md bg-sky2-50 text-sky2-600 flex items-center justify-center shrink-0"><Icon name="user" size={14}/></div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-semibold text-ink truncate">{u.name}</div>
+                              <div className="text-[11px] text-mute truncate">{u.email} {u.role ? '· ' + u.role : ''}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {searchResults.invoices.length > 0 && (
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-mute px-3 py-2 flex items-center gap-1.5">
+                          <Icon name="receipt" size={12}/> Invoices
+                        </div>
+                        {searchResults.invoices.map((inv) => (
+                          <div key={inv.invoice_number || inv.id} onClick={() => pickInvoice(inv)} className="flex items-center gap-3 px-3 py-2 hover:bg-bg2 cursor-pointer rounded-lg mx-1">
+                            <div className="h-8 w-8 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0"><Icon name="receipt" size={14}/></div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-semibold text-ink truncate">{inv.invoice_number}</div>
+                              <div className="text-[11px] text-mute truncate">{inv.donor_name} {inv.amount ? '· Rp ' + Number(inv.amount).toLocaleString('id-ID') : ''}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

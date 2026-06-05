@@ -1,7 +1,10 @@
 function SettingsView() {
+  const { showToast } = useApp();
   const [tab, setTab] = useStateA('themes');
+  const [settings, setSettings] = useStateA(null);
+  const [settingsLoading, setSettingsLoading] = useStateA(true);
   const tabs = [
-    { value:'themes',       label:'Themes',         icon:'palette' },
+    { value:'themes',       label:'Branding',       icon:'palette' },
     { value:'form',         label:'Form',           icon:'edit' },
     { value:'payment',      label:'Payment',        icon:'creditcard' },
     { value:'tracking',     label:'Tracking & Ads', icon:'pixel' },
@@ -10,6 +13,25 @@ function SettingsView() {
     { value:'fundraising',  label:'Fundraising',    icon:'handshake' },
     { value:'general',      label:'General',        icon:'cog' },
   ];
+
+  useEffectA(() => {
+    (async () => {
+      try {
+        const res = await api.settings();
+        setSettings(res?.data || {});
+      } catch {}
+      setSettingsLoading(false);
+    })();
+  }, []);
+
+  const saveSettings = async (patch) => {
+    try {
+      const merged = { ...settings, ...patch };
+      await api.updateSettings(merged);
+      setSettings(merged);
+      showToast('Pengaturan berhasil disimpan');
+    } catch (e) { showToast('Gagal menyimpan: ' + (e?.message || '')); }
+  };
 
   return (
     <div className="space-y-5">
@@ -29,14 +51,15 @@ function SettingsView() {
         </Card>
 
         <div className="lg:col-span-4 space-y-5">
-          {tab === 'themes' && <ThemesPanel/>}
-          {tab === 'form' && <FormPanel/>}
-          {tab === 'payment' && <PaymentPanel/>}
-          {tab === 'tracking' && <TrackingPanel/>}
-          {tab === 'notification' && <NotificationPanel/>}
-          {tab === 'social' && <SocialPanel/>}
-          {tab === 'fundraising' && <FundraisingPanel/>}
-          {tab === 'general' && <GeneralPanel/>}
+          {settingsLoading && <Card className="p-8 text-center text-mute">Memuat pengaturan…</Card>}
+          {!settingsLoading && tab === 'themes' && <ThemesPanel settings={settings} onSave={saveSettings}/>}
+          {!settingsLoading && tab === 'form' && <FormPanel settings={settings} onSave={saveSettings}/>}
+          {!settingsLoading && tab === 'payment' && <PaymentPanel settings={settings} onSave={saveSettings}/>}
+          {!settingsLoading && tab === 'tracking' && <TrackingPanel settings={settings} onSave={saveSettings}/>}
+          {!settingsLoading && tab === 'notification' && <NotificationPanel settings={settings} onSave={saveSettings}/>}
+          {!settingsLoading && tab === 'social' && <SocialPanel settings={settings} onSave={saveSettings}/>}
+          {!settingsLoading && tab === 'fundraising' && <FundraisingPanel settings={settings} onSave={saveSettings}/>}
+          {!settingsLoading && tab === 'general' && <GeneralPanel settings={settings} onSave={saveSettings}/>}
         </div>
       </div>
     </div>
@@ -58,17 +81,47 @@ function Section({ title, sub, children, actions }) {
   );
 }
 
-function ThemesPanel() {
-  const [color, setColor] = useStateA('#2E4191');
-  const [radius, setRadius] = useStateA(16);
+function ThemesPanel({ settings, onSave }) {
+  const { dark, setDark, showToast } = useApp();
+  const [color, setColor] = useStateA(settings?.primary_color || '#2E4191');
+  const [radius, setRadius] = useStateA(settings?.border_radius ?? 16);
+  const logoRef = useRefA();
+  const [logoSrc, setLogoSrc] = useStateA(settings?.logo_url || 'assets/logo.png');
+  useEffectA(() => { if (settings?.primary_color) setColor(settings.primary_color); }, [settings]);
+  useEffectA(() => { if (settings?.border_radius != null) setRadius(settings.border_radius); }, [settings]);
+  useEffectA(() => { if (settings?.logo_url) setLogoSrc(settings.logo_url); }, [settings]);
+  const handleLogoUpload = () => {
+    const f = logoRef.current?.files?.[0];
+    if (!f) return;
+    if (f.size > 1024 * 1024) { showToast('File terlalu besar (max 1MB)'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => { setLogoSrc(e.target.result); showToast('Logo berhasil diupload'); };
+    reader.readAsDataURL(f);
+  };
   return (
     <>
+      <Section title="Dark Mode" sub="Tampilan gelap untuk dashboard dan situs publik.">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-bg2 flex items-center justify-center text-ink">
+              <Icon name={dark ? 'sun' : 'moon'} size={20}/>
+            </div>
+            <div>
+              <div className="text-sm font-bold text-ink">{dark ? 'Dark Mode aktif' : 'Light Mode aktif'}</div>
+              <div className="text-xs text-mute">Mode berlaku untuk dashboard dan halaman publik.</div>
+            </div>
+          </div>
+          <Toggle value={dark} onChange={(v) => setDark(v)} label=""/>
+        </div>
+      </Section>
+
       <Section title="Logo & Brand">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="rounded-xl border border-dashed border-line bg-bg2 p-6 flex items-center justify-center min-h-[140px]">
             <div className="text-center">
-              <img src="assets/logo.png" alt="logo" className="mx-auto h-12"/>
-              <Btn size="sm" variant="outline" tone="ink" icon="upload" className="mt-3">Upload Logo</Btn>
+              <img src={logoSrc} alt="logo" className="mx-auto h-12"/>
+              <input ref={logoRef} type="file" accept="image/png,image/svg+xml" className="hidden" onChange={handleLogoUpload}/>
+              <Btn size="sm" variant="outline" tone="ink" icon="upload" className="mt-3" onClick={() => logoRef.current?.click()}>Upload Logo</Btn>
               <div className="text-xs text-mute mt-2">PNG / SVG · max 1MB</div>
             </div>
           </div>
@@ -83,13 +136,13 @@ function ThemesPanel() {
             <div>
               <label className="text-xs font-semibold text-mute">Secondary Color</label>
               <div className="mt-1 flex items-center gap-2">
-                <div className="h-10 w-10 rounded-lg border border-line" style={{background:'#38B6FF'}}/>
+                <input type="color" defaultValue="#38B6FF" className="h-10 w-10 rounded-lg border border-line cursor-pointer"/>
                 <input className="field font-mono" defaultValue="#38B6FF"/>
               </div>
             </div>
             <div>
               <label className="text-xs font-semibold text-mute">Font</label>
-              <Select value="plus-jakarta" onChange={()=>{}} options={[
+              <Select value="plus-jakarta" onChange={() => {}} options={[
                 {value:'plus-jakarta', label:'Plus Jakarta Sans'},
                 {value:'inter', label:'Inter'},
                 {value:'manrope', label:'Manrope'},
@@ -125,28 +178,58 @@ function ThemesPanel() {
           </div>
         </div>
       </Section>
+
+      <div className="flex justify-end mt-4">
+        <Btn icon="check" onClick={() => onSave({ primary_color: color, border_radius: radius, logo_url: logoSrc })}>Simpan Perubahan</Btn>
+      </div>
     </>
   );
 }
 
-function FormPanel() {
+function FormPanel({ settings, onSave }) {
+  const { showToast } = useApp();
+  const [fields, setFields] = useStateA(settings?.form_fields || [
+    { label:'Nama donatur',       enabled:true,  required:true },
+    { label:'No. WhatsApp',       enabled:true,  required:true },
+    { label:'Email',              enabled:true,  required:false },
+    { label:'Alamat',             enabled:false, required:false },
+    { label:'NPWP (zakat)',       enabled:false, required:false },
+    { label:'Doa / pesan donatur', enabled:true, required:false },
+    { label:'Checkbox anonim',    enabled:true,  required:false },
+  ]);
+  const [presets, setPresets] = useStateA(settings?.nominal_presets || [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000]);
+  const [minDonation, setMinDonation] = useStateA(settings?.min_donation || 'Rp 10.000');
+  const [allowAnon, setAllowAnon] = useStateA(settings?.allow_anon ?? true);
+  const [allowDoa, setAllowDoa] = useStateA(settings?.allow_doa ?? true);
+  const [newPreset, setNewPreset] = useStateA('');
+  useEffectA(() => { if (settings?.form_fields) setFields(settings.form_fields); }, [settings]);
+  useEffectA(() => { if (settings?.nominal_presets) setPresets(settings.nominal_presets); }, [settings]);
+  useEffectA(() => { if (settings?.min_donation) setMinDonation(settings.min_donation); }, [settings]);
+  useEffectA(() => { if (settings?.allow_anon != null) setAllowAnon(settings.allow_anon); }, [settings]);
+  useEffectA(() => { if (settings?.allow_doa != null) setAllowDoa(settings.allow_doa); }, [settings]);
+
+  const toggleField = (i, key) => setFields(prev => prev.map((f, j) => j === i ? { ...f, [key]: !f[key] } : f));
+  const removePreset = (p) => setPresets(prev => prev.filter(x => x !== p));
+  const addPreset = () => {
+    const v = parseInt(String(newPreset).replace(/\D/g, ''), 10);
+    if (v && v >= 1000 && !presets.includes(v)) {
+      setPresets(prev => [...prev, v].sort((a, b) => a - b));
+      setNewPreset('');
+      showToast('Preset nominal ditambahkan');
+    }
+  };
+
   return (
     <>
       <Section title="Field Form Donasi" sub="Atur field yang muncul pada form donasi.">
         <div className="space-y-3">
-          {[
-            { label:'Nama donatur',       def:true,  req:true },
-            { label:'No. WhatsApp',       def:true,  req:true },
-            { label:'Email',              def:true,  req:false },
-            { label:'Alamat',             def:false, req:false },
-            { label:'NPWP (zakat)',       def:false, req:false },
-            { label:'Doa / pesan donatur', def:true, req:false },
-            { label:'Checkbox anonim',    def:true,  req:false },
-          ].map((f, i) => (
+          {fields.map((f, i) => (
             <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-line">
               <div className="font-semibold text-ink flex-1">{f.label}</div>
-              <label className="text-xs text-mute flex items-center gap-2">Required <input type="checkbox" defaultChecked={f.req}/></label>
-              <Toggle value={f.def} onChange={()=>{}}/>
+              <label className="text-xs text-mute flex items-center gap-2">Required
+                <input type="checkbox" checked={f.required} onChange={() => toggleField(i, 'required')} className="rounded border-line"/>
+              </label>
+              <Toggle value={f.enabled} onChange={() => toggleField(i, 'enabled')}/>
             </div>
           ))}
         </div>
@@ -157,27 +240,38 @@ function FormPanel() {
           <div>
             <label className="text-xs font-semibold text-mute">Preset nominal</label>
             <div className="flex flex-wrap gap-2 mt-2">
-              {[25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000].map((p) => (
+              {presets.map((p) => (
                 <span key={p} className="px-2.5 py-1 rounded-md border border-line bg-bg2 text-xs font-bold text-ink inline-flex items-center gap-1">
                   {fmtIDRShort(p)}
-                  <button className="text-mute hover:text-rose-600"><Icon name="close" size={12}/></button>
+                  <button onClick={() => removePreset(p)} className="text-mute hover:text-rose-600"><Icon name="close" size={12}/></button>
                 </span>
               ))}
-              <button className="px-2.5 py-1 rounded-md border border-dashed border-line text-xs font-bold text-mute hover:text-brand-600 hover:border-brand-300">+ Tambah</button>
+              <span className="inline-flex items-center gap-1">
+                <input value={newPreset} onChange={(e) => setNewPreset(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addPreset()}
+                  placeholder="50000" className="w-20 px-2 py-1 rounded-md border border-dashed border-line text-xs font-bold text-ink outline-none focus:border-brand-600"/>
+                <button onClick={addPreset} className="px-2.5 py-1 rounded-md border border-dashed border-line text-xs font-bold text-mute hover:text-brand-600 hover:border-brand-300">+ Tambah</button>
+              </span>
             </div>
           </div>
           <div className="space-y-3">
-            <div><label className="text-xs font-semibold text-mute">Minimum donasi</label><input className="field mt-1" defaultValue="Rp 10.000"/></div>
-            <Toggle value={true} onChange={()=>{}} label="Izinkan donasi anonim" sub="Donatur bisa tampil sebagai Hamba Allah."/>
-            <Toggle value={true} onChange={()=>{}} label="Aktifkan doa / pesan donatur" sub="Field doa akan tampil di form donasi."/>
+            <div>
+              <label className="text-xs font-semibold text-mute">Minimum donasi</label>
+              <input className="field mt-1" value={minDonation} onChange={(e) => setMinDonation(e.target.value)}/>
+            </div>
+            <Toggle value={allowAnon} onChange={setAllowAnon} label="Izinkan donasi anonim" sub="Donatur bisa tampil sebagai Hamba Allah."/>
+            <Toggle value={allowDoa} onChange={setAllowDoa} label="Aktifkan doa / pesan donatur" sub="Field doa akan tampil di form donasi."/>
           </div>
         </div>
       </Section>
+
+      <div className="flex justify-end mt-4">
+        <Btn icon="check" onClick={() => onSave({ form_fields: fields, nominal_presets: presets, min_donation: minDonation, allow_anon: allowAnon, allow_doa: allowDoa })}>Simpan Perubahan</Btn>
+      </div>
     </>
   );
 }
 
-function PaymentPanel() {
+function PaymentPanel({ settings, onSave }) {
   const { showToast } = useApp();
   const [methods, setMethods] = useStateA([
     { id:'m1', name:'QRIS',                provider:'QRIS',         type:'QRIS',          holder:'Yayasan Niat Baik', account:'-',                  fee:'0.7%',           active:true,  locked:true },
@@ -194,25 +288,40 @@ function PaymentPanel() {
   const [editing, setEditing]     = useStateA(null);
   const [confirmDel, setConfirmDel] = useStateA(null);
 
+  useEffectA(() => {
+    api.paymentMethods().then(res => { if (res?.data?.length) setMethods(res.data); }).catch(() => {});
+  }, []);
+
   const openAdd  = () => { setEditing(null); setModalOpen(true); };
   const openEdit = (m) => { setEditing(m);  setModalOpen(true); };
 
-  const handleSave = (data) => {
-    if (editing) {
-      setMethods((prev) => prev.map(x => x.id === editing.id ? { ...x, ...data } : x));
-      showToast(`Payment "${data.name}" diperbarui`);
-    } else {
-      const id = 'm' + (Date.now() % 100000);
-      setMethods((prev) => [...prev, { id, active:true, ...data }]);
-      showToast(`Payment "${data.name}" ditambahkan`);
+  const handleSave = async (data) => {
+    try {
+      if (editing) {
+        await api.updatePaymentMethod(editing.id, data);
+        setMethods((prev) => prev.map(x => x.id === editing.id ? { ...x, ...data } : x));
+        showToast(`Payment "${data.name}" diperbarui`);
+      } else {
+        const res = await api.createPaymentMethod(data);
+        const id = res?.data?.id || ('m' + (Date.now() % 100000));
+        setMethods((prev) => [...prev, { id, active:true, ...data }]);
+        showToast(`Payment "${data.name}" ditambahkan`);
+      }
+    } catch (e) {
+      showToast('Gagal menyimpan: ' + (e?.message || ''));
     }
     setModalOpen(false);
     setEditing(null);
   };
 
-  const handleDelete = () => {
-    setMethods((prev) => prev.filter(x => x.id !== confirmDel.id));
-    showToast(`Payment "${confirmDel.name}" dihapus`);
+  const handleDelete = async () => {
+    try {
+      await api.deletePaymentMethod(confirmDel.id);
+      setMethods((prev) => prev.filter(x => x.id !== confirmDel.id));
+      showToast(`Payment "${confirmDel.name}" dihapus`);
+    } catch (e) {
+      showToast('Gagal menghapus: ' + (e?.message || ''));
+    }
     setConfirmDel(null);
   };
 
@@ -355,7 +464,7 @@ function PaymentEditorModal({ open, onClose, editing, onSave }) {
 
   const blankMoota = () => ({
     signature:   true,
-    endpoint:    'https://donasi.rumahanaksurga.com/push',
+    endpoint:    'https://donasi.niatbaik.org/push',
     secretToken: '',
     dateRange:   2,
   });
@@ -363,7 +472,7 @@ function PaymentEditorModal({ open, onClose, editing, onSave }) {
     mode:           'live',          // 'sandbox' | 'live'
     secretKey:      '',
     validationToken:'',
-    callbackUrl:    'https://donasi.rumahanaksurga.com/callback_flip/',
+    callbackUrl:    'https://donasi.niatbaik.org/callback_flip/',
     autoRedirect:   false,
     chargeFee:      'merchant',      // 'merchant' | 'donatur'
   });
@@ -740,7 +849,9 @@ function FlipConfig({ flip, setFlip, error }) {
   );
 }
 
-function TrackingPanel() {
+function TrackingPanel({ settings, onSave }) {
+  const { showToast } = useApp();
+  const [pixelIds, setPixelIds] = useStateA({});
   const pixels = [
     { name:'Meta Pixel',         id:'PXL-928374',   status:'active',   icon:'pixel',  color:'bg-[#1877F2]' },
     { name:'Meta Conversions API', id:'CAPI Token',  status:'active',   icon:'shield', color:'bg-[#1877F2]' },
@@ -752,6 +863,33 @@ function TrackingPanel() {
     { name:'Looker Studio (Data Studio)', id:'a1b2c3d4-e5f6-7890-abcd-ef1234567890', status:'active', icon:'chart',  color:'bg-gradient-to-br from-[#4285F4] via-[#0F9D58] to-[#F4B400]' },
   ];
   const events = ['PageView','ViewContent','InitiateCheckout','AddPaymentInfo','Lead','CompleteDonation','Purchase'];
+
+  const [lookerReports, setLookerReports] = useStateA(settings?.looker_reports || [
+    { name:'Overview Donasi (Master)',   url:'lookerstudio.google.com/reporting/a1b2-…',  updated:'baru saja', status:'active', dim:'47 widget · 6 page', owner:'andre@niatbaik.org' },
+    { name:'Performa Meta Ads',          url:'lookerstudio.google.com/reporting/x9y8-…',  updated:'5 menit lalu', status:'active', dim:'18 widget · 2 page', owner:'dewi@niatbaik.org' },
+    { name:'Performa Google Ads + GA4',  url:'lookerstudio.google.com/reporting/k3l4-…',  updated:'1 jam lalu',  status:'active', dim:'22 widget · 3 page', owner:'dewi@niatbaik.org' },
+    { name:'TikTok Ads Funnel',          url:'lookerstudio.google.com/reporting/p7q8-…',  updated:'belum sync',  status:'error',  dim:'14 widget · 2 page', owner:'rahmat@niatbaik.org' },
+  ]);
+  const [lookerModal, setLookerModal] = useStateA(false);
+  const [lookerForm, setLookerForm] = useStateA({ name:'', url:'' });
+  const [editingLooker, setEditingLooker] = useStateA(null);
+
+  useEffectA(() => { if (settings?.looker_reports) setLookerReports(settings.looker_reports); }, [settings]);
+
+  const openAddLooker = () => { setEditingLooker(null); setLookerForm({ name:'', url:'' }); setLookerModal(true); };
+  const openEditLooker = (r, i) => { setEditingLooker(i); setLookerForm({ name: r.name, url: r.url }); setLookerModal(true); };
+  const saveLooker = () => {
+    if (!lookerForm.name.trim() || !lookerForm.url.trim()) { showToast('Nama dan URL wajib diisi'); return; }
+    let updated;
+    if (editingLooker != null) {
+      updated = lookerReports.map((r, i) => i === editingLooker ? { ...r, ...lookerForm } : r);
+    } else {
+      updated = [...lookerReports, { ...lookerForm, updated:'baru saja', status:'active', dim:'-', owner:'-' }];
+    }
+    setLookerReports(updated);
+    onSave({ looker_reports: updated });
+    setLookerModal(false);
+  };
 
   const statusMap = {
     active: { label:'Active', tone:'ok', dot:true },
@@ -771,12 +909,15 @@ function TrackingPanel() {
                     <div className="font-bold text-ink">{p.name}</div>
                     <Badge tone={statusMap[p.status].tone} dot={statusMap[p.status].dot} size="sm">{statusMap[p.status].label}</Badge>
                   </div>
-                  <input className="field mt-2 font-mono text-xs" defaultValue={p.id} placeholder="Masukkan ID…"/>
+                  <input className="field mt-2 font-mono text-xs" value={pixelIds[p.name] ?? p.id} onChange={(e) => setPixelIds(prev => ({...prev, [p.name]: e.target.value}))} placeholder="Masukkan ID…"/>
                 </div>
               </div>
-              <div className="mt-3 flex items-center justify-between text-xs">
+              <div className="mt-2 flex items-center justify-between text-xs">
                 <span className="text-mute">Last fired: 12 detik lalu</span>
-                <button className="text-brand-600 font-semibold hover:underline">Test event</button>
+                <div className="flex gap-2">
+                  <button className="text-brand-600 font-semibold hover:underline" onClick={() => showToast('Event test dikirim ke ' + p.name)}>Test event</button>
+                  <button className="text-emerald-600 font-semibold hover:underline" onClick={() => onSave({ [p.name.toLowerCase().replace(/\s+/g,'_')]: pixelIds[p.name] ?? p.id })}>Simpan</button>
+                </div>
               </div>
             </div>
           ))}
@@ -786,12 +927,7 @@ function TrackingPanel() {
       <Section title="Looker Studio Reports" sub="Hubungkan dashboard Looker Studio (Data Studio) untuk konsolidasi semua data ads & donasi dalam satu tampilan."
         actions={<Btn size="sm" tone="brand" icon="chart" onClick={() => { try { window.dispatchEvent(new CustomEvent('nb-go-datastudio')); } catch{} }}>Buka Data Studio</Btn>}>
         <div className="space-y-3">
-          {[
-            { name:'Overview Donasi (Master)',   url:'lookerstudio.google.com/reporting/a1b2-…',  updated:'baru saja', status:'active', dim:'47 widget · 6 page', owner:'andre@niatbaik.org' },
-            { name:'Performa Meta Ads',          url:'lookerstudio.google.com/reporting/x9y8-…',  updated:'5 menit lalu', status:'active', dim:'18 widget · 2 page', owner:'dewi@niatbaik.org' },
-            { name:'Performa Google Ads + GA4',  url:'lookerstudio.google.com/reporting/k3l4-…',  updated:'1 jam lalu',  status:'active', dim:'22 widget · 3 page', owner:'dewi@niatbaik.org' },
-            { name:'TikTok Ads Funnel',          url:'lookerstudio.google.com/reporting/p7q8-…',  updated:'belum sync',  status:'error',  dim:'14 widget · 2 page', owner:'rahmat@niatbaik.org' },
-          ].map((r, i) => (
+          {lookerReports.map((r, i) => (
             <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-line">
               <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-[#4285F4] via-[#0F9D58] to-[#F4B400] text-white flex items-center justify-center shrink-0">
                 <Icon name="chart" size={18}/>
@@ -803,10 +939,10 @@ function TrackingPanel() {
               <div className="hidden sm:block text-xs text-mute">{r.updated}</div>
               <StatusBadge status={r.status === 'active' ? 'active' : 'inactive'}/>
               <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink"><Icon name="refresh" size={14}/></button>
-              <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink"><Icon name="more" size={14}/></button>
+              <button onClick={() => openEditLooker(r, i)} className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink"><Icon name="edit" size={14}/></button>
             </div>
           ))}
-          <button className="w-full px-3 py-2.5 rounded-xl border border-dashed border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50">
+          <button onClick={openAddLooker} className="w-full px-3 py-2.5 rounded-xl border border-dashed border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50">
             + Tambah Looker Studio Report
           </button>
         </div>
@@ -849,43 +985,90 @@ function TrackingPanel() {
           </table>
         </div>
       </Section>
+
+      <Modal open={lookerModal} onClose={() => setLookerModal(false)} title={editingLooker != null ? 'Edit Looker Report' : 'Tambah Looker Report'} size="sm"
+        footer={<>
+          <Btn variant="outline" tone="ink" onClick={() => setLookerModal(false)}>Batal</Btn>
+          <Btn icon="check" onClick={saveLooker}>{editingLooker != null ? 'Simpan' : 'Tambah'}</Btn>
+        </>}>
+        <div className="space-y-3">
+          <div><label className="text-xs font-semibold text-mute">Nama Report</label><input className="field mt-1" value={lookerForm.name} onChange={(e) => setLookerForm(f => ({...f, name: e.target.value}))} placeholder="cth: Overview Donasi"/></div>
+          <div><label className="text-xs font-semibold text-mute">URL Looker Studio</label><input className="field mt-1" value={lookerForm.url} onChange={(e) => setLookerForm(f => ({...f, url: e.target.value}))} placeholder="lookerstudio.google.com/reporting/…"/></div>
+        </div>
+      </Modal>
     </>
   );
 }
 
-function NotificationPanel() {
+function NotificationPanel({ settings, onSave }) {
+  const INIT = [true, true, true, true, true, false, true, true];
+  const labels = [
+    { label:'WhatsApp ke donatur',          sub:'Konfirmasi pembayaran via WA' },
+    { label:'Email ke donatur',             sub:'Kuitansi & terima kasih' },
+    { label:'Notifikasi admin (donasi sukses)', sub:'Telegram bot ke channel admin' },
+    { label:'Notifikasi admin (donasi pending)', sub:'Pengingat ke tim CS' },
+    { label:'Notifikasi admin (donasi gagal)',  sub:'Alert ke channel admin' },
+    { label:'Weekly performance digest',    sub:'Email mingguan ringkasan performa' },
+    { label:'Pengingat campaign berakhir',  sub:'5 hari sebelum campaign berakhir' },
+    { label:'Alert pixel error',            sub:'Saat Meta/Google/TikTok gagal merespons' },
+  ];
+  const [vals, setVals] = useStateA(() => {
+    if (settings?.notification_settings) {
+      return labels.map((n, i) => settings.notification_settings[n.label] ?? INIT[i]);
+    }
+    return INIT;
+  });
+  useEffectA(() => {
+    if (settings?.notification_settings) {
+      setVals(labels.map((n, i) => settings.notification_settings[n.label] ?? INIT[i]));
+    }
+  }, [settings]);
+  const toggle = (i) => setVals(prev => prev.map((v, j) => j === i ? !v : v));
   return (
-    <Section title="Notifikasi" sub="Atur channel notifikasi untuk admin & donatur.">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {[
-          { label:'WhatsApp ke donatur',          sub:'Konfirmasi pembayaran via WA',          v:true },
-          { label:'Email ke donatur',             sub:'Kuitansi & terima kasih',                 v:true },
-          { label:'Notifikasi admin (donasi sukses)', sub:'Telegram bot ke channel admin',       v:true },
-          { label:'Notifikasi admin (donasi pending)', sub:'Pengingat ke tim CS',                v:true },
-          { label:'Notifikasi admin (donasi gagal)',  sub:'Alert ke channel admin',              v:true },
-          { label:'Weekly performance digest',    sub:'Email mingguan ringkasan performa',      v:false },
-          { label:'Pengingat campaign berakhir',  sub:'5 hari sebelum campaign berakhir',       v:true },
-          { label:'Alert pixel error',            sub:'Saat Meta/Google/TikTok gagal merespons', v:true },
-        ].map((n, i) => (
-          <div key={i} className="p-3 rounded-xl border border-line">
-            <Toggle value={n.v} onChange={()=>{}} label={n.label} sub={n.sub}/>
-          </div>
-        ))}
+    <>
+      <Section title="Notifikasi" sub="Atur channel notifikasi untuk admin & donatur.">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {labels.map((n, i) => (
+            <div key={i} className="p-3 rounded-xl border border-line">
+              <Toggle value={vals[i]} onChange={() => toggle(i)} label={n.label} sub={n.sub}/>
+            </div>
+          ))}
+        </div>
+      </Section>
+      <div className="flex justify-end mt-4">
+        <Btn icon="check" onClick={() => onSave({ notification_settings: Object.fromEntries(labels.map((n, i) => [n.label, vals[i]])) })}>Simpan Perubahan</Btn>
       </div>
-    </Section>
+    </>
   );
 }
 
-function SocialPanel() {
+function SocialPanel({ settings, onSave }) {
+  const sp = settings?.social_proof || {};
+  const [spEnabled, setSpEnabled] = useStateA(sp.enabled ?? true);
+  const [spInterval, setSpInterval] = useStateA(sp.interval || '8');
+  const [spPosition, setSpPosition] = useStateA(sp.position ?? 2);
+  const [spTemplate, setSpTemplate] = useStateA(sp.template || '{{nama}} baru saja berdonasi {{nominal}} untuk {{campaign}}');
+  const [spFallback, setSpFallback] = useStateA(sp.fallback || 'Hamba Allah, Rizky H., Siti N., Hamba Allah');
+  useEffectA(() => {
+    if (settings?.social_proof) {
+      const s = settings.social_proof;
+      if (s.enabled != null) setSpEnabled(s.enabled);
+      if (s.interval) setSpInterval(s.interval);
+      if (s.position != null) setSpPosition(s.position);
+      if (s.template) setSpTemplate(s.template);
+      if (s.fallback) setSpFallback(s.fallback);
+    }
+  }, [settings]);
+  const positions = ['Top L','Top R','Bottom L','Bottom R'];
   return (
     <>
       <Section title="Popup Social Proof" sub="Tingkatkan kepercayaan donatur dengan notifikasi donasi terbaru.">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <div className="space-y-3">
-            <Toggle value={true} onChange={()=>{}} label="Aktifkan popup social proof" sub="Tampil di landing & halaman campaign."/>
+            <Toggle value={spEnabled} onChange={setSpEnabled} label="Aktifkan popup social proof" sub="Tampil di landing & halaman campaign."/>
             <div>
               <label className="text-xs font-semibold text-mute">Interval muncul</label>
-              <Select value="8" onChange={()=>{}} options={[
+              <Select value={spInterval} onChange={setSpInterval} options={[
                 {value:'5', label:'Setiap 5 detik'},
                 {value:'8', label:'Setiap 8 detik'},
                 {value:'15', label:'Setiap 15 detik'},
@@ -895,19 +1078,19 @@ function SocialPanel() {
             <div>
               <label className="text-xs font-semibold text-mute">Posisi popup</label>
               <div className="mt-1 grid grid-cols-4 gap-2">
-                {['Top L','Top R','Bottom L','Bottom R'].map((p, i) => (
-                  <button key={p} className={`py-2 rounded-lg border text-xs font-bold ${i===2 ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line hover:bg-bg2'}`}>{p}</button>
+                {positions.map((p, i) => (
+                  <button key={p} onClick={() => setSpPosition(i)} className={`py-2 rounded-lg border text-xs font-bold ${spPosition===i ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line hover:bg-bg2'}`}>{p}</button>
                 ))}
               </div>
             </div>
             <div>
               <label className="text-xs font-semibold text-mute">Template kalimat</label>
-              <textarea className="field mt-1" rows="3" defaultValue="{{nama}} baru saja berdonasi {{nominal}} untuk {{campaign}}"/>
+              <textarea className="field mt-1" rows="3" value={spTemplate} onChange={(e) => setSpTemplate(e.target.value)}/>
               <div className="text-[11px] text-mute mt-1">Variabel: <code>&#123;&#123;nama&#125;&#125;</code>, <code>&#123;&#123;nominal&#125;&#125;</code>, <code>&#123;&#123;campaign&#125;&#125;</code></div>
             </div>
             <div>
               <label className="text-xs font-semibold text-mute">Data fallback (saat sepi)</label>
-              <input className="field mt-1" defaultValue="Hamba Allah, Rizky H., Siti N., Hamba Allah"/>
+              <input className="field mt-1" value={spFallback} onChange={(e) => setSpFallback(e.target.value)}/>
             </div>
           </div>
 
@@ -925,62 +1108,110 @@ function SocialPanel() {
           </div>
         </div>
       </Section>
+
+      <div className="flex justify-end mt-4">
+        <Btn icon="check" onClick={() => onSave({ social_proof: { enabled: spEnabled, interval: spInterval, position: spPosition, template: spTemplate, fallback: spFallback } })}>Simpan Perubahan</Btn>
+      </div>
     </>
   );
 }
 
-function FundraisingPanel() {
+function FundraisingPanel({ settings, onSave }) {
+  const fr = settings?.fundraising || {};
+  const [enabled, setEnabled] = useStateA(fr.enabled ?? true);
+  const [autoCalc, setAutoCalc] = useStateA(fr.auto_calc ?? true);
+  const [commission, setCommission] = useStateA(fr.commission || '10');
+  const [minPayout, setMinPayout] = useStateA(fr.min_payout || 'Rp 100.000');
+  const [period, setPeriod] = useStateA(fr.period || 'month');
+  const [rules, setRules] = useStateA(fr.rules || [
+    { c:'Bantuan Aira', pct:12 },
+    { c:'Sumur Bersih NTT', pct:10 },
+    { c:'Wakaf Quran', pct:8 },
+  ]);
+  useEffectA(() => {
+    if (settings?.fundraising) {
+      const f = settings.fundraising;
+      if (f.enabled != null) setEnabled(f.enabled);
+      if (f.auto_calc != null) setAutoCalc(f.auto_calc);
+      if (f.commission) setCommission(f.commission);
+      if (f.min_payout) setMinPayout(f.min_payout);
+      if (f.period) setPeriod(f.period);
+      if (f.rules) setRules(f.rules);
+    }
+  }, [settings]);
   return (
-    <Section title="Program Fundraiser" sub="Aktifkan program afiliasi/fundraiser & atur skema komisi.">
-      <div className="space-y-3">
-        <Toggle value={true} onChange={()=>{}} label="Aktifkan fundraiser" sub="Izinkan mitra mempromosikan campaign dengan link referral."/>
-        <Toggle value={true} onChange={()=>{}} label="Otomatis hitung komisi" sub="Komisi dihitung tiap minggu, payout manual oleh admin."/>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div><label className="text-xs font-semibold text-mute">Default komisi</label><div className="mt-1 flex items-center gap-2"><input className="field" defaultValue="10"/><span className="text-mute">%</span></div></div>
-          <div><label className="text-xs font-semibold text-mute">Minimum payout</label><input className="field mt-1" defaultValue="Rp 100.000"/></div>
-          <div><label className="text-xs font-semibold text-mute">Periode payout</label><Select value="month" onChange={()=>{}} options={[{value:'week',label:'Mingguan'},{value:'month',label:'Bulanan'}]} className="mt-1"/></div>
-        </div>
-        <div className="rounded-xl border border-line p-4">
-          <div className="font-semibold text-ink mb-2">Aturan khusus per campaign</div>
-          <div className="space-y-2">
-            {[
-              { c:'Bantuan Aira', pct:12 },
-              { c:'Sumur Bersih NTT', pct:10 },
-              { c:'Wakaf Quran', pct:8 },
-            ].map((r, i) => (
-              <div key={i} className="flex items-center gap-3 text-sm">
-                <span className="flex-1 font-medium text-ink">{r.c}</span>
-                <span className="font-bold text-brand-600">{r.pct}%</span>
-                <button className="text-mute hover:text-ink"><Icon name="edit" size={14}/></button>
-              </div>
-            ))}
+    <>
+      <Section title="Program Fundraiser" sub="Aktifkan program afiliasi/fundraiser & atur skema komisi.">
+        <div className="space-y-3">
+          <Toggle value={enabled} onChange={setEnabled} label="Aktifkan fundraiser" sub="Izinkan mitra mempromosikan campaign dengan link referral."/>
+          <Toggle value={autoCalc} onChange={setAutoCalc} label="Otomatis hitung komisi" sub="Komisi dihitung tiap minggu, payout manual oleh admin."/>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div><label className="text-xs font-semibold text-mute">Default komisi</label><div className="mt-1 flex items-center gap-2"><input className="field" value={commission} onChange={(e) => setCommission(e.target.value)}/><span className="text-mute">%</span></div></div>
+            <div><label className="text-xs font-semibold text-mute">Minimum payout</label><input className="field mt-1" value={minPayout} onChange={(e) => setMinPayout(e.target.value)}/></div>
+            <div><label className="text-xs font-semibold text-mute">Periode payout</label><Select value={period} onChange={setPeriod} options={[{value:'week',label:'Mingguan'},{value:'month',label:'Bulanan'}]} className="mt-1"/></div>
+          </div>
+          <div className="rounded-xl border border-line p-4">
+            <div className="font-semibold text-ink mb-2">Aturan khusus per campaign</div>
+            <div className="space-y-2">
+              {rules.map((r, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm">
+                  <span className="flex-1 font-medium text-ink">{r.c}</span>
+                  <input type="number" value={r.pct} onChange={e => setRules(prev => prev.map((x, j) => j === i ? {...x, pct: +e.target.value} : x))}
+                    className="w-16 field text-right"/>
+                  <span className="text-mute">%</span>
+                  <button onClick={() => setRules(prev => prev.filter((_, j) => j !== i))} className="text-mute hover:text-rose-600"><Icon name="trash" size={14}/></button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
+      </Section>
+      <div className="flex justify-end mt-4">
+        <Btn icon="check" onClick={() => onSave({ fundraising: { enabled, auto_calc: autoCalc, commission, min_payout: minPayout, period, rules } })}>Simpan Perubahan</Btn>
       </div>
-    </Section>
+    </>
   );
 }
 
-function GeneralPanel() {
+function GeneralPanel({ settings, onSave }) {
+  const [siteName, setSiteName] = useStateA(settings?.site_name || 'NIATBAIK.ORG');
+  const [domain, setDomain] = useStateA(settings?.domain || 'niatbaik.org');
+  const [tz, setTz] = useStateA(settings?.timezone || 'Asia/Jakarta (WIB) · GMT+7');
+  const [currency, setCurrency] = useStateA(settings?.currency || 'IDR (Rp)');
+  const [seoTitle, setSeoTitle] = useStateA(settings?.seo_title || 'NIATBAIK.ORG — Salurkan Kebaikan, Wujudkan Niat Baik');
+  const [seoDesc, setSeoDesc] = useStateA(settings?.seo_description || 'Platform donasi & crowdfunding terpercaya untuk kemanusiaan, pendidikan, dan kesehatan di seluruh Indonesia.');
+  const [maintenance, setMaintenance] = useStateA(settings?.maintenance ?? false);
+  useEffectA(() => {
+    if (settings?.site_name) setSiteName(settings.site_name);
+    if (settings?.domain) setDomain(settings.domain);
+    if (settings?.timezone) setTz(settings.timezone);
+    if (settings?.currency) setCurrency(settings.currency);
+    if (settings?.seo_title) setSeoTitle(settings.seo_title);
+    if (settings?.seo_description) setSeoDesc(settings.seo_description);
+    if (settings?.maintenance != null) setMaintenance(settings.maintenance);
+  }, [settings]);
   return (
     <>
       <Section title="Identitas Website">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div><label className="text-xs font-semibold text-mute">Nama Website</label><input className="field mt-1" defaultValue="NIATBAIK.ORG"/></div>
-          <div><label className="text-xs font-semibold text-mute">Domain</label><input className="field mt-1" defaultValue="niatbaik.org"/></div>
-          <div><label className="text-xs font-semibold text-mute">Timezone</label><Select value="WIB" onChange={()=>{}} options={['Asia/Jakarta (WIB) · GMT+7','Asia/Makassar (WITA) · GMT+8','Asia/Jayapura (WIT) · GMT+9']} className="mt-1"/></div>
-          <div><label className="text-xs font-semibold text-mute">Mata uang</label><Select value="IDR" onChange={()=>{}} options={['IDR (Rp)','USD ($)','MYR (RM)','SGD (S$)']} className="mt-1"/></div>
+          <div><label className="text-xs font-semibold text-mute">Nama Website</label><input className="field mt-1" value={siteName} onChange={(e) => setSiteName(e.target.value)}/></div>
+          <div><label className="text-xs font-semibold text-mute">Domain</label><input className="field mt-1" value={domain} onChange={(e) => setDomain(e.target.value)}/></div>
+          <div><label className="text-xs font-semibold text-mute">Timezone</label><Select value={tz} onChange={setTz} options={['Asia/Jakarta (WIB) · GMT+7','Asia/Makassar (WITA) · GMT+8','Asia/Jayapura (WIT) · GMT+9']} className="mt-1"/></div>
+          <div><label className="text-xs font-semibold text-mute">Mata uang</label><Select value={currency} onChange={setCurrency} options={['IDR (Rp)','USD ($)','MYR (RM)','SGD (S$)']} className="mt-1"/></div>
         </div>
       </Section>
       <Section title="SEO">
         <div className="space-y-3">
-          <div><label className="text-xs font-semibold text-mute">SEO Title</label><input className="field mt-1" defaultValue="NIATBAIK.ORG — Salurkan Kebaikan, Wujudkan Niat Baik"/></div>
-          <div><label className="text-xs font-semibold text-mute">SEO Description</label><textarea className="field mt-1" rows="3" defaultValue="Platform donasi & crowdfunding terpercaya untuk kemanusiaan, pendidikan, dan kesehatan di seluruh Indonesia."/></div>
+          <div><label className="text-xs font-semibold text-mute">SEO Title</label><input className="field mt-1" value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)}/></div>
+          <div><label className="text-xs font-semibold text-mute">SEO Description</label><textarea className="field mt-1" rows="3" value={seoDesc} onChange={(e) => setSeoDesc(e.target.value)}/></div>
         </div>
       </Section>
       <Section title="Maintenance Mode" sub="Aktifkan untuk menutup akses publik sementara saat update besar.">
-        <Toggle value={false} onChange={()=>{}} label="Aktifkan maintenance mode" sub="Pengunjung akan melihat halaman maintenance."/>
+        <Toggle value={maintenance} onChange={setMaintenance} label="Aktifkan maintenance mode" sub="Pengunjung akan melihat halaman maintenance."/>
       </Section>
+      <div className="flex justify-end mt-4">
+        <Btn icon="check" onClick={() => onSave({ site_name: siteName, domain, timezone: tz, currency, seo_title: seoTitle, seo_description: seoDesc, maintenance })}>Simpan Perubahan</Btn>
+      </div>
     </>
   );
 }

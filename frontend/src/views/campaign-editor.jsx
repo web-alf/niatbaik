@@ -71,9 +71,48 @@ function CampaignEditorView() {
 
   const back = () => { setEditingCampaign(null); setView('campaigns'); };
 
-  const handleSave = (publish) => {
-    showToast(publish ? 'Campaign berhasil dipublish' : 'Campaign disimpan sebagai draft');
-    setTimeout(back, 700);
+  const [saving, setSaving] = useStateA(false);
+  const handleSave = async (publish) => {
+    if (!title.trim()) { showToast('Judul campaign wajib diisi'); return; }
+    if (!target || target <= 0) { showToast('Target donasi wajib diisi'); return; }
+    setSaving(true);
+    const payload = {
+      title: title.trim(),
+      description: content,
+      short_description: (content || '').replace(/<[^>]+>/g, '').slice(0, 160),
+      target: Number(target),
+      category_id: ['Uncategorized','Medis','Pendidikan','Wakaf','Bencana','Ramadan','Fidyah','Qurban','Zakat'].indexOf(category) + 1,
+      duration_days: Math.max(1, Math.ceil((new Date(endDate) - Date.now()) / 86400000)),
+      status: publish ? 'Published' : 'Draft',
+      icon: c?.icon || 'heart',
+      thumb_gradient: thumb || '',
+      location_name: location,
+      location_gmaps: gmaps,
+      form_type: formStyle,
+      form_style: formMode,
+      min_donation: minDonasi,
+      max_donation: maxDonasi,
+      opt_nominal: nominals.map(n => n.amount).filter(Boolean),
+      wa_notification: adv.wa === 'Custom',
+      followup_enabled: adv.followup === 'Custom',
+      meta_pixel_id: adv.metaPixel === 'Custom' ? '' : '',
+      tiktok_pixel_id: adv.tiktokPixel === 'Custom' ? '' : '',
+      gtm_id: adv.gtm === 'Custom' ? '' : '',
+    };
+    try {
+      if (isEdit) {
+        await api.updateCampaign(c.id, payload);
+        showToast('Campaign berhasil diupdate');
+      } else {
+        await api.createCampaign(payload);
+        showToast('Campaign berhasil di' + (publish ? 'publish' : 'simpan'));
+      }
+      if (typeof window.loadApiData === 'function') try { window.loadApiData(); } catch {}
+      setTimeout(back, 500);
+    } catch (e) {
+      showToast('Gagal menyimpan: ' + (e?.message || 'Cek koneksi'));
+    }
+    setSaving(false);
   };
 
   return (
@@ -354,11 +393,11 @@ function CampaignEditorView() {
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-2">
-              <button onClick={() => handleSave(false)} className="px-3 py-2.5 rounded-lg border-2 border-brand-600 text-brand-600 font-bold text-sm hover:bg-brand-50">
-                {isEdit ? 'View' : 'Save to Draft'}
+              <button onClick={() => handleSave(false)} disabled={saving} className="px-3 py-2.5 rounded-lg border-2 border-brand-600 text-brand-600 font-bold text-sm hover:bg-brand-50 disabled:opacity-50">
+                {saving ? 'Menyimpan…' : isEdit ? 'Save Draft' : 'Save to Draft'}
               </button>
-              <button onClick={() => handleSave(true)} className="px-3 py-2.5 rounded-lg bg-brand-600 text-white font-bold text-sm hover:bg-brand-700 shadow-sm">
-                {isEdit ? 'Update' : 'Publish'}
+              <button onClick={() => handleSave(true)} disabled={saving} className="px-3 py-2.5 rounded-lg bg-brand-600 text-white font-bold text-sm hover:bg-brand-700 shadow-sm disabled:opacity-50">
+                {saving ? 'Menyimpan…' : isEdit ? 'Update' : 'Publish'}
               </button>
             </div>
           </Card>
@@ -385,8 +424,8 @@ function CampaignEditorView() {
 
       {/* Bottom sticky action bar on mobile */}
       <div className="lg:hidden sticky bottom-0 -mx-4 px-4 py-3 bg-white border-t border-line flex gap-2">
-        <button onClick={() => handleSave(false)} className="flex-1 px-3 py-2.5 rounded-lg border-2 border-brand-600 text-brand-600 font-bold text-sm">Save Draft</button>
-        <button onClick={() => handleSave(true)} className="flex-1 px-3 py-2.5 rounded-lg bg-brand-600 text-white font-bold text-sm">Publish</button>
+        <button onClick={() => handleSave(false)} disabled={saving} className="flex-1 px-3 py-2.5 rounded-lg border-2 border-brand-600 text-brand-600 font-bold text-sm disabled:opacity-50">{saving ? '…' : 'Save Draft'}</button>
+        <button onClick={() => handleSave(true)} disabled={saving} className="flex-1 px-3 py-2.5 rounded-lg bg-brand-600 text-white font-bold text-sm disabled:opacity-50">{saving ? '…' : 'Publish'}</button>
       </div>
     </div>
   );
@@ -470,28 +509,44 @@ function EditableUrlRow({ label, prefix, value, onChange, onCopy, sanitize, help
 }
 
 function ThumbUploader({ thumb, icon, onChange }) {
+  const fileRef = useRefA();
+  const [uploading, setUploading] = useStateA(false);
+  const handleFile = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { alert('Maks 5MB'); return; }
+    setUploading(true);
+    try {
+      const res = await api.uploadImage(f);
+      const url = res?.data?.url || res?.url;
+      if (url) onChange(url);
+    } catch { onChange('linear-gradient(135deg, #38B6FF 0%, #2E4191 100%)'); }
+    setUploading(false);
+    e.target.value = '';
+  };
   return (
     <div>
-      <label className="block">
-        <div className="aspect-[13/7] rounded-xl bg-bg2 border-2 border-dashed border-line hover:border-brand-400 cursor-pointer overflow-hidden relative group" style={ thumb ? { background: thumb } : {} }>
-          {thumb && (
-            <div className="absolute inset-0 flex items-center justify-center text-white/80">
-              <Icon name={icon || 'heart'} size={48} strokeWidth={1.2}/>
-            </div>
-          )}
-          {!thumb && (
-            <div className="h-full w-full flex items-center justify-center text-mute text-xs font-semibold">
-              650 x 350
-            </div>
-          )}
-          <div className="absolute top-2 right-2 h-9 w-9 rounded-full bg-brand-600 text-white flex items-center justify-center shadow-pop group-hover:scale-110 transition-transform">
-            <Icon name="upload" size={14}/>
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile}/>
+      <div onClick={() => fileRef.current?.click()}
+        className="aspect-[13/7] rounded-xl bg-bg2 border-2 border-dashed border-line hover:border-brand-400 cursor-pointer overflow-hidden relative group"
+        style={thumb && !thumb.startsWith('linear') ? { backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center' } : thumb ? { background: thumb } : {}}>
+        {thumb && thumb.startsWith('linear') && (
+          <div className="absolute inset-0 flex items-center justify-center text-white/80">
+            <Icon name={icon || 'heart'} size={48} strokeWidth={1.2}/>
           </div>
+        )}
+        {!thumb && (
+          <div className="h-full w-full flex items-center justify-center text-mute text-xs font-semibold">
+            {uploading ? 'Mengupload...' : '650 x 350'}
+          </div>
+        )}
+        <div className="absolute top-2 right-2 h-9 w-9 rounded-full bg-brand-600 text-white flex items-center justify-center shadow-pop group-hover:scale-110 transition-transform">
+          <Icon name="upload" size={14}/>
         </div>
-      </label>
-      <button onClick={() => onChange(thumb ? null : 'linear-gradient(135deg, #38B6FF 0%, #2E4191 100%)')}
+      </div>
+      <button onClick={() => thumb ? onChange(null) : fileRef.current?.click()}
         className="mt-2 w-full text-xs font-semibold text-brand-600 hover:underline">
-        {thumb ? 'Hapus gambar' : 'Pilih dari galeri'}
+        {thumb ? 'Hapus gambar' : 'Upload gambar'}
       </button>
     </div>
   );
@@ -499,25 +554,52 @@ function ThumbUploader({ thumb, icon, onChange }) {
 
 function RichEditor({ value, onChange }) {
   const ref = React.useRef();
-  // Initialize once
+  const imgRef = useRefA();
+  const [linkOpen, setLinkOpen] = useStateA(false);
+  const [linkUrl, setLinkUrl] = useStateA('');
+  const [videoOpen, setVideoOpen] = useStateA(false);
+  const [videoUrl, setVideoUrl] = useStateA('');
+  const [colorOpen, setColorOpen] = useStateA(false);
+  const [preview, setPreview] = useStateA(false);
+
   useEffectA(() => {
     if (ref.current && ref.current.innerHTML !== value) ref.current.innerHTML = value || '';
-    // eslint-disable-next-line
   }, []);
   const exec = (cmd, val) => { document.execCommand(cmd, false, val); ref.current && onChange(ref.current.innerHTML); };
-  const tools = [
-    { icon:'refresh', cmd:'undo', title:'Undo' },
-    { icon:'refresh', cmd:'redo', title:'Redo', flip:true },
-  ];
   const wordCount = (value || '').replace(/<[^>]+>/g,'').trim().split(/\s+/).filter(Boolean).length;
+
+  const insertLink = () => {
+    if (linkUrl.trim()) exec('createLink', linkUrl.trim());
+    setLinkOpen(false); setLinkUrl('');
+  };
+  const insertVideo = () => {
+    const url = videoUrl.trim();
+    if (!url) return;
+    let embedUrl = url;
+    const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
+    if (yt) embedUrl = 'https://www.youtube.com/embed/' + yt[1];
+    exec('insertHTML', '<div class="my-3" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden"><iframe src="' + embedUrl + '" style="position:absolute;top:0;left:0;width:100%;height:100%" frameborder="0" allowfullscreen></iframe></div>');
+    setVideoOpen(false); setVideoUrl('');
+  };
+  const handleImgUpload = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    try {
+      const res = await api.uploadImage(f);
+      const url = res?.data?.url || res?.url;
+      if (url) exec('insertHTML', '<img src="' + url + '" class="rounded-lg max-w-full my-2"/>');
+    } catch {}
+    e.target.value = '';
+  };
+  const colors = ['#2E4191','#38B6FF','#16A34A','#DC2626','#F59E0B','#7C3AED','#1E293B','#64748B'];
 
   return (
     <div className="mt-1.5 rounded-xl border border-line bg-white overflow-hidden">
-      <div className="flex items-center gap-1 px-2 py-1.5 bg-bg2 border-b border-line flex-wrap">
+      <div className="flex items-center gap-1 px-2 py-1.5 bg-bg2 border-b border-line flex-wrap relative z-20">
         <button onClick={() => exec('undo')} title="Undo" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="refresh" size={14} className="-scale-x-100"/></button>
         <button onClick={() => exec('redo')} title="Redo" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="refresh" size={14}/></button>
         <span className="h-5 w-px bg-line mx-1"/>
-        <select onChange={(e) => exec('formatBlock', e.target.value)} defaultValue="" className="h-7 px-2 rounded bg-white border border-line text-xs font-semibold text-ink">
+        <select onChange={(e) => { exec('formatBlock', e.target.value); e.target.value = ''; }} defaultValue="" className="h-7 px-2 rounded bg-white border border-line text-xs font-semibold text-ink relative z-50">
           <option value="" disabled>Formats</option>
           <option value="p">Paragraph</option>
           <option value="h2">Heading 2</option>
@@ -536,25 +618,73 @@ function RichEditor({ value, onChange }) {
         <button onClick={() => exec('insertUnorderedList')} title="Bulleted list" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><ListIcon ordered={false}/></button>
         <button onClick={() => exec('insertOrderedList')} title="Numbered list" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><ListIcon ordered={true}/></button>
         <span className="h-5 w-px bg-line mx-1"/>
-        <button onClick={() => { const u = prompt('URL'); if (u) exec('createLink', u); }} title="Link" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="link" size={14}/></button>
-        <button title="Insert image" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="upload" size={14}/></button>
-        <button title="Preview"      className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="eye" size={14}/></button>
-        <button title="Video"        className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="play" size={14}/></button>
+        {/* Link */}
+        <div className="relative">
+          <button onClick={() => { setLinkOpen(!linkOpen); setColorOpen(false); setVideoOpen(false); }} title="Link" className={`h-7 w-7 rounded hover:bg-white flex items-center justify-center ${linkOpen ? 'bg-white ring-2 ring-brand-600/20' : 'text-ink'}`}><Icon name="link" size={14}/></button>
+          {linkOpen && (
+            <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-pop border border-line p-2 z-50 w-64">
+              <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && insertLink()}
+                placeholder="https://..." className="field text-xs" autoFocus/>
+              <div className="flex gap-1 mt-1.5">
+                <button onClick={() => { setLinkOpen(false); setLinkUrl(''); }} className="flex-1 px-2 py-1 rounded text-xs font-bold text-mute hover:bg-bg2">Batal</button>
+                <button onClick={insertLink} className="flex-1 px-2 py-1 rounded text-xs font-bold text-white bg-brand-600 hover:bg-brand-700">Sisipkan</button>
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Image upload */}
+        <input ref={imgRef} type="file" accept="image/*" className="hidden" onChange={handleImgUpload}/>
+        <button onClick={() => imgRef.current?.click()} title="Insert image" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="upload" size={14}/></button>
+        {/* Preview */}
+        <button onClick={() => setPreview(!preview)} title={preview ? 'Edit' : 'Preview'} className={`h-7 w-7 rounded hover:bg-white flex items-center justify-center ${preview ? 'bg-brand-50 text-brand-600' : 'text-ink'}`}><Icon name="eye" size={14}/></button>
+        {/* Video */}
+        <div className="relative">
+          <button onClick={() => { setVideoOpen(!videoOpen); setLinkOpen(false); setColorOpen(false); }} title="Video" className={`h-7 w-7 rounded hover:bg-white flex items-center justify-center ${videoOpen ? 'bg-white ring-2 ring-brand-600/20' : 'text-ink'}`}><Icon name="play" size={14}/></button>
+          {videoOpen && (
+            <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-pop border border-line p-2 z-50 w-72">
+              <div className="text-[10px] font-bold text-mute mb-1">YouTube atau embed URL</div>
+              <input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && insertVideo()}
+                placeholder="https://youtube.com/watch?v=..." className="field text-xs" autoFocus/>
+              <div className="flex gap-1 mt-1.5">
+                <button onClick={() => { setVideoOpen(false); setVideoUrl(''); }} className="flex-1 px-2 py-1 rounded text-xs font-bold text-mute hover:bg-bg2">Batal</button>
+                <button onClick={insertVideo} className="flex-1 px-2 py-1 rounded text-xs font-bold text-white bg-brand-600 hover:bg-brand-700">Sisipkan Video</button>
+              </div>
+            </div>
+          )}
+        </div>
         <span className="h-5 w-px bg-line mx-1"/>
-        <button onClick={() => { const c = prompt('Color (#hex or name)','#2E4191'); if (c) exec('foreColor', c); }} title="Text color" className="h-7 px-2 rounded hover:bg-white flex items-center gap-1 text-ink"><b>A</b><span className="h-2 w-2 rounded-sm bg-brand-600"/></button>
+        {/* Color picker */}
+        <div className="relative">
+          <button onClick={() => { setColorOpen(!colorOpen); setLinkOpen(false); setVideoOpen(false); }} title="Text color" className={`h-7 px-2 rounded hover:bg-white flex items-center gap-1 ${colorOpen ? 'bg-white ring-2 ring-brand-600/20' : 'text-ink'}`}><b>A</b><span className="h-2 w-2 rounded-sm bg-brand-600"/></button>
+          {colorOpen && (
+            <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-pop border border-line p-2 z-50">
+              <div className="grid grid-cols-4 gap-1.5">
+                {colors.map((c) => (
+                  <button key={c} onClick={() => { exec('foreColor', c); setColorOpen(false); }}
+                    className="h-7 w-7 rounded-md border border-line hover:scale-110 transition-transform" style={{ background: c }}/>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div
-        ref={ref}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={(e) => onChange(e.currentTarget.innerHTML)}
-        className="min-h-[260px] max-h-[420px] overflow-y-auto p-4 text-sm text-ink/90 leading-relaxed focus:outline-none prose prose-sm max-w-none"
-      />
+      {preview ? (
+        <div className="min-h-[260px] max-h-[420px] overflow-y-auto p-4 text-sm text-ink/90 leading-relaxed prose prose-sm max-w-none bg-bg2/30"
+          dangerouslySetInnerHTML={{ __html: value || '<p class="text-mute">Belum ada konten</p>' }}/>
+      ) : (
+        <div
+          ref={ref}
+          contentEditable
+          suppressContentEditableWarning
+          onInput={(e) => onChange(e.currentTarget.innerHTML)}
+          className="min-h-[260px] max-h-[420px] overflow-y-auto p-4 text-sm text-ink/90 leading-relaxed focus:outline-none prose prose-sm max-w-none"
+        />
+      )}
 
-      <div className="flex justify-end px-3 py-1.5 bg-bg2 border-t border-line text-[11px] font-bold uppercase text-mute">
-        {wordCount} WORDS
-        <span className="ml-2 inline-block w-2 h-2 border-r-2 border-b-2 border-mute opacity-50"/>
+      <div className="flex justify-between px-3 py-1.5 bg-bg2 border-t border-line text-[11px] font-bold uppercase text-mute">
+        <span>{preview ? 'PREVIEW MODE' : 'EDIT MODE'}</span>
+        <span>{wordCount} WORDS</span>
       </div>
     </div>
   );

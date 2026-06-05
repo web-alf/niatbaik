@@ -1,3 +1,33 @@
+const timeAgo = (dateStr) => {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'baru saja';
+  if (mins < 60) return mins + ' menit lalu';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + ' jam lalu';
+  const days = Math.floor(hrs / 24);
+  return days <= 1 ? 'kemarin' : days + ' hari lalu';
+};
+const mapActivityIcon = (action) => {
+  if (!action) return 'bolt';
+  if (action.includes('login')) return 'shield';
+  if (action.includes('password')) return 'shield';
+  if (action.includes('profile')) return 'edit';
+  if (action.includes('campaign')) return 'megaphone';
+  if (action.includes('invoice')) return 'check';
+  if (action.includes('export')) return 'download';
+  return 'bolt';
+};
+const mapActivityTone = (action) => {
+  if (!action) return 'slate';
+  if (action.includes('login')) return 'ok';
+  if (action.includes('password')) return 'ok';
+  if (action.includes('profile')) return 'brand';
+  if (action.includes('campaign')) return 'brand';
+  return 'slate';
+};
+
 function ProfileView() {
   const { role, user, logout, updateUser, showToast } = useApp();
 
@@ -25,7 +55,31 @@ function ProfileView() {
   const [form, setForm]       = useStateA({ name: display.name, email: display.email, wa: display.wa, avatar: display.avatar });
   const [errors, setErrors]   = useStateA({});
   const [saving, setSaving]   = useStateA(false);
+  const [activityLog, setActivityLog] = useStateA([]);
+  const [loginHistory, setLoginHistory] = useStateA([]);
   const fileRef = React.useRef();
+
+  useEffectA(() => {
+    const token = window.api?.getToken?.();
+    if (!token) return;
+    const headers = { 'Authorization': 'Bearer ' + token };
+    fetch('/api/profile/activity', { headers }).then(r => r.json()).then(res => {
+      if (res?.data) setActivityLog(res.data.map(a => ({
+        t: a.description || a.action,
+        when: timeAgo(a.created_at),
+        icon: mapActivityIcon(a.action),
+        tone: mapActivityTone(a.action),
+      })));
+    }).catch(() => {});
+    fetch('/api/profile/logins', { headers }).then(r => r.json()).then(res => {
+      if (res?.data) setLoginHistory(res.data.map((l, i) => ({
+        d: l.user_agent || 'Unknown browser',
+        ip: (l.ip_address || 'Unknown') + (l.location ? ' · ' + l.location : ''),
+        when: timeAgo(l.created_at),
+        current: i === 0,
+      })));
+    }).catch(() => {});
+  }, []);
 
   useEffectA(() => {
     if (!editing) setForm({ name: display.name, email: display.email, wa: display.wa, avatar: display.avatar });
@@ -176,9 +230,9 @@ function ProfileView() {
 
           <div className="mt-6 pt-5 border-t border-line text-left space-y-3">
             <div className="text-xs uppercase font-semibold text-mute">Statistik</div>
-            <div className="flex justify-between text-sm"><span className="text-mute">Total tindakan</span><span className="font-bold text-ink">2.418</span></div>
+            <div className="flex justify-between text-sm"><span className="text-mute">Total tindakan</span><span className="font-bold text-ink">{window.NB?.fmtNum?.(activityLog.length) || activityLog.length}</span></div>
             <div className="flex justify-between text-sm"><span className="text-mute">Sejak bergabung</span><span className="font-bold text-ink">{display.joined}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-mute">Login terakhir</span><span className="font-bold text-ink">baru saja · Chrome / macOS</span></div>
+            <div className="flex justify-between text-sm"><span className="text-mute">Login terakhir</span><span className="font-bold text-ink">{loginHistory[0]?.when || 'baru saja'}</span></div>
           </div>
         </Card>
 
@@ -189,11 +243,6 @@ function ProfileView() {
                 <div className="font-bold text-ink">Informasi Akun</div>
                 <div className="text-xs text-mute mt-0.5">{editing ? 'Mode edit aktif — ubah lalu Simpan Perubahan.' : 'Klik "Edit Profile" untuk mengubah data.'}</div>
               </div>
-              {!editing && (
-                <button onClick={() => setEditing(true)} className="text-xs font-bold text-brand-600 hover:underline inline-flex items-center gap-1">
-                  <Icon name="edit" size={12}/> Ubah data
-                </button>
-              )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
               <ProfileField label="Nama lengkap" editing={editing} value={form.name} display={display.name}
@@ -266,14 +315,9 @@ function ProfileView() {
           <Btn size="sm" variant="ghost" tone="ink" icon="download">Export log</Btn>
         </div>
         <div className="space-y-2">
-          {[
-            { t:'Update status invoice INV-20251123 → Paid', when:'baru saja', icon:'check', tone:'ok' },
-            { t:'Kirim follow-up WhatsApp ke +62812-3456-7890', when:'5 menit lalu', icon:'wa', tone:'sky' },
-            { t:'Publish campaign "Wakaf Quran untuk Pesantren Pelosok"', when:'1 jam lalu', icon:'megaphone', tone:'brand' },
-            { t:'Export CSV transaksi (1–18 Mei 2026)', when:'2 jam lalu', icon:'download', tone:'slate' },
-            { t:'Tambah pixel Meta · PXL-928374', when:'kemarin', icon:'pixel', tone:'purple' },
-            { t:'Login dari Chrome · macOS · IP 36.84.xx.xx', when:'kemarin', icon:'shield', tone:'ok' },
-          ].map((a, i) => (
+          {(activityLog.length ? activityLog : [
+            { t:'Belum ada aktivitas tercatat', when:'', icon:'inbox', tone:'slate' }
+          ]).map((a, i) => (
             <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-bg2">
               <div className={`h-8 w-8 rounded-md flex items-center justify-center ${
                 a.tone==='ok'?'bg-emerald-50 text-emerald-600':
@@ -293,15 +337,12 @@ function ProfileView() {
       <Card className="p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="font-bold text-ink">Login History</div>
-          <Badge tone="ok" dot>5 sesi aktif</Badge>
+          <Badge tone="ok" dot>{loginHistory.length || 0} sesi tercatat</Badge>
         </div>
         <div className="space-y-2">
-          {[
-            { d:'Chrome · macOS Sonoma', ip:'36.84.182.21 · Jakarta, ID', when:'baru saja', current:true },
-            { d:'Safari · iPhone 15', ip:'114.10.55.7 · Jakarta, ID', when:'2 jam lalu' },
-            { d:'Chrome · Windows 11', ip:'180.244.8.92 · Bandung, ID', when:'kemarin' },
-            { d:'Edge · Windows 10', ip:'202.43.144.10 · Surabaya, ID', when:'3 hari lalu' },
-          ].map((l, i) => (
+          {(loginHistory.length ? loginHistory : [
+            { d:'Belum ada data login', ip:'', when:'', current:false }
+          ]).map((l, i) => (
             <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-line">
               <div className="h-8 w-8 rounded-md bg-bg2 text-mute flex items-center justify-center"><Icon name="globe" size={14}/></div>
               <div className="flex-1">

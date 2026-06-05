@@ -168,7 +168,7 @@ function LoginPage({ onLogin }) {
               <div>
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-muted">Password</label>
-                  <button type="button" onClick={(e) => e.preventDefault()} className="text-xs font-semibold text-brand-600 hover:underline cursor-pointer">Lupa password?</button>
+                  <button type="button" onClick={() => alert('Hubungi admin@niatbaik.org untuk reset password.')} className="text-xs font-semibold text-brand-600 hover:underline cursor-pointer">Lupa password?</button>
                 </div>
                 <div className="mt-1 relative">
                   <input type={showPwd ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
@@ -221,7 +221,7 @@ function LoginPage({ onLogin }) {
           </div>
 
           <div className="mt-4 text-center text-xs text-muted">
-            Butuh bantuan login? <button type="button" onClick={(e) => { e.preventDefault(); }} className="font-bold text-brand-600 hover:underline cursor-pointer">Hubungi admin</button>
+            Butuh bantuan login? <a href="mailto:admin@niatbaik.org" className="font-bold text-brand-600 hover:underline cursor-pointer">Hubungi admin</a>
             <span className="mx-2">&middot;</span>
             <a href="#" onClick={(e) => { e.preventDefault(); window.__nbNavigateLanding && window.__nbNavigateLanding(); }} className="font-bold text-brand-600 hover:underline">Lihat situs publik &rarr;</a>
           </div>

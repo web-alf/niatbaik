@@ -3,6 +3,34 @@ function DataStudioView() {
   const { dailyDonations, trafficSources, campaignSeed } = window.NB;
   const [page, setPage] = useStateA('overview');
   const [dateRange, setDateRange] = useStateA('Last 30 days');
+  const [platform, setPlatform] = useStateA('All');
+  const [dsCampaign, setDsCampaign] = useStateA('All Campaigns');
+  const [country, setCountry] = useStateA('Indonesia');
+  const [device, setDevice] = useStateA('All devices');
+  const [dsData, setDsData] = useStateA({});
+  const [dsLoading, setDsLoading] = useStateA(false);
+
+  useEffectA(() => {
+    (async () => {
+      setDsLoading(true);
+      try {
+        const loaders = {
+          overview: api.dataStudioOverview,
+          meta: api.dataStudioMeta,
+          google: api.dataStudioGoogle,
+          tiktok: api.dataStudioTiktok,
+          geo: api.dataStudioGeo,
+          funnel: api.dataStudioFunnel,
+        };
+        const fn = loaders[page];
+        if (fn) {
+          const res = await fn();
+          setDsData(prev => ({...prev, [page]: res?.data || {}}));
+        }
+      } catch {}
+      setDsLoading(false);
+    })();
+  }, [page]);
 
   const pages = [
     { v:'overview', l:'Overview' },
@@ -55,23 +83,28 @@ function DataStudioView() {
       {/* Filter / control bar */}
       <div className="px-4 lg:px-6 flex flex-wrap items-center gap-2">
         <DSControl label="Date range" value={dateRange} onChange={setDateRange} options={['Today','Last 7 days','Last 30 days','Last 90 days','Custom']}/>
-        <DSControl label="Platform"   value="All" options={['All','Meta','Google','TikTok','Organic']}/>
-        <DSControl label="Campaign"   value="All Campaigns" options={['All Campaigns', ...campaignSeed.map(c => c.title.slice(0,30)+'…')]}/>
-        <DSControl label="Country"    value="Indonesia" options={['Indonesia','Malaysia','Singapore','Global']}/>
-        <DSControl label="Device"     value="All devices" options={['All devices','Mobile','Desktop','Tablet']}/>
+        <DSControl label="Platform"   value={platform} onChange={setPlatform} options={['All','Meta','Google','TikTok','Organic']}/>
+        <DSControl label="Campaign"   value={dsCampaign} onChange={setDsCampaign} options={['All Campaigns', ...campaignSeed.map(c => c.title.slice(0,30)+'…')]}/>
+        <DSControl label="Country"    value={country} onChange={setCountry} options={['Indonesia','Malaysia','Singapore','Global']}/>
+        <DSControl label="Device"     value={device} onChange={setDevice} options={['All devices','Mobile','Desktop','Tablet']}/>
         <div className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-mute">
           <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"/>
           Live data · Sumber: Meta Ads · Google Ads · GA4 · TikTok Ads · NIATBAIK.ORG
         </div>
       </div>
 
-      <div className="px-4 lg:px-6 pb-8">
-        {page === 'overview' && <DSOverview daily={dailyDonations} sources={trafficSources} campaigns={campaignSeed}/>}
-        {page === 'meta'     && <DSMeta/>}
-        {page === 'google'   && <DSGoogle daily={dailyDonations}/>}
-        {page === 'tiktok'   && <DSTiktok/>}
-        {page === 'geo'      && <DSGeo/>}
-        {page === 'funnel'   && <DSFunnel/>}
+      <div className="px-4 lg:px-6 pb-8 relative">
+        {dsLoading && (
+          <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center">
+            <div className="h-8 w-8 border-3 border-[#1A73E8] border-t-transparent rounded-full animate-spin"/>
+          </div>
+        )}
+        {page === 'overview' && <DSOverview daily={dsData.overview?.daily_donations || dailyDonations} sources={dsData.overview?.traffic_sources || trafficSources} campaigns={dsData.overview?.campaigns || campaignSeed}/>}
+        {page === 'meta'     && <DSMeta data={dsData.meta}/>}
+        {page === 'google'   && <DSGoogle daily={dsData.google?.daily_donations || dailyDonations} data={dsData.google}/>}
+        {page === 'tiktok'   && <DSTiktok data={dsData.tiktok}/>}
+        {page === 'geo'      && <DSGeo data={dsData.geo}/>}
+        {page === 'funnel'   && <DSFunnel data={dsData.funnel}/>}
       </div>
     </div>
   );

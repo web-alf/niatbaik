@@ -50,6 +50,8 @@ html.dark .bg-bg2 { background-color: #0F172A !important; }
 html.dark .bg-bg2\/40, html.dark .bg-bg2\/50, html.dark .bg-bg2\/60 { background-color: rgba(15,23,42,.6) !important; }
 html.dark .bg-white\/85 { background-color: rgba(19,28,46,.88) !important; }
 html.dark .bg-white\/95, html.dark .bg-white\/90 { background-color: rgba(19,28,46,.95) !important; }
+html.dark .bg-white\/80 { background-color: rgba(19,28,46,.8) !important; }
+html.dark .bg-white\/60 { background-color: rgba(19,28,46,.6) !important; }
 html.dark .bg-white\/10, html.dark .bg-white\/15, html.dark .bg-white\/20, html.dark .bg-white\/30 { /* on dark hero - keep */ }
 html.dark .bg-slate-50 { background-color: #1A2540 !important; }
 html.dark .bg-slate-100 { background-color: #1E2A47 !important; }
@@ -119,6 +121,13 @@ html.dark pre.bg-ink { background-color: #060B17 !important; }
 
 /* Modal backdrop */
 html.dark .bg-ink\/30, html.dark .bg-ink\/40 { background-color: rgba(0,0,0,.7) !important; }
+
+/* Gradient stops (public hero etc.) */
+html.dark .from-brand-50 { --tw-gradient-from: rgba(46,65,145,.18) !important; }
+html.dark .from-white { --tw-gradient-from: #131C2E !important; }
+html.dark .via-white { --tw-gradient-stops: var(--tw-gradient-from), #0B1220, var(--tw-gradient-to) !important; }
+html.dark .to-sky2-50 { --tw-gradient-to: rgba(56,182,255,.15) !important; }
+html.dark .to-white { --tw-gradient-to: #131C2E !important; }
 
 /* Dark surface helpers */
 html.dark .surface { background: #0f172a; border-color: #1f2a44; color: #e2e8f0; }

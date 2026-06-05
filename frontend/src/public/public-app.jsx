@@ -21,9 +21,23 @@ const Progress = ({ value, max, className='h-2' }) => {
   );
 };
 
+// -------- Dark mode helper (public pages) --------
+function usePublicDark() {
+  const [dark, setDarkRaw] = useState(() => document.documentElement.classList.contains('dark'));
+  const toggle = () => {
+    const v = !dark;
+    setDarkRaw(v);
+    document.documentElement.classList.toggle('dark', v);
+    document.body.classList.toggle('dark', v);
+    try { localStorage.setItem('niatbaik_dark', v ? '1' : '0'); } catch {}
+  };
+  return [dark, toggle];
+}
+
 // -------- Navbar --------
 function Navbar({ onNav }) {
   const [open, setOpen] = useState(false);
+  const [dark, toggleDark] = usePublicDark();
   const { navigate } = useApp();
   const links = [
     { l:'Campaign', h:'#campaigns' },
@@ -43,6 +57,10 @@ function Navbar({ onNav }) {
           ))}
         </nav>
         <div className="flex-1"/>
+        <button onClick={toggleDark} aria-label="Toggle dark mode"
+          className="h-9 w-9 rounded-lg border border-line bg-white hover:bg-bg2 flex items-center justify-center text-ink">
+          <Icon name={dark ? 'sun' : 'moon'} size={16}/>
+        </button>
         <button onClick={() => navigate('dashboard')} className="hidden lg:inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
           <Icon name="user" size={16}/> Masuk
         </button>
@@ -57,6 +75,9 @@ function Navbar({ onNav }) {
             {links.map((l) => (
               <a key={l.l} href={l.h} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2" onClick={() => setOpen(false)}>{l.l}</a>
             ))}
+            <button onClick={toggleDark} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2 text-left flex items-center gap-2">
+              <Icon name={dark ? 'sun' : 'moon'} size={16}/> {dark ? 'Light Mode' : 'Dark Mode'}
+            </button>
             <button onClick={() => { setOpen(false); navigate('dashboard'); }} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-mute text-left">Masuk Dashboard</button>
           </div>
         </div>
@@ -260,11 +281,13 @@ function CampaignsSection({ onNav }) {
           {filtered.map((c) => <PublicCampaignCard key={c.id} c={c} onNav={onNav}/>)}
         </div>
 
-        <div className="mt-8 text-center">
-          <button className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-ink bg-white border border-line hover:bg-bg2">
-            Lihat semua campaign <Icon name="arrowR" size={16}/>
-          </button>
-        </div>
+        {filtered.length >= 6 && (
+          <div className="mt-8 text-center">
+            <button onClick={() => setTab('all')} className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-ink bg-white border border-line hover:bg-bg2">
+              Lihat semua campaign <Icon name="arrowR" size={16}/>
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -442,36 +465,44 @@ function Footer() {
           <div className="flex items-center gap-2"><img src="/assets/logo-niatbaik.png" alt="" className="h-7 invert brightness-200"/></div>
           <p className="mt-3 text-sm text-white/70 max-w-sm leading-relaxed">Platform donasi & crowdfunding terpercaya. Salurkan zakat, sedekah, wakaf, dan donasi kemanusiaan dengan mudah.</p>
           <div className="mt-4 flex gap-2">
-            {['Instagram','TikTok','Facebook','YouTube'].map((s) => (
-              <a key={s} className="h-9 w-9 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm font-bold">{s[0]}</a>
+            {[
+              { n:'Instagram', icon:'camera' },
+              { n:'TikTok',    icon:'play' },
+              { n:'Facebook',  icon:'users' },
+              { n:'YouTube',   icon:'play' },
+            ].map((s) => (
+              <a key={s.n} href="#" onClick={(e) => e.preventDefault()} title={s.n}
+                className="h-9 w-9 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center">
+                <Icon name={s.icon} size={16}/>
+              </a>
             ))}
           </div>
         </div>
         <div>
           <div className="font-bold mb-3">Platform</div>
           <ul className="space-y-2 text-sm text-white/75">
-            <li><a className="hover:text-white">Donasi</a></li>
-            <li><a className="hover:text-white">Buat Campaign</a></li>
-            <li><a className="hover:text-white">Fundraiser</a></li>
-            <li><a className="hover:text-white">Laporan transparansi</a></li>
+            <li><a href="#campaigns" className="hover:text-white cursor-pointer">Donasi</a></li>
+            <li><a href="#campaigns" className="hover:text-white cursor-pointer">Buat Campaign</a></li>
+            <li><a href="#how" className="hover:text-white cursor-pointer">Fundraiser</a></li>
+            <li><a href="#testi" className="hover:text-white cursor-pointer">Laporan transparansi</a></li>
           </ul>
         </div>
         <div>
           <div className="font-bold mb-3">Tentang</div>
           <ul className="space-y-2 text-sm text-white/75">
-            <li><a className="hover:text-white">Profil Yayasan</a></li>
-            <li><a className="hover:text-white">Tim</a></li>
-            <li><a className="hover:text-white">Karir</a></li>
-            <li><a className="hover:text-white">Pers & media</a></li>
+            <li><a href="#" className="hover:text-white cursor-pointer">Profil Yayasan</a></li>
+            <li><a href="#" className="hover:text-white cursor-pointer">Tim</a></li>
+            <li><a href="#" className="hover:text-white cursor-pointer">Karir</a></li>
+            <li><a href="#" className="hover:text-white cursor-pointer">Pers & media</a></li>
           </ul>
         </div>
         <div>
           <div className="font-bold mb-3">Bantuan</div>
           <ul className="space-y-2 text-sm text-white/75">
-            <li><a className="hover:text-white">FAQ</a></li>
-            <li><a className="hover:text-white">Kontak</a></li>
-            <li><a className="hover:text-white">Syarat & ketentuan</a></li>
-            <li><a className="hover:text-white">Kebijakan privasi</a></li>
+            <li><a href="#faq" className="hover:text-white cursor-pointer">FAQ</a></li>
+            <li><a href="#" className="hover:text-white cursor-pointer">Kontak</a></li>
+            <li><a href="#" className="hover:text-white cursor-pointer">Syarat & ketentuan</a></li>
+            <li><a href="#" className="hover:text-white cursor-pointer">Kebijakan privasi</a></li>
           </ul>
         </div>
       </div>
@@ -536,15 +567,17 @@ function CampaignPage({ c, onNav }) {
   const [anon, setAnon] = useState(false);
   const [donor, setDonor] = useState({ name:'', wa:'', email:'', message:'' });
   const [paid, setPaid] = useState(false);
+  const invoiceCode = useMemo(() => 'INV-2026-' + Math.floor(Math.random() * 9000 + 1000), []);
   const presets = [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
 
   const recentDonors = window.NB.txns.slice(0, 8);
   const formRef = useRef();
 
+  const updateCount = 4;
   const tabs = [
     { v:'story', l:'Cerita' },
-    { v:'updates', l:'Update (4)' },
-    { v:'donors', l:'Donatur' },
+    { v:'updates', l:`Update (${updateCount})` },
+    { v:'donors', l:`Donatur (${recentDonors.length})` },
     { v:'faq', l:'FAQ' },
   ];
 
@@ -717,11 +750,15 @@ function CampaignPage({ c, onNav }) {
                     <div className="mt-3 font-extrabold text-xl text-ink">Terima kasih atas niat baik Anda!</div>
                     <div className="mt-1 text-sm text-mute">Donasi Anda sebesar <b className="text-brand-600">{fmtIDR(amount)}</b> sedang diproses. Kuitansi akan dikirim via WhatsApp & email.</div>
                     <div className="mt-4 rounded-xl bg-bg2 p-3 text-xs text-mute text-left">
-                      <div className="flex justify-between"><span>Kode donasi</span><span className="font-mono font-bold text-ink">INV-2026-{Math.floor(Math.random()*9000+1000)}</span></div>
+                      <div className="flex justify-between"><span>Kode donasi</span><span className="font-mono font-bold text-ink">{invoiceCode}</span></div>
                       <div className="flex justify-between mt-1"><span>Metode</span><b className="text-ink">{paymentMethod}</b></div>
                     </div>
                     <PrimaryBtn size="md" className="w-full mt-4" onClick={() => { setPaid(false); setStep(1); }}>Donasi lagi</PrimaryBtn>
-                    <button className="mt-2 text-xs font-semibold text-mute hover:text-ink">Bagikan campaign ini →</button>
+                    <button onClick={() => {
+                      const url = window.location.origin + '/campaign/' + (c.slug || c.id);
+                      if (navigator.share) navigator.share({ title: c.title, url }).catch(() => {});
+                      else { try { navigator.clipboard.writeText(url); } catch {} }
+                    }} className="mt-2 text-xs font-semibold text-mute hover:text-ink">Bagikan campaign ini →</button>
                   </div>
                 )}
 
@@ -733,7 +770,7 @@ function CampaignPage({ c, onNav }) {
               </div>
 
               <div className="hidden lg:block mt-3 text-center text-xs text-mute">
-                Butuh bantuan? <a className="font-bold text-brand-600 hover:underline">Hubungi CS via WhatsApp</a>
+                Butuh bantuan? <a href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer" className="font-bold text-brand-600 hover:underline cursor-pointer">Hubungi CS via WhatsApp</a>
               </div>
             </div>
           </div>
@@ -908,6 +945,7 @@ window.LandingPage = PublicApp;
 function CampaignDetail({ id, onBack }) {
   const list = window.CAMPAIGNS || campaignSeed;
   const c = list.find(x => x.slug === id || x.id === id) || list[1] || list[0];
+  const [dark, toggleDark] = usePublicDark();
   return (
     <div className="min-h-screen flex flex-col bg-white">
       <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-line">
@@ -916,6 +954,10 @@ function CampaignDetail({ id, onBack }) {
             <Icon name="chevronL" size={16}/> Kembali
           </button>
           <div className="flex-1"/>
+          <button onClick={toggleDark} aria-label="Toggle dark mode"
+            className="h-9 w-9 rounded-lg border border-line bg-white hover:bg-bg2 flex items-center justify-center text-ink">
+            <Icon name={dark ? 'sun' : 'moon'} size={16}/>
+          </button>
           <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-7"/>
         </div>
       </header>

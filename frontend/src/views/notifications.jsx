@@ -22,18 +22,20 @@ function NotificationsView() {
     (async () => {
       try {
         const res = await api.notifications();
-        setItems((res?.data || []).map(n => ({
+        const arr = Array.isArray(res?.data) ? res.data : [];
+        setItems(arr.map(n => ({
           id: n.id,
           icon: mapIcon(n.type),
           tone: mapTone(n.type),
-          title: n.title,
-          body: n.body || n.message,
+          title: n.title || '',
+          body: n.body || n.message || '',
           when: timeAgo(n.created_at),
           unread: !n.read_at,
           type: n.type || 'system',
         })));
       } catch {
-        setItems(window.NOTIFICATIONS || []);
+        const fb = window.NOTIFICATIONS;
+        setItems(Array.isArray(fb) ? fb : []);
       }
       setLoading(false);
     })();

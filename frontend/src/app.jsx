@@ -522,13 +522,23 @@ function App() {
     setRole: () => {}
   }), [user, role, route, invoiceTxn, campaignDetail, editingCampaign, dark]);
 
-  // --- Auth loading spinner ---
+  // --- Auth loading skeleton ---
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg2">
-        <div className="text-center">
-          <Logo size={36}/>
-          <div className="mt-4 text-sm text-mute">Memuat…</div>
+      <div className="min-h-screen flex bg-bg2">
+        <aside className="hidden lg:block w-64 shrink-0 bg-white border-r border-line h-screen">
+          <div className="h-16 px-5 flex items-center border-b border-line"><div className="h-7 w-28 bg-bg2 rounded-md shimmer"/></div>
+          <div className="p-3 space-y-2 mt-2">{[1,2,3,4,5,6].map(i => <div key={i} className="h-9 bg-bg2 rounded-lg shimmer"/>)}</div>
+        </aside>
+        <div className="flex-1 min-w-0">
+          <header className="h-16 bg-white border-b border-line flex items-center px-6 gap-3">
+            <div className="h-10 w-64 bg-bg2 rounded-lg shimmer"/><div className="flex-1"/><div className="h-9 w-9 bg-bg2 rounded-lg shimmer"/>
+          </header>
+          <div className="p-6 space-y-5">
+            <div className="h-8 w-72 bg-bg2 rounded-lg shimmer"/>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{[1,2,3,4].map(i => <div key={i} className="h-28 bg-white rounded-2xl border border-line shimmer"/>)}</div>
+            <div className="h-64 bg-white rounded-2xl border border-line shimmer"/>
+          </div>
         </div>
       </div>
     );

@@ -42,7 +42,7 @@ function DataStudioView() {
   ];
 
   return (
-    <div className="space-y-4 -mx-4 lg:-mx-6 -my-6 min-h-screen bg-[#F8F9FA]">
+    <div className="space-y-4 -mx-4 lg:-mx-6 -my-6 min-h-screen bg-bg2">
       {/* Data Studio top bar */}
       <div className="bg-white border-b border-line">
         <div className="px-4 lg:px-6 py-3 flex items-center gap-3">
@@ -95,8 +95,8 @@ function DataStudioView() {
 
       <div className="px-4 lg:px-6 pb-8 relative">
         {dsLoading && (
-          <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center">
-            <div className="h-8 w-8 border-3 border-[#1A73E8] border-t-transparent rounded-full animate-spin"/>
+          <div className="absolute inset-0 bg-white/60 dark:bg-ink/40 z-10 flex items-center justify-center">
+            <div className="h-8 w-8 border-3 border-brand-600 border-t-transparent rounded-full animate-spin"/>
           </div>
         )}
         {page === 'overview' && <DSOverview daily={dsData.overview?.daily_donations || dailyDonations} sources={dsData.overview?.traffic_sources || trafficSources} campaigns={dsData.overview?.campaigns || campaignSeed}/>}
@@ -141,7 +141,7 @@ function DSControl({ label, value, options = [], onChange }) {
 // -------- DS Card wrapper --------
 function DSCard({ title, subtitle, children, className = '', actions, span }) {
   return (
-    <div className={`bg-white rounded-md border border-[#DADCE0] ${className}`} style={ span ? { gridColumn: `span ${span}` } : {} }>
+    <div className={`bg-white rounded-md border border-line ${className}`} style={ span ? { gridColumn: `span ${span}` } : {} }>
       <div className="flex items-center justify-between px-4 pt-3 pb-1">
         <div>
           <div className="text-[13px] font-bold text-ink">{title}</div>
@@ -160,7 +160,7 @@ function DSCard({ title, subtitle, children, className = '', actions, span }) {
 // -------- DS Scorecard --------
 function DSScorecard({ label, value, delta, deltaTone = 'up', color = '#1A73E8', sub }) {
   return (
-    <div className="bg-white rounded-md border border-[#DADCE0] p-4">
+    <div className="bg-white rounded-md border border-line p-4">
       <div className="text-[11px] font-bold uppercase tracking-wider text-mute">{label}</div>
       <div className="mt-2 text-2xl lg:text-3xl font-extrabold leading-none" style={{ color }}>{value}</div>
       {sub && <div className="mt-1 text-[10px] text-mute">{sub}</div>}
@@ -256,7 +256,7 @@ function DSOverview({ daily, sources, campaigns }) {
           <div className="overflow-x-auto -mx-4">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-left text-[10px] uppercase tracking-wider text-mute border-b border-[#DADCE0]">
+                <tr className="text-left text-[10px] uppercase tracking-wider text-mute border-b border-line">
                   <th className="px-4 py-2 font-bold">Source / Medium</th>
                   <th className="py-2 font-bold text-right">Sessions</th>
                   <th className="py-2 font-bold text-right">Donors</th>
@@ -274,7 +274,7 @@ function DSOverview({ daily, sources, campaigns }) {
                   { sm:'(direct) / (none)',  s:13770, d:1410, rev:284_010_000, roas:'∞', color:'#94A3B8' },
                   { sm:'google / organic',   s:18920, d:1240, rev:209_005_500, roas:'∞', color:'#34A853' },
                 ].map((r, i) => (
-                  <tr key={i} className="border-b border-[#DADCE0]/60 last:border-0 hover:bg-bg2/60">
+                  <tr key={i} className="border-b border-line/60 last:border-0 hover:bg-bg2/60">
                     <td className="px-4 py-2.5">
                       <span className="inline-flex items-center gap-1.5">
                         <span className="h-2 w-2 rounded-full" style={{ background: r.color }}/>
@@ -447,7 +447,7 @@ function DSMeta() {
           <div className="overflow-x-auto -mx-4">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-left text-[10px] uppercase tracking-wider text-mute border-b border-[#DADCE0]">
+                <tr className="text-left text-[10px] uppercase tracking-wider text-mute border-b border-line">
                   <th className="px-4 py-2 font-bold">Ad Set</th>
                   <th className="py-2 font-bold text-right">Reach</th>
                   <th className="py-2 font-bold text-right">Impressions</th>
@@ -467,7 +467,7 @@ function DSMeta() {
                   ['Wakaf-Quran · Lookalike 1%',     98_120,  220_410, 6824,  3.10, 7280,   9_870_000, 184, 2.9],
                   ['Madrasah · Carousel',             82_310,  180_220, 5210,  2.89, 7912,   8_240_000, 142, 2.6],
                 ].map((r, i) => (
-                  <tr key={i} className="border-b border-[#DADCE0]/60 hover:bg-bg2/60">
+                  <tr key={i} className="border-b border-line/60 hover:bg-bg2/60">
                     <td className="px-4 py-2 font-mono">{r[0]}</td>
                     <td className="py-2 text-right">{fmtNum(r[1])}</td>
                     <td className="py-2 text-right">{fmtNum(r[2])}</td>
@@ -536,7 +536,7 @@ function DSGoogle({ daily }) {
               { l:'/c/bukber-yatim', s:8820, b:0.34, t:'02:12' },
               { l:'/', s:21340, b:0.62, t:'00:42' },
             ].map((r, i) => (
-              <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center border-b border-[#DADCE0]/40 pb-1.5">
+              <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center border-b border-line/40 pb-1.5">
                 <span className="font-mono text-ink truncate">{r.l}</span>
                 <span className="text-mute">{fmtNum(r.s)} sess</span>
                 <span className={'font-bold ' + (r.b > 0.5 ? 'text-rose-600' : 'text-emerald-600')}>{(r.b*100).toFixed(0)}% BR</span>
@@ -560,7 +560,7 @@ function DSGoogle({ daily }) {
               <div key={i} className="flex items-center gap-1.5 text-xs">
                 {p.path.map((step, j) => (
                   <React.Fragment key={j}>
-                    <span className="px-1.5 py-0.5 rounded bg-[#E8F0FE] text-[#1A73E8] font-mono text-[10px] font-bold">{step}</span>
+                    <span className="px-1.5 py-0.5 rounded bg-brand-50 text-[#1A73E8] font-mono text-[10px] font-bold">{step}</span>
                     {j < p.path.length - 1 && <Icon name="arrowR" size={10} className="text-mute"/>}
                   </React.Fragment>
                 ))}
@@ -836,7 +836,7 @@ function DSIndonesiaMap() {
   return (
     <div className="relative w-full bg-bg2 rounded-md overflow-hidden" style={{ aspectRatio: '2 / 1' }}>
       {/* Background ocean */}
-      <div className="absolute inset-0 bg-[#E8F0FE]"/>
+      <div className="absolute inset-0 bg-brand-50"/>
       {/* faint land outline */}
       <svg viewBox="0 0 100 50" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
         <path d="M 5 22 Q 9 14 18 16 L 25 22 L 30 18 L 38 24 L 45 22 L 52 28 L 60 22 L 68 26 L 75 22 L 82 28 L 92 24" stroke="#B8C7E0" strokeWidth="0.5" fill="none" strokeDasharray="0.5 0.5"/>

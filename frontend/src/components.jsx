@@ -477,8 +477,9 @@ const filterByRange = (rows, range, dateKey = 'date') => {
 };
 
 // --------- Sparkline / mini bar chart ---------
-const BarChart = ({ data, height = 160, accent='brand', labels }) => {
-  const max = Math.max(...data);
+const BarChart = ({ data: rawData, height = 160, accent='brand', labels }) => {
+  const data = (Array.isArray(rawData) ? rawData : []).map(d => typeof d === 'object' ? (d.amount || d.value || 0) : (Number(d) || 0));
+  const max = Math.max(...data) || 1;
   return (
     <div className="w-full">
       <div className="flex items-end gap-1" style={{ height }}>
@@ -507,10 +508,12 @@ const BarChart = ({ data, height = 160, accent='brand', labels }) => {
 
 // Simple line chart svg
 let _lcId = 0;
-const LineChart = ({ data, height = 180, color = '#2E4191', secondary = '#38B6FF', fill = true }) => {
+const LineChart = ({ data: rawData, height = 180, color = '#2E4191', secondary = '#38B6FF', fill = true }) => {
   const gradId = useMemo(() => 'lc-g' + (++_lcId), []);
+  const data = (Array.isArray(rawData) ? rawData : []).map(d => typeof d === 'object' ? (d.amount || d.value || 0) : (Number(d) || 0));
+  if (data.length < 2) return <div className="text-xs text-mute text-center py-8">Data belum tersedia</div>;
   const w = 600, h = height;
-  const max = Math.max(...data) * 1.15;
+  const max = Math.max(...data) * 1.15 || 1;
   const step = w / (data.length - 1);
   const pts = data.map((v, i) => [i * step, h - (v / max) * (h - 30) - 10]);
   const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');

@@ -436,14 +436,19 @@ function App() {
     }
   }, []);
 
-  // --- Load API data (public + admin overlays; all no-op-safe + seed fallback) ---
+  // --- Load API data ---
   uE(() => {
     const NB = window;
-    [NB.loadApiData, NB.loadAdminData, NB.loadDashboardChart, NB.loadDashboardStats,
-     NB.loadProfile, NB.loadInvoices, NB.loadAnalytics, NB.loadDataStudio,
-     NB.loadPaymentMethods, NB.loadAdCosts].forEach(fn => {
-      if (typeof fn === 'function') { try { fn(); } catch (e) { /* seed fallback */ } }
-    });
+    // Public data (no auth needed)
+    [NB.loadApiData].forEach(fn => { if (typeof fn === 'function') try { fn(); } catch {} });
+    // Protected data (only when logged in)
+    if (user) {
+      [NB.loadAdminData, NB.loadDashboardChart, NB.loadDashboardStats,
+       NB.loadProfile, NB.loadInvoices, NB.loadAnalytics, NB.loadDataStudio,
+       NB.loadPaymentMethods, NB.loadAdCosts].forEach(fn => {
+        if (typeof fn === 'function') try { fn(); } catch {}
+      });
+    }
   }, [user]);
 
   // --- Landing nav helper (used by login page link) ---

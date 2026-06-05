@@ -201,7 +201,20 @@ function CampaignEditorView() {
 
             {advOpen && (
               <div className="mt-5 space-y-6">
-                <AdvRadio label="Payment"                value={adv.payment}      options={['Default','Custom']} onChange={(v) => setAdv({...adv, payment:v})}/>
+                <div>
+                  <AdvRadio label="Payment" value={adv.payment} options={['Default','Custom']} onChange={(v) => setAdv({...adv, payment:v})}/>
+                  {adv.payment === 'Custom' && (
+                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-3">
+                      <div className="text-xs text-mute">Pilih metode pembayaran yang tersedia untuk campaign ini.</div>
+                      {['QRIS','BCA VA','Mandiri VA','BNI VA','GoPay','OVO','Dana','ShopeePay'].map((m) => (
+                        <label key={m} className="flex items-center gap-2.5 text-sm">
+                          <input type="checkbox" defaultChecked className="rounded border-line accent-brand-600 h-4 w-4"/>
+                          <span className="font-semibold text-ink">{m}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 <div>
                   <AdvRadio label="Form" value={adv.form} options={['Default','Custom']} onChange={(v) => setAdv({...adv, form:v})}/>
@@ -624,14 +637,19 @@ function ThumbUploader({ thumb, icon, onChange }) {
       <div onClick={() => fileRef.current?.click()}
         className="aspect-[13/7] rounded-xl bg-bg2 border-2 border-dashed border-line hover:border-brand-400 cursor-pointer overflow-hidden relative group"
         style={thumb && !thumb.startsWith('linear') ? { backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center' } : thumb ? { background: thumb } : {}}>
+        {thumb && !thumb.startsWith('linear') && (
+          <img src={thumb} alt="Preview" className="absolute inset-0 w-full h-full object-cover"/>
+        )}
         {thumb && thumb.startsWith('linear') && (
           <div className="absolute inset-0 flex items-center justify-center text-white/80">
             <Icon name={icon || 'heart'} size={48} strokeWidth={1.2}/>
           </div>
         )}
         {!thumb && (
-          <div className="h-full w-full flex items-center justify-center text-mute text-xs font-semibold">
-            {uploading ? 'Mengupload...' : '650 x 350'}
+          <div className="h-full w-full flex flex-col items-center justify-center text-mute">
+            <Icon name="image" size={32} className="mb-2"/>
+            <span className="text-xs font-semibold">{uploading ? 'Mengupload...' : 'Klik untuk upload gambar'}</span>
+            <span className="text-[10px] mt-1">650 x 350 px</span>
           </div>
         )}
         <div className="absolute top-2 right-2 h-9 w-9 rounded-full bg-brand-600 text-white flex items-center justify-center shadow-pop group-hover:scale-110 transition-transform">
@@ -698,11 +716,14 @@ function RichEditor({ value, onChange }) {
   return (
     <div className="mt-1.5 rounded-xl border border-line bg-white overflow-hidden">
       <div className="flex items-center gap-1 px-2 py-1.5 bg-bg2 border-b border-line flex-wrap relative z-20">
-        <button onClick={() => exec('undo')} title="Undo" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="refresh" size={14} className="-scale-x-100"/></button>
-        <button onClick={() => exec('redo')} title="Redo" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="refresh" size={14}/></button>
+        <button onClick={() => exec('undo')} title="Undo" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 1 2.6-6.4L3 7"/></svg>
+        </button>
+        <button onClick={() => exec('redo')} title="Redo" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M21 13a9 9 0 1 0-2.6-6.4L21 7"/></svg>
+        </button>
         <span className="h-5 w-px bg-line mx-1"/>
-        <select onChange={(e) => { exec('formatBlock', e.target.value); e.target.value = ''; }} defaultValue="" className="h-7 px-2 rounded bg-white border border-line text-xs font-semibold text-ink relative z-50">
-          <option value="" disabled>Formats</option>
+        <select onChange={(e) => { if (e.target.value) { exec('formatBlock', e.target.value); } }} defaultValue="p" className="h-7 px-2 rounded bg-white border border-line text-xs font-semibold text-ink relative z-50">
           <option value="p">Paragraph</option>
           <option value="h2">Heading 2</option>
           <option value="h3">Heading 3</option>
@@ -736,9 +757,7 @@ function RichEditor({ value, onChange }) {
         </div>
         {/* Image upload */}
         <input ref={imgRef} type="file" accept="image/*" className="hidden" onChange={handleImgUpload}/>
-        <button onClick={() => imgRef.current?.click()} title="Insert image" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="upload" size={14}/></button>
-        {/* Insert image via URL */}
-        <button onClick={() => { const url = prompt('URL gambar (https://...)'); if (url && url.startsWith('http')) exec('insertHTML', '<img src="' + url + '" class="rounded-lg max-w-full my-2"/>'); }} title="Insert image URL" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="eye" size={14}/></button>
+        <button onClick={() => imgRef.current?.click()} title="Insert gambar" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="image" size={14}/></button>
         {/* Video */}
         <div className="relative">
           <button onClick={() => { setVideoOpen(!videoOpen); setLinkOpen(false); setColorOpen(false); }} title="Video" className={`h-7 w-7 rounded hover:bg-white flex items-center justify-center ${videoOpen ? 'bg-white ring-2 ring-brand-600/20' : 'text-ink'}`}><Icon name="play" size={14}/></button>

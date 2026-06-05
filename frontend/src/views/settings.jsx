@@ -1181,6 +1181,13 @@ function GeneralPanel({ settings, onSave }) {
   const [seoTitle, setSeoTitle] = useStateA(settings?.seo_title || 'NIATBAIK.ORG — Salurkan Kebaikan, Wujudkan Niat Baik');
   const [seoDesc, setSeoDesc] = useStateA(settings?.seo_description || 'Platform donasi & crowdfunding terpercaya untuk kemanusiaan, pendidikan, dan kesehatan di seluruh Indonesia.');
   const [maintenance, setMaintenance] = useStateA(settings?.maintenance ?? false);
+  const [smtpHost, setSmtpHost] = useStateA(settings?.smtp_host || 'smtp.gmail.com');
+  const [smtpPort, setSmtpPort] = useStateA(settings?.smtp_port || 587);
+  const [smtpEmail, setSmtpEmail] = useStateA(settings?.smtp_email || '');
+  const [smtpPassword, setSmtpPassword] = useStateA('');
+  const [smtpName, setSmtpName] = useStateA(settings?.smtp_name || 'NIATBAIK.ORG');
+  const [smtpShowPwd, setSmtpShowPwd] = useStateA(false);
+  const { showToast } = useApp();
   useEffectA(() => {
     if (settings?.site_name) setSiteName(settings.site_name);
     if (settings?.domain) setDomain(settings.domain);
@@ -1189,6 +1196,10 @@ function GeneralPanel({ settings, onSave }) {
     if (settings?.seo_title) setSeoTitle(settings.seo_title);
     if (settings?.seo_description) setSeoDesc(settings.seo_description);
     if (settings?.maintenance != null) setMaintenance(settings.maintenance);
+    if (settings?.smtp_host) setSmtpHost(settings.smtp_host);
+    if (settings?.smtp_port) setSmtpPort(settings.smtp_port);
+    if (settings?.smtp_email) setSmtpEmail(settings.smtp_email);
+    if (settings?.smtp_name) setSmtpName(settings.smtp_name);
   }, [settings]);
   return (
     <>
@@ -1206,11 +1217,45 @@ function GeneralPanel({ settings, onSave }) {
           <div><label className="text-xs font-semibold text-mute">SEO Description</label><textarea className="field mt-1" rows="3" value={seoDesc} onChange={(e) => setSeoDesc(e.target.value)}/></div>
         </div>
       </Section>
+      <Section title="Email / SMTP" sub="Konfigurasi email untuk notifikasi donatur, kuitansi, dan reset password.">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-semibold text-mute">SMTP Host</label>
+            <input className="field mt-1" value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp.gmail.com"/>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">SMTP Port</label>
+            <input type="number" className="field mt-1" value={smtpPort} onChange={(e) => setSmtpPort(+e.target.value)} placeholder="587"/>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Email pengirim</label>
+            <input type="email" className="field mt-1" value={smtpEmail} onChange={(e) => setSmtpEmail(e.target.value)} placeholder="noreply@niatbaik.org"/>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Nama pengirim</label>
+            <input className="field mt-1" value={smtpName} onChange={(e) => setSmtpName(e.target.value)} placeholder="NIATBAIK.ORG"/>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs font-semibold text-mute">Password / App Password</label>
+            <div className="mt-1 relative">
+              <input type={smtpShowPwd ? 'text' : 'password'} className="field pr-9 font-mono" value={smtpPassword} onChange={(e) => setSmtpPassword(e.target.value)} placeholder="Isi untuk mengubah · kosongkan jika tidak ingin ganti"/>
+              <button type="button" onClick={() => setSmtpShowPwd(!smtpShowPwd)} className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-md hover:bg-bg2 flex items-center justify-center text-mute">
+                <Icon name="eye" size={13}/>
+              </button>
+            </div>
+            <div className="text-[10px] text-mute mt-1">Untuk Gmail: aktifkan 2FA lalu buat App Password di myaccount.google.com/apppasswords</div>
+          </div>
+        </div>
+      </Section>
       <Section title="Maintenance Mode" sub="Aktifkan untuk menutup akses publik sementara saat update besar.">
         <Toggle value={maintenance} onChange={setMaintenance} label="Aktifkan maintenance mode" sub="Pengunjung akan melihat halaman maintenance."/>
       </Section>
       <div className="flex justify-end mt-4">
-        <Btn icon="check" onClick={() => onSave({ site_name: siteName, domain, timezone: tz, currency, seo_title: seoTitle, seo_description: seoDesc, maintenance })}>Simpan Perubahan</Btn>
+        <Btn icon="check" onClick={() => {
+          const patch = { site_name: siteName, domain, timezone: tz, currency, seo_title: seoTitle, seo_description: seoDesc, maintenance, smtp_host: smtpHost, smtp_port: smtpPort, smtp_email: smtpEmail, smtp_name: smtpName };
+          if (smtpPassword) patch.smtp_password = smtpPassword;
+          onSave(patch);
+        }}>Simpan Perubahan</Btn>
       </div>
     </>
   );

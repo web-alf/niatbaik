@@ -431,49 +431,31 @@ function PaymentPanel({ settings, onSave }) {
 // Payment provider logo / acronym tile
 // =========================================================
 function PaymentLogo({ provider }) {
-  const logos = {
-    'QRIS':         'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Logo_QRIS.svg/200px-Logo_QRIS.svg.png',
-    'Bank BCA':     'https://upload.wikimedia.org/wikipedia/id/thumb/5/5c/Bank_Central_Asia.svg/200px-Bank_Central_Asia.svg.png',
-    'Bank Mandiri': 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Bank_Mandiri_logo_2016.svg/200px-Bank_Mandiri_logo_2016.svg.png',
-    'Bank BNI':     'https://upload.wikimedia.org/wikipedia/id/thumb/5/55/BNI_logo.svg/200px-BNI_logo.svg.png',
-    'Bank BRI':     'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/BANK_BRI_logo.svg/200px-BANK_BRI_logo.svg.png',
-    'Bank Syariah Indonesia': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/BSI_Logo.svg/200px-BSI_Logo.svg.png',
-    'CIMB Niaga':   'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/CIMB_Niaga_logo.svg/200px-CIMB_Niaga_logo.svg.png',
-    'Permata Bank': 'https://upload.wikimedia.org/wikipedia/id/thumb/d/d9/PermataBank_logo.svg/200px-PermataBank_logo.svg.png',
-    'BTN':          'https://upload.wikimedia.org/wikipedia/id/thumb/0/04/Bank_BTN_logo.svg/200px-Bank_BTN_logo.svg.png',
-    'GoPay':        'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Gopay_logo.svg/200px-Gopay_logo.svg.png',
-    'OVO':          'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Logo_ovo_purple.svg/200px-Logo_ovo_purple.svg.png',
-    'Dana':         'https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Logo_dana_blue.svg/200px-Logo_dana_blue.svg.png',
-    'ShopeePay':    'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/ShopeePay_Logo.svg/200px-ShopeePay_Logo.svg.png',
-    'LinkAja':      'https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/LinkAja.svg/200px-LinkAja.svg.png',
-    'Visa/Master':  'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/200px-Visa_Inc._logo.svg.png',
-    'Moota':        null,
-    'Flip':         null,
+  const brands = {
+    'QRIS':         { label:'QRIS',  bg:'#E21A1A', fg:'#fff' },
+    'Bank BCA':     { label:'BCA',   bg:'#003D79', fg:'#fff' },
+    'Bank Mandiri': { label:'MANDIRI', bg:'#003B71', fg:'#F5A623' },
+    'Bank BNI':     { label:'BNI',   bg:'#F05A22', fg:'#fff' },
+    'Bank BRI':     { label:'BRI',   bg:'#00529C', fg:'#fff' },
+    'Bank Syariah Indonesia': { label:'BSI', bg:'#00A651', fg:'#fff' },
+    'CIMB Niaga':   { label:'CIMB',  bg:'#7B0C14', fg:'#fff' },
+    'Permata Bank': { label:'PRMT',  bg:'#005C37', fg:'#fff' },
+    'BTN':          { label:'BTN',   bg:'#F37021', fg:'#fff' },
+    'Maybank':      { label:'MAY',   bg:'#FFC72C', fg:'#000' },
+    'GoPay':        { label:'GoPay', bg:'#00AED6', fg:'#fff' },
+    'OVO':          { label:'OVO',   bg:'#4C3494', fg:'#fff' },
+    'Dana':         { label:'DANA',  bg:'#108EE9', fg:'#fff' },
+    'ShopeePay':    { label:'SPay',  bg:'#EE4D2D', fg:'#fff' },
+    'LinkAja':      { label:'LINK',  bg:'#E32127', fg:'#fff' },
+    'Visa/Master':  { label:'VISA',  bg:'#1A1F71', fg:'#F7B600' },
+    'Moota':        { label:'MOOTA', bg:'#4F46E5', fg:'#fff' },
+    'Flip':         { label:'FLIP',  bg:'#FF6B35', fg:'#fff' },
   };
-  const fallbackLabel = {
-    'QRIS':'QRIS','Bank BCA':'BCA','Bank Mandiri':'MAND','Bank BNI':'BNI','Bank BRI':'BRI',
-    'Bank Syariah Indonesia':'BSI','CIMB Niaga':'CIMB','Permata Bank':'PRMT','BTN':'BTN',
-    'GoPay':'GOPA','OVO':'OVO','Dana':'DANA','ShopeePay':'SHPE','LinkAja':'LINK',
-    'Visa/Master':'CC','Moota':'MOOTA','Flip':'FLIP',
-  };
-  const fallbackBg = {
-    'QRIS':'bg-rose-50','Bank BCA':'bg-blue-50','Bank Mandiri':'bg-yellow-50','Bank BNI':'bg-orange-50',
-    'Bank BRI':'bg-sky-50','GoPay':'bg-sky-50','OVO':'bg-violet-50','Dana':'bg-blue-50',
-    'ShopeePay':'bg-orange-50','Moota':'bg-indigo-50','Flip':'bg-orange-50',
-  };
-  const url = logos[provider];
-  if (url) {
-    return (
-      <div className="h-10 w-14 rounded-md border border-line bg-white flex items-center justify-center shrink-0 p-1">
-        <img src={url} alt={provider} className="max-h-full max-w-full object-contain"/>
-      </div>
-    );
-  }
-  const label = fallbackLabel[provider] || (provider || '??').slice(0,4).toUpperCase();
-  const bg = fallbackBg[provider] || 'bg-bg2';
+  const b = brands[provider] || { label: (provider || '??').slice(0,4).toUpperCase(), bg:'#94A3B8', fg:'#fff' };
   return (
-    <div className={`h-10 w-14 rounded-md border border-line flex items-center justify-center text-[10px] font-extrabold tracking-wider shrink-0 ${bg} text-ink/70`}>
-      {label}
+    <div className="h-10 w-14 rounded-md border border-line flex items-center justify-center shrink-0"
+      style={{ background: b.bg, color: b.fg }}>
+      <span className="text-[9px] font-extrabold tracking-wider leading-none">{b.label}</span>
     </div>
   );
 }

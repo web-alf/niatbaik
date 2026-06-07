@@ -72,8 +72,11 @@ function CampaignEditorView() {
     waNumber: '', waTemplate: '',
     followupMsg: '', paymentSuccessMsg: '',
     metaPixelId: '', tiktokPixelId: '', gtmId: '',
+    metaPixelEnabled: true, metaCAPIEnabled: false, metaCAPIToken: '',
     waFlyingNumber: '', waFlyingText: 'Chat via WhatsApp',
     extLinkUrl: '', extLinkText: 'Kunjungi website',
+    paymentBank: '', paymentAccount: '', paymentHolder: '', paymentInstant: true, paymentVA: true, paymentTF: true,
+    popupTitle: '', popupDesc: '', popupButton: 'Ya, Lanjutkan',
   });
   const [advOpen, setAdvOpen] = useStateA(true);
 
@@ -82,31 +85,37 @@ function CampaignEditorView() {
   const [saving, setSaving] = useStateA(false);
   const handleSave = async (publish) => {
     if (!title.trim()) { showToast('Judul campaign wajib diisi'); return; }
-    if (!target || target <= 0) { showToast('Target donasi wajib diisi'); return; }
+    if (!content.trim()) { showToast('Keterangan campaign wajib diisi'); return; }
     setSaving(true);
+    const desc = content || '';
+    const shortDesc = desc.replace(/<[^>]+>/g, '').trim().slice(0, 500) || title;
     const payload = {
       title: title.trim(),
-      description: content,
-      short_description: (content || '').replace(/<[^>]+>/g, '').slice(0, 160),
-      target: Number(target),
-      category_id: ['Uncategorized','Medis','Pendidikan','Wakaf','Bencana','Ramadan','Fidyah','Qurban','Zakat'].indexOf(category) + 1,
-      duration_days: Math.max(1, Math.ceil((new Date(endDate) - Date.now()) / 86400000)),
+      description: desc,
+      short_description: shortDesc,
       status: publish ? 'Published' : 'Draft',
-      icon: c?.icon || 'heart',
-      thumb_gradient: thumb || '',
-      location_name: location,
-      location_gmaps: gmaps,
-      form_type: formStyle,
-      form_style: formMode,
-      min_donation: minDonasi,
-      max_donation: maxDonasi,
-      opt_nominal: nominals.map(n => n.amount).filter(Boolean),
-      wa_notification: adv.wa === 'Custom',
-      followup_enabled: adv.followup === 'Custom',
-      meta_pixel_id: adv.metaPixel === 'Custom' ? '' : '',
-      tiktok_pixel_id: adv.tiktokPixel === 'Custom' ? '' : '',
-      gtm_id: adv.gtm === 'Custom' ? '' : '',
     };
+    // Optional fields — only include if has value
+    if (target > 0) payload.target = Number(target);
+    if (location.trim()) payload.location_name = location.trim();
+    if (gmaps.trim()) payload.location_gmaps = gmaps.trim();
+    if (thumb) payload.thumb_gradient = thumb;
+    if (formStyle) payload.form_type = formStyle;
+    if (formMode) payload.form_style = formMode;
+    if (minDonasi > 0) payload.min_donation = minDonasi;
+    if (maxDonasi > 0) payload.max_donation = maxDonasi;
+    if (nominals.length) payload.opt_nominal = JSON.stringify(nominals.map(n => n.amount).filter(Boolean));
+    // Don't send category_id as integer — backend expects UUID
+    // Advanced options
+    payload.wa_notification = adv.wa === 'Custom';
+    payload.followup_enabled = adv.followup === 'Custom';
+    payload.popup_info = adv.popupInfo === 'Show';
+    payload.wa_flying_button = adv.waFlying === 'Custom';
+    if (advCustom.metaPixelId) payload.meta_pixel_id = advCustom.metaPixelId;
+    if (advCustom.tiktokPixelId) payload.tiktok_pixel_id = advCustom.tiktokPixelId;
+    if (advCustom.gtmId) payload.gtm_id = advCustom.gtmId;
+    if (advCustom.extLinkUrl) payload.external_link = advCustom.extLinkUrl;
+
     try {
       if (isEdit) {
         await api.updateCampaign(c.id, payload);
@@ -118,7 +127,7 @@ function CampaignEditorView() {
       if (typeof window.loadApiData === 'function') try { window.loadApiData(); } catch {}
       setTimeout(back, 500);
     } catch (e) {
-      showToast('Gagal menyimpan: ' + (e?.message || 'Cek koneksi'));
+      showToast('Gagal: ' + (e?.message || 'Periksa isian'));
     }
     setSaving(false);
   };
@@ -205,13 +214,22 @@ function CampaignEditorView() {
                   <AdvRadio label="Payment" value={adv.payment} options={['Default','Custom']} onChange={(v) => setAdv({...adv, payment:v})}/>
                   {adv.payment === 'Custom' && (
                     <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-3">
-                      <div className="text-xs text-mute">Pilih metode pembayaran yang tersedia untuk campaign ini.</div>
-                      {['QRIS','BCA VA','Mandiri VA','BNI VA','GoPay','OVO','Dana','ShopeePay'].map((m) => (
-                        <label key={m} className="flex items-center gap-2.5 text-sm">
-                          <input type="checkbox" defaultChecked className="rounded border-line accent-brand-600 h-4 w-4"/>
-                          <span className="font-semibold text-ink">{m}</span>
-                        </label>
-                      ))}
+                      <div><label className="text-xs font-semibold text-mute">Pilih Bank</label>
+                        <Select value={advCustom.paymentBank || ''} onChange={(v) => setAdvCustom({...advCustom, paymentBank:v})}
+                          options={[{value:'',label:'— Pilih bank —'},{value:'BCA',label:'BCA'},{value:'Mandiri',label:'Mandiri'},{value:'BNI',label:'BNI'},{value:'BRI',label:'BRI'},{value:'BSI',label:'BSI'}]} className="mt-1"/>
+                      </div>
+                      <div><label className="text-xs font-semibold text-mute">No. Rekening</label>
+                        <input value={advCustom.paymentAccount || ''} onChange={(e) => setAdvCustom({...advCustom, paymentAccount:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="8901234567"/>
+                      </div>
+                      <div><label className="text-xs font-semibold text-mute">Atas Nama</label>
+                        <input value={advCustom.paymentHolder || ''} onChange={(e) => setAdvCustom({...advCustom, paymentHolder:e.target.value})} className="field mt-1 bg-white" placeholder="Yayasan Niat Baik"/>
+                      </div>
+                      <div className="pt-3 border-t border-line space-y-2">
+                        <div className="text-xs font-bold text-mute uppercase">Metode Pembayaran</div>
+                        <FieldToggle label="Instant (QRIS)" value={advCustom.paymentInstant ?? true} onChange={(v) => setAdvCustom({...advCustom, paymentInstant:v})}/>
+                        <FieldToggle label="Virtual Account (VA)" value={advCustom.paymentVA ?? true} onChange={(v) => setAdvCustom({...advCustom, paymentVA:v})}/>
+                        <FieldToggle label="Transfer Manual (TF)" value={advCustom.paymentTF ?? true} onChange={(v) => setAdvCustom({...advCustom, paymentTF:v})}/>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -232,7 +250,7 @@ function CampaignEditorView() {
                       <div className="pt-5 border-t border-line">
                         <div className="font-bold text-ink mb-3">Page Form</div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <div><label className="text-xs font-semibold text-mute">Button 2</label><input value={formCustom.button2} onChange={(e) => setFormCustom({...formCustom, button2:e.target.value})} className="field mt-1 bg-white"/></div>
+                          <div><label className="text-xs font-semibold text-mute">Button Konfirmasi</label><input value={formCustom.button2} onChange={(e) => setFormCustom({...formCustom, button2:e.target.value})} className="field mt-1 bg-white"/></div>
                           <div><label className="text-xs font-semibold text-mute">Small Title Campaign</label><input value={formCustom.smallTitleCampaign} onChange={(e) => setFormCustom({...formCustom, smallTitleCampaign:e.target.value})} className="field mt-1 bg-white"/></div>
                           <div><label className="text-xs font-semibold text-mute">Small Title Donate</label><input value={formCustom.smallTitleDonate} onChange={(e) => setFormCustom({...formCustom, smallTitleDonate:e.target.value})} className="field mt-1 bg-white"/></div>
                         </div>
@@ -336,9 +354,19 @@ function CampaignEditorView() {
                 <div>
                   <AdvRadio label="Meta Pixel (Facebook)" value={adv.metaPixel} options={['Default','Custom']} onChange={(v) => setAdv({...adv, metaPixel:v})}/>
                   {adv.metaPixel === 'Custom' && (
-                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line">
-                      <label className="text-xs font-semibold text-mute">Meta Pixel ID</label>
-                      <input value={advCustom.metaPixelId} onChange={(e) => setAdvCustom({...advCustom, metaPixelId: e.target.value})} className="field mt-1 bg-white font-mono" placeholder="123456789012345"/>
+                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-3">
+                      <FieldToggle label="Meta Pixel" value={advCustom.metaPixelEnabled ?? true} onChange={(v) => setAdvCustom({...advCustom, metaPixelEnabled:v})}/>
+                      {advCustom.metaPixelEnabled !== false && (
+                        <div><label className="text-xs font-semibold text-mute">Pixel ID</label>
+                          <input value={advCustom.metaPixelId} onChange={(e) => setAdvCustom({...advCustom, metaPixelId:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="123456789012345"/>
+                        </div>
+                      )}
+                      <FieldToggle label="Conversions API (CAPI)" value={advCustom.metaCAPIEnabled ?? false} onChange={(v) => setAdvCustom({...advCustom, metaCAPIEnabled:v})}/>
+                      {advCustom.metaCAPIEnabled && (
+                        <div><label className="text-xs font-semibold text-mute">CAPI Token</label>
+                          <input value={advCustom.metaCAPIToken || ''} onChange={(e) => setAdvCustom({...advCustom, metaCAPIToken:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="EAAxxxxxxx..."/>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -365,6 +393,19 @@ function CampaignEditorView() {
 
                 <AdvRadio label="Social Proof"                         value={adv.socialProof}  options={['Hide','Show']}      onChange={(v) => setAdv({...adv, socialProof:v})}/>
                 <AdvRadio label="Popup Info (Form)"                    value={adv.popupInfo}    options={['Hide','Show']}      onChange={(v) => setAdv({...adv, popupInfo:v})}/>
+                {adv.popupInfo === 'Show' && (
+                  <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-3">
+                    <div><label className="text-xs font-semibold text-mute">Judul popup</label>
+                      <input value={advCustom.popupTitle || ''} onChange={(e) => setAdvCustom({...advCustom, popupTitle:e.target.value})} className="field mt-1 bg-white" placeholder="Konfirmasi Donasi"/>
+                    </div>
+                    <div><label className="text-xs font-semibold text-mute">Deskripsi</label>
+                      <textarea value={advCustom.popupDesc || ''} onChange={(e) => setAdvCustom({...advCustom, popupDesc:e.target.value})} className="field mt-1 bg-white" rows="2" placeholder="Anda akan berdonasi untuk campaign ini..."/>
+                    </div>
+                    <div><label className="text-xs font-semibold text-mute">Teks tombol</label>
+                      <input value={advCustom.popupButton || 'Ya, Lanjutkan'} onChange={(e) => setAdvCustom({...advCustom, popupButton:e.target.value})} className="field mt-1 bg-white" placeholder="Ya, Lanjutkan"/>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <AdvRadio label="Whatsapp Flying Button" value={adv.waFlying} options={['Default','Custom']} onChange={(v) => setAdv({...adv, waFlying:v})}/>
@@ -386,7 +427,6 @@ function CampaignEditorView() {
                   )}
                 </div>
 
-                <AdvRadio label="General"                              value={adv.general}      options={['Default','Custom']} onChange={(v) => setAdv({...adv, general:v})}/>
               </div>
             )}
           </Card>

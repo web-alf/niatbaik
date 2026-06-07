@@ -265,7 +265,13 @@ function FormPanel({ settings, onSave }) {
       </Section>
 
       <div className="flex justify-end mt-4">
-        <Btn icon="check" onClick={() => onSave({ form_fields: fields, nominal_presets: presets, min_donation: minDonation, allow_anon: allowAnon, allow_doa: allowDoa })}>Simpan Perubahan</Btn>
+        <Btn icon="check" onClick={() => onSave({
+          form_fields_config: JSON.stringify(fields),
+          nominal_presets: JSON.stringify(presets),
+          min_donation_global: parseInt(String(minDonation).replace(/\D/g, ''), 10) || 10000,
+          anonymous_default: allowAnon,
+          message_enabled: allowDoa,
+        })}>Simpan Perubahan</Btn>
       </div>
     </>
   );
@@ -299,17 +305,17 @@ function PaymentPanel({ settings, onSave }) {
     try {
       if (editing) {
         await api.updatePaymentMethod(editing.id, data);
-        setMethods((prev) => prev.map(x => x.id === editing.id ? { ...x, ...data } : x));
-        showToast(`Payment "${data.name}" diperbarui`);
+        showToast('Payment berhasil diupdate');
       } else {
-        const res = await api.createPaymentMethod(data);
-        const id = res?.data?.id || ('m' + (Date.now() % 100000));
-        setMethods((prev) => [...prev, { id, active:true, ...data }]);
-        showToast(`Payment "${data.name}" ditambahkan`);
+        await api.createPaymentMethod(data);
+        showToast('Payment berhasil ditambahkan');
       }
-    } catch (e) {
-      showToast('Gagal menyimpan: ' + (e?.message || ''));
-    }
+      // Reload methods
+      try {
+        const res = await api.paymentMethods();
+        if (res?.data) setMethods(res.data);
+      } catch {}
+    } catch (e) { showToast('Gagal: ' + (e?.message || '')); }
     setModalOpen(false);
     setEditing(null);
   };
@@ -374,10 +380,6 @@ function PaymentPanel({ settings, onSave }) {
             </div>
           ))}
 
-          <button onClick={openAdd}
-            className="w-full px-3 py-3 rounded-xl border border-dashed border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50 hover:border-brand-300 flex items-center justify-center gap-2">
-            <Icon name="plus" size={14}/> Add Payment Method
-          </button>
         </div>
       </Section>
 
@@ -563,15 +565,16 @@ function PaymentEditorModal({ open, onClose, editing, onSave }) {
 
   const submit = () => {
     if (!validate()) return;
+    const typeMap = { 'Bank Transfer': 'va', 'Virtual Account (VA)': 'va', 'E-wallet': 'ewallet', 'QRIS': 'qris', 'Card (CC/Debit)': 'card' };
     onSave({
-      type:     form.type === 'Virtual Account (VA)' ? 'Bank Transfer' : form.type,
-      provider: form.provider,
-      name:     form.name.trim(),
-      holder:   (!isGateway && needsAccount) ? form.holder.trim() : '-',
-      account:  (!isGateway && needsAccount) ? form.account.replace(/\s|-/g, '') : '-',
-      fee:      form.fee.trim(),
-      ...(form.provider === 'Moota' ? { moota: form.moota } : {}),
-      ...(form.provider === 'Flip'  ? { flip:  form.flip  } : {}),
+      bank_name: form.name.trim(),
+      type: typeMap[form.type] || 'va',
+      account_name: (!isGateway && needsAccount) ? form.holder.trim() : '',
+      bank_number: (!isGateway && needsAccount) ? form.account.replace(/\s|-/g, '') : '',
+      bank_type: form.provider,
+      admin_fee: parseInt(String(form.fee).replace(/[^\d]/g, ''), 10) || 0,
+      active: true,
+      gateway_config: form.provider === 'Moota' ? JSON.stringify(form.moota) : form.provider === 'Flip' ? JSON.stringify(form.flip) : '',
     });
   };
 
@@ -916,7 +919,24 @@ function TrackingPanel({ settings, onSave }) {
                 <span className="text-mute">Last fired: 12 detik lalu</span>
                 <div className="flex gap-2">
                   <button className="text-brand-600 font-semibold hover:underline" onClick={() => showToast('Event test dikirim ke ' + p.name)}>Test event</button>
-                  <button className="text-emerald-600 font-semibold hover:underline" onClick={() => onSave({ [p.name.toLowerCase().replace(/\s+/g,'_')]: pixelIds[p.name] ?? p.id })}>Simpan</button>
+                  <button className="text-emerald-600 font-semibold hover:underline" onClick={() => {
+                    const fieldMap = {
+                      'Meta Pixel': 'meta_pixel_id',
+                      'Meta Conversions API': 'meta_capi_enabled',
+                      'Google Tag Manager': 'gtm_id',
+                      'Google Ads Conversion': 'google_ads_conversion_id',
+                      'Google Analytics 4': 'ga4_measurement_id',
+                      'TikTok Pixel': 'tiktok_pixel_id',
+                      'TikTok Events API': 'tiktok_eapi_enabled',
+                    };
+                    const key = fieldMap[p.name];
+                    const val = pixelIds[p.name] ?? p.id;
+                    if (key === 'meta_capi_enabled' || key === 'tiktok_eapi_enabled') {
+                      onSave({ [key]: !!val && val !== 'OFF' && val !== 'false' });
+                    } else if (key) {
+                      onSave({ [key]: val });
+                    }
+                  }}>Simpan</button>
                 </div>
               </div>
             </div>

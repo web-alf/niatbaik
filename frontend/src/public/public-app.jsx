@@ -214,7 +214,7 @@ function TrustStrip() {
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="text-center text-xs font-semibold uppercase tracking-widest text-mute mb-4">Diliput & dipercaya oleh</div>
         <div className="relative">
-          <div className="marquee">
+          <div className="marquee flex gap-4">
             {[...items, ...items].map((s, i) => (
               <div key={i} className="shrink-0 px-6 py-3 rounded-lg bg-white border border-line text-ink/70 font-bold text-sm">{s}</div>
             ))}
@@ -562,7 +562,7 @@ function SocialPopup() {
 function CampaignPage({ c, onNav }) {
   const [tab, setTab] = useState('story');
   const [amount, setAmount] = useState(100_000);
-  const [step, setStep] = useState(1);
+
   const [paymentMethod, setPaymentMethod] = useState('QRIS');
   const [anon, setAnon] = useState(false);
   const [donor, setDonor] = useState({ name:'', wa:'', email:'', message:'' });
@@ -657,103 +657,74 @@ function CampaignPage({ c, onNav }) {
                 </div>
 
                 {!paid ? (
-                  <div className="mt-5 pt-5 border-t border-line">
-                    {/* Step indicator */}
-                    <div className="flex items-center justify-between mb-4 text-[11px] font-bold">
-                      {['Nominal','Identitas','Pembayaran'].map((s, i) => (
-                        <div key={s} className="flex items-center gap-1.5">
-                          <span className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] ${step > i ? 'bg-emerald-500 text-white' : step === i+1 ? 'bg-brand-600 text-white' : 'bg-bg2 text-mute'}`}>
-                            {step > i ? <Icon name="check" size={10} strokeWidth={3}/> : i+1}
-                          </span>
-                          <span className={step === i+1 ? 'text-ink' : 'text-mute'}>{s}</span>
+                  <div className="mt-5 pt-5 border-t border-line space-y-5">
+                    {/* Nominal */}
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Pilih nominal donasi</div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {presets.map((p) => (
+                          <button key={p} onClick={() => setAmount(p)}
+                            className={`py-2.5 rounded-xl text-sm font-extrabold border-2 transition-all ${amount===p ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:border-brand-200'}`}>
+                            {fmtIDRShort(p)}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="mt-3">
+                        <label className="text-xs font-bold text-mute">Atau masukkan nominal lain</label>
+                        <div className="mt-1 flex items-center rounded-xl border-2 border-line bg-white focus-within:border-brand-600">
+                          <span className="pl-3 text-mute font-bold">Rp</span>
+                          <input type="number" value={amount} onChange={(e) => setAmount(+e.target.value)} className="flex-1 px-2 py-3 outline-none font-bold text-ink"/>
                         </div>
-                      ))}
+                      </div>
                     </div>
 
-                    {step === 1 && (
-                      <div className="float-in">
-                        <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Pilih nominal donasi</div>
-                        <div className="grid grid-cols-3 gap-2">
-                          {presets.map((p) => (
-                            <button key={p} onClick={() => setAmount(p)}
-                              className={`py-2.5 rounded-xl text-sm font-extrabold border-2 transition-all ${amount===p ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:border-brand-200'}`}>
-                              {fmtIDRShort(p)}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="mt-3">
-                          <label className="text-xs font-bold text-mute">Atau masukkan nominal lain</label>
-                          <div className="mt-1 flex items-center rounded-xl border-2 border-line bg-white focus-within:border-brand-600">
-                            <span className="pl-3 text-mute font-bold">Rp</span>
-                            <input type="number" value={amount} onChange={(e) => setAmount(+e.target.value)} className="flex-1 px-2 py-3 outline-none font-bold text-ink"/>
-                          </div>
-                        </div>
-                        <PrimaryBtn size="lg" className="w-full mt-4" onClick={() => setStep(2)}>
-                          Lanjut <Icon name="arrowR" size={18}/>
-                        </PrimaryBtn>
+                    {/* Identitas */}
+                    <div className="pt-4 border-t border-line space-y-3">
+                      <div className="text-xs font-bold uppercase tracking-wider text-mute">Identitas donatur</div>
+                      <input className="field" placeholder="Nama (cth: Hamba Allah)" value={donor.name} onChange={(e) => setDonor({...donor, name:e.target.value})} disabled={anon}/>
+                      <input className="field" placeholder="No. WhatsApp · cth 08123…" value={donor.wa} onChange={(e) => setDonor({...donor, wa:e.target.value})}/>
+                      <input className="field" placeholder="Email · untuk kuitansi" value={donor.email} onChange={(e) => setDonor({...donor, email:e.target.value})}/>
+                      <label className="flex items-center gap-2 text-sm text-ink/80">
+                        <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded border-line"/>
+                        Donasi sebagai anonim (Hamba Allah)
+                      </label>
+                      <textarea className="field" rows="2" placeholder="Doa / pesan donatur (opsional)" value={donor.message} onChange={(e) => setDonor({...donor, message:e.target.value})}/>
+                    </div>
+
+                    {/* Pembayaran */}
+                    <div className="pt-4 border-t border-line space-y-3">
+                      <div className="text-xs font-bold uppercase tracking-wider text-mute">Metode pembayaran</div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {['QRIS','BCA','Mandiri','BNI','GoPay','OVO','Dana','ShopeePay'].map((m) => (
+                          <button key={m} onClick={() => setPaymentMethod(m)}
+                            className={`h-12 rounded-lg border-2 flex items-center justify-center text-[10px] font-extrabold ${paymentMethod===m ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line bg-white text-ink hover:border-brand-200'}`}>
+                            {m}
+                          </button>
+                        ))}
                       </div>
-                    )}
+                    </div>
 
-                    {step === 2 && (
-                      <div className="float-in space-y-3">
-                        <div className="rounded-xl bg-brand-50 border border-brand-100 p-3 text-sm text-brand-700 font-semibold flex items-center justify-between">
-                          <span>Nominal donasi</span><b>{fmtIDR(amount)}</b>
-                        </div>
-                        <input className="field" placeholder="Nama (cth: Hamba Allah)" value={donor.name} onChange={(e) => setDonor({...donor, name:e.target.value})} disabled={anon}/>
-                        <input className="field" placeholder="No. WhatsApp · cth 08123…" value={donor.wa} onChange={(e) => setDonor({...donor, wa:e.target.value})}/>
-                        <input className="field" placeholder="Email · untuk kuitansi" value={donor.email} onChange={(e) => setDonor({...donor, email:e.target.value})}/>
-                        <label className="flex items-center gap-2 text-sm text-ink/80">
-                          <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded border-line"/>
-                          Donasi sebagai anonim (Hamba Allah)
-                        </label>
-                        <textarea className="field" rows="2" placeholder="Doa / pesan donatur (opsional)" value={donor.message} onChange={(e) => setDonor({...donor, message:e.target.value})}/>
-                        <div className="flex gap-2">
-                          <button onClick={() => setStep(1)} className="flex-1 px-4 py-3 rounded-xl text-sm font-bold border border-line bg-white hover:bg-bg2">Kembali</button>
-                          <PrimaryBtn size="md" className="flex-1" onClick={() => setStep(3)}>Lanjut</PrimaryBtn>
-                        </div>
-                      </div>
-                    )}
-
-                    {step === 3 && (
-                      <div className="float-in space-y-3">
-                        <div className="rounded-xl bg-brand-50 border border-brand-100 p-3 text-sm flex items-center justify-between">
-                          <span className="font-semibold text-brand-700">Total donasi</span><b className="text-brand-700">{fmtIDR(amount)}</b>
-                        </div>
-
-                        <div className="text-xs font-bold uppercase tracking-wider text-mute mt-1">Metode pembayaran</div>
-                        <div className="grid grid-cols-4 gap-2">
-                          {['QRIS','BCA','Mandiri','BNI','GoPay','OVO','Dana','ShopeePay'].map((m) => (
-                            <button key={m} onClick={() => setPaymentMethod(m)}
-                              className={`h-12 rounded-lg border-2 flex items-center justify-center text-[10px] font-extrabold ${paymentMethod===m ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line bg-white text-ink hover:border-brand-200'}`}>
-                              {m}
-                            </button>
-                          ))}
-                        </div>
-
-                        <div className="rounded-xl bg-bg2 p-3 text-xs text-ink/80">
-                          <div className="flex items-center gap-2 mb-1.5 text-emerald-700"><Icon name="shield" size={14}/><b>Pembayaran aman & terenkripsi</b></div>
-                          Anda akan diarahkan ke gateway resmi {paymentMethod} untuk menyelesaikan pembayaran.
-                        </div>
-
-                        <div className="flex gap-2">
-                          <button onClick={() => setStep(2)} className="flex-1 px-4 py-3 rounded-xl text-sm font-bold border border-line bg-white hover:bg-bg2">Kembali</button>
-                          <PrimaryBtn size="md" className="flex-1" onClick={() => setPaid(true)}>
-                            <Icon name="heart" size={16}/> Bayar {fmtIDR(amount)}
-                          </PrimaryBtn>
-                        </div>
-                      </div>
-                    )}
+                    {/* Submit */}
+                    <PrimaryBtn size="lg" className="w-full" onClick={() => setPaid(true)}>
+                      <Icon name="heart" size={16}/> Donasi {fmtIDR(amount)}
+                    </PrimaryBtn>
+                    <div className="text-center text-[11px] text-mute">
+                      <Icon name="shield" size={12} className="inline mr-1 text-emerald-600"/> Pembayaran aman melalui QRIS, VA, dan e-wallet
+                    </div>
                   </div>
                 ) : (
+                  /* Paid confirmation — admin confirmation pending */
                   <div className="mt-5 pt-5 border-t border-line text-center">
-                    <div className="mx-auto h-16 w-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center"><Icon name="check" size={32} strokeWidth={3}/></div>
-                    <div className="mt-3 font-extrabold text-xl text-ink">Terima kasih atas niat baik Anda!</div>
-                    <div className="mt-1 text-sm text-mute">Donasi Anda sebesar <b className="text-brand-600">{fmtIDR(amount)}</b> sedang diproses. Kuitansi akan dikirim via WhatsApp & email.</div>
-                    <div className="mt-4 rounded-xl bg-bg2 p-3 text-xs text-mute text-left">
+                    <div className="mx-auto h-16 w-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center"><Icon name="check" size={32} strokeWidth={3}/></div>
+                    <div className="mt-3 font-extrabold text-xl text-ink">Donasi Anda sedang diproses</div>
+                    <div className="mt-1 text-sm text-mute">Menunggu konfirmasi admin. Anda akan menerima notifikasi via WhatsApp & email setelah pembayaran dikonfirmasi.</div>
+                    <div className="mt-4 rounded-xl bg-bg2 p-3 text-xs text-mute text-left space-y-1">
                       <div className="flex justify-between"><span>Kode donasi</span><span className="font-mono font-bold text-ink">{invoiceCode}</span></div>
-                      <div className="flex justify-between mt-1"><span>Metode</span><b className="text-ink">{paymentMethod}</b></div>
+                      <div className="flex justify-between"><span>Nominal</span><b className="text-brand-600">{fmtIDR(amount)}</b></div>
+                      <div className="flex justify-between"><span>Metode</span><b className="text-ink">{paymentMethod}</b></div>
+                      <div className="flex justify-between"><span>Status</span><span className="text-amber-600 font-bold">Menunggu konfirmasi</span></div>
                     </div>
-                    <PrimaryBtn size="md" className="w-full mt-4" onClick={() => { setPaid(false); setStep(1); }}>Donasi lagi</PrimaryBtn>
+                    <PrimaryBtn size="md" className="w-full mt-4" onClick={() => { setPaid(false); }}>Donasi lagi</PrimaryBtn>
                     <button onClick={() => {
                       const url = window.location.origin + '/campaign/' + (c.slug || c.id);
                       if (navigator.share) navigator.share({ title: c.title, url }).catch(() => {});

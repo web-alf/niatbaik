@@ -57,7 +57,8 @@ function MembersView() {
     const e = {};
     if (!addForm.name.trim()) e.name = 'Nama wajib diisi';
     if (!addForm.email.trim()) e.email = 'Email wajib diisi';
-    if (!editing && !addForm.password) addForm.password = Math.random().toString(36).slice(-10);
+    if (!editing && !addForm.password.trim()) e.password = 'Password wajib diisi (min 8 karakter)';
+    if (!editing && addForm.password && addForm.password.length < 8) e.password = 'Password minimal 8 karakter';
     setAddErrors(e);
     if (Object.keys(e).length) return;
     setAddLoading(true);
@@ -242,6 +243,14 @@ function MembersView() {
               ))}
             </div>
           </div>
+          {!editing && (
+            <div>
+              <label className="text-xs font-semibold text-mute">Password</label>
+              <input type="password" className={`field mt-1 ${addErrors.password ? 'border-rose-500' : ''}`} value={addForm.password} onChange={(e) => setAddForm({...addForm, password: e.target.value})} placeholder="Min 8 karakter"/>
+              {addErrors.password && <div className="text-xs text-rose-500 mt-1">{addErrors.password}</div>}
+              <div className="text-[10px] text-mute mt-1">Link verifikasi akan dikirim ke email user</div>
+            </div>
+          )}
         </div>
       </Modal>
 

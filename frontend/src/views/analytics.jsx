@@ -1,7 +1,9 @@
 // Analytics - performance, UTM, source breakdown
 function AnalyticsView() {
   const { trafficSources, dailyDonations, campaignSeed } = window.NB;
+  const { showToast } = useApp();
   const [platform, setPlatform] = useStateA('all');
+  const [campaign, setCampaign] = useStateA('all');
 
   const totals = {
     visitors: 121140,
@@ -27,9 +29,25 @@ function AnalyticsView() {
             {value:'tiktok', label:'TikTok Ads'},
             {value:'organic', label:'Organic'},
           ]}/>
+          <Select value={campaign} onChange={setCampaign} options={[
+            {value:'all', label:'Semua campaign'},
+            ...(window.CAMPAIGNS || campaignSeed || []).map(c => ({value: c.id || c.title, label: c.title}))
+          ]}/>
           <DateRangePill/>
-          <Btn variant="outline" tone="ink" icon="download">CSV</Btn>
-          <Btn icon="download">Excel</Btn>
+          <Btn variant="outline" tone="ink" icon="download" onClick={() => {
+            const data = (window.ANALYTICS_CAMPAIGNS || campaignSeed || []).map(c => ({
+              campaign: c.title || c.name, visitors: c.visitors, leads: c.leads, donations: c.donations, raised: c.raised, cvr: c.cvr
+            }));
+            if (data.length) { exportCSV(data, 'niatbaik_analytics'); showToast(data.length + ' baris diekspor'); }
+            else showToast('Tidak ada data');
+          }}>CSV</Btn>
+          <Btn icon="download" onClick={() => {
+            const data = (window.ANALYTICS_CAMPAIGNS || campaignSeed || []).map(c => ({
+              campaign: c.title || c.name, visitors: c.visitors, leads: c.leads, donations: c.donations, raised: c.raised, cvr: c.cvr
+            }));
+            if (data.length) { exportExcel(data, 'niatbaik_analytics'); showToast(data.length + ' baris diekspor'); }
+            else showToast('Tidak ada data');
+          }}>Excel</Btn>
         </>}
       />
 

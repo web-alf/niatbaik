@@ -322,7 +322,7 @@ const DateRangePicker = ({ open, anchor, onClose, value, onChange }) => {
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose}/>
-      <div className="absolute z-50 mt-2 left-0 bg-white rounded-2xl shadow-pop border border-line overflow-hidden w-[640px] max-w-[calc(100vw-2rem)]">
+      <div className="absolute z-50 mt-2 right-0 bg-white rounded-2xl shadow-pop border border-line overflow-hidden w-[640px] max-w-[calc(100vw-2rem)]">
         <div className="flex">
           {/* Presets */}
           <div className="w-40 border-r border-line bg-bg2/50 py-2 px-2 hidden sm:block">
@@ -632,7 +632,7 @@ const Modal = ({ open, onClose, title, children, size='md', footer }) => {
   if (!open) return null;
   const sizes = { sm:'max-w-md', md:'max-w-xl', lg:'max-w-3xl', xl:'max-w-5xl' };
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start pt-[5vh] lg:items-center lg:pt-0 justify-center p-4 overflow-y-auto" onMouseDown={onClose}>
       <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm"/>
       <div className={`relative bg-white rounded-2xl shadow-pop w-full ${sizes[size]} max-h-[92vh] flex flex-col`} onMouseDown={(e)=>e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">

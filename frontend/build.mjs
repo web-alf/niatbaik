@@ -18,7 +18,7 @@ const FILES = [
   'api.jsx','data.jsx','icons.jsx','components.jsx',
   'views/dashboard.jsx','views/campaigns.jsx','views/campaign-editor.jsx','views/analytics.jsx',
   'views/advertiser.jsx','views/data-studio.jsx','views/cs-inbox.jsx','views/fundraiser.jsx',
-  'views/shortcode.jsx','views/members.jsx','views/profile.jsx','views/settings.jsx',
+  'views/members.jsx','views/profile.jsx','views/settings.jsx',
   'views/notifications.jsx','views/trash.jsx','views/ads-guide.jsx',
   'public/public-app.jsx','login.jsx','app.jsx',
 ];

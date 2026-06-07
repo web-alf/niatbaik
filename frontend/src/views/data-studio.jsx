@@ -9,28 +9,29 @@ function DataStudioView() {
   const [device, setDevice] = useStateA('All devices');
   const [dsData, setDsData] = useStateA({});
   const [dsLoading, setDsLoading] = useStateA(false);
+  const { showToast } = useApp();
 
-  useEffectA(() => {
-    (async () => {
-      setDsLoading(true);
-      try {
-        const loaders = {
-          overview: api.dataStudioOverview,
-          meta: api.dataStudioMeta,
-          google: api.dataStudioGoogle,
-          tiktok: api.dataStudioTiktok,
-          geo: api.dataStudioGeo,
-          funnel: api.dataStudioFunnel,
-        };
-        const fn = loaders[page];
-        if (fn) {
-          const res = await fn();
-          setDsData(prev => ({...prev, [page]: res?.data || {}}));
-        }
-      } catch {}
-      setDsLoading(false);
-    })();
-  }, [page]);
+  const fetchPage = async (p) => {
+    setDsLoading(true);
+    try {
+      const loaders = {
+        overview: api.dataStudioOverview,
+        meta: api.dataStudioMeta,
+        google: api.dataStudioGoogle,
+        tiktok: api.dataStudioTiktok,
+        geo: api.dataStudioGeo,
+        funnel: api.dataStudioFunnel,
+      };
+      const fn = loaders[p || page];
+      if (fn) {
+        const res = await fn();
+        setDsData(prev => ({...prev, [p || page]: res?.data || {}}));
+      }
+    } catch {}
+    setDsLoading(false);
+  };
+
+  useEffectA(() => { fetchPage(page); }, [page]);
 
   const pages = [
     { v:'overview', l:'Overview' },
@@ -58,12 +59,12 @@ function DataStudioView() {
             <Icon name="refresh" size={12}/> Refreshed 2m ago
           </div>
           <div className="flex-1"/>
-          <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute"><Icon name="refresh" size={14}/></button>
+          <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute" onClick={() => { fetchPage(page); }}><Icon name="refresh" size={14}/></button>
           <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute"><Icon name="download" size={14}/></button>
-          <button className="hidden sm:inline-flex items-center gap-1.5 h-8 px-3 rounded-md hover:bg-bg2 text-ink text-xs font-bold">
+          <button className="hidden sm:inline-flex items-center gap-1.5 h-8 px-3 rounded-md hover:bg-bg2 text-ink text-xs font-bold" onClick={() => showToast('Fitur edit coming soon')}>
             <Icon name="eye" size={14}/> Edit
           </button>
-          <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-[#1A73E8] hover:bg-[#1666D5] text-white text-xs font-bold">
+          <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-[#1A73E8] hover:bg-[#1666D5] text-white text-xs font-bold" onClick={() => showToast('Fitur share coming soon')}>
             <Icon name="link" size={14}/> Share
           </button>
         </div>
@@ -82,11 +83,14 @@ function DataStudioView() {
 
       {/* Filter / control bar */}
       <div className="px-4 lg:px-6 flex flex-wrap items-center gap-2">
-        <DSControl label="Date range" value={dateRange} onChange={setDateRange} options={['Today','Last 7 days','Last 30 days','Last 90 days','Custom']}/>
+        <DateRangePill/>
         <DSControl label="Platform"   value={platform} onChange={setPlatform} options={['All','Meta','Google','TikTok','Organic']}/>
         <DSControl label="Campaign"   value={dsCampaign} onChange={setDsCampaign} options={['All Campaigns', ...campaignSeed.map(c => c.title.slice(0,30)+'…')]}/>
         <DSControl label="Country"    value={country} onChange={setCountry} options={['Indonesia','Malaysia','Singapore','Global']}/>
         <DSControl label="Device"     value={device} onChange={setDevice} options={['All devices','Mobile','Desktop','Tablet']}/>
+        <button onClick={() => fetchPage(page)} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-[#1A73E8] hover:bg-[#1666D5] text-white text-xs font-bold">
+          <Icon name="filter" size={12}/> Apply Filter
+        </button>
         <div className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-mute">
           <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"/>
           Live data · Sumber: Meta Ads · Google Ads · GA4 · TikTok Ads · NIATBAIK.ORG

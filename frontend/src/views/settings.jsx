@@ -294,8 +294,20 @@ function PaymentPanel({ settings, onSave }) {
   const [editing, setEditing]     = useStateA(null);
   const [confirmDel, setConfirmDel] = useStateA(null);
 
+  const typeMapReverse = { va:'Bank Transfer', ewallet:'E-wallet', qris:'QRIS', card:'Card' };
+  const mapMethod = (m) => ({
+    id: m.id,
+    name: m.bank_name || m.name || '—',
+    provider: m.bank_type || m.provider || m.bank_name || '—',
+    type: typeMapReverse[m.type] || m.type || 'Bank Transfer',
+    holder: m.account_name || m.holder || '-',
+    account: m.bank_number || m.account || '-',
+    fee: m.admin_fee ? ('Rp ' + fmtNum(m.admin_fee)) : (m.fee || '0'),
+    active: m.active !== false,
+    locked: false,
+  });
   useEffectA(() => {
-    api.paymentMethods().then(res => { if (res?.data?.length) setMethods(res.data); }).catch(() => {});
+    api.paymentMethods().then(res => { if (res?.data?.length) setMethods(res.data.map(mapMethod)); }).catch(() => {});
   }, []);
 
   const openAdd  = () => { setEditing(null); setModalOpen(true); };
@@ -310,10 +322,9 @@ function PaymentPanel({ settings, onSave }) {
         await api.createPaymentMethod(data);
         showToast('Payment berhasil ditambahkan');
       }
-      // Reload methods
       try {
         const res = await api.paymentMethods();
-        if (res?.data) setMethods(res.data);
+        if (res?.data) setMethods(res.data.map(mapMethod));
       } catch {}
     } catch (e) { showToast('Gagal: ' + (e?.message || '')); }
     setModalOpen(false);

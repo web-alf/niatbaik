@@ -7,3 +7,7 @@ node_modules/
 frontend/node_modules/
 frontend/debug.html
 .claude/
+
+# DonasiAja reference material (local only)
+Campaigns _ DonasiAja*
+*.html.ref/

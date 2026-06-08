@@ -54,7 +54,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
-	publicHandler := handler.NewPublicHandler(campaignRepo, categoryRepo, settingRepo, invoiceRepo, donationRepo)
+	publicHandler := handler.NewPublicHandler(campaignRepo, categoryRepo, settingRepo, invoiceRepo, donationRepo, paymentMethodRepo)
 	donationHandler := handler.NewDonationHandler(donationService)
 	webhookHandler := handler.NewWebhookHandler(mootaService, flipService)
 	dashboardHandler := handler.NewDashboardHandler(dashboardService)
@@ -85,6 +85,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	api.GET("/campaigns/:slug", publicHandler.GetCampaign)
 	api.GET("/categories", publicHandler.ListCategories)
 	api.GET("/settings/public", publicHandler.GetPublicSettings)
+	api.GET("/payment-methods/public", publicHandler.ListPaymentMethods)
 	api.GET("/stats", publicHandler.GetPublicStats)
 	api.POST("/donations", donationHandler.CreateDonation)
 	api.GET("/donations/:invoice", donationHandler.GetPaymentStatus)

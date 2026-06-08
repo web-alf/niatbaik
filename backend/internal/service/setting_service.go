@@ -28,6 +28,12 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	if req.SiteName != "" {
 		setting.SiteName = req.SiteName
 	}
+	if req.Logo != "" {
+		setting.Logo = req.Logo
+	}
+	if req.Favicon != "" {
+		setting.Favicon = req.Favicon
+	}
 	if req.Email != "" {
 		setting.Email = req.Email
 	}

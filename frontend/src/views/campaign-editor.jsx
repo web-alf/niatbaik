@@ -58,13 +58,8 @@ function CampaignEditorView() {
   });
 
   // Nominal preset rows
-  const [nominals, setNominals] = useStateA([
-    { amount: 45000,  label: '1 Hari : 45k',  fav: false },
-    { amount: 90000,  label: '2 Hari : 90K',  fav: false },
-    { amount: 135000, label: '3 Hari : 135K', fav: false },
-    { amount: 225000, label: '5 Hari : 225K', fav: true  },
-  ]);
-  const [minDonasi, setMinDonasi] = useStateA(45000);
+  const [nominals, setNominals] = useStateA([]);
+  const [minDonasi, setMinDonasi] = useStateA('');
   const [maxDonasi, setMaxDonasi] = useStateA(0);
 
   const [advCustom, setAdvCustom] = useStateA({
@@ -72,10 +67,10 @@ function CampaignEditorView() {
     waNumber: '', waTemplate: '',
     followupMsg: '', paymentSuccessMsg: '',
     metaPixelId: '', tiktokPixelId: '', gtmId: '',
-    metaPixelEnabled: true, metaCAPIEnabled: false, metaCAPIToken: '',
+    metaPixelEnabled: true, metaCAPIEnabled: false, metaCAPIToken: '', metaTestEvent: '',
     waFlyingNumber: '', waFlyingText: 'Chat via WhatsApp',
     extLinkUrl: '', extLinkText: 'Kunjungi website',
-    paymentBank: '', paymentAccount: '', paymentHolder: '', paymentInstant: true, paymentVA: true, paymentTF: true,
+    paymentRows: [{ bank:'', account:'', holder:'', method:'instant' }],
     popupTitle: '', popupDesc: '', popupButton: 'Ya, Lanjutkan',
   });
   const [advOpen, setAdvOpen] = useStateA(true);
@@ -111,6 +106,8 @@ function CampaignEditorView() {
     payload.followup_enabled = adv.followup === 'Custom';
     payload.popup_info = adv.popupInfo === 'Show';
     payload.wa_flying_button = adv.waFlying === 'Custom';
+    payload.form_fields_config = JSON.stringify({ anonim: formCustom.anonim, email: formCustom.email, comment: formCustom.comment, button1: formCustom.button1, button2: formCustom.button2 });
+    if (adv.payment === 'Custom') payload.payment_config = JSON.stringify(advCustom.paymentRows || []);
     if (advCustom.metaPixelId) payload.meta_pixel_id = advCustom.metaPixelId;
     if (advCustom.tiktokPixelId) payload.tiktok_pixel_id = advCustom.tiktokPixelId;
     if (advCustom.gtmId) payload.gtm_id = advCustom.gtmId;
@@ -176,14 +173,14 @@ function CampaignEditorView() {
 
             <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-semibold text-ink">Target donasi <span className="text-rose-600">*</span></label>
+                <label className="text-sm font-semibold text-ink">Target donasi</label>
                 <div className="mt-1.5 flex items-center rounded-lg border border-line bg-white focus-within:border-brand-600 focus-within:ring-2 focus-within:ring-brand-600/20">
                   <span className="pl-3 text-brand-600 font-bold">Rp</span>
                   <input type="number" value={target} onChange={(e) => setTarget(+e.target.value)} className="flex-1 px-2 py-2.5 outline-none font-bold text-ink text-right" placeholder="1.000.000"/>
                 </div>
               </div>
               <div>
-                <label className="text-sm font-semibold text-ink">Tanggal berakhir donasi <span className="text-rose-600">*</span></label>
+                <label className="text-sm font-semibold text-ink">Tanggal berakhir donasi</label>
                 <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="field mt-1.5"/>
               </div>
               <div>
@@ -214,22 +211,23 @@ function CampaignEditorView() {
                   <AdvRadio label="Payment" value={adv.payment} options={['Default','Custom']} onChange={(v) => setAdv({...adv, payment:v})}/>
                   {adv.payment === 'Custom' && (
                     <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-3">
-                      <div><label className="text-xs font-semibold text-mute">Pilih Bank</label>
-                        <Select value={advCustom.paymentBank || ''} onChange={(v) => setAdvCustom({...advCustom, paymentBank:v})}
-                          options={[{value:'',label:'— Pilih bank —'},{value:'BCA',label:'BCA'},{value:'Mandiri',label:'Mandiri'},{value:'BNI',label:'BNI'},{value:'BRI',label:'BRI'},{value:'BSI',label:'BSI'}]} className="mt-1"/>
+                      <div className="grid grid-cols-[1fr_1fr_1fr_120px_auto] gap-2 text-[11px] font-bold text-mute uppercase px-0.5">
+                        <div>Nama Bank</div><div>No. Rekening</div><div>Atas Nama</div><div>Method</div><div/>
                       </div>
-                      <div><label className="text-xs font-semibold text-mute">No. Rekening</label>
-                        <input value={advCustom.paymentAccount || ''} onChange={(e) => setAdvCustom({...advCustom, paymentAccount:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="8901234567"/>
-                      </div>
-                      <div><label className="text-xs font-semibold text-mute">Atas Nama</label>
-                        <input value={advCustom.paymentHolder || ''} onChange={(e) => setAdvCustom({...advCustom, paymentHolder:e.target.value})} className="field mt-1 bg-white" placeholder="Yayasan Niat Baik"/>
-                      </div>
-                      <div className="pt-3 border-t border-line space-y-2">
-                        <div className="text-xs font-bold text-mute uppercase">Metode Pembayaran</div>
-                        <FieldToggle label="Instant (QRIS)" value={advCustom.paymentInstant ?? true} onChange={(v) => setAdvCustom({...advCustom, paymentInstant:v})}/>
-                        <FieldToggle label="Virtual Account (VA)" value={advCustom.paymentVA ?? true} onChange={(v) => setAdvCustom({...advCustom, paymentVA:v})}/>
-                        <FieldToggle label="Transfer Manual (TF)" value={advCustom.paymentTF ?? true} onChange={(v) => setAdvCustom({...advCustom, paymentTF:v})}/>
-                      </div>
+                      {(advCustom.paymentRows || []).map((row, i) => (
+                        <div key={i} className="grid grid-cols-[1fr_1fr_1fr_120px_auto] gap-2 items-center">
+                          <input value={row.bank} onChange={(e) => { const arr = advCustom.paymentRows.map((r, j) => j === i ? { ...r, bank: e.target.value } : r); setAdvCustom({...advCustom, paymentRows: arr}); }} className="field bg-white" placeholder="Nama Bank"/>
+                          <input value={row.account} onChange={(e) => { const arr = advCustom.paymentRows.map((r, j) => j === i ? { ...r, account: e.target.value } : r); setAdvCustom({...advCustom, paymentRows: arr}); }} className="field bg-white font-mono" placeholder="No. Rekening"/>
+                          <input value={row.holder} onChange={(e) => { const arr = advCustom.paymentRows.map((r, j) => j === i ? { ...r, holder: e.target.value } : r); setAdvCustom({...advCustom, paymentRows: arr}); }} className="field bg-white" placeholder="Atas Nama"/>
+                          <select value={row.method} onChange={(e) => { const arr = advCustom.paymentRows.map((r, j) => j === i ? { ...r, method: e.target.value } : r); setAdvCustom({...advCustom, paymentRows: arr}); }} className="field bg-white">
+                            <option value="instant">Instant</option>
+                            <option value="va">VA</option>
+                            <option value="tf">Transfer</option>
+                          </select>
+                          <button onClick={() => setAdvCustom({...advCustom, paymentRows: advCustom.paymentRows.filter((_, j) => j !== i)})} className="h-9 w-9 rounded-md text-mute hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center"><Icon name="trash" size={14}/></button>
+                        </div>
+                      ))}
+                      <button onClick={() => setAdvCustom({...advCustom, paymentRows: [...(advCustom.paymentRows || []), { bank:'', account:'', holder:'', method:'instant' }]})} className="mt-1 px-3 py-2 rounded-lg border border-dashed border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50">+ Add Payment</button>
                     </div>
                   )}
                 </div>
@@ -335,6 +333,7 @@ function CampaignEditorView() {
                   <AdvRadio label="Whatsapp Notification" value={adv.wa} options={['Default','Custom']} onChange={(v) => setAdv({...adv, wa:v})}/>
                   {adv.wa === 'Custom' && (
                     <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-3">
+                      <div className="text-xs text-mute mb-2">Notifikasi WhatsApp otomatis dikirim sesuai pengaturan admin. Isi field di bawah hanya untuk override khusus campaign ini.</div>
                       <div><label className="text-xs font-semibold text-mute">No. WhatsApp CS</label><input value={advCustom.waNumber} onChange={(e) => setAdvCustom({...advCustom, waNumber: e.target.value})} className="field mt-1 bg-white" placeholder="6281234567890"/></div>
                       <div><label className="text-xs font-semibold text-mute">Template pesan</label><textarea value={advCustom.waTemplate} onChange={(e) => setAdvCustom({...advCustom, waTemplate: e.target.value})} className="field mt-1 bg-white" rows="2" placeholder="Halo, saya ingin berdonasi untuk {{campaign}}"/></div>
                     </div>
@@ -357,16 +356,15 @@ function CampaignEditorView() {
                     <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-3">
                       <FieldToggle label="Meta Pixel" value={advCustom.metaPixelEnabled ?? true} onChange={(v) => setAdvCustom({...advCustom, metaPixelEnabled:v})}/>
                       {advCustom.metaPixelEnabled !== false && (
-                        <div><label className="text-xs font-semibold text-mute">Pixel ID</label>
-                          <input value={advCustom.metaPixelId} onChange={(e) => setAdvCustom({...advCustom, metaPixelId:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="123456789012345"/>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div><label className="text-xs font-semibold text-mute">Pixel ID</label><input value={advCustom.metaPixelId} onChange={(e) => setAdvCustom({...advCustom, metaPixelId:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="123456789012345"/></div>
+                          <div><label className="text-xs font-semibold text-mute">Secret Token (CAPI)</label><input value={advCustom.metaCAPIToken||''} onChange={(e) => setAdvCustom({...advCustom, metaCAPIToken:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="EAAxxxxx"/></div>
+                          <div><label className="text-xs font-semibold text-mute">Test Event Code</label><input value={advCustom.metaTestEvent||''} onChange={(e) => setAdvCustom({...advCustom, metaTestEvent:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="TEST12345"/></div>
                         </div>
                       )}
-                      <FieldToggle label="Conversions API (CAPI)" value={advCustom.metaCAPIEnabled ?? false} onChange={(v) => setAdvCustom({...advCustom, metaCAPIEnabled:v})}/>
-                      {advCustom.metaCAPIEnabled && (
-                        <div><label className="text-xs font-semibold text-mute">CAPI Token</label>
-                          <input value={advCustom.metaCAPIToken || ''} onChange={(e) => setAdvCustom({...advCustom, metaCAPIToken:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="EAAxxxxxxx..."/>
-                        </div>
-                      )}
+                      <div className="rounded-lg bg-white border border-line p-2.5 text-[11px] text-mute">
+                        <b className="text-ink">Event otomatis:</b> PageView (halaman campaign), InitiateCheckout (halaman form), Lead (submit form), Purchase (pembayaran sukses).
+                      </div>
                     </div>
                   )}
                 </div>
@@ -678,7 +676,7 @@ function ThumbUploader({ thumb, icon, onChange }) {
         className="aspect-[13/7] rounded-xl bg-bg2 border-2 border-dashed border-line hover:border-brand-400 cursor-pointer overflow-hidden relative group"
         style={thumb && !thumb.startsWith('linear') ? { backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center' } : thumb ? { background: thumb } : {}}>
         {thumb && !thumb.startsWith('linear') && (
-          <img src={thumb} alt="Preview" className="absolute inset-0 w-full h-full object-cover"/>
+          <img src={thumb} alt="Preview" className="absolute inset-0 w-full h-full object-cover" onError={(e) => { e.target.style.display='none'; }}/>
         )}
         {thumb && thumb.startsWith('linear') && (
           <div className="absolute inset-0 flex items-center justify-center text-white/80">

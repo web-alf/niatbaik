@@ -63,6 +63,7 @@ const api = {
   campaign(slug) { return this.get('/campaigns/' + slug); },
   categories() { return this.get('/categories'); },
   publicSettings() { return this.get('/settings/public'); },
+  publicPaymentMethods() { return this.get('/payment-methods/public'); },
   publicStats() { return this.get('/stats'); },
 
   // Donations

@@ -564,7 +564,22 @@ function SocialPopup() {
 // ====================================================================
 // CAMPAIGN DETAIL PAGE (public-facing)
 // ====================================================================
+// Parse campaign nominal presets: window.NB.NOMINAL_PRESETS or c.opt_nominal (JSON array).
+function getNominalPresets(c) {
+  try {
+    if (c && c.opt_nominal) {
+      const parsed = JSON.parse(c.opt_nominal);
+      if (Array.isArray(parsed) && parsed.length) return parsed.map(Number).filter(Boolean);
+    }
+  } catch {}
+  if (window.NB && Array.isArray(window.NB.NOMINAL_PRESETS) && window.NB.NOMINAL_PRESETS.length) return window.NB.NOMINAL_PRESETS;
+  return [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
+}
+
+const PAYMENT_FALLBACK = ['QRIS','BCA','Mandiri','BNI','GoPay','OVO','Dana','ShopeePay'];
+
 function CampaignPage({ c, onNav }) {
+  const [view, setView] = useState('content'); // 'content' | 'form'
   const [tab, setTab] = useState('story');
   const [amount, setAmount] = useState(100_000);
 
@@ -572,11 +587,11 @@ function CampaignPage({ c, onNav }) {
   const [anon, setAnon] = useState(false);
   const [donor, setDonor] = useState({ name:'', wa:'', email:'', message:'' });
   const [paid, setPaid] = useState(false);
-  const invoiceCode = useMemo(() => 'INV-2026-' + Math.floor(Math.random() * 9000 + 1000), []);
-  const presets = [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
+  const [invoice, setInvoice] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
 
+  const presets = useMemo(() => getNominalPresets(c), [c]);
   const recentDonors = (window.TRANSACTIONS || []).slice(0, 8);
-  const formRef = useRef();
 
   const updateCount = 4;
   const tabs = [
@@ -585,6 +600,27 @@ function CampaignPage({ c, onNav }) {
     { v:'donors', l:`Donatur (${recentDonors.length})` },
     { v:'faq', l:'FAQ' },
   ];
+
+  const handleSubmit = async () => {
+    if (!donor.wa.trim()) { alert('No. WhatsApp wajib diisi'); return; }
+    if (!amount || amount < 10000) { alert('Minimal donasi Rp 10.000'); return; }
+    setSubmitting(true);
+    try {
+      const res = await window.api.createDonation({
+        campaign_slug: c.slug || c.id,
+        donor_name: anon ? 'Hamba Allah' : (donor.name || 'Hamba Allah'),
+        donor_phone: donor.wa,
+        donor_email: donor.email || '',
+        amount: Number(amount),
+        message: donor.message || '',
+        is_anonymous: anon,
+        payment_method: typeof paymentMethod === 'object' ? (paymentMethod.type || paymentMethod.bank_name) : paymentMethod,
+      });
+      if (res?.data) { setInvoice(res.data); }
+      else alert(res?.message || 'Gagal membuat donasi');
+    } catch (e) { alert('Gagal: ' + (e?.message || 'Periksa koneksi')); }
+    setSubmitting(false);
+  };
 
   return (
     <>
@@ -597,59 +633,59 @@ function CampaignPage({ c, onNav }) {
         </div>
       </section>
 
-      <section className="bg-bg2">
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 lg:py-10 grid lg:grid-cols-5 gap-6">
-          {/* Left main */}
-          <div className="lg:col-span-3">
-            <div className="relative aspect-[16/9] rounded-2xl overflow-hidden" style={{ background: c.thumb }}>
-              <div className="absolute inset-0 flex items-center justify-center text-white/85"><Icon name={c.icon} size={140} strokeWidth={1}/></div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/0 to-transparent"/>
-              <div className="absolute top-4 left-4 flex gap-2">
-                <span className="px-2.5 py-1 rounded-md bg-white/95 text-[11px] font-bold text-ink">{c.category}</span>
-                <span className="px-2.5 py-1 rounded-md bg-emerald-600 text-[11px] font-bold text-white inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse"/>LIVE</span>
-              </div>
-              <div className="absolute bottom-4 left-4 right-4 text-white">
-                <div className="text-xs font-semibold uppercase opacity-90">Yayasan Niat Baik · Terverifikasi</div>
-                <h1 className="mt-1 text-2xl lg:text-4xl font-extrabold leading-tight">{c.title}</h1>
-              </div>
-            </div>
-
-            <div className="mt-5 rounded-2xl bg-white border border-line p-5 lg:p-6">
-              <div className="flex items-center gap-3 border-b border-line pb-4">
-                <div className="h-10 w-10 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-sm">YN</div>
-                <div>
-                  <div className="text-sm font-bold text-ink flex items-center gap-1.5">Yayasan Niat Baik <Icon name="check" size={14} className="text-emerald-600"/></div>
-                  <div className="text-xs text-mute">Pengelola campaign · Terverifikasi Kemensos</div>
+      {view === 'content' ? (
+        <section className="bg-bg2">
+          <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 lg:py-10 grid lg:grid-cols-5 gap-6">
+            {/* Left main */}
+            <div className="lg:col-span-3">
+              <div className="relative aspect-[16/9] rounded-2xl overflow-hidden" style={{ background: c.thumb }}>
+                <div className="absolute inset-0 flex items-center justify-center text-white/85"><Icon name={c.icon} size={140} strokeWidth={1}/></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/0 to-transparent"/>
+                <div className="absolute top-4 left-4 flex gap-2">
+                  <span className="px-2.5 py-1 rounded-md bg-white/95 text-[11px] font-bold text-ink">{c.category}</span>
+                  <span className="px-2.5 py-1 rounded-md bg-emerald-600 text-[11px] font-bold text-white inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse"/>LIVE</span>
                 </div>
-                <div className="ml-auto inline-flex items-center gap-2 text-xs text-mute">
-                  <span className="inline-flex items-center gap-1"><Icon name="calendar" size={12}/> Dibuka 2 Mei 2026</span>
+                <div className="absolute bottom-4 left-4 right-4 text-white">
+                  <div className="text-xs font-semibold uppercase opacity-90">Yayasan Niat Baik · Terverifikasi</div>
+                  <h1 className="mt-1 text-2xl lg:text-4xl font-extrabold leading-tight">{c.title}</h1>
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center gap-4 border-b border-line">
-                {tabs.map((t) => (
-                  <button key={t.v} onClick={() => setTab(t.v)}
-                    className={`relative pb-2.5 text-sm font-bold ${tab === t.v ? 'text-brand-600' : 'text-mute hover:text-ink'}`}>
-                    {t.l}
-                    {tab === t.v && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-brand-600 rounded-full"/>}
-                  </button>
-                ))}
-              </div>
+              <div className="mt-5 rounded-2xl bg-white border border-line p-5 lg:p-6">
+                <div className="flex items-center gap-3 border-b border-line pb-4">
+                  <div className="h-10 w-10 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-sm">YN</div>
+                  <div>
+                    <div className="text-sm font-bold text-ink flex items-center gap-1.5">Yayasan Niat Baik <Icon name="check" size={14} className="text-emerald-600"/></div>
+                    <div className="text-xs text-mute">Pengelola campaign · Terverifikasi Kemensos</div>
+                  </div>
+                  <div className="ml-auto inline-flex items-center gap-2 text-xs text-mute">
+                    <span className="inline-flex items-center gap-1"><Icon name="calendar" size={12}/> Dibuka 2 Mei 2026</span>
+                  </div>
+                </div>
 
-              <div className="mt-5">
-                {tab === 'story' && <CampaignStory c={c}/>}
-                {tab === 'updates' && <CampaignUpdates/>}
-                {tab === 'donors' && <CampaignDonors donors={recentDonors}/>}
-                {tab === 'faq' && <CampaignFAQ/>}
+                <div className="mt-4 flex items-center gap-4 border-b border-line">
+                  {tabs.map((t) => (
+                    <button key={t.v} onClick={() => setTab(t.v)}
+                      className={`relative pb-2.5 text-sm font-bold ${tab === t.v ? 'text-brand-600' : 'text-mute hover:text-ink'}`}>
+                      {t.l}
+                      {tab === t.v && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-brand-600 rounded-full"/>}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-5">
+                  {tab === 'story' && <CampaignStory c={c}/>}
+                  {tab === 'updates' && <CampaignUpdates/>}
+                  {tab === 'donors' && <CampaignDonors donors={recentDonors}/>}
+                  {tab === 'faq' && <CampaignFAQ/>}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Right donation card */}
-          <div className="lg:col-span-2">
-            <div className="lg:sticky lg:top-20">
-              <div className="rounded-2xl bg-white border border-line shadow-card p-5" ref={formRef}>
-                <div>
+            {/* Right progress + CTA */}
+            <div className="lg:col-span-2">
+              <div className="lg:sticky lg:top-20">
+                <div className="rounded-2xl bg-white border border-line shadow-card p-5">
                   <div className="text-xs font-bold uppercase tracking-wider text-mute">Donasi terkumpul</div>
                   <div className="mt-1 text-3xl font-extrabold text-brand-600">{fmtIDR(c.raised)}</div>
                   <div className="text-sm text-mute">dari target <b>{fmtIDR(c.target)}</b></div>
@@ -657,107 +693,310 @@ function CampaignPage({ c, onNav }) {
                   <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
                     <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Donatur</div><div className="font-extrabold text-ink">{fmtNum(c.donors)}</div></div>
                     <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Sisa hari</div><div className="font-extrabold text-rose-600">{c.daysLeft}</div></div>
-                    <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Tercapai</div><div className="font-extrabold text-emerald-600">{Math.round(c.raised/c.target*100)}%</div></div>
+                    <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Tercapai</div><div className="font-extrabold text-emerald-600">{c.target ? Math.round(c.raised/c.target*100) : 0}%</div></div>
                   </div>
-                </div>
 
-                {!paid ? (
-                  <div className="mt-5 pt-5 border-t border-line space-y-5">
-                    {/* Nominal */}
-                    <div>
-                      <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Pilih nominal donasi</div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {presets.map((p) => (
-                          <button key={p} onClick={() => setAmount(p)}
-                            className={`py-2.5 rounded-xl text-sm font-extrabold border-2 transition-all ${amount===p ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:border-brand-200'}`}>
-                            {fmtIDRShort(p)}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="mt-3">
-                        <label className="text-xs font-bold text-mute">Atau masukkan nominal lain</label>
-                        <div className="mt-1 flex items-center rounded-xl border-2 border-line bg-white focus-within:border-brand-600">
-                          <span className="pl-3 text-mute font-bold">Rp</span>
-                          <input type="number" value={amount} onChange={(e) => setAmount(+e.target.value)} className="flex-1 px-2 py-3 outline-none font-bold text-ink"/>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Identitas */}
-                    <div className="pt-4 border-t border-line space-y-3">
-                      <div className="text-xs font-bold uppercase tracking-wider text-mute">Identitas donatur</div>
-                      <input className="field" placeholder="Nama (cth: Hamba Allah)" value={donor.name} onChange={(e) => setDonor({...donor, name:e.target.value})} disabled={anon}/>
-                      <input className="field" placeholder="No. WhatsApp · cth 08123…" value={donor.wa} onChange={(e) => setDonor({...donor, wa:e.target.value})}/>
-                      <input className="field" placeholder="Email · untuk kuitansi" value={donor.email} onChange={(e) => setDonor({...donor, email:e.target.value})}/>
-                      <label className="flex items-center gap-2 text-sm text-ink/80">
-                        <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded border-line"/>
-                        Donasi sebagai anonim (Hamba Allah)
-                      </label>
-                      <textarea className="field" rows="2" placeholder="Doa / pesan donatur (opsional)" value={donor.message} onChange={(e) => setDonor({...donor, message:e.target.value})}/>
-                    </div>
-
-                    {/* Pembayaran */}
-                    <div className="pt-4 border-t border-line space-y-3">
-                      <div className="text-xs font-bold uppercase tracking-wider text-mute">Metode pembayaran</div>
-                      <div className="grid grid-cols-4 gap-2">
-                        {['QRIS','BCA','Mandiri','BNI','GoPay','OVO','Dana','ShopeePay'].map((m) => (
-                          <button key={m} onClick={() => setPaymentMethod(m)}
-                            className={`h-12 rounded-lg border-2 flex items-center justify-center text-[10px] font-extrabold ${paymentMethod===m ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line bg-white text-ink hover:border-brand-200'}`}>
-                            {m}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Submit */}
-                    <PrimaryBtn size="lg" className="w-full" onClick={() => setPaid(true)}>
-                      <Icon name="heart" size={16}/> Donasi {fmtIDR(amount)}
+                  <div className="mt-5 pt-5 border-t border-line">
+                    <PrimaryBtn size="lg" className="w-full" onClick={() => setView('form')}>
+                      <Icon name="heart" size={18}/> Donasi Sekarang
                     </PrimaryBtn>
-                    <div className="text-center text-[11px] text-mute">
+                    <div className="mt-2 text-center text-[11px] text-mute">
                       <Icon name="shield" size={12} className="inline mr-1 text-emerald-600"/> Pembayaran aman melalui QRIS, VA, dan e-wallet
                     </div>
                   </div>
-                ) : (
-                  /* Paid confirmation — admin confirmation pending */
-                  <div className="mt-5 pt-5 border-t border-line text-center">
-                    <div className="mx-auto h-16 w-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center"><Icon name="check" size={32} strokeWidth={3}/></div>
-                    <div className="mt-3 font-extrabold text-xl text-ink">Donasi Anda sedang diproses</div>
-                    <div className="mt-1 text-sm text-mute">Menunggu konfirmasi admin. Anda akan menerima notifikasi via WhatsApp & email setelah pembayaran dikonfirmasi.</div>
-                    <div className="mt-4 rounded-xl bg-bg2 p-3 text-xs text-mute text-left space-y-1">
-                      <div className="flex justify-between"><span>Kode donasi</span><span className="font-mono font-bold text-ink">{invoiceCode}</span></div>
-                      <div className="flex justify-between"><span>Nominal</span><b className="text-brand-600">{fmtIDR(amount)}</b></div>
-                      <div className="flex justify-between"><span>Metode</span><b className="text-ink">{paymentMethod}</b></div>
-                      <div className="flex justify-between"><span>Status</span><span className="text-amber-600 font-bold">Menunggu konfirmasi</span></div>
-                    </div>
-                    <PrimaryBtn size="md" className="w-full mt-4" onClick={() => { setPaid(false); }}>Donasi lagi</PrimaryBtn>
-                    <button onClick={() => {
-                      const url = window.location.origin + '/campaign/' + (c.slug || c.id);
-                      if (navigator.share) navigator.share({ title: c.title, url }).catch(() => {});
-                      else { try { navigator.clipboard.writeText(url); } catch {} }
-                    }} className="mt-2 text-xs font-semibold text-mute hover:text-ink">Bagikan campaign ini →</button>
+
+                  <div className="mt-4 pt-4 border-t border-line flex items-center justify-around text-[10px] font-bold text-mute">
+                    <span className="inline-flex items-center gap-1"><Icon name="shield" size={12} className="text-emerald-600"/>SSL Aman</span>
+                    <span className="inline-flex items-center gap-1"><Icon name="check"  size={12} className="text-emerald-600"/>Terverifikasi</span>
+                    <span className="inline-flex items-center gap-1"><Icon name="star"   size={12} className="text-amber-500"/>4.9★ Trust</span>
                   </div>
-                )}
-
-                <div className="mt-4 pt-4 border-t border-line flex items-center justify-around text-[10px] font-bold text-mute">
-                  <span className="inline-flex items-center gap-1"><Icon name="shield" size={12} className="text-emerald-600"/>SSL Aman</span>
-                  <span className="inline-flex items-center gap-1"><Icon name="check"  size={12} className="text-emerald-600"/>Terverifikasi</span>
-                  <span className="inline-flex items-center gap-1"><Icon name="star"   size={12} className="text-amber-500"/>4.9★ Trust</span>
                 </div>
-              </div>
 
-              <div className="hidden lg:block mt-3 text-center text-xs text-mute">
-                Butuh bantuan? <a href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer" className="font-bold text-brand-600 hover:underline cursor-pointer">Hubungi CS via WhatsApp</a>
+                <div className="hidden lg:block mt-3 text-center text-xs text-mute">
+                  Butuh bantuan? <a href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer" className="font-bold text-brand-600 hover:underline cursor-pointer">Hubungi CS via WhatsApp</a>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : (
+        <section className="bg-bg2">
+          <div className="max-w-2xl mx-auto px-4 lg:px-6 py-6 lg:py-10">
+            {!invoice ? (
+              <DonationForm
+                c={c} presets={presets}
+                amount={amount} setAmount={setAmount}
+                donor={donor} setDonor={setDonor}
+                anon={anon} setAnon={setAnon}
+                paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod}
+                submitting={submitting}
+                onBack={() => setView('content')}
+                onSubmit={handleSubmit}
+              />
+            ) : (
+              <InvoiceConfirmation
+                c={c} invoice={invoice} amount={amount} paymentMethod={paymentMethod}
+                onReset={() => { setInvoice(null); setView('content'); }}
+              />
+            )}
+          </div>
+        </section>
+      )}
 
       <SocialPopup/>
-      <StickyCTA label={`Donasi ${fmtIDRShort(amount)}`} onClick={() => formRef.current?.scrollIntoView({ behavior:'smooth' })}/>
+      {view === 'content' && <StickyCTA label="Donasi Sekarang" onClick={() => setView('form')}/>}
 
       <Footer/>
     </>
+  );
+}
+
+// -------- Donation form (form view, before invoice) --------
+function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, setAnon, paymentMethod, setPaymentMethod, submitting, onBack, onSubmit }) {
+  const methods = (Array.isArray(window.PAYMENT_METHODS_PUBLIC) && window.PAYMENT_METHODS_PUBLIC.length)
+    ? window.PAYMENT_METHODS_PUBLIC : null;
+
+  // Group API methods by type; fallback to flat string list.
+  const grouped = useMemo(() => {
+    if (!methods) return null;
+    const g = {};
+    methods.forEach((m) => {
+      const key = (m.type || m.category || 'lainnya').toUpperCase();
+      (g[key] = g[key] || []).push(m);
+    });
+    return g;
+  }, [methods]);
+
+  const isSelected = (m) => {
+    if (typeof paymentMethod === 'object' && paymentMethod) return paymentMethod.id === m.id;
+    return false;
+  };
+
+  return (
+    <div className="rounded-2xl bg-white border border-line shadow-card p-5 lg:p-6">
+      <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm font-semibold text-mute hover:text-ink mb-4">
+        <Icon name="chevronL" size={16}/> Kembali ke campaign
+      </button>
+
+      <div className="flex items-center gap-3 pb-4 border-b border-line">
+        <div className="h-12 w-12 rounded-xl overflow-hidden shrink-0" style={{ background: c.thumb }}>
+          <div className="w-full h-full flex items-center justify-center text-white/85"><Icon name={c.icon} size={24} strokeWidth={1.5}/></div>
+        </div>
+        <div className="min-w-0">
+          <div className="text-xs font-bold uppercase tracking-wider text-mute">Donasi untuk</div>
+          <div className="font-extrabold text-ink leading-tight line-clamp-2">{c.title}</div>
+        </div>
+      </div>
+
+      <div className="mt-5 space-y-5">
+        {/* Nominal */}
+        <div>
+          <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Pilih nominal donasi</div>
+          <div className="grid grid-cols-3 gap-2">
+            {presets.map((p) => (
+              <button key={p} onClick={() => setAmount(p)}
+                className={`py-2.5 rounded-xl text-sm font-extrabold border-2 transition-all ${amount===p ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:border-brand-200'}`}>
+                {fmtIDRShort(p)}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3">
+            <label className="text-xs font-bold text-mute">Atau masukkan nominal lain</label>
+            <div className="mt-1 flex items-center rounded-xl border-2 border-line bg-white focus-within:border-brand-600">
+              <span className="pl-3 text-mute font-bold">Rp</span>
+              <input type="number" value={amount} onChange={(e) => setAmount(+e.target.value)} className="flex-1 px-2 py-3 outline-none font-bold text-ink bg-transparent"/>
+            </div>
+          </div>
+        </div>
+
+        {/* Identitas */}
+        <div className="pt-4 border-t border-line space-y-3">
+          <div className="text-xs font-bold uppercase tracking-wider text-mute">Identitas donatur</div>
+          <input className="field" placeholder="Nama (cth: Hamba Allah)" value={donor.name} onChange={(e) => setDonor({...donor, name:e.target.value})} disabled={anon}/>
+          <input className="field" placeholder="No. WhatsApp · cth 08123… (wajib)" value={donor.wa} onChange={(e) => setDonor({...donor, wa:e.target.value})}/>
+          <input className="field" placeholder="Email · untuk kuitansi" value={donor.email} onChange={(e) => setDonor({...donor, email:e.target.value})}/>
+          <label className="flex items-center gap-2 text-sm text-ink/80">
+            <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded border-line"/>
+            Donasi sebagai anonim (Hamba Allah)
+          </label>
+          <textarea className="field" rows="2" placeholder="Doa / pesan donatur (opsional)" value={donor.message} onChange={(e) => setDonor({...donor, message:e.target.value})}/>
+        </div>
+
+        {/* Pembayaran */}
+        <div className="pt-4 border-t border-line space-y-3">
+          <div className="text-xs font-bold uppercase tracking-wider text-mute">Metode pembayaran</div>
+          {grouped ? (
+            <div className="space-y-3">
+              {Object.entries(grouped).map(([type, list]) => (
+                <div key={type}>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-mute mb-1.5">{type}</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {list.map((m) => (
+                      <button key={m.id} onClick={() => setPaymentMethod(m)}
+                        className={`h-14 px-2 rounded-lg border-2 flex flex-col items-center justify-center text-center text-[10px] font-extrabold leading-tight ${isSelected(m) ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line bg-white text-ink hover:border-brand-200'}`}>
+                        <span>{m.bank_name}</span>
+                        {m.admin_fee ? <span className="text-[9px] font-semibold text-mute">+{fmtIDRShort(m.admin_fee)}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-2">
+              {PAYMENT_FALLBACK.map((m) => (
+                <button key={m} onClick={() => setPaymentMethod(m)}
+                  className={`h-12 rounded-lg border-2 flex items-center justify-center text-[10px] font-extrabold ${paymentMethod===m ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line bg-white text-ink hover:border-brand-200'}`}>
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Submit */}
+        <PrimaryBtn size="lg" className="w-full" onClick={onSubmit} disabled={submitting}>
+          <Icon name="heart" size={16}/> {submitting ? 'Memproses…' : 'Lanjut ke Pembayaran'}
+        </PrimaryBtn>
+        <div className="text-center text-[11px] text-mute">
+          <Icon name="shield" size={12} className="inline mr-1 text-emerald-600"/> Pembayaran aman melalui QRIS, VA, dan e-wallet
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -------- Invoice confirmation (after createDonation) --------
+function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
+  const [status, setStatus] = useState(invoice.status || 'Menunggu Pembayaran');
+  const [checking, setChecking] = useState(false);
+  const [copied, setCopied] = useState('');
+  const qrRef = useRef();
+
+  const total = invoice.amount ?? invoice.total ?? amount ?? 0;
+  const subtotal = invoice.subtotal ?? total;
+  const uniqueCode = total - subtotal;
+
+  const pmObj = typeof paymentMethod === 'object' ? paymentMethod : null;
+  const pmType = (pmObj?.type || pmObj?.category || (typeof paymentMethod === 'string' ? paymentMethod : '')).toLowerCase();
+  const isQRIS = pmType.includes('qris') || !!invoice.qr_url;
+  const isPaid = invoice.is_paid || /paid|berhasil|lunas|success/i.test(status);
+
+  // VA / account number: gateway returns it in pay_code; manual transfer uses the
+  // selected method's bank_number. Fall back to invoice.bank_number if backend adds it.
+  const bankNumber = invoice.pay_code || invoice.bank_number || pmObj?.bank_number || '';
+  const accountName = pmObj?.account_name || invoice.account_name || 'Yayasan Niat Baik';
+  const bankName = pmObj?.bank_name || invoice.payment_method || (typeof paymentMethod === 'string' ? paymentMethod : 'Transfer Bank');
+
+  // Generate QR client-side if no qr_url provided.
+  useEffect(() => {
+    if (!isQRIS || invoice.qr_url) return;
+    if (window.QRCode && qrRef.current) {
+      qrRef.current.innerHTML = '';
+      const qrPayload = invoice.pay_code || `${bankName}|${invoice.invoice_number}|${total}`;
+      try { new window.QRCode(qrRef.current, { text: qrPayload, width: 200, height: 200 }); } catch {}
+    }
+  }, [isQRIS, invoice.qr_url, invoice.pay_code, invoice.invoice_number]);
+
+  // Poll status every 12s until paid.
+  useEffect(() => {
+    if (isPaid) return;
+    const id = setInterval(async () => {
+      try {
+        const res = await window.api.paymentStatus(invoice.invoice_number);
+        if (res?.data) {
+          setStatus(res.data.status || status);
+          if (res.data.is_paid) clearInterval(id);
+        }
+      } catch {}
+    }, 12000);
+    return () => clearInterval(id);
+  }, [invoice.invoice_number, isPaid]);
+
+  const checkNow = async () => {
+    setChecking(true);
+    try {
+      const res = await window.api.paymentStatus(invoice.invoice_number);
+      if (res?.data) setStatus(res.data.status || status);
+    } catch {}
+    setChecking(false);
+  };
+
+  const copy = (text, key) => {
+    try { navigator.clipboard.writeText(String(text)); setCopied(key); setTimeout(() => setCopied(''), 1500); } catch {}
+  };
+
+  return (
+    <div className="rounded-2xl bg-white border border-line shadow-card p-5 lg:p-6">
+      <div className="text-center">
+        <div className="font-extrabold text-2xl text-ink">Selesaikan Pembayaran</div>
+        <div className="mt-1 text-sm text-mute">No. Invoice <span className="font-mono font-bold text-ink">{invoice.invoice_number}</span></div>
+        <div className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+          <span className={`h-2 w-2 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}/>
+          {isPaid ? 'Pembayaran Diterima' : (status || 'Menunggu Pembayaran')}
+        </div>
+      </div>
+
+      {/* Amount breakdown */}
+      <div className="mt-5 rounded-xl bg-bg2 p-4 text-sm space-y-1.5">
+        <div className="flex justify-between"><span className="text-mute">Subtotal donasi</span><b className="text-ink">{fmtIDR(subtotal)}</b></div>
+        {uniqueCode > 0 && <div className="flex justify-between"><span className="text-mute">Kode unik</span><b className="text-ink">{fmtIDR(uniqueCode)}</b></div>}
+        <div className="flex justify-between pt-1.5 border-t border-line"><span className="font-bold text-ink">Total transfer</span><b className="text-brand-600 text-lg">{fmtIDR(total)}</b></div>
+      </div>
+
+      {/* QRIS */}
+      {isQRIS ? (
+        <div className="mt-5 flex flex-col items-center">
+          <div className="text-xs font-bold uppercase tracking-wider text-mute mb-3">Scan QRIS untuk membayar</div>
+          {invoice.qr_url ? (
+            <img src={invoice.qr_url} alt="QRIS" className="w-52 h-52 rounded-xl border border-line"/>
+          ) : (
+            <div ref={qrRef} className="p-3 rounded-xl border border-line bg-white"/>
+          )}
+          <div className="mt-2 text-xs text-mute">Gunakan aplikasi e-wallet / m-banking apa pun</div>
+        </div>
+      ) : (
+        /* Bank VA / transfer */
+        <div className="mt-5 space-y-3">
+          <div className="text-xs font-bold uppercase tracking-wider text-mute">Transfer ke rekening berikut</div>
+          {bankName && (
+            <div className="flex items-center justify-between rounded-xl border border-line p-3">
+              <div><div className="text-[11px] text-mute">Bank / Metode</div><div className="font-bold text-ink">{bankName}</div></div>
+            </div>
+          )}
+          {bankNumber ? (
+            <div className="flex items-center justify-between rounded-xl border border-line p-3">
+              <div><div className="text-[11px] text-mute">No. Rekening / VA</div><div className="font-mono font-extrabold text-ink text-lg">{bankNumber}</div></div>
+              <button onClick={() => copy(bankNumber, 'rek')} className="text-xs font-bold text-brand-600 hover:underline">{copied==='rek' ? 'Tersalin ✓' : 'Salin'}</button>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-line p-3 text-xs text-mute">
+              No. rekening akan dikirim ke WhatsApp & email Anda. Admin/CS kami akan menghubungi untuk instruksi pembayaran.
+            </div>
+          )}
+          <div className="flex items-center justify-between rounded-xl border border-line p-3">
+            <div><div className="text-[11px] text-mute">Atas Nama</div><div className="font-bold text-ink">{accountName}</div></div>
+          </div>
+          <div className="flex items-center justify-between rounded-xl border border-line p-3">
+            <div><div className="text-[11px] text-mute">Total Transfer</div><div className="font-extrabold text-brand-600 text-lg">{fmtIDR(total)}</div></div>
+            <button onClick={() => copy(total, 'total')} className="text-xs font-bold text-brand-600 hover:underline">{copied==='total' ? 'Tersalin ✓' : 'Salin'}</button>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-700 leading-relaxed">
+        Transfer tepat sesuai nominal termasuk kode unik agar otomatis terverifikasi.
+      </div>
+
+      <PrimaryBtn size="md" className="w-full mt-4" onClick={checkNow} disabled={checking}>
+        <Icon name="check" size={16}/> {checking ? 'Memeriksa…' : 'Cek Status Pembayaran'}
+      </PrimaryBtn>
+      <button onClick={onReset} className="mt-2 w-full text-xs font-semibold text-mute hover:text-ink">Kembali ke campaign</button>
+
+      <div className="mt-4 pt-4 border-t border-line text-center text-[11px] text-mute leading-relaxed">
+        Setelah pembayaran, status diperbarui otomatis. Bila perlu, admin / CS kami akan mengkonfirmasi donasi Anda via WhatsApp & email.
+      </div>
+    </div>
   );
 }
 

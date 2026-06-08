@@ -127,12 +127,25 @@ window.mapInvoice = mapInvoice;
 /*  API data loaders                                                   */
 /* ------------------------------------------------------------------ */
 
+// Apply saved theme color to CSS so whole web reflects branding
+function applyThemeColor(color) {
+  if (!color) return;
+  try {
+    let el = document.getElementById('nb-theme-vars');
+    if (!el) { el = document.createElement('style'); el.id = 'nb-theme-vars'; document.head.appendChild(el); }
+    el.textContent = `.text-brand-600{color:${color} !important}.bg-brand-600{background-color:${color} !important}.border-brand-600{border-color:${color} !important}.from-brand-600{--tw-gradient-from:${color} !important}.ring-brand-600{--tw-ring-color:${color} !important}.hover\\:bg-brand-700:hover{background-color:${color} !important}`;
+  } catch {}
+}
+window.applyThemeColor = applyThemeColor;
+
 async function loadApiData() {
   if (typeof window.api === 'undefined') return;
   try {
     const api = window.api;
-    const [statsRes, campaignsRes, categoriesRes] = await Promise.all([
-      api.publicStats(), api.campaigns(), api.categories(),
+    const safe = async (fn) => { try { return await fn(); } catch { return null; } };
+    const [statsRes, campaignsRes, categoriesRes, pubSettingsRes, pubPayRes] = await Promise.all([
+      safe(() => api.publicStats()), safe(() => api.campaigns()), safe(() => api.categories()),
+      safe(() => api.publicSettings()), safe(() => api.publicPaymentMethods()),
     ]);
     if (statsRes?.data) {
       window.TOTAL_RAISED     = statsRes.data.total_raised     ?? 0;
@@ -144,6 +157,11 @@ async function loadApiData() {
       window.ACTIVE_CAMPAIGNS = window.CAMPAIGNS.filter(c => c.status === 'Berjalan' || c.status === 'Running').length;
     }
     if (categoriesRes?.data) window.CATEGORIES = categoriesRes.data;
+    if (pubSettingsRes?.data) {
+      window.PUBLIC_SETTINGS = pubSettingsRes.data;
+      if (pubSettingsRes.data.primary_color) applyThemeColor(pubSettingsRes.data.primary_color);
+    }
+    if (pubPayRes?.data && Array.isArray(pubPayRes.data)) window.PAYMENT_METHODS_PUBLIC = pubPayRes.data;
     console.log('[data] API data loaded');
   } catch (e) {
     console.log('[data] API load error:', e?.message || e);

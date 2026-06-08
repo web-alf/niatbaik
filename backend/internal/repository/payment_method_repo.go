@@ -22,6 +22,12 @@ func (r *PaymentMethodRepo) FindAll() ([]model.PaymentMethod, error) {
 	return list, err
 }
 
+func (r *PaymentMethodRepo) FindActive() ([]model.PaymentMethod, error) {
+	var list []model.PaymentMethod
+	err := r.db.Where("active = ?", true).Order("is_default desc").Order("created_at asc").Find(&list).Error
+	return list, err
+}
+
 func (r *PaymentMethodRepo) FindByID(id uuid.UUID) (*model.PaymentMethod, error) {
 	var pm model.PaymentMethod
 	if err := r.db.First(&pm, "id = ?", id).Error; err != nil {

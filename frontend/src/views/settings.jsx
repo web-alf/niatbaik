@@ -86,17 +86,31 @@ function ThemesPanel({ settings, onSave }) {
   const [color, setColor] = useStateA(settings?.primary_color || '#2E4191');
   const [radius, setRadius] = useStateA(settings?.border_radius ?? 16);
   const logoRef = useRefA();
-  const [logoSrc, setLogoSrc] = useStateA(settings?.logo_url || 'assets/logo.png');
+  const [logoSrc, setLogoSrc] = useStateA(settings?.logo || settings?.logo_url || 'assets/logo.png');
   useEffectA(() => { if (settings?.primary_color) setColor(settings.primary_color); }, [settings]);
   useEffectA(() => { if (settings?.border_radius != null) setRadius(settings.border_radius); }, [settings]);
-  useEffectA(() => { if (settings?.logo_url) setLogoSrc(settings.logo_url); }, [settings]);
-  const handleLogoUpload = () => {
+  useEffectA(() => { const l = settings?.logo || settings?.logo_url; if (l) setLogoSrc(l); }, [settings]);
+  const applyTheme = (c) => {
+    try {
+      const root = document.documentElement;
+      root.style.setProperty('--nb-brand', c);
+      // Override tailwind brand utility usages by injecting a style tag
+      let el = document.getElementById('nb-theme-vars');
+      if (!el) { el = document.createElement('style'); el.id = 'nb-theme-vars'; document.head.appendChild(el); }
+      el.textContent = `.text-brand-600{color:${c} !important}.bg-brand-600{background-color:${c} !important}.border-brand-600{border-color:${c} !important}.from-brand-600{--tw-gradient-from:${c} !important}.hover\\:bg-brand-700:hover{background-color:${c} !important}`;
+    } catch {}
+  };
+  useEffectA(() => { if (settings?.primary_color) applyTheme(settings.primary_color); }, [settings]);
+  const handleLogoUpload = async () => {
     const f = logoRef.current?.files?.[0];
     if (!f) return;
     if (f.size > 1024 * 1024) { showToast('File terlalu besar (max 1MB)'); return; }
-    const reader = new FileReader();
-    reader.onload = (e) => { setLogoSrc(e.target.result); showToast('Logo berhasil diupload'); };
-    reader.readAsDataURL(f);
+    try {
+      const res = await window.api.uploadImage(f);
+      const url = res?.data?.url || res?.url;
+      if (url) { setLogoSrc(url); showToast('Logo berhasil diupload. Klik Simpan untuk menerapkan.'); }
+      else showToast('Upload gagal');
+    } catch (e) { showToast('Upload gagal: ' + (e?.message||'')); }
   };
   return (
     <>
@@ -131,6 +145,7 @@ function ThemesPanel({ settings, onSave }) {
               <div className="mt-1 flex items-center gap-2">
                 <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-10 w-10 rounded-lg border border-line cursor-pointer"/>
                 <input value={color} onChange={(e) => setColor(e.target.value)} className="field font-mono"/>
+                <Btn size="sm" variant="outline" tone="ink" onClick={() => { applyTheme(color); showToast('Warna diterapkan ke seluruh web'); }}>Apply</Btn>
               </div>
             </div>
             <div>
@@ -180,7 +195,7 @@ function ThemesPanel({ settings, onSave }) {
       </Section>
 
       <div className="flex justify-end mt-4">
-        <Btn icon="check" onClick={() => onSave({ primary_color: color, border_radius: radius, logo_url: logoSrc })}>Simpan Perubahan</Btn>
+        <Btn icon="check" onClick={() => { applyTheme(color); onSave({ primary_color: color, border_radius: radius, logo: logoSrc }); }}>Simpan Perubahan</Btn>
       </div>
     </>
   );
@@ -891,6 +906,18 @@ function TrackingPanel({ settings, onSave }) {
 
   useEffectA(() => { if (settings?.looker_reports) setLookerReports(settings.looker_reports); }, [settings]);
 
+  useEffectA(() => {
+    if (!settings) return;
+    setPixelIds({
+      'Meta Pixel': settings.meta_pixel_id || '',
+      'Google Tag Manager': settings.gtm_id || '',
+      'Google Ads Conversion': settings.google_ads_conversion_id || '',
+      'Google Analytics 4': settings.ga4_measurement_id || '',
+      'TikTok Pixel': settings.tiktok_pixel_id || '',
+      'Looker Studio (Data Studio)': settings.looker_studio_embed || '',
+    });
+  }, [settings]);
+
   const openAddLooker = () => { setEditingLooker(null); setLookerForm({ name:'', url:'' }); setLookerModal(true); };
   const openEditLooker = (r, i) => { setEditingLooker(i); setLookerForm({ name: r.name, url: r.url }); setLookerModal(true); };
   const saveLooker = () => {
@@ -924,35 +951,27 @@ function TrackingPanel({ settings, onSave }) {
                     <div className="font-bold text-ink">{p.name}</div>
                     <Badge tone={statusMap[p.status].tone} dot={statusMap[p.status].dot} size="sm">{statusMap[p.status].label}</Badge>
                   </div>
-                  <input className="field mt-2 font-mono text-xs" value={pixelIds[p.name] ?? p.id} onChange={(e) => setPixelIds(prev => ({...prev, [p.name]: e.target.value}))} placeholder="Masukkan ID…"/>
+                  <input className="field mt-2 font-mono text-xs" value={pixelIds[p.name] ?? ''} onChange={(e) => setPixelIds(prev => ({...prev, [p.name]: e.target.value}))} placeholder="Masukkan ID…"/>
                 </div>
               </div>
               <div className="mt-2 flex items-center justify-between text-xs">
                 <span className="text-mute">Last fired: 12 detik lalu</span>
                 <div className="flex gap-2">
                   <button className="text-brand-600 font-semibold hover:underline" onClick={() => showToast('Event test dikirim ke ' + p.name)}>Test event</button>
-                  <button className="text-emerald-600 font-semibold hover:underline" onClick={() => {
-                    const fieldMap = {
-                      'Meta Pixel': 'meta_pixel_id',
-                      'Meta Conversions API': 'meta_capi_enabled',
-                      'Google Tag Manager': 'gtm_id',
-                      'Google Ads Conversion': 'google_ads_conversion_id',
-                      'Google Analytics 4': 'ga4_measurement_id',
-                      'TikTok Pixel': 'tiktok_pixel_id',
-                      'TikTok Events API': 'tiktok_eapi_enabled',
-                    };
-                    const key = fieldMap[p.name];
-                    const val = pixelIds[p.name] ?? p.id;
-                    if (key === 'meta_capi_enabled' || key === 'tiktok_eapi_enabled') {
-                      onSave({ [key]: !!val && val !== 'OFF' && val !== 'false' });
-                    } else if (key) {
-                      onSave({ [key]: val });
-                    }
-                  }}>Simpan</button>
                 </div>
               </div>
             </div>
           ))}
+        </div>
+        <div className="flex justify-end mt-4">
+          <Btn icon="check" onClick={() => onSave({
+            meta_pixel_id: pixelIds['Meta Pixel'] || '',
+            gtm_id: pixelIds['Google Tag Manager'] || '',
+            google_ads_conversion_id: pixelIds['Google Ads Conversion'] || '',
+            ga4_measurement_id: pixelIds['Google Analytics 4'] || '',
+            tiktok_pixel_id: pixelIds['TikTok Pixel'] || '',
+            looker_studio_embed: pixelIds['Looker Studio (Data Studio)'] || '',
+          })}>Simpan Semua Tracking</Btn>
         </div>
       </Section>
 

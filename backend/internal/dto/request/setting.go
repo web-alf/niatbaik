@@ -2,6 +2,8 @@ package request
 
 type UpdateSettingRequest struct {
 	SiteName                    string `json:"site_name"`
+	Logo                        string `json:"logo"`
+	Favicon                     string `json:"favicon"`
 	Email                       string `json:"email"`
 	Phone                       string `json:"phone"`
 	Address                     string `json:"address"`

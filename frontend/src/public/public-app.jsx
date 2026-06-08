@@ -1,7 +1,7 @@
 // Public-facing landing + campaign + donation flow.
 const { useState, useEffect, useRef, useMemo } = React;
 const { fmtIDR, fmtIDRShort, fmtNum } = window.NB;
-const getCampaigns = () => (window.CAMPAIGNS && window.CAMPAIGNS.length) ? window.CAMPAIGNS : window.NB.getCampaigns() || [];
+const getCampaigns = () => (window.CAMPAIGNS && window.CAMPAIGNS.length) ? window.CAMPAIGNS : [];
 const getFirstCampaign = () => getCampaigns()[0] || { id:'', title:'', category:'', target:1, raised:0, donors:0, daysLeft:0, thumb:'linear-gradient(135deg,#2E4191,#38B6FF)', icon:'heart' };
 const getSocialProof = () => window.socialProofLines && window.socialProofLines.length ? window.socialProofLines : [];
 

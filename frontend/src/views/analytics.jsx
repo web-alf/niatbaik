@@ -1,19 +1,23 @@
 // Analytics - performance, UTM, source breakdown
 function AnalyticsView() {
-  const { trafficSources, dailyDonations, campaignSeed } = window.NB;
   const { showToast } = useApp();
   const [platform, setPlatform] = useStateA('all');
   const [campaign, setCampaign] = useStateA('all');
 
+  const trafficSources = window.ANALYTICS_TRAFFIC || window.TRAFFIC_SOURCES || [];
+  const dailyDonations = window.DAILY_DONATIONS || [];
+  const campaigns = window.ANALYTICS_CAMPAIGNS || window.CAMPAIGNS || [];
+
+  const ov = window.ANALYTICS_OVERVIEW || {};
   const totals = {
-    visitors: 121140,
-    leads: 13072,
-    donations: 4558,
-    convRate: 0.0376,
-    cpl: 15400,
-    cpd: 48900,
-    revenue: 1_842_315_500,
-    roas: 3.8,
+    visitors: ov.total_visitors || ov.visitors || 0,
+    leads: ov.total_leads || ov.leads || 0,
+    donations: ov.total_donations || ov.donations || 0,
+    convRate: ov.conversion_rate || (ov.total_leads > 0 ? (ov.total_donations || 0) / ov.total_leads : 0),
+    cpl: ov.cost_per_lead || 0,
+    cpd: ov.cost_per_donation || 0,
+    revenue: ov.total_revenue || ov.revenue || 0,
+    roas: ov.roas || 0,
   };
 
   return (
@@ -31,18 +35,18 @@ function AnalyticsView() {
           ]}/>
           <Select value={campaign} onChange={setCampaign} options={[
             {value:'all', label:'Semua campaign'},
-            ...(window.CAMPAIGNS || campaignSeed || []).map(c => ({value: c.id || c.title, label: c.title}))
+            ...(campaigns).map(c => ({value: c.id || c.title, label: c.title}))
           ]}/>
           <DateRangePill/>
           <Btn variant="outline" tone="ink" icon="download" onClick={() => {
-            const data = (window.ANALYTICS_CAMPAIGNS || campaignSeed || []).map(c => ({
+            const data = (campaigns).map(c => ({
               campaign: c.title || c.name, visitors: c.visitors, leads: c.leads, donations: c.donations, raised: c.raised, cvr: c.cvr
             }));
             if (data.length) { exportCSV(data, 'niatbaik_analytics'); showToast(data.length + ' baris diekspor'); }
             else showToast('Tidak ada data');
           }}>CSV</Btn>
           <Btn icon="download" onClick={() => {
-            const data = (window.ANALYTICS_CAMPAIGNS || campaignSeed || []).map(c => ({
+            const data = (campaigns).map(c => ({
               campaign: c.title || c.name, visitors: c.visitors, leads: c.leads, donations: c.donations, raised: c.raised, cvr: c.cvr
             }));
             if (data.length) { exportExcel(data, 'niatbaik_analytics'); showToast(data.length + ' baris diekspor'); }
@@ -81,17 +85,20 @@ function AnalyticsView() {
         <Card className="p-5">
           <div className="text-xs font-semibold uppercase tracking-wider text-mute">Sumber Traffic</div>
           <div className="flex items-center justify-center my-4">
-            <Donut size={170} data={trafficSources.map(t => ({ value: t.visits, color: t.color }))}/>
+            {trafficSources.length > 0 ? <Donut size={170} data={trafficSources.map(t => ({ value: t.visits || t.value || 0, color: t.color || '#94A3B8' }))}/> : <div className="text-sm text-mute">Belum ada data traffic</div>}
           </div>
           <div className="space-y-2">
-            {trafficSources.map((t) => (
-              <div key={t.name} className="flex items-center gap-2 text-sm">
-                <span className="h-2.5 w-2.5 rounded-full" style={{background: t.color}}/>
-                <span className="flex-1 font-semibold text-ink">{t.name}</span>
-                <span className="text-mute text-xs">{fmtNum(t.visits)}</span>
-                <span className="w-14 text-right font-bold">{Math.round(t.visits/121140*100)}%</span>
-              </div>
-            ))}
+            {trafficSources.map((t) => {
+              const totalV = trafficSources.reduce((s, x) => s + (x.visits || x.value || 0), 0) || 1;
+              return (
+                <div key={t.name} className="flex items-center gap-2 text-sm">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{background: t.color || '#94A3B8'}}/>
+                  <span className="flex-1 font-semibold text-ink">{t.name}</span>
+                  <span className="text-mute text-xs">{fmtNum(t.visits || t.value || 0)}</span>
+                  <span className="w-14 text-right font-bold">{Math.round((t.visits || t.value || 0)/totalV*100)}%</span>
+                </div>
+              );
+            })}
           </div>
         </Card>
       </div>
@@ -125,32 +132,35 @@ function AnalyticsView() {
               </tr>
             </thead>
             <tbody>
-              {campaignSeed.slice(0,6).map((c, i) => {
-                const v = 4000 + i*1820 + (i%3)*900;
-                const l = Math.round(v * (0.06 + (i%5)*0.012));
-                const d = Math.round(l * (0.18 + (i%4)*0.05));
-                const cpl = [12500, 18900, 14200, 23400, 11500, 19800][i];
-                const cpd = [45000, 78000, 51000, 92000, 42000, 88000][i];
-                const rev = d * (60_000 + i*20_000);
-                const spend = d * cpd;
-                const roas = (rev / Math.max(1, spend)).toFixed(1);
+              {campaigns.length === 0 && (
+                <tr><td colSpan="9" className="px-5 py-8 text-center text-mute">Belum ada data campaign</td></tr>
+              )}
+              {campaigns.map((c) => {
+                const v = c.visitors || c.donor_count || c.donors || 0;
+                const l = c.leads || 0;
+                const d = c.donations || c.donors || 0;
+                const cvr = d > 0 && v > 0 ? (d/v*100).toFixed(1) + '%' : '—';
+                const rev = c.revenue || c.raised || c.total_raised || 0;
+                const cpl = c.cost_per_lead || 0;
+                const cpd = c.cost_per_donation || 0;
+                const roas = c.roas || (rev > 0 && cpd > 0 ? (rev / (d * cpd)).toFixed(1) : '—');
                 return (
                   <tr key={c.id} className="border-b border-line last:border-0 hover:bg-bg2/60">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-8 w-8 rounded-md shrink-0" style={{background: c.thumb}}/>
+                        <div className="h-8 w-8 rounded-md shrink-0" style={{background: c.thumb || 'linear-gradient(135deg,#2E4191,#38B6FF)'}}/>
                         <div className="font-semibold text-ink line-clamp-1 max-w-[280px]">{c.title}</div>
                       </div>
                     </td>
                     <td className="py-3 text-right text-ink">{fmtNum(v)}</td>
                     <td className="py-3 text-right text-ink">{fmtNum(l)}</td>
                     <td className="py-3 text-right text-ink font-semibold">{fmtNum(d)}</td>
-                    <td className="py-3 text-right text-ink">{(d/l*100).toFixed(1)}%</td>
-                    <td className="py-3 text-right text-mute">{fmtIDRShort(cpl)}</td>
-                    <td className="py-3 text-right text-mute">{fmtIDRShort(cpd)}</td>
+                    <td className="py-3 text-right text-ink">{cvr}</td>
+                    <td className="py-3 text-right text-mute">{cpl ? fmtIDRShort(cpl) : '—'}</td>
+                    <td className="py-3 text-right text-mute">{cpd ? fmtIDRShort(cpd) : '—'}</td>
                     <td className="py-3 text-right font-bold text-ink">{fmtIDRShort(rev)}</td>
                     <td className="pr-5 py-3 text-right">
-                      <span className={'font-bold ' + (roas >= 3 ? 'text-emerald-600' : roas >= 1.5 ? 'text-amber-600' : 'text-rose-600')}>{roas}x</span>
+                      <span className={'font-bold ' + (roas >= 3 ? 'text-emerald-600' : roas >= 1.5 ? 'text-amber-600' : 'text-rose-600')}>{typeof roas === 'number' ? roas.toFixed(1) + 'x' : roas}</span>
                     </td>
                   </tr>
                 );

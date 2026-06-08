@@ -575,7 +575,7 @@ function CampaignPage({ c, onNav }) {
   const invoiceCode = useMemo(() => 'INV-2026-' + Math.floor(Math.random() * 9000 + 1000), []);
   const presets = [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
 
-  const recentDonors = window.NB.txns.slice(0, 8);
+  const recentDonors = (window.TRANSACTIONS || []).slice(0, 8);
   const formRef = useRef();
 
   const updateCount = 4;

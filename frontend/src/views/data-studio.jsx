@@ -1,6 +1,8 @@
 // Data Studio (Looker Studio) embed page — consolidated analytics dashboard
 function DataStudioView() {
-  const { dailyDonations, trafficSources, campaignSeed } = window.NB;
+  const dailyDonations = window.DAILY_DONATIONS || [];
+  const trafficSources = window.TRAFFIC_SOURCES || [];
+  const campaignSeed = window.CAMPAIGNS || [];
   const [page, setPage] = useStateA('overview');
   const [dateRange, setDateRange] = useStateA('Last 30 days');
   const [platform, setPlatform] = useStateA('All');

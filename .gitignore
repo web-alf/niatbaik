@@ -2,6 +2,7 @@ src/vendor/
 src/node_modules/
 src/.env
 *.sql
+!backend/seed_testing.sql
 legacy/
 node_modules/
 frontend/node_modules/

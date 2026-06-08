@@ -435,19 +435,28 @@ function App() {
     }
   }, []);
 
-  // --- Load API data ---
+  // --- Load API data (await before rendering views) ---
+  const [dataReady, setDataReady] = uS(false);
   uE(() => {
-    const NB = window;
-    // Public data (no auth needed)
-    [NB.loadApiData].forEach(fn => { if (typeof fn === 'function') try { fn(); } catch {} });
-    // Protected data (only when logged in)
-    if (user) {
-      [NB.loadAdminData, NB.loadDashboardChart, NB.loadDashboardStats,
-       NB.loadProfile, NB.loadInvoices, NB.loadAnalytics, NB.loadDataStudio,
-       NB.loadPaymentMethods, NB.loadAdCosts].forEach(fn => {
-        if (typeof fn === 'function') try { fn(); } catch {}
-      });
-    }
+    let cancelled = false;
+    (async () => {
+      setDataReady(false);
+      // Public data
+      try { await window.loadApiData?.(); } catch {}
+      // Protected data
+      if (user) {
+        const safe = async (fn) => { try { await fn?.(); } catch {} };
+        await Promise.all([
+          safe(window.loadAdminData), safe(window.loadDashboardChart),
+          safe(window.loadDashboardStats), safe(window.loadProfile),
+          safe(window.loadInvoices), safe(window.loadAnalytics),
+          safe(window.loadDataStudio), safe(window.loadPaymentMethods),
+          safe(window.loadAdCosts),
+        ]);
+      }
+      if (!cancelled) setDataReady(true);
+    })();
+    return () => { cancelled = true; };
   }, [user]);
 
   // --- Landing nav helper (used by login page link) ---
@@ -550,6 +559,9 @@ function App() {
 
   // --- Public routes (no auth required) ---
   const isPublicRoute = route === 'landing' || route === 'campaign-detail';
+  if (isPublicRoute && !dataReady) {
+    return null;
+  }
   if (isPublicRoute) {
     return (
       <AppCtx.Provider value={ctx}>
@@ -589,8 +601,8 @@ function App() {
   };
 
   const navEntry = [...NAV, ...SECONDARY_NAV].find(n => n.key === route);
-  let Cur = Views[route] || window.DashboardView || Placeholder;
-  if (navEntry?.roles && !navEntry.roles.includes(role)) Cur = AccessDenied;
+  let Cur = dataReady ? (Views[route] || window.DashboardView || Placeholder) : DashboardSkeleton;
+  if (dataReady && navEntry?.roles && !navEntry.roles.includes(role)) Cur = AccessDenied;
 
   return (
     <AppCtx.Provider value={ctx}>
@@ -620,6 +632,20 @@ function App() {
       )}
       <Toast message={toast}/>
     </AppCtx.Provider>
+  );
+}
+
+// --- Data loading skeleton (shown inside layout while API fetches) ---
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="h-8 w-72 bg-bg2 rounded-lg shimmer"/>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[1,2,3,4].map(i => <div key={i} className="h-28 bg-white rounded-2xl border border-line shimmer"/>)}
+      </div>
+      <div className="h-64 bg-white rounded-2xl border border-line shimmer"/>
+      <div className="h-48 bg-white rounded-2xl border border-line shimmer"/>
+    </div>
   );
 }
 

@@ -3,6 +3,8 @@ src/node_modules/
 src/.env
 *.sql
 !backend/seed_testing.sql
+.env.production
+.env.production.bak
 legacy/
 node_modules/
 frontend/node_modules/

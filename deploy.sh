@@ -46,9 +46,16 @@ echo "  NIATBAIK.ORG — Deploy [$ENV] from $BRANCH"
 echo "============================================"
 echo ""
 
-# ---- Pull ----
+# ---- Pull (stash local env changes, rebase, restore) ----
 log "Pulling latest from $BRANCH..."
-git pull origin "$BRANCH" || warn "Git pull failed, deploying current state"
+git stash -q 2>/dev/null || true
+git pull --rebase origin "$BRANCH" || {
+  warn "Rebase conflict — resolving .env.production"
+  git checkout --theirs .env.production 2>/dev/null
+  git add .env.production 2>/dev/null
+  git rebase --continue 2>/dev/null || git rebase --abort 2>/dev/null
+}
+git stash pop -q 2>/dev/null || true
 
 # ---- Stop ----
 log "Stopping old containers..."

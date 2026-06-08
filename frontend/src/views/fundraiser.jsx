@@ -59,7 +59,7 @@ function FundraiserView() {
         </div>
       </Card>
 
-      <Card className="overflow-hidden">
+      <Card className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs uppercase tracking-wider text-mute border-b border-line bg-bg2/60">
@@ -102,10 +102,10 @@ function FundraiserView() {
                   </button>
                 </td>
                 <td className="pr-5 py-3 text-right">
-                  <div className="inline-flex items-center gap-1">
-                    <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink"><Icon name="eye" size={16}/></button>
-                    <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink"><Icon name="wallet" size={16}/></button>
-                    <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink"><Icon name="more" size={16}/></button>
+                  <div className="inline-flex items-center gap-1 relative z-10">
+                    <button onClick={() => showToast('Detail fundraiser ' + f.name)} className="h-8 w-8 rounded-md hover:bg-brand-50 hover:text-brand-600 text-mute flex items-center justify-center" title="Detail"><Icon name="eye" size={16}/></button>
+                    <button onClick={() => showToast('Payout komisi ' + fmtIDRShort(f.commission))} className="h-8 w-8 rounded-md hover:bg-emerald-50 hover:text-emerald-600 text-mute flex items-center justify-center" title="Proses payout"><Icon name="wallet" size={16}/></button>
+                    <button onClick={() => { navigator.clipboard?.writeText('https://niatbaik.org/r/' + f.ref); showToast('Link referral disalin'); }} className="h-8 w-8 rounded-md hover:bg-bg2 hover:text-ink text-mute flex items-center justify-center" title="Salin link"><Icon name="copy" size={16}/></button>
                   </div>
                 </td>
               </tr>

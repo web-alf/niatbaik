@@ -262,7 +262,7 @@ function DashboardView() {
             <Btn size="sm" variant="ghost" tone="ink" iconRight="arrowR" onClick={() => setView('analytics')}>Detail</Btn>
           </div>
           <div className="space-y-3">
-            {window.NB.trafficSources.map((t) => (
+            {(window.TRAFFIC_SOURCES || []).map((t) => (
               <div key={t.name}>
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">

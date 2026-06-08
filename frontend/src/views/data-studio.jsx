@@ -420,7 +420,7 @@ function DSMeta() {
 
       <div className="col-span-12 lg:col-span-8">
         <DSCard title="Meta Ads — Spend vs Revenue" subtitle="Daily">
-          <DSStackedSeries daily={window.NB.dailyDonations}/>
+          <DSStackedSeries daily={(window.DAILY_DONATIONS || [])}/>
         </DSCard>
       </div>
       <div className="col-span-12 lg:col-span-4">
@@ -598,7 +598,7 @@ function DSTiktok() {
       </div>
       <div className="col-span-12 lg:col-span-7">
         <DSCard title="TikTok — Spend vs Donations">
-          <DSStackedSeries daily={window.NB.dailyDonations}/>
+          <DSStackedSeries daily={(window.DAILY_DONATIONS || [])}/>
         </DSCard>
       </div>
       <div className="col-span-12 lg:col-span-5">
@@ -713,7 +713,7 @@ function DSFunnel() {
       <div className="col-span-12 lg:col-span-4 space-y-4">
         <DSCard title="Funnel by Source">
           <div className="space-y-2 text-xs">
-            {window.NB.trafficSources.map((s) => (
+            {(window.TRAFFIC_SOURCES || []).map((s) => (
               <div key={s.name}>
                 <div className="flex justify-between">
                   <span className="font-bold text-ink">{s.name}</span>

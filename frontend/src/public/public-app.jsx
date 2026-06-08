@@ -1,6 +1,9 @@
 // Public-facing landing + campaign + donation flow.
 const { useState, useEffect, useRef, useMemo } = React;
-const { fmtIDR, fmtIDRShort, fmtNum, campaignSeed, socialProofLines } = window.NB;
+const { fmtIDR, fmtIDRShort, fmtNum } = window.NB;
+const getCampaigns = () => (window.CAMPAIGNS && window.CAMPAIGNS.length) ? window.CAMPAIGNS : window.NB.getCampaigns() || [];
+const getFirstCampaign = () => getCampaigns()[0] || { id:'', title:'', category:'', target:1, raised:0, donors:0, daysLeft:0, thumb:'linear-gradient(135deg,#2E4191,#38B6FF)', icon:'heart' };
+const getSocialProof = () => window.socialProofLines && window.socialProofLines.length ? window.socialProofLines : [];
 
 // -------- Helpers --------
 const PrimaryBtn = ({ children, size='md', className='', ...rest }) => {
@@ -64,7 +67,7 @@ function Navbar({ onNav }) {
         <button onClick={() => navigate('dashboard')} className="hidden lg:inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
           <Icon name="user" size={16}/> Masuk
         </button>
-        <PrimaryBtn size="sm" onClick={() => onNav('campaign', campaignSeed[1])}>
+        <PrimaryBtn size="sm" onClick={() => onNav('campaign', getFirstCampaign())}>
           <Icon name="heart" size={16}/> Donasi Sekarang
         </PrimaryBtn>
         <button onClick={() => setOpen(!open)} className="lg:hidden h-9 w-9 rounded-lg hover:bg-bg2 flex items-center justify-center"><Icon name="menu" size={20}/></button>
@@ -110,7 +113,7 @@ function Hero({ onNav }) {
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <PrimaryBtn size="lg" className="ctaPulse" onClick={() => onNav('campaign', campaignSeed[1])}>
+            <PrimaryBtn size="lg" className="ctaPulse" onClick={() => onNav('campaign', getFirstCampaign())}>
               <Icon name="heart" size={18}/> Mulai Donasi
             </PrimaryBtn>
             <button onClick={() => document.getElementById('campaigns')?.scrollIntoView({behavior:'smooth'})} className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-base font-bold text-ink hover:bg-white border border-line bg-white/60">
@@ -139,7 +142,7 @@ function Hero({ onNav }) {
         </div>
 
         {/* Hero campaign card */}
-        <HeroCard c={campaignSeed[1]} onNav={onNav}/>
+        <HeroCard c={getFirstCampaign()} onNav={onNav}/>
       </div>
     </section>
   );
@@ -254,7 +257,7 @@ function StatsSection() {
 function CampaignsSection({ onNav }) {
   const filterTabs = [{v:'all',l:'Semua'},{v:'Medis',l:'Medis'},{v:'Pendidikan',l:'Pendidikan'},{v:'Wakaf',l:'Wakaf'},{v:'Bencana',l:'Bencana'},{v:'Ramadan',l:'Ramadan'}];
   const [tab, setTab] = useState('all');
-  const src = (window.CAMPAIGNS && window.CAMPAIGNS.length) ? window.CAMPAIGNS : campaignSeed;
+  const src = (window.CAMPAIGNS && window.CAMPAIGNS.length) ? window.CAMPAIGNS : getCampaigns();
   const campaigns = src.filter(c => c.status === 'Running' || c.status === 'Published' || c.status === 'Berjalan');
   const filtered = tab === 'all' ? campaigns : campaigns.filter(c => c.category === tab);
 
@@ -446,7 +449,7 @@ function FinalCTA({ onNav }) {
               <h3 className="text-3xl lg:text-4xl font-extrabold leading-tight">Setiap niat baik, sekecil apapun, berdampak besar.</h3>
               <p className="mt-3 text-white/85">Mulai donasi sekarang dan jadilah bagian dari kebaikan yang nyata.</p>
             </div>
-            <button onClick={() => onNav('campaign', campaignSeed[1])} className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl text-base font-extrabold bg-white text-brand-600 hover:scale-[1.02] transition-transform shadow-pop">
+            <button onClick={() => onNav('campaign', getFirstCampaign())} className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl text-base font-extrabold bg-white text-brand-600 hover:scale-[1.02] transition-transform shadow-pop">
               <Icon name="heart" size={20}/> Donasi Sekarang
             </button>
           </div>
@@ -536,11 +539,13 @@ function SocialPopup() {
     const t1 = setTimeout(() => setVisible(true), 4000);
     const id = setInterval(() => {
       setVisible(false);
-      setTimeout(() => { setIdx((i) => (i + 1) % socialProofLines.length); setVisible(true); }, 400);
+      setTimeout(() => { setIdx((i) => { const sp = getSocialProof(); return sp.length ? (i + 1) % sp.length : 0; }); setVisible(true); }, 400);
     }, 8000);
     return () => { clearTimeout(t1); clearInterval(id); };
   }, []);
-  const p = socialProofLines[idx];
+  const sp = getSocialProof();
+  if (!sp.length) return null;
+  const p = sp[idx] || sp[0];
   return (
     <div className={`hidden lg:flex fixed left-4 bottom-4 z-30 transition-all ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'}`}>
       <div className="bg-white rounded-xl shadow-pop border border-line p-3 flex items-center gap-3 max-w-xs">
@@ -893,13 +898,13 @@ function PublicApp() {
             <Footer/>
           </>
         ) : (
-          <CampaignPage c={page.data || campaignSeed[1]} onNav={onNav}/>
+          <CampaignPage c={page.data || getFirstCampaign()} onNav={onNav}/>
         )}
       </main>
       {page.name === 'home' && (
         <>
           <SocialPopup/>
-          <StickyCTA onClick={() => onNav('campaign', campaignSeed[1])}/>
+          <StickyCTA onClick={() => onNav('campaign', getFirstCampaign())}/>
         </>
       )}
     </div>
@@ -914,7 +919,7 @@ window.LandingPage = PublicApp;
 // campaign by slug/id from live CAMPAIGNS (else seed) and renders the public
 // CampaignPage; onBack returns to the landing route.
 function CampaignDetail({ id, onBack }) {
-  const list = window.CAMPAIGNS || campaignSeed;
+  const list = window.CAMPAIGNS || getCampaigns();
   const c = list.find(x => x.slug === id || x.id === id) || list[1] || list[0];
   const [dark, toggleDark] = usePublicDark();
   return (

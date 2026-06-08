@@ -270,7 +270,7 @@ function CampaignDetailModal({ campaign, onClose }) {
   const c = campaign;
   const presets = [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
 
-  const recentDonors = window.NB.txns.slice(0, 6);
+  const recentDonors = (window.TRANSACTIONS || window.NB.txns || []).slice(0, 6);
   return (
     <Modal open={true} onClose={onClose} title="Preview Halaman Campaign" size="xl"
       footer={<>

@@ -276,8 +276,8 @@ function DashboardView() {
             ))}
           </div>
           <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-            <div className="p-3 rounded-lg bg-bg2"><div className="text-xs text-mute">Cost / Lead</div><div className="text-lg font-bold text-ink">{fmtIDRShort(15_400)}</div></div>
-            <div className="p-3 rounded-lg bg-bg2"><div className="text-xs text-mute">Cost / Donation</div><div className="text-lg font-bold text-ink">{fmtIDRShort(48_900)}</div></div>
+            <div className="p-3 rounded-lg bg-bg2"><div className="text-xs text-mute">Cost / Lead</div><div className="text-lg font-bold text-ink">{fmtIDRShort(S.cost_per_lead || 0)}</div></div>
+            <div className="p-3 rounded-lg bg-bg2"><div className="text-xs text-mute">Cost / Donation</div><div className="text-lg font-bold text-ink">{fmtIDRShort(S.cost_per_donation || 0)}</div></div>
             <div className="p-3 rounded-lg bg-bg2"><div className="text-xs text-mute">ROAS</div><div className="text-lg font-bold text-emerald-600">3.8x</div></div>
           </div>
         </Card>
@@ -299,10 +299,10 @@ function CSDashboard() {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon="inbox"   label="Menunggu follow-up" value="24" delta="+6" deltaTone="up" accent="warn" sub="donatur pending"/>
-        <StatCard icon="check"   label="Selesai hari ini"   value="58" delta="+12" accent="ok" sub="follow-up tuntas"/>
-        <StatCard icon="wa"      label="Pesan WA terkirim"  value="412" delta="+3.2%" accent="sky" sub="bulan ini"/>
-        <StatCard icon="creditcard" label="Pending payment" value={fmtIDRShort(42_180_000)} delta="-8%" deltaTone="down" accent="bad" sub="butuh ditindaklanjuti"/>
+        <StatCard icon="inbox"   label="Menunggu follow-up" value={String(S.pending_followup || 0)} accent="warn" sub="donatur pending"/>
+        <StatCard icon="check"   label="Selesai hari ini"   value={String(S.completed_today || 0)} accent="ok" sub="follow-up tuntas"/>
+        <StatCard icon="wa"      label="Pesan WA terkirim"  value={String(S.wa_sent || 0)} accent="sky" sub="bulan ini"/>
+        <StatCard icon="creditcard" label="Pending payment" value={fmtIDRShort(S.pending_amount || 0)} accent="bad" sub="butuh ditindaklanjuti"/>
       </div>
 
       <Card className="p-5">

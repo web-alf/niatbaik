@@ -98,7 +98,7 @@ function CSInboxView() {
         <StatCard icon="inbox"  label="Total hasil filter" value={fmtNum(filtered.length)} accent="brand" sub={`dari ${fmtNum(txns.length)} transaksi`}/>
         <StatCard icon="bolt"   label="Menunggu follow-up" value={fmtNum(txns.filter(t=>t.status==='Pending').length)} accent="warn"/>
         <StatCard icon="close"  label="Pembayaran gagal"   value={fmtNum(txns.filter(t=>t.status==='Failed').length)} accent="bad"/>
-        <StatCard icon="check"  label="Selesai bulan ini"  value="412" accent="ok"/>
+        <StatCard icon="check"  label="Selesai bulan ini"  value={String((window.DASHBOARD_STATS || {}).completed_month || 0)} accent="ok"/>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

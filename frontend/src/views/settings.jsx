@@ -1010,7 +1010,7 @@ function TrackingPanel({ settings, onSave }) {
                           : <span className="text-mute text-xs">OFF</span>}
                     </td>
                   ))}
-                  <td className="py-2.5 text-right text-mute">{fmtNum(12340 - i*1820)}</td>
+                  <td className="py-2.5 text-right text-mute">—</td>
                 </tr>
               ))}
             </tbody>

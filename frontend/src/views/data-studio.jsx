@@ -511,9 +511,9 @@ function DSGoogle({ daily, data }) {
       <div className="col-span-12 grid grid-cols-2 md:grid-cols-5 gap-3">
         <DSScorecard label="Ad Spend"    value={fmtIDRShort(g.ad_spend || 0)} delta={g.ad_spend_delta || ''} color="#34A853"/>
         <DSScorecard label="Impr."        value={fmtNum(g.impressions || 0)}  delta={g.impressions_delta || ''} color="#34A853"/>
-        <DSScorecard label="CTR"          value="4.18%"                    delta="+0.6pp" color="#34A853"/>
+        <DSScorecard label="CTR"          value={g.ctr ? g.ctr + '%' : '—'} delta={g.ctr_delta || ''} color="#34A853"/>
         <DSScorecard label="GA4 Sessions" value={fmtNum(g.ga4_sessions || 0)} delta={g.ga4_delta || ''} color="#4285F4"/>
-        <DSScorecard label="ROAS"         value="4.1x"                     delta="+0.3x" color="#EA4335"/>
+        <DSScorecard label="ROAS"         value={g.roas ? g.roas + 'x' : '—'} delta={g.roas_delta || ''} color="#EA4335"/>
       </div>
       <div className="col-span-12 lg:col-span-7">
         <DSCard title="GA4 · Sessions & Conversions" subtitle="Daily">
@@ -603,9 +603,9 @@ function DSTiktok({ data }) {
       <div className="col-span-12 grid grid-cols-2 md:grid-cols-5 gap-3">
         <DSScorecard label="Ad Spend"   value={fmtIDRShort(t.ad_spend || 0)} delta={t.ad_spend_delta || ''} color="#000000"/>
         <DSScorecard label="Views"      value={fmtNum(t.views || 0)}        delta={t.views_delta || ''} color="#FF0050"/>
-        <DSScorecard label="VTR (3s)"   value="62.4%"                   delta="+4pp" color="#00F2EA"/>
+        <DSScorecard label="VTR (3s)"   value={t.vtr ? t.vtr + '%' : '—'} delta={t.vtr_delta || ''} color="#00F2EA"/>
         <DSScorecard label="Donations"  value={fmtNum(t.donations || 0)} delta={t.donations_delta || ''} color="#0F9D58"/>
-        <DSScorecard label="ROAS"       value="2.9x"                    delta="-0.1x" deltaTone="down" color="#EA4335"/>
+        <DSScorecard label="ROAS"       value={t.roas ? t.roas + 'x' : '—'} delta={t.roas_delta || ''} deltaTone={t.roas_delta?.startsWith('-') ? 'down' : 'up'} color="#EA4335"/>
       </div>
       <div className="col-span-12 lg:col-span-7">
         <DSCard title="TikTok — Spend vs Donations">

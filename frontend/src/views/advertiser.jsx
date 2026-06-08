@@ -1,6 +1,9 @@
 function AdvertiserView() {
-  const { trafficSources, campaignSeed, dailyDonations } = window.NB;
-  const [costInputs, setCostInputs] = useStateA({ meta: 92_400_000, google: 58_300_000, tiktok: 41_800_000 });
+  const trafficSources = window.ANALYTICS_TRAFFIC || window.TRAFFIC_SOURCES || [];
+  const dailyDonations = window.DAILY_DONATIONS || [];
+  const campaigns = window.CAMPAIGNS || [];
+  const ov = window.ANALYTICS_OVERVIEW || {};
+  const [costInputs, setCostInputs] = useStateA({ meta: 0, google: 0, tiktok: 0 });
 
   return (
     <div className="space-y-5">
@@ -21,10 +24,10 @@ function AdvertiserView() {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon="eye"    label="Visitor Iklan" value={fmtNum(102220)} delta="+22.4%" accent="brand"/>
-        <StatCard icon="target" label="Lead Tertangkap" value={fmtNum(11662)} delta="+18%" accent="sky"/>
-        <StatCard icon="heart"  label="Donasi via Ads" value={fmtNum(3946)} delta="+9.8%" accent="ok"/>
-        <StatCard icon="sparkle" label="ROAS Gabungan" value="3.8x" delta="+0.3x" accent="warn"/>
+        <StatCard icon="eye"    label="Visitor Iklan" value={fmtNum(ov.total_visitors || 0)} delta={ov.visitors_delta || ''} accent="brand"/>
+        <StatCard icon="target" label="Lead Tertangkap" value={fmtNum(ov.total_leads || 0)} delta={ov.leads_delta || ''} accent="sky"/>
+        <StatCard icon="heart"  label="Donasi via Ads" value={fmtNum(ov.total_donations || 0)} delta={ov.donations_delta || ''} accent="ok"/>
+        <StatCard icon="sparkle" label="ROAS Gabungan" value={ov.roas ? ov.roas + 'x' : '—'} delta={ov.roas_delta || ''} accent="warn"/>
       </div>
 
       {/* Per-platform performance */}
@@ -149,9 +152,9 @@ function AdvertiserView() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { c: campaignSeed[1], reason:'CVR tertinggi 6.8% · gandakan budget 30%', tone:'ok' },
-            { c: campaignSeed[0], reason:'CPL turun -22% minggu ini · scale ke TikTok', tone:'sky' },
-            { c: campaignSeed[2], reason:'ROAS 4.2x · stable performer · pertahankan', tone:'brand' },
+            { c: campaigns[0], reason:'Campaign teratas · pertahankan performa', tone:'ok' },
+            { c: campaigns[1], reason:'Campaign kedua · evaluasi optimasi', tone:'sky' },
+            { c: campaigns[2], reason:'Campaign aktif · monitor ROAS', tone:'brand' },
           ].map((r, i) => (
             <div key={i} className="rounded-xl border border-line p-4">
               <div className="h-24 rounded-lg mb-3" style={{ background: r.c.thumb }}>

@@ -105,7 +105,7 @@ function DataStudioView() {
             <div className="h-8 w-8 border-3 border-brand-600 border-t-transparent rounded-full animate-spin"/>
           </div>
         )}
-        {page === 'overview' && <DSOverview daily={dsData.overview?.daily_donations || dailyDonations} sources={dsData.overview?.traffic_sources || trafficSources} campaigns={dsData.overview?.campaigns || campaignSeed}/>}
+        {page === 'overview' && <DSOverview daily={dsData.overview?.daily_donations || dailyDonations} sources={dsData.overview?.traffic_sources || trafficSources} campaigns={dsData.overview?.campaigns || campaignSeed} data={dsData.overview}/>}
         {page === 'meta'     && <DSMeta data={dsData.meta}/>}
         {page === 'google'   && <DSGoogle daily={dsData.google?.daily_donations || dailyDonations} data={dsData.google}/>}
         {page === 'tiktok'   && <DSTiktok data={dsData.tiktok}/>}
@@ -183,17 +183,19 @@ function DSScorecard({ label, value, delta, deltaTone = 'up', color = '#1A73E8',
 // =============================================================
 // OVERVIEW PAGE
 // =============================================================
-function DSOverview({ daily, sources, campaigns }) {
+function DSOverview({ daily, sources, campaigns, data }) {
+  const d = data || {};
+  const s = d.scorecards || {};
   return (
     <div className="grid grid-cols-12 gap-4">
       {/* Scorecards */}
       <div className="col-span-12 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <DSScorecard label="Sessions"      value={fmtNum(184_290)}   delta="+24.1%" color="#1A73E8"/>
-        <DSScorecard label="Donors"        value={fmtNum(13_072)}    delta="+18.0%" color="#0F9D58"/>
-        <DSScorecard label="Donations"     value={fmtNum(4_558)}     delta="+12.4%" color="#F4B400"/>
-        <DSScorecard label="Revenue"       value={fmtIDRShort(1_842_315_500)} delta="+22.1%" color="#EA4335"/>
-        <DSScorecard label="ROAS"          value="3.8x"              delta="+0.3x"  color="#4285F4"/>
-        <DSScorecard label="CVR"           value="2.47%"             delta="+0.4pp" color="#9C27B0"/>
+        <DSScorecard label="Sessions"      value={fmtNum(s.sessions || 0)}     delta={s.sessions_delta || ''} color="#1A73E8"/>
+        <DSScorecard label="Donors"        value={fmtNum(s.donors || 0)}       delta={s.donors_delta || ''} color="#0F9D58"/>
+        <DSScorecard label="Donations"     value={fmtNum(s.donations || 0)}    delta={s.donations_delta || ''} color="#F4B400"/>
+        <DSScorecard label="Revenue"       value={fmtIDRShort(s.revenue || 0)} delta={s.revenue_delta || ''} color="#EA4335"/>
+        <DSScorecard label="ROAS"          value={s.roas ? s.roas + 'x' : '—'} delta={s.roas_delta || ''} color="#4285F4"/>
+        <DSScorecard label="CVR"           value={s.cvr ? s.cvr + '%' : '—'}   delta={s.cvr_delta || ''} color="#9C27B0"/>
       </div>
 
       {/* Time series + Source mix */}
@@ -233,12 +235,12 @@ function DSOverview({ daily, sources, campaigns }) {
       <div className="col-span-12 lg:col-span-4">
         <DSCard title="Top KPI dibanding target Q2">
           <div className="space-y-3">
-            {[
-              { l:'Revenue',  v:1842, t:2500, suf:' jt', color:'#1A73E8' },
-              { l:'Donors',   v:13072, t:18000, suf:'',   color:'#0F9D58' },
-              { l:'CVR',      v:2.47, t:3.5, suf:'%',     color:'#F4B400' },
-              { l:'ROAS',     v:3.8, t:4.0, suf:'x',     color:'#EA4335' },
-            ].map((k, i) => {
+            {(d.kpi_targets || [
+              { l:'Revenue',  v: (s.revenue||0)/1e6, t: (s.revenue_target||0)/1e6 || 1, suf:' jt', color:'#1A73E8' },
+              { l:'Donors',   v: s.donors||0, t: s.donors_target||1, suf:'',   color:'#0F9D58' },
+              { l:'CVR',      v: s.cvr||0, t: s.cvr_target||1, suf:'%',     color:'#F4B400' },
+              { l:'ROAS',     v: s.roas||0, t: s.roas_target||1, suf:'x',     color:'#EA4335' },
+            ]).map((k, i) => {
               const pct = Math.min(100, (k.v / k.t) * 100);
               return (
                 <div key={i}>
@@ -272,14 +274,18 @@ function DSOverview({ daily, sources, campaigns }) {
                 </tr>
               </thead>
               <tbody>
-                {[
-                  { sm:'facebook / paid',  s:48230, d:5612, rev:520_400_000, roas:3.6, color:'#1877F2' },
-                  { sm:'google / cpc',     s:22150, d:2840, rev:412_300_000, roas:4.1, color:'#34A853' },
-                  { sm:'tiktok / paid',    s:31840, d:3210, rev:298_200_000, roas:2.9, color:'#000000' },
-                  { sm:'instagram / social', s:9120, d:870, rev:118_400_000, roas:'∞', color:'#E4405F' },
-                  { sm:'(direct) / (none)',  s:13770, d:1410, rev:284_010_000, roas:'∞', color:'#94A3B8' },
-                  { sm:'google / organic',   s:18920, d:1240, rev:209_005_500, roas:'∞', color:'#34A853' },
-                ].map((r, i) => (
+                {(d.channels || sources || []).length === 0 && (
+                  <tr><td colSpan="6" className="px-4 py-6 text-center text-mute text-xs">Belum ada data channel</td></tr>
+                )}
+                {(d.channels || sources || []).map((r, i) => {
+                  const sm = r.sm || r.source_medium || ((r.name || '') + ' / ' + (r.medium || ''));
+                  const s2 = r.s || r.sessions || r.visits || 0;
+                  const d2 = r.d || r.donors || 0;
+                  const rev = r.rev || r.revenue || 0;
+                  const roas = r.roas || (rev > 0 && s2 > 0 ? (rev / s2 * 10).toFixed(1) : '—');
+                  const color = r.color || '#94A3B8';
+                  return { sm, s: s2, d: d2, rev, roas, color };
+                }).map((r, i) => (
                   <tr key={i} className="border-b border-line/60 last:border-0 hover:bg-bg2/60">
                     <td className="px-4 py-2.5">
                       <span className="inline-flex items-center gap-1.5">
@@ -409,15 +415,16 @@ function DSOverview({ daily, sources, campaigns }) {
 // =============================================================
 // META ADS PAGE
 // =============================================================
-function DSMeta() {
+function DSMeta({ data }) {
+  const m = data || {};
   return (
     <div className="grid grid-cols-12 gap-4">
       <div className="col-span-12 grid grid-cols-2 md:grid-cols-5 gap-3">
-        <DSScorecard label="Ad Spend"   value={fmtIDRShort(92_400_000)}  delta="+12%" color="#1877F2"/>
-        <DSScorecard label="Impressions" value={fmtNum(2_840_120)}        delta="+8%"  color="#1877F2"/>
-        <DSScorecard label="CTR"        value="3.42%"                     delta="+0.4pp" color="#1877F2"/>
-        <DSScorecard label="Donations"  value={fmtNum(1_842)}             delta="+18%" color="#0F9D58"/>
-        <DSScorecard label="ROAS"       value="3.6x"                      delta="+0.2x" color="#EA4335"/>
+        <DSScorecard label="Ad Spend"   value={fmtIDRShort(m.ad_spend || 0)}  delta={m.ad_spend_delta || ''} color="#1877F2"/>
+        <DSScorecard label="Impressions" value={fmtNum(m.impressions || 0)}    delta={m.impressions_delta || ''} color="#1877F2"/>
+        <DSScorecard label="CTR"        value={m.ctr ? m.ctr + '%' : '—'}     delta={m.ctr_delta || ''} color="#1877F2"/>
+        <DSScorecard label="Donations"  value={fmtNum(m.donations || 0)}       delta={m.donations_delta || ''} color="#0F9D58"/>
+        <DSScorecard label="ROAS"       value={m.roas ? m.roas + 'x' : '—'}   delta={m.roas_delta || ''} color="#EA4335"/>
       </div>
 
       <div className="col-span-12 lg:col-span-8">
@@ -497,14 +504,15 @@ function DSMeta() {
 // =============================================================
 // GOOGLE PAGE
 // =============================================================
-function DSGoogle({ daily }) {
+function DSGoogle({ daily, data }) {
+  const g = data || {};
   return (
     <div className="grid grid-cols-12 gap-4">
       <div className="col-span-12 grid grid-cols-2 md:grid-cols-5 gap-3">
-        <DSScorecard label="Ad Spend"    value={fmtIDRShort(58_300_000)} delta="+9%" color="#34A853"/>
-        <DSScorecard label="Impr."        value={fmtNum(1_820_140)}        delta="+12%" color="#34A853"/>
+        <DSScorecard label="Ad Spend"    value={fmtIDRShort(g.ad_spend || 0)} delta={g.ad_spend_delta || ''} color="#34A853"/>
+        <DSScorecard label="Impr."        value={fmtNum(g.impressions || 0)}  delta={g.impressions_delta || ''} color="#34A853"/>
         <DSScorecard label="CTR"          value="4.18%"                    delta="+0.6pp" color="#34A853"/>
-        <DSScorecard label="GA4 Sessions" value={fmtNum(82_440)}           delta="+14%" color="#4285F4"/>
+        <DSScorecard label="GA4 Sessions" value={fmtNum(g.ga4_sessions || 0)} delta={g.ga4_delta || ''} color="#4285F4"/>
         <DSScorecard label="ROAS"         value="4.1x"                     delta="+0.3x" color="#EA4335"/>
       </div>
       <div className="col-span-12 lg:col-span-7">
@@ -584,7 +592,8 @@ function DSGoogle({ daily }) {
 // =============================================================
 // TIKTOK PAGE
 // =============================================================
-function DSTiktok() {
+function DSTiktok({ data }) {
+  const t = data || {};
   return (
     <div className="grid grid-cols-12 gap-4">
       <div className="col-span-12 rounded-md bg-rose-50 border border-rose-200 px-4 py-3 flex items-center gap-2 text-rose-700 text-xs font-semibold">
@@ -592,10 +601,10 @@ function DSTiktok() {
         <button className="ml-auto text-rose-700 font-bold hover:underline">Reconnect</button>
       </div>
       <div className="col-span-12 grid grid-cols-2 md:grid-cols-5 gap-3">
-        <DSScorecard label="Ad Spend"   value={fmtIDRShort(41_800_000)} delta="+22%" color="#000000"/>
-        <DSScorecard label="Views"      value={fmtNum(8_240_000)}       delta="+34%" color="#FF0050"/>
+        <DSScorecard label="Ad Spend"   value={fmtIDRShort(t.ad_spend || 0)} delta={t.ad_spend_delta || ''} color="#000000"/>
+        <DSScorecard label="Views"      value={fmtNum(t.views || 0)}        delta={t.views_delta || ''} color="#FF0050"/>
         <DSScorecard label="VTR (3s)"   value="62.4%"                   delta="+4pp" color="#00F2EA"/>
-        <DSScorecard label="Donations"  value={fmtNum(980)}              delta="+18%" color="#0F9D58"/>
+        <DSScorecard label="Donations"  value={fmtNum(t.donations || 0)} delta={t.donations_delta || ''} color="#0F9D58"/>
         <DSScorecard label="ROAS"       value="2.9x"                    delta="-0.1x" deltaTone="down" color="#EA4335"/>
       </div>
       <div className="col-span-12 lg:col-span-7">

@@ -100,7 +100,7 @@ function Hero({ onNav }) {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-line shadow-card text-xs font-bold text-ink">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"/>
-            <span>2.412 donatur aktif hari ini</span>
+            <span>{fmtNum(window.TOTAL_DONORS || 0)} donatur aktif</span>
             <span className="text-mute font-normal hidden sm:inline">· Update real-time</span>
           </div>
 
@@ -123,8 +123,8 @@ function Hero({ onNav }) {
 
           <div className="mt-8 grid grid-cols-3 gap-3 max-w-md">
             {[
-              { v:'1,8 M+', l:'Donasi tersalurkan' },
-              { v:'182 rb+', l:'Donatur bersama' },
+              { v: fmtIDRShort(window.TOTAL_RAISED || 0), l:'Donasi tersalurkan' },
+              { v: fmtNum(window.TOTAL_DONORS || 0) + '+', l:'Donatur bersama' },
               { v:'4,9★',   l:'Trust rating' },
             ].map((s, i) => (
               <div key={i} className="bg-white/80 backdrop-blur border border-line rounded-xl p-3">
@@ -232,7 +232,7 @@ function TrustStrip() {
 function StatsSection() {
   const stats = [
     { icon:'wallet',    v:'Rp 1,84 M+', l:'Donasi tersalurkan' },
-    { icon:'users',     v:'182.412',    l:'Donatur bersama' },
+    { icon:'users',     v:fmtNum(window.TOTAL_DONORS || 0), l:'Donatur bersama' },
     { icon:'megaphone', v:'412',        l:'Campaign aktif' },
     { icon:'pin',       v:'34 Provinsi',l:'Jangkauan program' },
   ];

@@ -33,15 +33,6 @@ function CampaignsView() {
         title="Campaigns"
         subtitle="Kelola seluruh campaign donasi NIATBAIK.ORG."
         actions={<>
-          <Btn variant="outline" tone="ink" icon="download" onClick={() => {
-            const rows = filtered.map(c => ({
-              judul: c.title, kategori: c.category, target: c.target, terkumpul: c.raised,
-              donatur: c.donors, status: c.status, sisa_hari: c.daysLeft
-            }));
-            if (!rows.length) { showToast('Tidak ada data'); return; }
-            exportCSV(rows, 'niatbaik_campaigns');
-            showToast(rows.length + ' campaign diekspor');
-          }}>Export</Btn>
           <Btn icon="plus" onClick={goCreate}>Create Campaign</Btn>
         </>}
       />
@@ -106,8 +97,12 @@ function CampaignsView() {
                 <tr key={c.id} className="border-b border-line last:border-0 hover:bg-bg2/60">
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-14 rounded-md overflow-hidden shrink-0" style={{background:c.thumb}}>
-                        <div className="h-full flex items-center justify-center text-white/90"><Icon name={c.icon} size={16}/></div>
+                      <div className="h-10 w-14 rounded-md overflow-hidden shrink-0 bg-bg2" style={c.img ? {} : {background:c.thumb}}>
+                        {c.img ? (
+                          <img src={c.img} alt={c.title||''} className="h-full w-full object-cover" onError={(e)=>{e.target.style.display='none';}}/>
+                        ) : (
+                          <div className="h-full flex items-center justify-center text-white/90"><Icon name={c.icon} size={16}/></div>
+                        )}
                       </div>
                       <div>
                         <div className="font-semibold text-ink leading-tight">{c.title}</div>
@@ -214,8 +209,8 @@ function CampaignOptionMenu({ c, onEdit, onPreview, onDelete, align = 'right' })
     { l: `Add Info Update (${updateCount})`, icon: 'pin',      onClick: () => { setOpen(false); showToast('Form update campaign dibuka'); } },
     { l: 'Data Donasi',                icon: 'wallet',   onClick: () => { setOpen(false); showToast('Membuka data donasi'); } },
     { l: 'Preview',                    icon: 'eye',      onClick: () => { setOpen(false); onPreview && onPreview(); } },
-    { l: 'Buka di Tab Baru',            icon: 'eye',      onClick: () => { setOpen(false); window.open(`https://niatbaik.org/c/${c.id}`, '_blank'); } },
-    { l: 'Salin URL',                  icon: 'copy',     onClick: () => { setOpen(false); navigator.clipboard?.writeText(`https://niatbaik.org/c/${c.id}`); showToast('URL campaign disalin'); } },
+    { l: 'Buka di Tab Baru',            icon: 'eye',      onClick: () => { setOpen(false); window.open(`https://donasi.niatbaik.org/c/${c.slug || c.id}`, '_blank'); } },
+    { l: 'Salin URL',                  icon: 'copy',     onClick: () => { setOpen(false); navigator.clipboard?.writeText(`https://donasi.niatbaik.org/c/${c.slug || c.id}`); showToast('URL campaign disalin'); } },
     { sep: true },
     { l: 'Delete Data',                icon: 'trash',    onClick: () => { setOpen(false); onDelete && onDelete(); }, danger: true },
     { l: 'Delete All',                 icon: 'trash',    onClick: () => { setOpen(false); showToast('Semua data terkait dihapus'); }, danger: true },
@@ -275,9 +270,9 @@ function CampaignDetailModal({ campaign, onClose }) {
     <Modal open={true} onClose={onClose} title="Preview Halaman Campaign" size="xl"
       footer={<>
         <span className="text-xs text-mute mr-auto flex items-center gap-1.5">
-          <Icon name="globe" size={14}/> niatbaik.org/c/{c.id}
+          <Icon name="globe" size={14}/> donasi.niatbaik.org/c/{c.slug || c.id}
         </span>
-        <Btn variant="outline" tone="ink" icon="copy" onClick={() => { navigator.clipboard?.writeText('https://niatbaik.org/c/' + c.id); showToast('URL disalin'); }}>Salin URL</Btn>
+        <Btn variant="outline" tone="ink" icon="copy" onClick={() => { navigator.clipboard?.writeText('https://donasi.niatbaik.org/c/' + (c.slug || c.id)); showToast('URL disalin'); }}>Salin URL</Btn>
         <Btn variant="outline" tone="ink" icon="edit" onClick={() => { onClose(); setEditingCampaign(c); setView('campaign-editor'); }}>Edit campaign</Btn>
         <Btn icon="eye" onClick={() => window.open('https://donasi.niatbaik.org/c/' + (c.slug || c.id), '_blank')}>Buka di tab baru</Btn>
       </>}>
@@ -292,7 +287,7 @@ function CampaignDetailModal({ campaign, onClose }) {
             </div>
             <div className="ml-2 flex-1 h-6 rounded-md bg-white border border-line flex items-center px-2.5 text-[11px] font-mono text-mute">
               <Icon name="shield" size={12} className="mr-1.5 text-emerald-600"/>
-              niatbaik.org/c/{c.id}
+              donasi.niatbaik.org/c/{c.slug || c.id}
             </div>
           </div>
 

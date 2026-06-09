@@ -93,7 +93,7 @@ func (r *CampaignRepo) FindByID(id uuid.UUID) (*model.Campaign, error) {
 func (r *CampaignRepo) FindFeatured(limit int) ([]model.Campaign, error) {
 	var campaigns []model.Campaign
 	err := r.db.Preload("Category").Preload("User").
-		Where("featured = ? AND status IN ?", true, []string{"Berjalan", "Running"}).
+		Where("featured = ? AND status IN ?", true, []string{"Berjalan", "Running", "Published"}).
 		Order("created_at desc").Limit(limit).
 		Find(&campaigns).Error
 	return campaigns, err

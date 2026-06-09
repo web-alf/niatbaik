@@ -114,7 +114,7 @@ html.dark .hover\:bg-emerald-50:hover { background-color: rgba(16,185,129,.18) !
 
 /* Shadows on dark */
 html.dark .shadow-card { box-shadow: 0 1px 2px 0 rgba(0,0,0,.5), 0 1px 3px 0 rgba(0,0,0,.4) !important; }
-html.dark .shadow-pop { box-shadow: 0 12px 32px -8px rgba(0,0,0,.65), 0 4px 12px -2px rgba(0,0,0,.45) !important; }
+html.dark .shadow-pop { box-shadow: none !important; }
 
 /* Code snippets */
 html.dark pre.bg-ink { background-color: #060B17 !important; }

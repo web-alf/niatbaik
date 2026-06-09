@@ -37,3 +37,21 @@ func (r *CategoryRepo) FindBySlug(slug string) (*model.Category, error) {
 	}
 	return &c, nil
 }
+
+func (r *CategoryRepo) SlugExists(slug string) bool {
+	var count int64
+	r.db.Model(&model.Category{}).Where("slug = ?", slug).Count(&count)
+	return count > 0
+}
+
+func (r *CategoryRepo) Create(c *model.Category) error {
+	return r.db.Create(c).Error
+}
+
+func (r *CategoryRepo) Update(c *model.Category) error {
+	return r.db.Save(c).Error
+}
+
+func (r *CategoryRepo) Delete(id uuid.UUID) error {
+	return r.db.Delete(&model.Category{}, "id = ?", id).Error
+}

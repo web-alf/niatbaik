@@ -2,7 +2,6 @@ package service
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -50,7 +49,8 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 	if err != nil {
 		return nil, fmt.Errorf("campaign not found")
 	}
-	if campaign.Status != "Berjalan" && campaign.Status != "Running" {
+	active := campaign.Status == "Berjalan" || campaign.Status == "Running" || campaign.Status == "Published"
+	if !active {
 		return nil, fmt.Errorf("campaign is not active")
 	}
 
@@ -140,21 +140,29 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 		return nil, txErr
 	}
 
-	// Create Flip payment bill if gateway selected and configured.
+	// Create Flip payment bill only when Flip is enabled + configured.
 	if isGateway && s.flipService != nil {
-		redirectURL := fmt.Sprintf("https://donasi.niatbaik.org/donations/%s", invoice.InvoiceNumber)
-		bill, flipErr := s.flipService.CreateBill(&invoice, redirectURL)
-		if flipErr != nil || bill == nil {
-			// Flip timeout/failure — mark invoice so it doesn't hang without instructions.
-			invoice.Status = "Gagal Gateway"
+		settings, _ := s.settingRepo.Get()
+		flipReady := settings != nil && settings.FlipEnabled
+		if flipReady {
+			redirectURL := fmt.Sprintf("https://donasi.niatbaik.org/donations/%s", invoice.InvoiceNumber)
+			bill, flipErr := s.flipService.CreateBill(&invoice, redirectURL)
+			if flipErr == nil && bill != nil {
+				invoice.PayCode = fmt.Sprintf("%d", bill.LinkID)
+				invoice.QrURL = bill.PaymentURL
+				invoice.URLAlternative = bill.LinkURL
+				invoice.TypePayment = "Flip"
+				_ = s.invoiceRepo.Update(&invoice)
+			} else {
+				// Flip failed — fall back to manual QRIS/transfer, keep invoice valid.
+				invoice.TypePayment = "QRIS Manual"
+				_ = s.invoiceRepo.Update(&invoice)
+			}
+		} else {
+			// Flip disabled — manual QRIS. Invoice stays "Menunggu Pembayaran".
+			invoice.TypePayment = "QRIS Manual"
 			_ = s.invoiceRepo.Update(&invoice)
-			return nil, errors.New("gagal membuat tagihan pembayaran, silakan coba lagi")
 		}
-		invoice.PayCode = fmt.Sprintf("%d", bill.LinkID)
-		invoice.QrURL = bill.PaymentURL
-		invoice.URLAlternative = bill.LinkURL
-		invoice.TypePayment = "Flip"
-		_ = s.invoiceRepo.Update(&invoice)
 	}
 
 	invoice.Campaign = *campaign

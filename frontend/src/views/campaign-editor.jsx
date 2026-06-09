@@ -6,14 +6,14 @@ function CampaignEditorView() {
 
   // ---- form state ----
   const [title, setTitle] = useStateA(c?.title || '');
-  const [content, setContent] = useStateA(c ? `<h2>Bingung Mau Bayar Fidyah Kemana?</h2>\n<p><em>Fidyah Disini Aja, Semuanya Kami Handle!</em></p>\n<p>Fidyah merupakan istilah dalam agama Islam yang mengacu pada kewajiban membayar denda atau ganti rugi atas ketidakmampuan seseorang untuk melakukan ibadah puasa selama bulan Ramadhan karena ada alasan tertentu.</p>\n<p><b>Cara Menghitung Fidyah:</b><br/>Jika hutang puasamu 10 hari maka dikalikan dengan 45.000, jadi 10 × 45.000 = 450.000, untuk 10 paket nasi.</p>` : '');
+  const [content, setContent] = useStateA(c?.description || c?.short_description || '');
   const [target, setTarget] = useStateA(c?.target || 0);
   const [endDate, setEndDate] = useStateA('2026-08-31');
-  const [location, setLocation] = useStateA('');
-  const [gmaps, setGmaps] = useStateA('');
+  const [location, setLocation] = useStateA(c?.location_name || '');
+  const [gmaps, setGmaps] = useStateA(c?.location_gmaps || '');
   const [category, setCategory] = useStateA(c?.category || 'Uncategorized');
   const [status, setStatus] = useStateA(c?.status || 'Draft');
-  const [thumb, setThumb] = useStateA(c?.thumb || null);
+  const [thumb, setThumb] = useStateA(c?.img || c?.thumb || null);
 
   // Editable URL slugs
   const autoSlug = (title || c?.title || 'kampanye-baru').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
@@ -34,15 +34,15 @@ function CampaignEditorView() {
     payment: 'Default',
     form: 'Default',
     fundraising: 'Default',
-    wa: 'Default',
-    followup: 'Default',
-    metaPixel: 'Default',
-    tiktokPixel: 'Default',
-    gtm: 'Default',
+    wa: c?.wa_notification ? 'Custom' : 'Default',
+    followup: c?.followup_enabled ? 'Custom' : 'Default',
+    metaPixel: c?.meta_pixel_id ? 'Custom' : 'Default',
+    tiktokPixel: c?.tiktok_pixel_id ? 'Custom' : 'Default',
+    gtm: c?.gtm_id ? 'Custom' : 'Default',
     socialProof: 'Hide',
-    popupInfo: 'Hide',
-    waFlying: 'Default',
-    extLink: 'Default',
+    popupInfo: c?.popup_info ? 'Show' : 'Hide',
+    waFlying: c?.wa_flying_button ? 'Custom' : 'Default',
+    extLink: c?.external_link ? 'Custom' : 'Default',
     general: 'Default',
   });
 
@@ -58,18 +58,26 @@ function CampaignEditorView() {
   });
 
   // Nominal preset rows
-  const [nominals, setNominals] = useStateA([]);
-  const [minDonasi, setMinDonasi] = useStateA('');
-  const [maxDonasi, setMaxDonasi] = useStateA(0);
+  const parseNominals = (v) => {
+    let arr = v;
+    if (typeof v === 'string' && v.trim()) { try { arr = JSON.parse(v); } catch { arr = []; } }
+    if (!Array.isArray(arr)) return [];
+    return arr.map(n => (typeof n === 'object' && n !== null)
+      ? { amount: +n.amount || 0, label: n.label || '', fav: !!n.fav }
+      : { amount: +n || 0, label: '', fav: false });
+  };
+  const [nominals, setNominals] = useStateA(parseNominals(c?.opt_nominal));
+  const [minDonasi, setMinDonasi] = useStateA(c?.min_donation || '');
+  const [maxDonasi, setMaxDonasi] = useStateA(c?.max_donation || 0);
 
   const [advCustom, setAdvCustom] = useStateA({
     fundraiserPct: '10', fundraiserEnabled: true,
     waNumber: '', waTemplate: '',
     followupMsg: '', paymentSuccessMsg: '',
-    metaPixelId: '', tiktokPixelId: '', gtmId: '',
+    metaPixelId: c?.meta_pixel_id || '', tiktokPixelId: c?.tiktok_pixel_id || '', gtmId: c?.gtm_id || '',
     metaPixelEnabled: true, metaCAPIEnabled: false, metaCAPIToken: '', metaTestEvent: '',
     waFlyingNumber: '', waFlyingText: 'Chat via WhatsApp',
-    extLinkUrl: '', extLinkText: 'Kunjungi website',
+    extLinkUrl: c?.external_link || '', extLinkText: 'Kunjungi website',
     paymentRows: [{ bank:'', account:'', holder:'', method:'instant' }],
     popupTitle: '', popupDesc: '', popupButton: 'Ya, Lanjutkan',
   });
@@ -88,13 +96,20 @@ function CampaignEditorView() {
       title: title.trim(),
       description: desc,
       short_description: shortDesc,
-      status: publish ? 'Published' : 'Draft',
+      status: publish ? 'Berjalan' : 'Draft',
     };
     // Optional fields — only include if has value
     if (target > 0) payload.target = Number(target);
     if (location.trim()) payload.location_name = location.trim();
     if (gmaps.trim()) payload.location_gmaps = gmaps.trim();
-    if (thumb) payload.thumb_gradient = thumb;
+    // thumb may be a CSS gradient or an uploaded image URL — route to the right field
+    if (thumb) {
+      if (typeof thumb === 'string' && thumb.startsWith('linear')) {
+        payload.thumb_gradient = thumb;
+      } else {
+        payload.image = String(thumb).replace(/^\/uploads\//, '');
+      }
+    }
     if (formStyle) payload.form_type = formStyle;
     if (formMode) payload.form_style = formMode;
     if (minDonasi > 0) payload.min_donation = minDonasi;

@@ -32,7 +32,7 @@ module.exports = {
       },
       boxShadow: {
         card: '0 1px 2px 0 rgba(15,23,42,.04), 0 1px 3px 0 rgba(15,23,42,.06)',
-        pop: '0 12px 32px -8px rgba(15,23,42,.18), 0 4px 12px -2px rgba(15,23,42,.08)',
+        pop: 'none', // popups use border only (per QA feedback — no shadow on popups)
       },
       borderRadius: {
         xl2: '1rem',

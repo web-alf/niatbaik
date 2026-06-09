@@ -1,3 +1,9 @@
+const parseArr = (v, fb) => {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string' && v.trim()) { try { const p = JSON.parse(v); if (Array.isArray(p)) return p; } catch {} }
+  return fb;
+};
+
 function SettingsView() {
   const { showToast } = useApp();
   const [tab, setTab] = useStateA('themes');
@@ -201,24 +207,27 @@ function ThemesPanel({ settings, onSave }) {
   );
 }
 
+const DEFAULT_FIELDS = [
+  { label:'Nama donatur',       enabled:true,  required:true },
+  { label:'No. WhatsApp',       enabled:true,  required:true },
+  { label:'Email',              enabled:true,  required:false },
+  { label:'Alamat',             enabled:false, required:false },
+  { label:'NPWP (zakat)',       enabled:false, required:false },
+  { label:'Doa / pesan donatur', enabled:true, required:false },
+  { label:'Checkbox anonim',    enabled:true,  required:false },
+];
+const DEFAULT_PRESETS = [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
+
 function FormPanel({ settings, onSave }) {
   const { showToast } = useApp();
-  const [fields, setFields] = useStateA(settings?.form_fields || [
-    { label:'Nama donatur',       enabled:true,  required:true },
-    { label:'No. WhatsApp',       enabled:true,  required:true },
-    { label:'Email',              enabled:true,  required:false },
-    { label:'Alamat',             enabled:false, required:false },
-    { label:'NPWP (zakat)',       enabled:false, required:false },
-    { label:'Doa / pesan donatur', enabled:true, required:false },
-    { label:'Checkbox anonim',    enabled:true,  required:false },
-  ]);
-  const [presets, setPresets] = useStateA(settings?.nominal_presets || [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000]);
+  const [fields, setFields] = useStateA(parseArr(settings?.form_fields_config, DEFAULT_FIELDS));
+  const [presets, setPresets] = useStateA(parseArr(settings?.nominal_presets, DEFAULT_PRESETS));
   const [minDonation, setMinDonation] = useStateA(settings?.min_donation || 'Rp 10.000');
   const [allowAnon, setAllowAnon] = useStateA(settings?.allow_anon ?? true);
   const [allowDoa, setAllowDoa] = useStateA(settings?.allow_doa ?? true);
   const [newPreset, setNewPreset] = useStateA('');
-  useEffectA(() => { if (settings?.form_fields) setFields(settings.form_fields); }, [settings]);
-  useEffectA(() => { if (settings?.nominal_presets) setPresets(settings.nominal_presets); }, [settings]);
+  useEffectA(() => { setFields(parseArr(settings?.form_fields_config, DEFAULT_FIELDS)); }, [settings]);
+  useEffectA(() => { setPresets(parseArr(settings?.nominal_presets, DEFAULT_PRESETS)); }, [settings]);
   useEffectA(() => { if (settings?.min_donation) setMinDonation(settings.min_donation); }, [settings]);
   useEffectA(() => { if (settings?.allow_anon != null) setAllowAnon(settings.allow_anon); }, [settings]);
   useEffectA(() => { if (settings?.allow_doa != null) setAllowDoa(settings.allow_doa); }, [settings]);
@@ -238,7 +247,7 @@ function FormPanel({ settings, onSave }) {
     <>
       <Section title="Field Form Donasi" sub="Atur field yang muncul pada form donasi.">
         <div className="space-y-3">
-          {fields.map((f, i) => (
+          {(Array.isArray(fields)?fields:[]).map((f, i) => (
             <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-line">
               <div className="font-semibold text-ink flex-1">{f.label}</div>
               <label className="text-xs text-mute flex items-center gap-2">Required
@@ -255,7 +264,7 @@ function FormPanel({ settings, onSave }) {
           <div>
             <label className="text-xs font-semibold text-mute">Preset nominal</label>
             <div className="flex flex-wrap gap-2 mt-2">
-              {presets.map((p) => (
+              {(Array.isArray(presets)?presets:[]).map((p) => (
                 <span key={p} className="px-2.5 py-1 rounded-md border border-line bg-bg2 text-xs font-bold text-ink inline-flex items-center gap-1">
                   {fmtIDRShort(p)}
                   <button onClick={() => removePreset(p)} className="text-mute hover:text-rose-600"><Icon name="close" size={12}/></button>
@@ -894,17 +903,18 @@ function TrackingPanel({ settings, onSave }) {
   ];
   const events = ['PageView','ViewContent','InitiateCheckout','AddPaymentInfo','Lead','CompleteDonation','Purchase'];
 
-  const [lookerReports, setLookerReports] = useStateA(settings?.looker_reports || [
+  const DEFAULT_LOOKER = [
     { name:'Overview Donasi (Master)',   url:'lookerstudio.google.com/reporting/a1b2-…',  updated:'baru saja', status:'active', dim:'47 widget · 6 page', owner:'andre@niatbaik.org' },
     { name:'Performa Meta Ads',          url:'lookerstudio.google.com/reporting/x9y8-…',  updated:'5 menit lalu', status:'active', dim:'18 widget · 2 page', owner:'dewi@niatbaik.org' },
     { name:'Performa Google Ads + GA4',  url:'lookerstudio.google.com/reporting/k3l4-…',  updated:'1 jam lalu',  status:'active', dim:'22 widget · 3 page', owner:'dewi@niatbaik.org' },
     { name:'TikTok Ads Funnel',          url:'lookerstudio.google.com/reporting/p7q8-…',  updated:'belum sync',  status:'error',  dim:'14 widget · 2 page', owner:'rahmat@niatbaik.org' },
-  ]);
+  ];
+  const [lookerReports, setLookerReports] = useStateA(parseArr(settings?.looker_reports, DEFAULT_LOOKER));
   const [lookerModal, setLookerModal] = useStateA(false);
   const [lookerForm, setLookerForm] = useStateA({ name:'', url:'' });
   const [editingLooker, setEditingLooker] = useStateA(null);
 
-  useEffectA(() => { if (settings?.looker_reports) setLookerReports(settings.looker_reports); }, [settings]);
+  useEffectA(() => { setLookerReports(parseArr(settings?.looker_reports, DEFAULT_LOOKER)); }, [settings]);
 
   useEffectA(() => {
     if (!settings) return;
@@ -978,7 +988,7 @@ function TrackingPanel({ settings, onSave }) {
       <Section title="Looker Studio Reports" sub="Hubungkan dashboard Looker Studio (Data Studio) untuk konsolidasi semua data ads & donasi dalam satu tampilan."
         actions={<Btn size="sm" tone="brand" icon="chart" onClick={() => { try { window.dispatchEvent(new CustomEvent('nb-go-datastudio')); } catch{} }}>Buka Data Studio</Btn>}>
         <div className="space-y-3">
-          {lookerReports.map((r, i) => (
+          {(Array.isArray(lookerReports)?lookerReports:[]).map((r, i) => (
             <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-line">
               <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-[#4285F4] via-[#0F9D58] to-[#F4B400] text-white flex items-center justify-center shrink-0">
                 <Icon name="chart" size={18}/>
@@ -1167,27 +1177,34 @@ function SocialPanel({ settings, onSave }) {
   );
 }
 
+const DEFAULT_RULES = [
+  { c:'Bantuan Aira', pct:12 },
+  { c:'Sumur Bersih NTT', pct:10 },
+  { c:'Wakaf Quran', pct:8 },
+];
+const parseObj = (v) => {
+  if (v && typeof v === 'object' && !Array.isArray(v)) return v;
+  if (typeof v === 'string' && v.trim()) { try { const p = JSON.parse(v); if (p && typeof p === 'object') return p; } catch {} }
+  return {};
+};
+
 function FundraisingPanel({ settings, onSave }) {
-  const fr = settings?.fundraising || {};
+  const fr = parseObj(settings?.fundraising);
   const [enabled, setEnabled] = useStateA(fr.enabled ?? true);
   const [autoCalc, setAutoCalc] = useStateA(fr.auto_calc ?? true);
   const [commission, setCommission] = useStateA(fr.commission || '10');
   const [minPayout, setMinPayout] = useStateA(fr.min_payout || 'Rp 100.000');
   const [period, setPeriod] = useStateA(fr.period || 'month');
-  const [rules, setRules] = useStateA(fr.rules || [
-    { c:'Bantuan Aira', pct:12 },
-    { c:'Sumur Bersih NTT', pct:10 },
-    { c:'Wakaf Quran', pct:8 },
-  ]);
+  const [rules, setRules] = useStateA(parseArr(fr.rules, DEFAULT_RULES));
   useEffectA(() => {
-    if (settings?.fundraising) {
-      const f = settings.fundraising;
+    const f = parseObj(settings?.fundraising);
+    if (f && Object.keys(f).length) {
       if (f.enabled != null) setEnabled(f.enabled);
       if (f.auto_calc != null) setAutoCalc(f.auto_calc);
       if (f.commission) setCommission(f.commission);
       if (f.min_payout) setMinPayout(f.min_payout);
       if (f.period) setPeriod(f.period);
-      if (f.rules) setRules(f.rules);
+      setRules(parseArr(f.rules, DEFAULT_RULES));
     }
   }, [settings]);
   return (
@@ -1204,7 +1221,7 @@ function FundraisingPanel({ settings, onSave }) {
           <div className="rounded-xl border border-line p-4">
             <div className="font-semibold text-ink mb-2">Aturan khusus per campaign</div>
             <div className="space-y-2">
-              {rules.map((r, i) => (
+              {(Array.isArray(rules)?rules:[]).map((r, i) => (
                 <div key={i} className="flex items-center gap-3 text-sm">
                   <span className="flex-1 font-medium text-ink">{r.c}</span>
                   <input type="number" value={r.pct} onChange={e => setRules(prev => prev.map((x, j) => j === i ? {...x, pct: +e.target.value} : x))}
@@ -1238,6 +1255,8 @@ function GeneralPanel({ settings, onSave }) {
   const [smtpPassword, setSmtpPassword] = useStateA('');
   const [smtpName, setSmtpName] = useStateA(settings?.smtp_name || 'NIATBAIK.ORG');
   const [smtpShowPwd, setSmtpShowPwd] = useStateA(false);
+  const [formPageName, setFormPageName] = useStateA(settings?.form_page_name || 'donasi');
+  const [typPageName, setTypPageName] = useStateA(settings?.thankyou_page_name || 'invoice');
   const { showToast } = useApp();
   useEffectA(() => {
     if (settings?.site_name) setSiteName(settings.site_name);
@@ -1251,6 +1270,8 @@ function GeneralPanel({ settings, onSave }) {
     if (settings?.smtp_port) setSmtpPort(settings.smtp_port);
     if (settings?.smtp_email) setSmtpEmail(settings.smtp_email);
     if (settings?.smtp_name) setSmtpName(settings.smtp_name);
+    if (settings?.form_page_name) setFormPageName(settings.form_page_name);
+    if (settings?.thankyou_page_name) setTypPageName(settings.thankyou_page_name);
   }, [settings]);
   return (
     <>
@@ -1260,6 +1281,24 @@ function GeneralPanel({ settings, onSave }) {
           <div><label className="text-xs font-semibold text-mute">Domain</label><input className="field mt-1" value={domain} onChange={(e) => setDomain(e.target.value)}/></div>
           <div><label className="text-xs font-semibold text-mute">Timezone</label><Select value={tz} onChange={setTz} options={['Asia/Jakarta (WIB) · GMT+7','Asia/Makassar (WITA) · GMT+8','Asia/Jayapura (WIT) · GMT+9']} className="mt-1"/></div>
           <div><label className="text-xs font-semibold text-mute">Mata uang</label><Select value={currency} onChange={setCurrency} options={['IDR (Rp)','USD ($)','MYR (RM)','SGD (S$)']} className="mt-1"/></div>
+        </div>
+      </Section>
+      <Section title="URL Halaman" sub="Menentukan path URL publik campaign, mis. /campaign/{slug}/{form_page_name}.">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-semibold text-mute">Form Page Name</label>
+            <input className="field mt-1" value={formPageName}
+              onChange={(e) => setFormPageName(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))}
+              placeholder="donasi"/>
+            <div className="text-[11px] text-mute mt-1">tanpa spasi, huruf kecil. Contoh: donasi, donasi-sekarang</div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Thankyou/Invoice Page Name</label>
+            <input className="field mt-1" value={typPageName}
+              onChange={(e) => setTypPageName(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))}
+              placeholder="invoice"/>
+            <div className="text-[11px] text-mute mt-1">tanpa spasi, huruf kecil. Contoh: invoice, terima-kasih</div>
+          </div>
         </div>
       </Section>
       <Section title="SEO">
@@ -1303,7 +1342,7 @@ function GeneralPanel({ settings, onSave }) {
       </Section>
       <div className="flex justify-end mt-4">
         <Btn icon="check" onClick={() => {
-          const patch = { site_name: siteName, domain, timezone: tz, currency, seo_title: seoTitle, seo_description: seoDesc, maintenance, smtp_host: smtpHost, smtp_port: smtpPort, smtp_email: smtpEmail, smtp_name: smtpName };
+          const patch = { site_name: siteName, domain, timezone: tz, currency, seo_title: seoTitle, seo_description: seoDesc, maintenance, smtp_host: smtpHost, smtp_port: smtpPort, smtp_email: smtpEmail, smtp_name: smtpName, form_page_name: formPageName || 'donasi', thankyou_page_name: typPageName || 'invoice' };
           if (smtpPassword) patch.smtp_password = smtpPassword;
           onSave(patch);
         }}>Simpan Perubahan</Btn>

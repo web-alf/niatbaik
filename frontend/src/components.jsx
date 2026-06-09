@@ -569,12 +569,16 @@ const Donut = ({ data, size = 160, thickness = 22 }) => {
   );
 };
 
-// --------- Campaign thumbnail (gradient placeholder w/ icon) ---------
+// --------- Campaign thumbnail (real image when available, else gradient + icon) ---------
 const CampaignThumb = ({ c, className = '' }) => (
-  <div className={'relative rounded-xl overflow-hidden ' + className} style={{ background: c.thumb }}>
-    <div className="absolute inset-0 flex items-center justify-center text-white/80">
-      <Icon name={c.icon} size={56} strokeWidth={1.2}/>
-    </div>
+  <div className={'relative rounded-xl overflow-hidden bg-bg2 ' + className} style={c.img ? {} : { background: c.thumb }}>
+    {c.img ? (
+      <img src={c.img} alt={c.title||''} className="absolute inset-0 w-full h-full object-cover" onError={(e)=>{e.target.style.display='none';}}/>
+    ) : (
+      <div className="absolute inset-0 flex items-center justify-center text-white/80">
+        <Icon name={c.icon || 'heart'} size={56} strokeWidth={1.2}/>
+      </div>
+    )}
     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"/>
     <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
       <Badge tone="outline" size="sm" className="bg-white/90 backdrop-blur">

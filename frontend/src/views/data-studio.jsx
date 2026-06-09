@@ -5,6 +5,7 @@ function DataStudioView() {
   const campaignSeed = window.CAMPAIGNS || [];
   const [page, setPage] = useStateA('overview');
   const [dateRange, setDateRange] = useStateA('Last 30 days');
+  const [dateRangeObj, setDateRangeObj] = useStateA(window.__nb_dateRange || window.DEFAULT_RANGE);
   const [platform, setPlatform] = useStateA('All');
   const [dsCampaign, setDsCampaign] = useStateA('All Campaigns');
   const [country, setCountry] = useStateA('Indonesia');
@@ -85,7 +86,12 @@ function DataStudioView() {
 
       {/* Filter / control bar */}
       <div className="px-4 lg:px-6 flex flex-wrap items-center gap-2">
-        <DateRangePill/>
+        {/* Pill sits at the left edge of a full-bleed bar; force its calendar popup to
+            open from the left so it doesn't get pushed off-screen (shared DateRangePicker
+            defaults to right-0). Higher-specificity arbitrary variant beats the inline right-0. */}
+        <div className="[&_.absolute]:left-0 [&_.absolute]:right-auto">
+          <DateRangePill value={dateRangeObj} onChange={(r) => { setDateRangeObj(r); }}/>
+        </div>
         <DSControl label="Platform"   value={platform} onChange={setPlatform} options={['All','Meta','Google','TikTok','Organic']}/>
         <DSControl label="Campaign"   value={dsCampaign} onChange={setDsCampaign} options={['All Campaigns', ...campaignSeed.map(c => c.title.slice(0,30)+'…')]}/>
         <DSControl label="Country"    value={country} onChange={setCountry} options={['Indonesia','Malaysia','Singapore','Global']}/>

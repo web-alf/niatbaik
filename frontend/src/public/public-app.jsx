@@ -152,7 +152,7 @@ function HeroCard({ c, onNav }) {
   const [amount, setAmount] = useState(100_000);
   const presets = [50_000, 100_000, 250_000];
   return (
-    <div className="relative">
+    <div className="relative float-in">
       <div className="absolute -top-3 -left-3 bg-rose-500 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-pop rotate-[-6deg] z-10">URGENT · 6 hari lagi</div>
       <div className="rounded-3xl bg-white border border-line shadow-pop overflow-hidden">
         <div className="relative aspect-[16/10]" style={{ background: c.thumb }}>
@@ -751,6 +751,139 @@ function CampaignPage({ c, onNav }) {
   );
 }
 
+// -------- Nominal selector: 6 form_style variants --------
+// Card | List | Typing | Package | Package2 | Qurban (from c.form_style)
+function NominalSelect({ c, presets, amount, setAmount }) {
+  const style = (c && c.form_style) || 'Card';
+  const customInput = (
+    <div className="mt-3">
+      <label className="text-xs font-bold text-mute">Atau masukkan nominal lain</label>
+      <div className="mt-1 flex items-center rounded-xl border-2 border-line bg-white focus-within:border-brand-600">
+        <span className="pl-3 text-mute font-bold">Rp</span>
+        <input type="number" value={amount} onChange={(e) => setAmount(+e.target.value)} className="flex-1 px-2 py-3 outline-none font-bold text-ink bg-transparent"/>
+      </div>
+    </div>
+  );
+
+  if (style === 'Typing') {
+    return (
+      <div>
+        <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Masukkan nominal donasi</div>
+        <div className="flex items-center rounded-2xl border-2 border-line bg-white focus-within:border-brand-600">
+          <span className="pl-4 text-mute font-extrabold text-xl">Rp</span>
+          <input type="number" value={amount} onChange={(e) => setAmount(+e.target.value)} placeholder="0"
+            className="flex-1 px-3 py-4 outline-none font-extrabold text-ink text-2xl bg-transparent"/>
+        </div>
+        <div className="mt-2 text-xs text-mute">Minimal donasi Rp 10.000. Tidak ada batas maksimum.</div>
+      </div>
+    );
+  }
+
+  if (style === 'List') {
+    return (
+      <div>
+        <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Pilih nominal donasi</div>
+        <div className="space-y-2">
+          {presets.map((p) => (
+            <button key={p} onClick={() => setAmount(p)}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all ${amount===p ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line bg-white text-ink hover:border-brand-200'}`}>
+              <span className="font-extrabold">{fmtIDRShort(p)}</span>
+              <span className={`h-5 w-5 rounded-full border-2 flex items-center justify-center ${amount===p ? 'border-brand-600 bg-brand-600 text-white' : 'border-line'}`}>
+                {amount===p && <Icon name="check" size={12}/>}
+              </span>
+            </button>
+          ))}
+        </div>
+        {customInput}
+      </div>
+    );
+  }
+
+  if (style === 'Package') {
+    return (
+      <div>
+        <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Pilih paket donasi</div>
+        <div className="grid grid-cols-2 gap-2">
+          {presets.map((p, i) => (
+            <button key={p} onClick={() => setAmount(p)}
+              className={`text-left px-4 py-3 rounded-xl border-2 transition-all ${amount===p ? 'border-brand-600 bg-brand-50' : 'border-line bg-white hover:border-brand-200'}`}>
+              <div className={`text-[11px] font-bold uppercase tracking-wider ${amount===p ? 'text-brand-600' : 'text-mute'}`}>Paket {i+1}</div>
+              <div className="font-extrabold text-ink text-lg mt-0.5">{fmtIDRShort(p)}</div>
+              <div className="text-[11px] text-mute mt-0.5 leading-tight">Donasi {fmtIDR(p)} untuk campaign ini</div>
+            </button>
+          ))}
+        </div>
+        {customInput}
+      </div>
+    );
+  }
+
+  if (style === 'Package2') {
+    return (
+      <div>
+        <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Pilih paket donasi</div>
+        <div className="grid grid-cols-2 gap-3">
+          {presets.map((p, i) => (
+            <button key={p} onClick={() => setAmount(p)}
+              className={`rounded-2xl border-2 overflow-hidden transition-all text-left ${amount===p ? 'border-brand-600 shadow-card' : 'border-line hover:border-brand-200'}`}>
+              <div className="relative aspect-[16/10] flex items-center justify-center text-white/85" style={{ background: c.thumb }}>
+                <Icon name={c.icon} size={44} strokeWidth={1.2}/>
+                {amount===p && <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-brand-600 text-white flex items-center justify-center"><Icon name="check" size={14}/></span>}
+              </div>
+              <div className="p-3">
+                <div className={`text-[11px] font-bold uppercase tracking-wider ${amount===p ? 'text-brand-600' : 'text-mute'}`}>Paket {i+1}</div>
+                <div className="font-extrabold text-ink mt-0.5">{fmtIDRShort(p)}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+        {customInput}
+      </div>
+    );
+  }
+
+  if (style === 'Qurban') {
+    return (
+      <div>
+        <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Pilih paket qurban</div>
+        <div className="space-y-2">
+          {presets.map((p) => (
+            <div key={p}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${amount===p ? 'border-brand-600 bg-brand-50' : 'border-line bg-white'}`}>
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-600 to-sky2-500 text-white flex items-center justify-center shrink-0"><Icon name="heart" size={18}/></div>
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-ink leading-tight">Patungan Qurban</div>
+                <div className="text-sm font-extrabold text-brand-600">{fmtIDR(p)}</div>
+              </div>
+              <button onClick={() => setAmount(p)}
+                className={`shrink-0 px-3 py-2 rounded-lg text-xs font-extrabold border-2 transition-all ${amount===p ? 'border-brand-600 bg-brand-600 text-white' : 'border-brand-200 text-brand-600 hover:bg-brand-50'}`}>
+                {amount===p ? 'Dipilih ✓' : 'Pilih'}
+              </button>
+            </div>
+          ))}
+        </div>
+        {customInput}
+      </div>
+    );
+  }
+
+  // Default: Card — 3-col grid of preset buttons + custom input.
+  return (
+    <div>
+      <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Pilih nominal donasi</div>
+      <div className="grid grid-cols-3 gap-2">
+        {presets.map((p) => (
+          <button key={p} onClick={() => setAmount(p)}
+            className={`py-2.5 rounded-xl text-sm font-extrabold border-2 transition-all ${amount===p ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:border-brand-200'}`}>
+            {fmtIDRShort(p)}
+          </button>
+        ))}
+      </div>
+      {customInput}
+    </div>
+  );
+}
+
 // -------- Donation form (form view, before invoice) --------
 function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, setAnon, paymentMethod, setPaymentMethod, submitting, onBack, onSubmit }) {
   const methods = (Array.isArray(window.PAYMENT_METHODS_PUBLIC) && window.PAYMENT_METHODS_PUBLIC.length)
@@ -789,25 +922,8 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
       </div>
 
       <div className="mt-5 space-y-5">
-        {/* Nominal */}
-        <div>
-          <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Pilih nominal donasi</div>
-          <div className="grid grid-cols-3 gap-2">
-            {presets.map((p) => (
-              <button key={p} onClick={() => setAmount(p)}
-                className={`py-2.5 rounded-xl text-sm font-extrabold border-2 transition-all ${amount===p ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:border-brand-200'}`}>
-                {fmtIDRShort(p)}
-              </button>
-            ))}
-          </div>
-          <div className="mt-3">
-            <label className="text-xs font-bold text-mute">Atau masukkan nominal lain</label>
-            <div className="mt-1 flex items-center rounded-xl border-2 border-line bg-white focus-within:border-brand-600">
-              <span className="pl-3 text-mute font-bold">Rp</span>
-              <input type="number" value={amount} onChange={(e) => setAmount(+e.target.value)} className="flex-1 px-2 py-3 outline-none font-bold text-ink bg-transparent"/>
-            </div>
-          </div>
-        </div>
+        {/* Nominal — 6 form_style variants */}
+        <NominalSelect c={c} presets={presets} amount={amount} setAmount={setAmount}/>
 
         {/* Identitas */}
         <div className="pt-4 border-t border-line space-y-3">
@@ -991,6 +1107,18 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
       <PrimaryBtn size="md" className="w-full mt-4" onClick={checkNow} disabled={checking}>
         <Icon name="check" size={16}/> {checking ? 'Memeriksa…' : 'Cek Status Pembayaran'}
       </PrimaryBtn>
+      {(() => {
+        const waNum = (window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.whatsapp_admin) || '';
+        if (!waNum) return null;
+        const num = String(waNum).replace(/[^0-9]/g,'').replace(/^0/, '62');
+        const msg = encodeURIComponent(`Halo admin, saya sudah donasi. Invoice: ${invoice.invoice_number}, nominal: ${fmtIDR(total)}. Mohon konfirmasi.`);
+        return (
+          <a href={`https://wa.me/${num}?text=${msg}`} target="_blank" rel="noopener noreferrer"
+             className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-emerald-500 text-white hover:bg-emerald-600">
+            <Icon name="wa" size={16}/> Konfirmasi via WhatsApp
+          </a>
+        );
+      })()}
       <button onClick={onReset} className="mt-2 w-full text-xs font-semibold text-mute hover:text-ink">Kembali ke campaign</button>
 
       <div className="mt-4 pt-4 border-t border-line text-center text-[11px] text-mute leading-relaxed">

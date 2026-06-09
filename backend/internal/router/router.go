@@ -39,7 +39,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	donationService := service.NewDonationService(db, cfg, invoiceRepo, campaignRepo, donationRepo, settingRepo, flipService)
 	dashboardService := service.NewDashboardService(statsRepo)
 	campaignService := service.NewCampaignService(campaignRepo, categoryRepo)
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo, settingRepo)
 	analyticsService := service.NewAnalyticsService(statsRepo)
 	withdrawalService := service.NewWithdrawalService(db, withdrawalRepo)
 	verificationService := service.NewVerificationService(verificationRepo, userRepo)
@@ -144,6 +144,11 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	admin.POST("/admin/campaigns", adminCampaignHandler.Create)
 	admin.PUT("/admin/campaigns/:id", adminCampaignHandler.Update)
 	admin.DELETE("/admin/campaigns/:id", adminCampaignHandler.Delete)
+
+	categoryHandler := handler.NewCategoryHandler(categoryRepo)
+	admin.POST("/admin/categories", categoryHandler.Create)
+	admin.PUT("/admin/categories/:id", categoryHandler.Update)
+	admin.DELETE("/admin/categories/:id", categoryHandler.Delete)
 
 	admin.GET("/users", userHandler.List)
 	admin.POST("/users", userHandler.Create)

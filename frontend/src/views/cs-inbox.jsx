@@ -42,7 +42,7 @@ function CSInboxView() {
     if (filter === 'pending' && t.status !== 'Pending') return false;
     if (filter === 'failed'  && t.status !== 'Failed') return false;
     if (filter === 'paid'    && t.status !== 'Paid') return false;
-    if (search && !(t.donor + t.id + t.campaign + t.whatsapp + t.email).toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !(String(t.donor||'') + String(t.id||'') + String(t.campaign||'') + String(t.whatsapp||'') + String(t.email||'')).toLowerCase().includes(search.toLowerCase())) return false;
     if (adv.statuses.length && !adv.statuses.includes(t.status)) return false;
     if (adv.methods.length  && !adv.methods.includes(t.method))  return false;
     if (adv.sources.length  && !adv.sources.includes(t.utm.source)) return false;
@@ -129,7 +129,7 @@ function CSInboxView() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="h-9 w-9 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center font-bold text-xs shrink-0">
-                      {(t.anon?'HA':t.donor).split(' ').map(s=>s[0]).join('').slice(0,2)}
+                      {String(t.anon?'HA':(t.donor||'')).split(' ').map(s=>s[0]).join('').slice(0,2)}
                     </div>
                     <div className="min-w-0">
                       <div className="font-semibold text-sm text-ink truncate">{t.anon ? 'Hamba Allah' : t.donor}</div>
@@ -138,10 +138,10 @@ function CSInboxView() {
                   </div>
                   <StatusBadge status={t.status} size="sm"/>
                 </div>
-                <div className="mt-1.5 text-xs text-mute line-clamp-1">{t.campaign}</div>
+                <div className="mt-1.5 text-xs text-mute line-clamp-1">{String(t.campaign||'')}</div>
                 <div className="mt-1 flex items-center justify-between text-xs">
                   <span className="font-bold text-brand-600">{fmtIDR(t.amount)}</span>
-                  <span className="text-mute">{t.date.split(',')[0]}</span>
+                  <span className="text-mute">{String(t.date||'').split(',')[0]}</span>
                 </div>
               </button>
             ))}
@@ -486,9 +486,9 @@ function CSDetail({ t, onOpen, onCopy, onMarkPaid, showToast }) {
 
   // Pre-built message templates
   const templates = (paid) => {
-    const name = t.anon ? 'Bapak/Ibu' : t.donor.split(' ')[0];
+    const name = t.anon ? 'Bapak/Ibu' : String(t.donor||'').split(' ')[0];
     const amt = fmtIDR(t.amount);
-    const camp = t.campaign;
+    const camp = String(t.campaign||'');
     const inv = t.id;
     if (paid) return `Halo ${name}, Alhamdulillah donasi sebesar ${amt} untuk campaign "${camp}" telah kami terima. Kuitansi resmi (${inv}) akan kami kirimkan via email. Jazakallahu khairan atas niat baiknya 🤲 — Tim NIATBAIK.ORG`;
     if (t.status === 'Failed') return `Halo ${name}, kami melihat transaksi donasi ${amt} (${inv}) untuk "${camp}" gagal diproses. Apakah Bapak/Ibu butuh bantuan untuk mencoba ulang? Tim CS NIATBAIK.ORG siap membantu 🙏`;
@@ -512,7 +512,7 @@ function CSDetail({ t, onOpen, onCopy, onMarkPaid, showToast }) {
       <div className="flex items-start justify-between gap-3 pb-4 border-b border-line">
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center font-bold">
-            {(t.anon?'HA':t.donor).split(' ').map(s=>s[0]).join('').slice(0,2)}
+            {String(t.anon?'HA':(t.donor||'')).split(' ').map(s=>s[0]).join('').slice(0,2)}
           </div>
           <div>
             <div className="font-bold text-ink">{t.anon ? 'Hamba Allah' : t.donor}</div>
@@ -539,8 +539,8 @@ function CSDetail({ t, onOpen, onCopy, onMarkPaid, showToast }) {
 
       <div>
         <div className="text-xs uppercase font-semibold text-mute mb-1">Campaign</div>
-        <div className="text-ink font-semibold">{t.campaign}</div>
-        <div className="text-xs italic text-mute mt-1">"{t.message}"</div>
+        <div className="text-ink font-semibold">{String(t.campaign||'')}</div>
+        <div className="text-xs italic text-mute mt-1">"{String(t.message||'')}"</div>
       </div>
 
       {/* Conversation thread */}
@@ -550,13 +550,13 @@ function CSDetail({ t, onOpen, onCopy, onMarkPaid, showToast }) {
           <div className="h-7 w-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0"><Icon name="wa" size={14}/></div>
           <div className="flex-1">
             <div className="bg-emerald-50 rounded-2xl rounded-tl-md px-3 py-2 inline-block max-w-md text-sm">
-              Halo, Kak. Terima kasih sudah berniat baik 🙏 Mohon konfirmasi transfer untuk donasi {fmtIDR(t.amount)} ke campaign "{t.campaign.slice(0,40)}…". Apakah pembayaran sudah dilakukan?
+              Halo, Kak. Terima kasih sudah berniat baik 🙏 Mohon konfirmasi transfer untuk donasi {fmtIDR(t.amount)} ke campaign "{String(t.campaign||'').slice(0,40)}…". Apakah pembayaran sudah dilakukan?
             </div>
             <div className="text-[10px] text-mute mt-0.5">CS · 14:24</div>
           </div>
         </div>
         <div className="flex gap-2 flex-row-reverse">
-          <div className="h-7 w-7 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">{(t.anon?'HA':t.donor)[0]}</div>
+          <div className="h-7 w-7 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">{String(t.anon?'HA':(t.donor||''))[0]}</div>
           <div className="flex-1 text-right">
             <div className="bg-white border border-line rounded-2xl rounded-tr-md px-3 py-2 inline-block max-w-md text-sm text-left">
               Sudah saya transfer kak via BCA. Mohon dicek ya.
@@ -598,7 +598,7 @@ function CSDetail({ t, onOpen, onCopy, onMarkPaid, showToast }) {
         <div className="space-y-4">
           <div className="rounded-xl bg-bg2 p-3 flex items-center gap-3">
             <div className="h-10 w-10 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center font-bold text-xs">
-              {(t.anon?'HA':t.donor).split(' ').map(s=>s[0]).join('').slice(0,2)}
+              {String(t.anon?'HA':(t.donor||'')).split(' ').map(s=>s[0]).join('').slice(0,2)}
             </div>
             <div className="flex-1">
               <div className="text-sm font-bold text-ink">{t.anon ? 'Hamba Allah' : t.donor}</div>

@@ -43,7 +43,9 @@ function DashboardView() {
 
   const visibleTxns = useMemoA(() => {
     const q = txnQuery.trim().toLowerCase();
-    return processedTxns.filter((t) => {
+    // Apply the date range first, then query/status/method filters.
+    const inRange = filterByRange(processedTxns, range);
+    return inRange.filter((t) => {
       if (txnStatusFilter !== 'all') {
         if (t._autoConfirmed && txnStatusFilter === 'Pending') { /* show in Pending too */ }
         else if (t.status !== txnStatusFilter) return false;
@@ -53,11 +55,10 @@ function DashboardView() {
       const donor = t.anon ? 'hamba allah' : (t.donor || '').toLowerCase();
       return t.id.toLowerCase().includes(q) || donor.includes(q) || (t.campaign||'').toLowerCase().includes(q);
     });
-  }, [processedTxns, txnQuery, txnStatusFilter, txnMethodFilter]);
+  }, [processedTxns, txnQuery, txnStatusFilter, txnMethodFilter, range]);
 
-  const filteredTxns = useMemoA(() => filterByRange(txns, range), [range]);
-
-  const exportRows = () => filteredTxns.map(t => ({
+  // Export respects all active filters (date range + query/status/method).
+  const exportRows = () => visibleTxns.map(t => ({
     invoice: t.id,
     tanggal: t.date,
     donatur: t.anon ? 'Hamba Allah' : t.donor,

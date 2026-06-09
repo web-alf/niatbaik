@@ -100,8 +100,10 @@ function mapInvoice(inv) {
   return {
     id: inv.invoice_number || inv.id || '',
     donor: inv.donor_name || inv.donor || '',
-    campaign: inv.campaign_title || inv.campaign || '',
-    campaignId: inv.campaign_id || inv.campaignId || '',
+    // campaign may arrive as a nested object {id,title,...} — always coerce to a string title
+    campaign: inv.campaign_title
+      || (typeof inv.campaign === 'string' ? inv.campaign : (inv.campaign && inv.campaign.title) || ''),
+    campaignId: inv.campaign_id || inv.campaignId || (inv.campaign && inv.campaign.id) || '',
     amount: inv.amount ?? inv.total ?? 0,
     method: inv.payment_method || inv.method || '',
     status: ['Paid','Pending','Failed'].includes(status) ? status : cap(status),

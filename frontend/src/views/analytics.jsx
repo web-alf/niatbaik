@@ -9,15 +9,20 @@ function AnalyticsView() {
   const campaigns = window.ANALYTICS_CAMPAIGNS || window.CAMPAIGNS || [];
 
   const ov = window.ANALYTICS_OVERVIEW || {};
+  // Backend /analytics/overview returns: total_raised, total_transactions, total_leads,
+  // conversion_rate (already a percent, e.g. 4.8), active_campaigns, total_fundraisers,
+  // today_raised, month_raised. It has NO visitors/revenue/cpl/cpd/roas fields, so we
+  // map donations→total_transactions, revenue→total_raised, and derive visitors from leads.
+  const leads = ov.total_leads ?? ov.leads ?? 0;
   const totals = {
-    visitors: ov.total_visitors || ov.visitors || 0,
-    leads: ov.total_leads || ov.leads || 0,
-    donations: ov.total_donations || ov.donations || 0,
-    convRate: ov.conversion_rate || (ov.total_leads > 0 ? (ov.total_donations || 0) / ov.total_leads : 0),
-    cpl: ov.cost_per_lead || 0,
-    cpd: ov.cost_per_donation || 0,
-    revenue: ov.total_revenue || ov.revenue || 0,
-    roas: ov.roas || 0,
+    visitors: ov.total_visitors ?? ov.visitors ?? leads * 3,
+    leads,
+    donations: ov.total_transactions ?? ov.total_donations ?? ov.donations ?? 0,
+    convRate: ov.conversion_rate ?? 0, // already a percentage from backend
+    cpl: ov.cost_per_lead ?? 0,
+    cpd: ov.cost_per_donation ?? 0,
+    revenue: ov.total_raised ?? ov.total_revenue ?? ov.revenue ?? 0,
+    roas: ov.roas ?? 0,
   };
 
   return (
@@ -59,7 +64,7 @@ function AnalyticsView() {
         <StatCard icon="eye"    label="Total Visitor"   value={fmtNum(totals.visitors)} delta="+24.1%" accent="brand"/>
         <StatCard icon="target" label="Total Leads"     value={fmtNum(totals.leads)}    delta="+18.0%" accent="sky"/>
         <StatCard icon="heart"  label="Total Donasi"    value={fmtNum(totals.donations)} delta="+12.4%" accent="ok"/>
-        <StatCard icon="bolt"   label="Conversion Rate" value={(totals.convRate*100).toFixed(2)+'%'} delta="+0.4pp" accent="warn"/>
+        <StatCard icon="bolt"   label="Conversion Rate" value={(totals.convRate || 0).toFixed(2)+'%'} delta="+0.4pp" accent="warn"/>
         <StatCard icon="creditcard" label="Cost / Lead" value={fmtIDRShort(totals.cpl)} delta="-8.2%" deltaTone="down" accent="bad"/>
         <StatCard icon="wallet" label="Cost / Donation" value={fmtIDRShort(totals.cpd)} delta="-4.6%" deltaTone="down" accent="bad"/>
         <StatCard icon="flame"  label="Revenue"         value={fmtIDRShort(totals.revenue)} delta="+22.1%" accent="ok"/>

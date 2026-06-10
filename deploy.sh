@@ -10,7 +10,11 @@ set -e
 # ============================================================
 
 ENV="${1:-prod}"
-BRANCH="${2:-dev}"
+BRANCH="${2:-main}"
+
+# Optional: force origin to a specific repo URL (e.g. after migrating remotes).
+# Export NB_GIT_REMOTE=https://github.com/web-alf/niatbaik.git to enforce it.
+NB_GIT_REMOTE="${NB_GIT_REMOTE:-}"
 
 if [ "$ENV" = "dev" ]; then
     COMPOSE_FILE="docker-compose.dev.yml"
@@ -60,16 +64,27 @@ echo "  NIATBAIK.ORG — Deploy [$ENV] from $BRANCH"
 echo "============================================"
 echo ""
 
-# ---- Pull (stash local env changes, rebase, restore) ----
-log "Pulling latest from $BRANCH..."
-git stash -q 2>/dev/null || true
-git pull --rebase origin "$BRANCH" || {
-  warn "Rebase conflict — resolving .env.production"
-  git checkout --theirs .env.production 2>/dev/null
-  git add .env.production 2>/dev/null
-  git rebase --continue 2>/dev/null || git rebase --abort 2>/dev/null
-}
-git stash pop -q 2>/dev/null || true
+# ---- Sync to origin/$BRANCH (hard reset) ----
+# The remote history was rewritten (force-push to a fresh repo), so a rebase/merge
+# would diverge. We fetch and hard-reset to exactly match origin/$BRANCH.
+# .env.production is gitignored/untracked, so reset --hard never touches it — but
+# we back it up first as a safety net.
+if [ -n "$NB_GIT_REMOTE" ]; then
+    log "Pointing origin at $NB_GIT_REMOTE"
+    git remote set-url origin "$NB_GIT_REMOTE"
+fi
+log "Origin: $(git remote get-url origin)"
+
+if [ "$ENV" = "prod" ] && [ -f "$ENV_FILE" ]; then
+    cp -f "$ENV_FILE" "${ENV_FILE}.bak"
+    log "Backed up $ENV_FILE → ${ENV_FILE}.bak"
+fi
+
+log "Fetching origin/$BRANCH..."
+git fetch origin "$BRANCH" || err "git fetch failed — check remote URL / credentials"
+log "Hard-resetting working tree to origin/$BRANCH..."
+git checkout -B "$BRANCH" "origin/$BRANCH"
+git reset --hard "origin/$BRANCH"
 
 # ---- Stop ----
 log "Stopping old containers..."

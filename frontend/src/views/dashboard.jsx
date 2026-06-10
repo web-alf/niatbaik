@@ -24,6 +24,8 @@ function DashboardView() {
   if (role === 'CS') return <CSDashboard/>;
 
   const [range, setRange] = useStateA(window.__nb_dateRange || window.DEFAULT_RANGE);
+  // Daily-donations chart range (in days). Wired to the 7/30/90 tab below.
+  const [chartDays, setChartDays] = useStateA(30);
   const tw = TW;
   const [txnQuery, setTxnQuery] = useStateA('');
   const [txnStatusFilter, setTxnStatusFilter] = useStateA('all');
@@ -126,26 +128,43 @@ function DashboardView() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-2 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3 mb-1">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-mute">Grafik Donasi Harian</div>
-              <div className="mt-1 text-xl font-bold text-ink">{fmtIDRShort(dailyDonations.reduce((a,b)=>a+b,0))}</div>
-              <div className="text-xs text-mute">30 hari terakhir · rata-rata {fmtIDRShort(dailyDonations.reduce((a,b)=>a+b,0)/30)} / hari</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Tabs value="30" onChange={()=>{}} tabs={[
-                { value:'7', label:'7 hari' },
-                { value:'30', label:'30 hari' },
-                { value:'90', label:'90 hari' },
-              ]}/>
-            </div>
-          </div>
-          <LineChart data={dailyDonations} height={220}/>
-          <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
-            <div className="p-3 rounded-lg bg-bg2"><div className="text-mute">Hari tertinggi</div><div className="font-bold text-ink mt-1">{fmtIDRShort(Math.max(...dailyDonations))}</div></div>
-            <div className="p-3 rounded-lg bg-bg2"><div className="text-mute">Hari terendah</div><div className="font-bold text-ink mt-1">{fmtIDRShort(Math.min(...dailyDonations))}</div></div>
-            <div className="p-3 rounded-lg bg-bg2"><div className="text-mute">Median harian</div><div className="font-bold text-ink mt-1">{fmtIDRShort(dailyDonations.slice().sort((a,b)=>a-b)[15])}</div></div>
-          </div>
+          {(() => {
+            // Trailing-N-days slice driven by the tab; stats computed off the slice
+            // so they stay correct for any window size (no hardcoded /30 or [15]).
+            const series = dailyDonations.slice(-chartDays);
+            const sum = series.reduce((a, b) => a + b, 0);
+            const avg = series.length ? sum / series.length : 0;
+            const sorted = series.slice().sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            const median = sorted.length === 0 ? 0
+              : (sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2);
+            const hi = series.length ? Math.max(...series) : 0;
+            const lo = series.length ? Math.min(...series) : 0;
+            return (
+              <>
+                <div className="flex flex-wrap items-start justify-between gap-3 mb-1">
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-wider text-mute">Grafik Donasi Harian</div>
+                    <div className="mt-1 text-xl font-bold text-ink">{fmtIDRShort(sum)}</div>
+                    <div className="text-xs text-mute">{chartDays} hari terakhir · rata-rata {fmtIDRShort(avg)} / hari</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Tabs value={String(chartDays)} onChange={(v)=>setChartDays(Number(v))} tabs={[
+                      { value:'7', label:'7 hari' },
+                      { value:'30', label:'30 hari' },
+                      { value:'90', label:'90 hari' },
+                    ]}/>
+                  </div>
+                </div>
+                <LineChart data={series} height={220}/>
+                <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
+                  <div className="p-3 rounded-lg bg-bg2"><div className="text-mute">Hari tertinggi</div><div className="font-bold text-ink mt-1">{fmtIDRShort(hi)}</div></div>
+                  <div className="p-3 rounded-lg bg-bg2"><div className="text-mute">Hari terendah</div><div className="font-bold text-ink mt-1">{fmtIDRShort(lo)}</div></div>
+                  <div className="p-3 rounded-lg bg-bg2"><div className="text-mute">Median harian</div><div className="font-bold text-ink mt-1">{fmtIDRShort(median)}</div></div>
+                </div>
+              </>
+            );
+          })()}
         </Card>
 
         <Card className="p-5">

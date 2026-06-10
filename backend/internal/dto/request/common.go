@@ -3,6 +3,7 @@ package request
 import (
 	"strconv"
 
+	"github.com/anrdart/niatbaik-api/pkg/pagination"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
@@ -27,11 +28,6 @@ func ParsePaginationParams(c echo.Context) PaginationParams {
 		limit = 15
 	}
 
-	sort := c.QueryParam("sort")
-	if sort == "" {
-		sort = "created_at desc"
-	}
-
 	var categoryID uuid.UUID
 	if cid := c.QueryParam("category_id"); cid != "" {
 		categoryID, _ = uuid.Parse(cid)
@@ -40,7 +36,7 @@ func ParsePaginationParams(c echo.Context) PaginationParams {
 	return PaginationParams{
 		Page:       page,
 		Limit:      limit,
-		Sort:       sort,
+		Sort:       pagination.SanitizeSort(c.QueryParam("sort")),
 		Search:     c.QueryParam("search"),
 		Status:     c.QueryParam("status"),
 		CategoryID: categoryID,

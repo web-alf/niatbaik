@@ -5,6 +5,7 @@ import (
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/model"
+	"github.com/anrdart/niatbaik-api/pkg/pagination"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -71,7 +72,7 @@ func (r *InvoiceRepo) FindAll(params request.PaginationParams) ([]model.Invoice,
 	}
 
 	offset := (params.Page - 1) * params.Limit
-	if err := q.Order(params.Sort).Offset(offset).Limit(params.Limit).Find(&invoices).Error; err != nil {
+	if err := q.Order(pagination.SanitizeSort(params.Sort)).Offset(offset).Limit(params.Limit).Find(&invoices).Error; err != nil {
 		return nil, 0, err
 	}
 

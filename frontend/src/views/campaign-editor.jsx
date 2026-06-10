@@ -27,8 +27,9 @@ function CampaignEditorView() {
   }, [title]);
 
   // ---- form type panel ----
-  const [formMode, setFormMode] = useStateA('Donation'); // Donation | Zakat
-  const [formStyle, setFormStyle] = useStateA('Card');   // List | Typing | Package | Card | Package2 | Qurban
+  // Initialize from the campaign being edited so saving doesn't silently reset them.
+  const [formMode, setFormMode] = useStateA(c?.form_type || 'Donation'); // Donation | Zakat
+  const [formStyle, setFormStyle] = useStateA(c?.form_style || 'Card');  // List | Typing | Package | Card | Package2 | Qurban
 
   // ---- advanced sections ----
   const [adv, setAdv] = useStateA({
@@ -112,8 +113,10 @@ function CampaignEditorView() {
         payload.image = String(thumb).replace(/^\/uploads\//, '');
       }
     }
-    if (formStyle) payload.form_type = formStyle;
-    if (formMode) payload.form_style = formMode;
+    // form_type = donation category (Donation/Zakat); form_style = visual layout
+    // (Card/List/…). These were previously swapped, saving the wrong fields.
+    if (formMode) payload.form_type = formMode;
+    if (formStyle) payload.form_style = formStyle;
     if (minDonasi > 0) payload.min_donation = minDonasi;
     if (maxDonasi > 0) payload.max_donation = maxDonasi;
     if (nominals.length) payload.opt_nominal = JSON.stringify(nominals.map(n => n.amount).filter(Boolean));
@@ -766,7 +769,10 @@ function RichEditor({ value, onChange }) {
   const [preview, setPreview] = useStateA(false);
 
   useEffectA(() => {
-    if (ref.current && ref.current.innerHTML !== value) ref.current.innerHTML = value || '';
+    // Sanitize on load so any already-stored malicious HTML can't execute when an
+    // admin opens the editor. window.sanitizeHTML comes from api.jsx.
+    const clean = (window.sanitizeHTML ? window.sanitizeHTML(value || '') : (value || ''));
+    if (ref.current && ref.current.innerHTML !== clean) ref.current.innerHTML = clean;
   }, []);
 
   // Save the caret/selection whenever it's inside the editor so toolbar actions

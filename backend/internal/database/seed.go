@@ -2,6 +2,7 @@ package database
 
 import (
 	"log"
+	"os"
 	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/model"
@@ -10,12 +11,22 @@ import (
 	"gorm.io/gorm"
 )
 
+func isProduction() bool {
+	return os.Getenv("APP_ENV") == "production"
+}
+
 func Seed(db *gorm.DB) error {
 	if err := seedAdmin(db); err != nil {
 		return err
 	}
-	if err := seedDemoStaff(db); err != nil {
-		return err
+	// Demo CS/advertiser accounts use publicly-known passwords and are for local
+	// demos only. NEVER recreate them in production (they were a standing backdoor).
+	if !isProduction() {
+		if err := seedDemoStaff(db); err != nil {
+			return err
+		}
+	} else {
+		log.Println("[seed] production env — skipping demo staff accounts")
 	}
 	if err := seedSettings(db); err != nil {
 		return err
@@ -37,7 +48,19 @@ func seedAdmin(db *gorm.DB) error {
 		return nil
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	// In production the initial admin password must come from the environment.
+	// Falling back to the well-known "admin123" on a public deploy would be a
+	// guaranteed account takeover, so refuse to seed instead.
+	adminPassword := os.Getenv("SEED_ADMIN_PASSWORD")
+	if adminPassword == "" {
+		if isProduction() {
+			log.Println("[seed] WARNING: no admin exists and SEED_ADMIN_PASSWORD is unset in production — skipping admin seed. Set SEED_ADMIN_PASSWORD and restart to create the initial admin.")
+			return nil
+		}
+		adminPassword = "admin123" // dev convenience only
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}

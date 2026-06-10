@@ -3,10 +3,68 @@ package pagination
 import (
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
+
+// DefaultSort is the safe fallback whenever the requested sort is empty or fails
+// whitelist validation.
+const DefaultSort = "created_at desc"
+
+// allowedSortColumns is the whitelist of columns that may appear in an ORDER BY.
+// params.Sort flows from untrusted query strings straight into gorm's .Order(),
+// which does NOT parameterize it — so anything not in this set is a SQL-injection
+// vector and must be rejected. Superset across campaigns/invoices/users/notifications.
+var allowedSortColumns = map[string]bool{
+	"created_at":          true,
+	"updated_at":          true,
+	"title":               true,
+	"name":                true,
+	"email":               true,
+	"total":               true,
+	"total_raised":        true,
+	"target":              true,
+	"status":              true,
+	"amount":              true,
+	"paid_at":             true,
+	"invoice_number":      true,
+	"donor_name":          true,
+	"verification_status": true,
+	"role":                true,
+}
+
+// SanitizeSort validates a user-supplied "column [direction]" sort clause against
+// the column whitelist. Invalid input falls back to DefaultSort rather than erroring,
+// preserving existing behavior for clients while closing the injection hole.
+func SanitizeSort(sort string) string {
+	sort = strings.TrimSpace(sort)
+	if sort == "" {
+		return DefaultSort
+	}
+
+	fields := strings.Fields(sort)
+	if len(fields) == 0 || len(fields) > 2 {
+		return DefaultSort
+	}
+
+	col := strings.ToLower(fields[0])
+	if !allowedSortColumns[col] {
+		return DefaultSort
+	}
+
+	dir := "asc"
+	if len(fields) == 2 {
+		d := strings.ToLower(fields[1])
+		if d != "asc" && d != "desc" {
+			return DefaultSort
+		}
+		dir = d
+	}
+
+	return col + " " + dir
+}
 
 type Pagination struct {
 	Page       int   `json:"page"`
@@ -32,15 +90,10 @@ func GetPaginationParams(c echo.Context) PaginationParams {
 		limit = 15
 	}
 
-	sort := c.QueryParam("sort")
-	if sort == "" {
-		sort = "created_at desc"
-	}
-
 	return PaginationParams{
 		Page:  page,
 		Limit: limit,
-		Sort:  sort,
+		Sort:  SanitizeSort(c.QueryParam("sort")),
 	}
 }
 
@@ -57,5 +110,6 @@ func Paginate(params PaginationParams, totalRows int64) Pagination {
 
 func ApplyPagination(db *gorm.DB, params PaginationParams) *gorm.DB {
 	offset := (params.Page - 1) * params.Limit
-	return db.Offset(offset).Limit(params.Limit).Order(params.Sort)
+	// Defense in depth: re-sanitize in case params were built without the parser.
+	return db.Offset(offset).Limit(params.Limit).Order(SanitizeSort(params.Sort))
 }

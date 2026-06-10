@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
@@ -78,6 +79,29 @@ func (h *AuthHandler) RefreshToken(c echo.Context) error {
 }
 
 func (h *AuthHandler) Logout(c echo.Context) error {
+	claims := middleware.GetUserFromContext(c)
+	if claims == nil {
+		return c.JSON(http.StatusUnauthorized, response.ErrorResponse("unauthorized"))
+	}
+
+	// Pull the access token from the Authorization header and the (optional)
+	// refresh token from the body, then revoke both server-side. The service only
+	// revokes tokens belonging to this authenticated user.
+	var accessToken string
+	auth := c.Request().Header.Get("Authorization")
+	if parts := strings.SplitN(auth, " ", 2); len(parts) == 2 && strings.EqualFold(parts[0], "bearer") {
+		accessToken = parts[1]
+	}
+
+	var body struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	_ = c.Bind(&body)
+
+	if err := h.service.Logout(claims.UserID, accessToken, body.RefreshToken); err != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to logout"))
+	}
+
 	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "logged out successfully"))
 }
 

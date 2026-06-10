@@ -20,16 +20,16 @@ type CreateCampaignRequest struct {
 	FormStyle        string     `json:"form_style"`
 	WANotification   bool       `json:"wa_notification"`
 	FollowupEnabled  bool       `json:"followup_enabled"`
-	MetaPixelID      string     `json:"meta_pixel_id"`
-	TikTokPixelID    string     `json:"tiktok_pixel_id"`
-	GTMID            string     `json:"gtm_id"`
+	MetaPixelID      string     `json:"meta_pixel_id" validate:"omitempty,max=100"`
+	TikTokPixelID    string     `json:"tiktok_pixel_id" validate:"omitempty,max=100"`
+	GTMID            string     `json:"gtm_id" validate:"omitempty,max=100"`
 	PopupInfo        bool       `json:"popup_info"`
 	WAFlyingButton   bool       `json:"wa_flying_button"`
-	ExternalLink     string     `json:"external_link"`
-	MinDonation      int64      `json:"min_donation"`
-	MaxDonation      int64      `json:"max_donation"`
+	ExternalLink     string     `json:"external_link" validate:"omitempty,max=500"`
+	MinDonation      int64      `json:"min_donation" validate:"omitempty,min=0"`
+	MaxDonation      int64      `json:"max_donation" validate:"omitempty,min=0"`
 	OptNominal       string     `json:"opt_nominal"`
-	ButtonColor      string     `json:"button_color"`
+	ButtonColor      string     `json:"button_color" validate:"omitempty,max=30"`
 }
 
 type UpdateCampaignRequest struct {

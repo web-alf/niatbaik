@@ -45,6 +45,9 @@ func (h *SettingHandler) Update(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body: "+err.Error()))
 	}
+	if err := c.Validate(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+	}
 
 	if err := h.service.Update(&req); err != nil {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to update settings"))

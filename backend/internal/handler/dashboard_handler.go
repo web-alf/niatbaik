@@ -34,7 +34,7 @@ func (h *DashboardHandler) GetStats(c echo.Context) error {
 
 func (h *DashboardHandler) GetDailyChart(c echo.Context) error {
 	days, _ := strconv.Atoi(c.QueryParam("days"))
-	if days < 1 {
+	if days < 1 || days > 365 {
 		days = 30
 	}
 
@@ -66,7 +66,7 @@ func (h *DashboardHandler) GetTrafficSourceChart(c echo.Context) error {
 
 func (h *DashboardHandler) GetRecentTransactions(c echo.Context) error {
 	limit, _ := strconv.Atoi(c.QueryParam("limit"))
-	if limit < 1 {
+	if limit < 1 || limit > 1000 {
 		limit = 10
 	}
 

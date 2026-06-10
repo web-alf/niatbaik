@@ -4,11 +4,15 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/anrdart/niatbaik-api/internal/repository"
 	jwtpkg "github.com/anrdart/niatbaik-api/pkg/jwt"
 	"github.com/labstack/echo/v4"
 )
 
-func JWTMiddleware(secret string) echo.MiddlewareFunc {
+// JWTMiddleware validates the bearer token's signature/expiry and rejects tokens
+// whose JTI has been revoked (logout). The revokedRepo may be nil, in which case
+// the denylist check is skipped (revocation disabled).
+func JWTMiddleware(secret string, revokedRepo *repository.RevokedTokenRepo) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			auth := c.Request().Header.Get("Authorization")
@@ -24,6 +28,12 @@ func JWTMiddleware(secret string) echo.MiddlewareFunc {
 			claims, err := jwtpkg.ParseToken(parts[1], secret)
 			if err != nil {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"message": "invalid or expired token"})
+			}
+
+			if revokedRepo != nil && claims.ID != "" {
+				if revoked, _ := revokedRepo.IsRevoked(claims.ID); revoked {
+					return c.JSON(http.StatusUnauthorized, map[string]string{"message": "token has been revoked"})
+				}
 			}
 
 			c.Set("user", claims)

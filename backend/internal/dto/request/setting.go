@@ -10,8 +10,8 @@ type UpdateSettingRequest struct {
 	Description                 string `json:"description"`
 	PrimaryColor                string `json:"primary_color"`
 	SecondaryColor              string `json:"secondary_color"`
-	AdminFee                    *int   `json:"admin_fee"`
-	FundraiserCommissionPercent *int   `json:"fundraiser_commission_percent"`
+	AdminFee                    *int   `json:"admin_fee" validate:"omitempty,min=0,max=10000000"`
+	FundraiserCommissionPercent *int   `json:"fundraiser_commission_percent" validate:"omitempty,min=0,max=100"`
 	ThemeColor                  string `json:"theme_color"`
 	ProgressbarColor            string `json:"progressbar_color"`
 	ButtonColor                 string `json:"button_color"`

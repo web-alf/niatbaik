@@ -9,11 +9,90 @@ function sanitizeText(s) {
   return s.replace(/[<>]/g, c => c === '<' ? '&lt;' : '&gt;');
 }
 
+// Hosts allowed as <iframe> sources (the rich editor embeds YouTube videos).
+const SANITIZE_ALLOWED_IFRAME_HOSTS = [
+  'www.youtube.com', 'youtube.com', 'www.youtube-nocookie.com',
+  'player.vimeo.com',
+];
+
+// sanitizeHTML strips script-bearing/dangerous markup from rich-text HTML while
+// keeping safe formatting + whitelisted video embeds. Used for fields rendered as
+// HTML (campaign description/content) so stored content can't carry stored XSS.
+// Parsing happens in an inert document (no script execution, no resource loads).
+function sanitizeHTML(html) {
+  if (typeof html !== 'string' || html === '') return html;
+  let doc;
+  try {
+    doc = document.implementation.createHTMLDocument('');
+    doc.body.innerHTML = html;
+  } catch (e) {
+    // If parsing fails for any reason, fall back to fully-escaped text.
+    return sanitizeText(html);
+  }
+
+  const FORBIDDEN_TAGS = new Set([
+    'SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'LINK', 'META', 'BASE',
+    'FORM', 'INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'SVG', 'MATH',
+  ]);
+
+  const walk = (node) => {
+    // Snapshot children first; we mutate during iteration.
+    const children = Array.from(node.childNodes);
+    for (const child of children) {
+      if (child.nodeType !== 1) continue; // keep text/comment-free nodes as-is
+      const tag = child.tagName;
+
+      // Allow a YouTube/Vimeo iframe, drop every other forbidden element.
+      if (tag === 'IFRAME') {
+        let host = '';
+        try { host = new URL(child.getAttribute('src') || '', window.location.origin).hostname; } catch (e) { host = ''; }
+        if (!SANITIZE_ALLOWED_IFRAME_HOSTS.includes(host)) { child.remove(); continue; }
+      } else if (FORBIDDEN_TAGS.has(tag)) {
+        child.remove();
+        continue;
+      }
+
+      // Strip event handlers + javascript:/dangerous URLs from every element.
+      for (const attr of Array.from(child.attributes)) {
+        const name = attr.name.toLowerCase();
+        const val = (attr.value || '').trim();
+        if (name.startsWith('on')) { child.removeAttribute(attr.name); continue; }
+        if ((name === 'href' || name === 'src' || name === 'xlink:href' || name === 'formaction' || name === 'action')) {
+          const v = val.replace(/\s+/g, '').toLowerCase();
+          const isDataImg = name === 'src' && v.startsWith('data:image/');
+          if ((v.startsWith('javascript:') || v.startsWith('vbscript:') || (v.startsWith('data:') && !isDataImg))) {
+            child.removeAttribute(attr.name);
+          }
+        }
+        if (name === 'style' && /expression\(|javascript:|url\(/i.test(val)) {
+          child.removeAttribute(attr.name);
+        }
+      }
+
+      walk(child);
+    }
+  };
+
+  walk(doc.body);
+  return doc.body.innerHTML;
+}
+
+// Secret fields must be sent EXACTLY as typed — escaping < > would make bcrypt
+// hash a different string than the user entered, silently mangling passwords.
+const SANITIZE_RAW_KEYS = new Set([
+  'password', 'password_confirm', 'current_password', 'new_password', 'token',
+]);
+
 function sanitizeBody(obj) {
   if (!obj || typeof obj !== 'object') return obj;
   const safe = {};
   for (const [k, v] of Object.entries(obj)) {
-    if (k === 'description' || k === 'content' || k === 'body') safe[k] = v;
+    // Rich-text fields keep their HTML but are sanitized (not passed raw) so a
+    // stored <script>/onerror can't fire when the content is later rendered.
+    if (k === 'description' || k === 'content' || k === 'body') safe[k] = sanitizeHTML(v);
+    // Passwords/tokens are never rendered as HTML — sending them raw is required
+    // for correct hashing/matching and carries no XSS risk.
+    else if (SANITIZE_RAW_KEYS.has(k)) safe[k] = v;
     else if (typeof v === 'string') safe[k] = sanitizeText(v);
     else safe[k] = v;
   }
@@ -39,6 +118,13 @@ const api = {
       return data;
     } catch (err) {
       if (err.status) throw err;
+      // Network/parse failure. For reads we degrade to seed data (return null), but
+      // for mutations we MUST surface the error — silently returning null made a
+      // failed save look like a success.
+      if (method !== 'GET') {
+        console.error('API request failed:', method, path, err);
+        throw { status: 0, message: 'Tidak dapat terhubung ke server. Periksa koneksi Anda.' };
+      }
       console.warn('API unavailable, using fallback:', path);
       return null;
     }
@@ -55,8 +141,15 @@ const api = {
     if (res?.data?.token?.access_token) this.setToken(res.data.token.access_token);
     return res;
   },
-  async logout() { this.clearToken(); return { success: true }; },
+  async logout() {
+    // Best-effort server-side revocation, then clear local token regardless.
+    try { await this.post('/auth/logout', {}); } catch (e) { /* ignore — still clear locally */ }
+    this.clearToken();
+    return { success: true };
+  },
   async me() { return this.get('/auth/me'); },
+  forgotPassword(email) { return this.post('/auth/forgot-password', { email }); },
+  resetPassword(data) { return this.post('/auth/reset-password', data); },
 
   // Public
   campaigns(params = '') { return this.get('/campaigns' + (params ? '?' + params : '')); },
@@ -157,3 +250,5 @@ const api = {
 };
 
 window.api = api;
+// Exposed for views that render stored rich-text HTML (defense-in-depth on display).
+window.sanitizeHTML = sanitizeHTML;

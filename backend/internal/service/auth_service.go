@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
 	"github.com/anrdart/niatbaik-api/internal/model"
+	"github.com/anrdart/niatbaik-api/internal/repository"
 	"github.com/anrdart/niatbaik-api/pkg/hash"
 	jwtpkg "github.com/anrdart/niatbaik-api/pkg/jwt"
 	"github.com/anrdart/niatbaik-api/pkg/mailer"
@@ -19,12 +21,13 @@ import (
 )
 
 type AuthService struct {
-	db  *gorm.DB
-	cfg *config.Config
+	db          *gorm.DB
+	cfg         *config.Config
+	revokedRepo *repository.RevokedTokenRepo
 }
 
-func NewAuthService(db *gorm.DB, cfg *config.Config) *AuthService {
-	return &AuthService{db: db, cfg: cfg}
+func NewAuthService(db *gorm.DB, cfg *config.Config, revokedRepo *repository.RevokedTokenRepo) *AuthService {
+	return &AuthService{db: db, cfg: cfg, revokedRepo: revokedRepo}
 }
 
 func (s *AuthService) Login(email, password, ip, userAgent string) (*response.TokenResponse, *response.UserResponse, error) {
@@ -48,8 +51,13 @@ func (s *AuthService) Login(email, password, ip, userAgent string) (*response.To
 		return nil, nil, err
 	}
 
-	// Record login history
-	s.db.Model(&model.LoginHistory{}).Where("user_id = ? AND is_current = ?", user.ID, true).Update("is_current", false)
+	// Record login history (best-effort: a failure here must not block login, but
+	// we log it so a broken audit trail is visible instead of silently corrupting).
+	if err := s.db.Model(&model.LoginHistory{}).
+		Where("user_id = ? AND is_current = ?", user.ID, true).
+		Update("is_current", false).Error; err != nil {
+		log.Printf("[Login] failed to clear previous is_current for user %s: %v", user.ID, err)
+	}
 	history := model.LoginHistory{
 		UserID:     user.ID,
 		IP:         ip,
@@ -59,7 +67,9 @@ func (s *AuthService) Login(email, password, ip, userAgent string) (*response.To
 		LoggedInAt: time.Now(),
 		IsCurrent:  true,
 	}
-	s.db.Create(&history)
+	if err := s.db.Create(&history).Error; err != nil {
+		log.Printf("[Login] failed to record login history for user %s: %v", user.ID, err)
+	}
 
 	tokenResp := &response.TokenResponse{
 		AccessToken:  accessToken,
@@ -79,14 +89,18 @@ func (s *AuthService) Register(req *request.RegisterRequest) (*response.UserResp
 	}
 
 	var count int64
-	s.db.Model(&model.User{}).Where("email = ?", req.Email).Count(&count)
+	if err := s.db.Model(&model.User{}).Where("email = ?", req.Email).Count(&count).Error; err != nil {
+		return nil, err
+	}
 	if count > 0 {
 		return nil, errors.New("email already registered")
 	}
 
 	if req.Phone != "" {
 		var phoneCount int64
-		s.db.Model(&model.User{}).Where("phone = ?", req.Phone).Count(&phoneCount)
+		if err := s.db.Model(&model.User{}).Where("phone = ?", req.Phone).Count(&phoneCount).Error; err != nil {
+			return nil, err
+		}
 		if phoneCount > 0 {
 			return nil, errors.New("nomor telepon sudah digunakan")
 		}
@@ -118,6 +132,18 @@ func (s *AuthService) RefreshToken(refreshToken string) (*response.TokenResponse
 		return nil, errors.New("invalid or expired refresh token")
 	}
 
+	// Reject a refresh token that has been revoked (e.g. by logout). Treat a
+	// denylist lookup error as a failure to verify rather than silently allowing.
+	if s.revokedRepo != nil && claims.ID != "" {
+		revoked, err := s.revokedRepo.IsRevoked(claims.ID)
+		if err != nil {
+			return nil, errors.New("could not verify token state")
+		}
+		if revoked {
+			return nil, errors.New("invalid or expired refresh token")
+		}
+	}
+
 	accessToken, err := jwtpkg.GenerateAccessToken(
 		claims.UserID, claims.Email, claims.Role,
 		s.cfg.JWTSecret, s.cfg.JWTExpiry,
@@ -132,6 +158,38 @@ func (s *AuthService) RefreshToken(refreshToken string) (*response.TokenResponse
 		TokenType:    "Bearer",
 		ExpiresIn:    int64(s.cfg.JWTExpiry.Seconds()),
 	}, nil
+}
+
+// Logout revokes the caller's access token and, when supplied, its paired refresh
+// token by adding their JTIs to the denylist until natural expiry. This makes
+// logout effective server-side instead of relying on the client to discard tokens.
+//
+// userID is the authenticated caller (from the validated access token). A supplied
+// refresh token is only revoked if it belongs to the same user — this prevents an
+// authenticated user from revoking someone else's session (a DoS) by passing a
+// stolen/guessed refresh token. Best-effort: a denylist error on one token is
+// logged but does not abort revoking the others.
+func (s *AuthService) Logout(userID uuid.UUID, accessToken, refreshToken string) error {
+	if s.revokedRepo == nil {
+		return nil
+	}
+	for _, raw := range []string{accessToken, refreshToken} {
+		if raw == "" {
+			continue
+		}
+		claims, err := jwtpkg.ParseToken(raw, s.cfg.JWTSecret)
+		if err != nil || claims.ID == "" || claims.ExpiresAt == nil {
+			continue
+		}
+		// Only revoke tokens that belong to the authenticated caller.
+		if claims.UserID != userID {
+			continue
+		}
+		if err := s.revokedRepo.Revoke(claims.ID, claims.ExpiresAt.Time); err != nil {
+			log.Printf("[Logout] failed to revoke token %s for user %s: %v", claims.ID, userID, err)
+		}
+	}
+	return nil
 }
 
 func (s *AuthService) ForgotPassword(email string) error {
@@ -156,7 +214,8 @@ func (s *AuthService) ForgotPassword(email string) error {
 	// Send reset email via SMTP (best-effort: log on failure, don't leak to client).
 	var settings model.Setting
 	if err := s.db.First(&settings).Error; err == nil {
-		resetURL := fmt.Sprintf("https://donasi.niatbaik.org/reset-password?email=%s&token=%s", user.Email, token)
+		resetURL := fmt.Sprintf("https://donasi.niatbaik.org/reset-password?email=%s&token=%s",
+			url.QueryEscape(user.Email), url.QueryEscape(token))
 		body := fmt.Sprintf(`
 			<div style="font-family:sans-serif;max-width:480px;margin:auto">
 			  <h2 style="color:#2E4191">Reset Password NIATBAIK.ORG</h2>
@@ -188,13 +247,9 @@ func (s *AuthService) ResetPassword(req *request.ResetPasswordRequest) error {
 		return errors.New("passwords do not match")
 	}
 
-	var user model.User
-	if err := s.db.Where("email = ? AND reset_token = ?", req.Email, req.Token).First(&user).Error; err != nil {
+	// Empty token must never match a user whose reset_token was cleared.
+	if req.Token == "" {
 		return errors.New("invalid reset token")
-	}
-
-	if user.ResetTokenExpiry == nil || user.ResetTokenExpiry.Before(time.Now()) {
-		return errors.New("reset token expired")
 	}
 
 	hashed, err := hash.HashPassword(req.Password)
@@ -202,11 +257,23 @@ func (s *AuthService) ResetPassword(req *request.ResetPasswordRequest) error {
 		return err
 	}
 
-	user.Password = hashed
-	user.ResetToken = ""
-	user.ResetTokenExpiry = nil
-
-	return s.db.Save(&user).Error
+	// Atomic single-use consume: only the row that still holds this exact, unexpired
+	// token is updated, and the token is cleared in the same statement. Concurrent
+	// requests with the same token race on this UPDATE — exactly one affects a row.
+	result := s.db.Model(&model.User{}).
+		Where("email = ? AND reset_token = ? AND reset_token_expiry > ?", req.Email, req.Token, time.Now()).
+		Updates(map[string]interface{}{
+			"password":           hashed,
+			"reset_token":        "",
+			"reset_token_expiry": nil,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("invalid or expired reset token")
+	}
+	return nil
 }
 
 func (s *AuthService) GetUserByID(id uuid.UUID) (*response.UserResponse, error) {

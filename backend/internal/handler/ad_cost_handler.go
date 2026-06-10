@@ -6,9 +6,8 @@ import (
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
+	"github.com/anrdart/niatbaik-api/internal/middleware"
 	"github.com/anrdart/niatbaik-api/internal/service"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -25,12 +24,16 @@ func (h *AdCostHandler) Create(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request"))
 	}
+	if err := c.Validate(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+	}
 
-	token := c.Get("user").(*jwt.Token)
-	claims := token.Claims.(jwt.MapClaims)
-	userID, _ := uuid.Parse(claims["user_id"].(string))
+	claims := middleware.GetUserFromContext(c)
+	if claims == nil {
+		return c.JSON(http.StatusUnauthorized, response.ErrorResponse("unauthorized"))
+	}
 
-	cost, err := h.service.Create(&req, userID)
+	cost, err := h.service.Create(&req, claims.UserID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to create ad cost"))
 	}

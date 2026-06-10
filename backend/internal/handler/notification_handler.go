@@ -26,7 +26,7 @@ func (h *NotificationHandler) List(c echo.Context) error {
 	}
 
 	limit, _ := strconv.Atoi(c.QueryParam("limit"))
-	if limit <= 0 {
+	if limit <= 0 || limit > 500 {
 		limit = 20
 	}
 
@@ -54,7 +54,7 @@ func (h *NotificationHandler) MarkRead(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid notification id"))
 	}
 
-	if err := h.notificationService.MarkRead(id); err != nil {
+	if err := h.notificationService.MarkRead(id, claims.UserID); err != nil {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to mark notification as read"))
 	}
 

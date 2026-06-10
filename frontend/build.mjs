@@ -20,7 +20,7 @@ const FILES = [
   'views/advertiser.jsx','views/data-studio.jsx','views/cs-inbox.jsx','views/fundraiser.jsx',
   'views/members.jsx','views/profile.jsx','views/settings.jsx',
   'views/notifications.jsx','views/trash.jsx','views/ads-guide.jsx',
-  'public/public-app.jsx','login.jsx','app.jsx',
+  'public/public-app.jsx','login.jsx','auth-reset.jsx','app.jsx',
 ];
 
 mkdirSync(outDir, { recursive: true });

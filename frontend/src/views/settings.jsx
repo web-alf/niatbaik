@@ -91,10 +91,12 @@ function Section({ title, sub, children, actions }) {
 function ThemesPanel({ settings, onSave }) {
   const { dark, setDark, showToast } = useApp();
   const [color, setColor] = useStateA(settings?.primary_color || '#2E4191');
+  const [secondaryColor, setSecondaryColor] = useStateA(settings?.secondary_color || '#38B6FF');
   const [radius, setRadius] = useStateA(settings?.border_radius ?? 16);
   const logoRef = useRefA();
   const [logoSrc, setLogoSrc] = useStateA(settings?.logo || settings?.logo_url || 'assets/logo.png');
   useEffectA(() => { if (settings?.primary_color) setColor(settings.primary_color); }, [settings]);
+  useEffectA(() => { if (settings?.secondary_color) setSecondaryColor(settings.secondary_color); }, [settings]);
   useEffectA(() => { if (settings?.border_radius != null) setRadius(settings.border_radius); }, [settings]);
   useEffectA(() => { const l = settings?.logo || settings?.logo_url; if (l) setLogoSrc(l); }, [settings]);
   const applyTheme = (c) => {
@@ -158,8 +160,8 @@ function ThemesPanel({ settings, onSave }) {
             <div>
               <label className="text-xs font-semibold text-mute">Secondary Color</label>
               <div className="mt-1 flex items-center gap-2">
-                <input type="color" defaultValue="#38B6FF" className="h-10 w-10 rounded-lg border border-line cursor-pointer"/>
-                <input className="field font-mono" defaultValue="#38B6FF"/>
+                <input type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="h-10 w-10 rounded-lg border border-line cursor-pointer"/>
+                <input value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="field font-mono"/>
               </div>
             </div>
             <div>
@@ -202,7 +204,7 @@ function ThemesPanel({ settings, onSave }) {
       </Section>
 
       <div className="flex justify-end mt-4">
-        <Btn icon="check" onClick={() => { applyTheme(color); onSave({ primary_color: color, border_radius: radius, logo: logoSrc }); }}>Simpan Perubahan</Btn>
+        <Btn icon="check" onClick={() => { applyTheme(color); onSave({ primary_color: color, secondary_color: secondaryColor, border_radius: radius, logo: logoSrc }); }}>Simpan Perubahan</Btn>
       </div>
     </>
   );
@@ -223,15 +225,19 @@ function FormPanel({ settings, onSave }) {
   const { showToast } = useApp();
   const [fields, setFields] = useStateA(parseArr(settings?.form_fields_config, DEFAULT_FIELDS));
   const [presets, setPresets] = useStateA(parseArr(settings?.nominal_presets, DEFAULT_PRESETS));
-  const [minDonation, setMinDonation] = useStateA(settings?.min_donation || 'Rp 10.000');
-  const [allowAnon, setAllowAnon] = useStateA(settings?.allow_anon ?? true);
-  const [allowDoa, setAllowDoa] = useStateA(settings?.allow_doa ?? true);
+  // Read the SAME keys the backend persists (min_donation_global / anonymous_default /
+  // message_enabled). Previously this read non-existent keys, so saved toggles
+  // appeared to revert on reload.
+  const initMin = settings?.min_donation_global ? 'Rp ' + Number(settings.min_donation_global).toLocaleString('id-ID') : 'Rp 10.000';
+  const [minDonation, setMinDonation] = useStateA(initMin);
+  const [allowAnon, setAllowAnon] = useStateA(settings?.anonymous_default ?? true);
+  const [allowDoa, setAllowDoa] = useStateA(settings?.message_enabled ?? true);
   const [newPreset, setNewPreset] = useStateA('');
   useEffectA(() => { setFields(parseArr(settings?.form_fields_config, DEFAULT_FIELDS)); }, [settings]);
   useEffectA(() => { setPresets(parseArr(settings?.nominal_presets, DEFAULT_PRESETS)); }, [settings]);
-  useEffectA(() => { if (settings?.min_donation) setMinDonation(settings.min_donation); }, [settings]);
-  useEffectA(() => { if (settings?.allow_anon != null) setAllowAnon(settings.allow_anon); }, [settings]);
-  useEffectA(() => { if (settings?.allow_doa != null) setAllowDoa(settings.allow_doa); }, [settings]);
+  useEffectA(() => { if (settings?.min_donation_global) setMinDonation('Rp ' + Number(settings.min_donation_global).toLocaleString('id-ID')); }, [settings]);
+  useEffectA(() => { if (settings?.anonymous_default != null) setAllowAnon(settings.anonymous_default); }, [settings]);
+  useEffectA(() => { if (settings?.message_enabled != null) setAllowDoa(settings.message_enabled); }, [settings]);
 
   const toggleField = (i, key) => setFields(prev => prev.map((f, j) => j === i ? { ...f, [key]: !f[key] } : f));
   const removePreset = (p) => setPresets(prev => prev.filter(x => x !== p));

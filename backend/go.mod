@@ -9,6 +9,7 @@ require (
 	github.com/gosimple/slug v1.14.0
 	github.com/labstack/echo/v4 v4.12.0
 	golang.org/x/crypto v0.28.0
+	golang.org/x/time v0.7.0
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.12
 )
@@ -35,5 +36,4 @@ require (
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect
 	golang.org/x/text v0.19.0 // indirect
-	golang.org/x/time v0.7.0 // indirect
 )

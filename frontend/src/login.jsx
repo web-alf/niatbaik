@@ -25,11 +25,17 @@ function LoginStats(){
   );
 }
 
+// Role → default email for the quick-login pills. Passwords are intentionally NOT
+// stored here: shipping them in the bundle exposed real credentials to anyone
+// viewing source. Emails are not secret; the user still types their password.
 const LOGIN_ACCOUNTS = {
-  'admin@niatbaik.org':      { password: 'admin123',      role: 'Admin',      name: 'Andre Wicaksono', initial: 'AW', email: 'admin@niatbaik.org',      access: 'Full akses · kelola seluruh platform' },
-  'cs@niatbaik.org':         { password: 'cs123456',      role: 'CS',         name: 'Putri Maharani',  initial: 'PM', email: 'cs@niatbaik.org',         access: 'Akses inbox donor, transaksi, follow-up' },
-  'advertiser@niatbaik.org': { password: 'advertiser123', role: 'Advertiser', name: 'Dewi Lestari',    initial: 'DL', email: 'advertiser@niatbaik.org', access: 'Akses analytics, ads tracking, UTM, pixel' }
+  'admin@niatbaik.org':      { role: 'Admin',      name: 'Administrator', initial: 'AW', email: 'admin@niatbaik.org',      access: 'Full akses · kelola seluruh platform' },
+  'cs@niatbaik.org':         { role: 'CS',         name: 'Customer Service', initial: 'CS', email: 'cs@niatbaik.org',     access: 'Akses inbox donor, transaksi, follow-up' },
+  'advertiser@niatbaik.org': { role: 'Advertiser', name: 'Advertiser',    initial: 'AD', email: 'advertiser@niatbaik.org', access: 'Akses analytics, ads tracking, UTM, pixel' }
 };
+
+// Demo helpers (pre-filled emails, never passwords) only make sense on local dev.
+const IS_LOCAL_DEV = typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost';
 
 const LOGIN_ROLE_META = {
   Admin:      { color: 'bg-brand-600',  ring: 'ring-brand-600',  light: 'bg-brand-50',  text: 'text-brand-700',  icon: 'shield',  tag: 'Full Access',   desc: 'Kelola seluruh platform' },
@@ -56,8 +62,8 @@ function LoginPage({ onLogin }) {
   const quickLogin = (roleKey) => {
     const acc = Object.values(LOGIN_ACCOUNTS).find(a => a.role === roleKey);
     if (acc) {
+      // Prefill the email only — the user must enter their own password.
       setEmail(acc.email);
-      setPassword(acc.password);
       setPickedRole(roleKey);
       setError('');
     }
@@ -168,7 +174,7 @@ function LoginPage({ onLogin }) {
               <div>
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-muted">Password</label>
-                  <button type="button" onClick={() => alert('Hubungi admin@niatbaik.org untuk reset password.')} className="text-xs font-semibold text-brand-600 hover:underline cursor-pointer">Lupa password?</button>
+                  <button type="button" onClick={() => { window.__nbNavigateForgot ? window.__nbNavigateForgot() : (window.location.href = '/forgot-password'); }} className="text-xs font-semibold text-brand-600 hover:underline cursor-pointer">Lupa password?</button>
                 </div>
                 <div className="mt-1 relative">
                   <input type={showPwd ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
@@ -204,20 +210,20 @@ function LoginPage({ onLogin }) {
               </button>
             </form>
 
-            {/* Demo credentials */}
-            <div className="mt-5 pt-5 border-t border-line dark:border-slate-700">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted mb-2">Kredensial demo</div>
-              <div className="space-y-1.5 text-[11px] font-mono">
-                {Object.entries(LOGIN_ACCOUNTS).map(([em, a]) => (
-                  <div key={em} className="flex items-center gap-2">
-                    <span className={`px-1.5 py-0.5 rounded ${LOGIN_ROLE_META[a.role].color} text-white text-[10px] font-bold w-20 text-center`}>{a.role}</span>
-                    <span className="text-ink dark:text-slate-200">{em}</span>
-                    <span className="text-muted">/</span>
-                    <span className="text-ink dark:text-slate-200">{a.password}</span>
-                  </div>
-                ))}
+            {/* Demo account emails — local dev only, and NEVER any passwords. */}
+            {IS_LOCAL_DEV && (
+              <div className="mt-5 pt-5 border-t border-line dark:border-slate-700">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted mb-2">Akun demo (dev)</div>
+                <div className="space-y-1.5 text-[11px] font-mono">
+                  {Object.entries(LOGIN_ACCOUNTS).map(([em, a]) => (
+                    <div key={em} className="flex items-center gap-2">
+                      <span className={`px-1.5 py-0.5 rounded ${LOGIN_ROLE_META[a.role].color} text-white text-[10px] font-bold w-20 text-center`}>{a.role}</span>
+                      <span className="text-ink dark:text-slate-200">{em}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="mt-4 text-center text-xs text-muted">

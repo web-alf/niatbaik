@@ -30,9 +30,10 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	adCostRepo := repository.NewAdCostRepo(db)
 	paymentMethodRepo := repository.NewPaymentMethodRepo(db)
 	dataStudioRepo := repository.NewDataStudioRepo(db)
+	revokedTokenRepo := repository.NewRevokedTokenRepo(db)
 
 	// Initialize services
-	authService := service.NewAuthService(db, cfg)
+	authService := service.NewAuthService(db, cfg, revokedTokenRepo)
 	paymentService := service.NewPaymentService(db, invoiceRepo, campaignRepo, settingRepo, fundraiserRepo, commissionRepo)
 	mootaService := service.NewMootaService(cfg, paymentService, invoiceRepo, settingRepo)
 	flipService := service.NewFlipService(cfg, paymentService, invoiceRepo, settingRepo)
@@ -94,17 +95,20 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	api.POST("/webhooks/moota", webhookHandler.HandleMoota)
 	api.POST("/webhooks/flip", webhookHandler.HandleFlip)
 
-	// Auth routes
+	// Auth routes. Credential-guessing surfaces (login/forgot/reset) get a tight
+	// per-IP rate limit to blunt brute-force and reset-spam; register is also
+	// limited to curb mass signups.
+	authLimiter := middleware.AuthRateLimiter()
 	auth := api.Group("/auth")
-	auth.POST("/login", authHandler.Login)
-	auth.POST("/register", authHandler.Register)
+	auth.POST("/login", authHandler.Login, authLimiter)
+	auth.POST("/register", authHandler.Register, authLimiter)
 	auth.POST("/refresh", authHandler.RefreshToken)
-	auth.POST("/forgot-password", authHandler.ForgotPassword)
-	auth.POST("/reset-password", authHandler.ResetPassword)
+	auth.POST("/forgot-password", authHandler.ForgotPassword, authLimiter)
+	auth.POST("/reset-password", authHandler.ResetPassword, authLimiter)
 
 	// Protected routes (require JWT)
 	protected := api.Group("")
-	protected.Use(middleware.JWTMiddleware(cfg.JWTSecret))
+	protected.Use(middleware.JWTMiddleware(cfg.JWTSecret, revokedTokenRepo))
 
 	// Auth (protected)
 	protected.POST("/auth/logout", authHandler.Logout)
@@ -128,8 +132,9 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	// Withdrawal request (campaign owner / fundraiser)
 	protected.POST("/withdrawals", withdrawalHandler.CreateRequest)
 
-	// Dashboard (admin + cs + advertiser)
+	// Dashboard (admin + cs + advertiser) — staff only, not regular donors/fundraisers
 	dashboard := protected.Group("/dashboard")
+	dashboard.Use(middleware.RequireRole("admin", "cs", "advertiser"))
 	dashboard.GET("/stats", dashboardHandler.GetStats)
 	dashboard.GET("/chart/daily", dashboardHandler.GetDailyChart)
 	dashboard.GET("/chart/payment-methods", dashboardHandler.GetPaymentMethodChart)

@@ -67,12 +67,32 @@ func (s *PaymentService) ProcessPayment(invoice *model.Invoice) error {
 			return fmt.Errorf("failed to update invoice: %w", err)
 		}
 
+		// Guard against a misconfigured admin fee corrupting balances: a fee larger
+		// than the donation must never make the campaign/org "receive" a negative
+		// amount (which would inflate their running balance). Clamp to zero.
 		campaignReceives := lockedInvoice.Subtotal - adminFee
+		if campaignReceives < 0 {
+			campaignReceives = 0
+		}
+		// masterReceives uses Total (Subtotal + unique transfer code) because, for
+		// manual bank transfers, the org actually receives the full transferred
+		// amount; for gateway payments uniqueCode is 0 so Total == Subtotal.
 		masterReceives := lockedInvoice.Total - adminFee
+		if masterReceives < 0 {
+			masterReceives = 0
+		}
 
 		// 3. Handle referral commission.
 		if lockedInvoice.ReferredBy != nil && !lockedInvoice.ReferralProcessed {
 			commissionPercent := int64(settings.FundraiserCommissionPercent)
+			// Clamp percent to a sane 0..100 range so a bad setting can't pay out a
+			// negative commission (which would silently drain a referrer's balance)
+			// or an absurd one.
+			if commissionPercent < 0 {
+				commissionPercent = 0
+			} else if commissionPercent > 100 {
+				commissionPercent = 100
+			}
 			commissionAmount := (campaignReceives * commissionPercent) / 100
 
 			if err := tx.Model(&model.Fundraiser{}).
@@ -97,7 +117,12 @@ func (s *PaymentService) ProcessPayment(invoice *model.Invoice) error {
 				return fmt.Errorf("failed to create commission: %w", err)
 			}
 
+			// Commission comes out of the campaign's share; re-clamp in case the
+			// commission exceeds what's left so the campaign balance never goes negative.
 			campaignReceives -= commissionAmount
+			if campaignReceives < 0 {
+				campaignReceives = 0
+			}
 
 			if err := tx.Model(&lockedInvoice).UpdateColumn("referral_processed", true).Error; err != nil {
 				return fmt.Errorf("failed to mark referral processed: %w", err)

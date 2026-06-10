@@ -18,6 +18,12 @@ func main() {
 	// Load config
 	cfg := config.Load()
 
+	// Fail fast on insecure/missing production config (weak JWT secret, default
+	// DB password). Better to crash on boot than to silently sign forgeable tokens.
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Invalid configuration: %v", err)
+	}
+
 	// Connect database
 	db, err := database.ConnectDB(cfg)
 	if err != nil {
@@ -37,13 +43,36 @@ func main() {
 	e.HideBanner = true
 	e.Validator = validator.New()
 
+	// Cap request bodies to prevent memory-exhaustion DoS. File uploads have a
+	// stricter per-file limit enforced in the upload service; this is the outer guard.
+	e.Use(echoMiddleware.BodyLimit("12M"))
+
 	// Global middleware
 	e.Use(echoMiddleware.Logger())
 	e.Use(echoMiddleware.Recover())
+	e.Use(middleware.SecurityHeaders())
 	e.Use(middleware.CORSMiddleware(cfg.CORSOrigins))
 
-	// Static file serving for uploads
-	e.Static("/uploads", cfg.UploadDir)
+	// Static file serving for uploads. Uploads are restricted to raster images
+	// (extension derived from sniffed content type, so no SVG/HTML/polyglot can be
+	// stored). These headers are defense-in-depth: nosniff stops MIME confusion and
+	// a restrictive CSP sandbox neuters any active content if one ever slipped
+	// through. Disposition stays "inline" so legitimate images still render in <img>.
+	uploadFS := e.Group("/uploads")
+	uploadFS.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			h := c.Response().Header()
+			h.Set("X-Content-Type-Options", "nosniff")
+			h.Set("Content-Disposition", "inline; filename=\"download\"")
+			h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
+			// UUID filenames are immutable, so override the global no-store with a
+			// long cache. Keep it private to avoid shared-proxy caching of any
+			// potentially sensitive uploaded document.
+			h.Set("Cache-Control", "private, max-age=86400")
+			return next(c)
+		}
+	})
+	uploadFS.Static("", cfg.UploadDir)
 
 	// Setup routes
 	router.Setup(e, db, cfg)

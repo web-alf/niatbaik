@@ -26,8 +26,8 @@ func (s *NotificationService) GetNotifications(userID uuid.UUID, limit int) ([]m
 	return notifications, unreadCount, nil
 }
 
-func (s *NotificationService) MarkRead(notificationID uuid.UUID) error {
-	return s.notificationRepo.MarkRead(notificationID)
+func (s *NotificationService) MarkRead(notificationID, userID uuid.UUID) error {
+	return s.notificationRepo.MarkRead(notificationID, userID)
 }
 
 func (s *NotificationService) MarkAllRead(userID uuid.UUID) error {

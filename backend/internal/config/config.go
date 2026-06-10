@@ -1,10 +1,15 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"time"
 )
+
+// insecureJWTDefault is the historical fallback secret. Kept named so Validate()
+// can reject it explicitly when running in production.
+const insecureJWTDefault = "change-me-in-production"
 
 type Config struct {
 	DBHost     string
@@ -46,7 +51,7 @@ func Load() *Config {
 		DBPassword: getEnv("DB_PASSWORD", "secret"),
 		DBName:     getEnv("DB_NAME", "niatbaik"),
 
-		JWTSecret:        getEnv("JWT_SECRET", "change-me-in-production"),
+		JWTSecret:        getEnv("JWT_SECRET", insecureJWTDefault),
 		JWTExpiry:        getDuration("JWT_EXPIRY", 24*time.Hour),
 		JWTRefreshExpiry: getDuration("JWT_REFRESH_EXPIRY", 168*time.Hour),
 
@@ -76,13 +81,44 @@ func (c *Config) IsProduction() bool {
 	return c.AppEnv == "production"
 }
 
+// Validate enforces security-critical invariants. In production it refuses to
+// start with a missing/weak/default JWT secret or a default DB password, so a
+// misconfigured deploy fails loudly instead of silently signing forgeable tokens.
+func (c *Config) Validate() error {
+	if !c.IsProduction() {
+		return nil
+	}
+	if c.JWTSecret == "" || c.JWTSecret == insecureJWTDefault {
+		return fmt.Errorf("JWT_SECRET must be set to a strong secret in production (the default %q is not allowed)", insecureJWTDefault)
+	}
+	if len(c.JWTSecret) < 32 {
+		return fmt.Errorf("JWT_SECRET must be at least 32 characters in production (got %d)", len(c.JWTSecret))
+	}
+	if c.DBPassword == "" || c.DBPassword == "secret" {
+		return fmt.Errorf("DB_PASSWORD must be set to a strong value in production (the default \"secret\" is not allowed)")
+	}
+	return nil
+}
+
+// sslMode returns the Postgres sslmode for the DSN. Production requires TLS;
+// development keeps it disabled for local Docker convenience.
+func (c *Config) sslMode() string {
+	if c.IsProduction() {
+		if v := os.Getenv("DB_SSLMODE"); v != "" {
+			return v
+		}
+		return "require"
+	}
+	return "disable"
+}
+
 func (c *Config) DSN() string {
 	return "host=" + c.DBHost +
 		" user=" + c.DBUser +
 		" password=" + c.DBPassword +
 		" dbname=" + c.DBName +
 		" port=" + c.DBPort +
-		" sslmode=disable TimeZone=Asia/Jakarta"
+		" sslmode=" + c.sslMode() + " TimeZone=Asia/Jakarta"
 }
 
 func getEnv(key, fallback string) string {

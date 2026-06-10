@@ -382,9 +382,19 @@ function Topbar({ onMenu }) {
 // =============================================================
 // APP
 // =============================================================
+// Map a URL path (from a reset email link or deep link) to an initial public route.
+function initialRouteFromPath() {
+  try {
+    const p = window.location.pathname;
+    if (p === '/reset-password') return 'reset-password';
+    if (p === '/forgot-password') return 'forgot-password';
+  } catch {}
+  return 'landing';
+}
+
 function App() {
   const [user, setUser] = uS(null);
-  const [route, setRouteRaw] = uS('landing');
+  const [route, setRouteRaw] = uS(initialRouteFromPath);
   const [authLoading, setAuthLoading] = uS(true);
   const [toast, setToast] = uS('');
   const [sidebarOpen, setSidebarOpen] = uS(false);
@@ -415,15 +425,15 @@ function App() {
 
   // --- Auth: check token on mount ---
   uE(() => {
+    // Reset/forgot links are public flows — never auto-redirect them to dashboard,
+    // even if a stale session token exists.
+    const onAuthFlow = route === 'reset-password' || route === 'forgot-password';
     const token = api.getToken && api.getToken();
     if (token) {
       api.me().then(res => {
-        if (res?.success && res?.data) {
+        if (res?.data) {
           setUser(res.data);
-          setRouteRaw('dashboard');
-        } else if (res?.data) {
-          setUser(res.data);
-          setRouteRaw('dashboard');
+          if (!onAuthFlow) setRouteRaw('dashboard');
         } else {
           api.clearToken && api.clearToken();
         }
@@ -459,10 +469,16 @@ function App() {
     return () => { cancelled = true; };
   }, [user]);
 
-  // --- Landing nav helper (used by login page link) ---
+  // --- Landing/login nav helpers (used by login + reset pages) ---
   uE(() => {
     window.__nbNavigateLanding = () => setView('landing');
-    return () => { delete window.__nbNavigateLanding; };
+    window.__nbNavigateLogin = () => setView('login');
+    window.__nbNavigateForgot = () => setView('forgot-password');
+    return () => {
+      delete window.__nbNavigateLanding;
+      delete window.__nbNavigateLogin;
+      delete window.__nbNavigateForgot;
+    };
   }, []);
 
   // --- Cross-component navigation events ---
@@ -557,6 +573,29 @@ function App() {
     );
   }
 
+  // --- Auth flows (reset/forgot password) — always public, render before any
+  // user/login gating so a reset link works whether or not a session exists. ---
+  if (route === 'reset-password') {
+    return (
+      <AppCtx.Provider value={ctx}>
+        <ViewErrorBoundary route={route}>
+          {window.ResetPasswordPage ? <window.ResetPasswordPage/> : null}
+        </ViewErrorBoundary>
+        <Toast message={toast}/>
+      </AppCtx.Provider>
+    );
+  }
+  if (route === 'forgot-password') {
+    return (
+      <AppCtx.Provider value={ctx}>
+        <ViewErrorBoundary route={route}>
+          {window.ForgotPasswordPage ? <window.ForgotPasswordPage/> : null}
+        </ViewErrorBoundary>
+        <Toast message={toast}/>
+      </AppCtx.Provider>
+    );
+  }
+
   // --- Public routes (no auth required) ---
   const isPublicRoute = route === 'landing' || route === 'campaign-detail';
   if (isPublicRoute && !dataReady) {
@@ -574,8 +613,8 @@ function App() {
     );
   }
 
-  // --- Not logged in + admin route → login ---
-  if (!user) {
+  // --- Not logged in (or explicit login route) → login ---
+  if (!user || route === 'login') {
     return (
       <AppCtx.Provider value={ctx}>
         <LoginPage onLogin={handleLogin}/>

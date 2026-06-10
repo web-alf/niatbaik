@@ -38,7 +38,7 @@ func (r *CampaignRepo) FindAll(params request.PaginationParams) ([]model.Campaig
 	}
 
 	offset := (params.Page - 1) * params.Limit
-	if err := q.Order(params.Sort).Offset(offset).Limit(params.Limit).Find(&campaigns).Error; err != nil {
+	if err := q.Order(pagination.SanitizeSort(params.Sort)).Offset(offset).Limit(params.Limit).Find(&campaigns).Error; err != nil {
 		return nil, 0, err
 	}
 

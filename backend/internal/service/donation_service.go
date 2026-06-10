@@ -67,11 +67,14 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 		return nil, fmt.Errorf("donasi maksimal untuk program ini adalah Rp %d", campaign.MaxDonation)
 	}
 
-	// Idempotency: reject identical donation from same phone within 10s.
+	// Idempotency: reject an identical donation from the same phone within a short
+	// window. 60s (was 10s) covers realistic client retries on slow/timed-out
+	// requests, which otherwise create duplicate invoices that each credit the
+	// campaign independently when paid.
 	var recentCount int64
 	s.db.Model(&model.Invoice{}).
 		Where("campaign_id = ? AND donor_phone = ? AND subtotal = ? AND created_at >= ?",
-			campaign.ID, req.DonorPhone, req.Amount, time.Now().Add(-10*time.Second)).
+			campaign.ID, req.DonorPhone, req.Amount, time.Now().Add(-60*time.Second)).
 		Count(&recentCount)
 	if recentCount > 0 {
 		return nil, fmt.Errorf("permintaan donasi serupa baru saja dibuat, mohon tunggu sebentar")

@@ -32,6 +32,7 @@ func GenerateTokens(userID uuid.UUID, email, role, secret string, accessExpiry, 
 func GenerateAccessToken(userID uuid.UUID, email, role, secret string, expiry time.Duration) (string, error) {
 	claims := &Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewString(), // jti — enables server-side revocation (logout)
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Subject:   userID.String(),
@@ -48,6 +49,7 @@ func GenerateAccessToken(userID uuid.UUID, email, role, secret string, expiry ti
 func GenerateRefreshToken(userID uuid.UUID, email, role, secret string, expiry time.Duration) (string, error) {
 	claims := &Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewString(), // jti — enables server-side revocation (logout)
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Subject:   userID.String(),

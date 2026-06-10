@@ -38,7 +38,9 @@ func (s *ProfileService) UpdateProfile(userID uuid.UUID, req *request.UpdateProf
 	}
 	if req.Phone != "" {
 		var count int64
-		s.db.Model(&model.User{}).Where("phone = ? AND id != ?", req.Phone, userID).Count(&count)
+		if err := s.db.Model(&model.User{}).Where("phone = ? AND id != ?", req.Phone, userID).Count(&count).Error; err != nil {
+			return err
+		}
 		if count > 0 {
 			return errors.New("nomor telepon sudah digunakan oleh pengguna lain")
 		}

@@ -40,6 +40,20 @@ if [ "$ENV" = "prod" ] && [ ! -f "$ENV_FILE" ]; then
     err ".env.production not found! Copy from template:\n   cp .env.production.example .env.production\n   Then edit with real values."
 fi
 
+# ---- Secret strength preflight (prod only) ----
+# Refuse to deploy with default/weak secrets — these would allow JWT forgery or
+# trivial DB compromise on a public host.
+if [ "$ENV" = "prod" ]; then
+    JWT_VAL="$(grep -E '^JWT_SECRET=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '"'"'"' \r')"
+    DBP_VAL="$(grep -E '^DB_PASSWORD=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '"'"'"' \r')"
+    if [ -z "$JWT_VAL" ] || [ "$JWT_VAL" = "change-me-in-production" ] || [ "${#JWT_VAL}" -lt 32 ]; then
+        err "JWT_SECRET in $ENV_FILE is missing, default, or <32 chars. Set a strong random value before deploying."
+    fi
+    if [ -z "$DBP_VAL" ] || [ "$DBP_VAL" = "secret" ]; then
+        err "DB_PASSWORD in $ENV_FILE is missing or the default 'secret'. Set a strong value before deploying."
+    fi
+fi
+
 echo ""
 echo "============================================"
 echo "  NIATBAIK.ORG — Deploy [$ENV] from $BRANCH"

@@ -4,7 +4,7 @@ const TW = {
   txnRowCount: 8, txnDensity: 'regular', txnStriped: false, txnShowToolbar: true,
   txnShowDonatur: true, txnShowCampaign: true, txnShowMetode: true, txnShowSumber: true,
   txnShowStatus: true, txnShowTanggal: true, txnAnonymizeAll: false, txnAccent: '#2E4191',
-  txnTitle: '10 transaksi paling baru', txnAutoConfirmMoota: true, txnShowMethodFilter: true,
+  txnTitle: 'Semua transaksi', txnAutoConfirmMoota: true, txnShowMethodFilter: true,
   txnHighlightAutoConfirm: true,
 };
 
@@ -28,6 +28,8 @@ function DashboardView() {
   const [txnQuery, setTxnQuery] = useStateA('');
   const [txnStatusFilter, setTxnStatusFilter] = useStateA('all');
   const [txnMethodFilter, setTxnMethodFilter] = useStateA('all');
+  const [pageSize, setPageSize] = useStateA(10);
+  const [pageNum, setPageNum] = useStateA(1);
 
   // Apply Moota/Flip auto-confirm on Pending rows when the tweak is on.
   // We tag the rows we changed so the table can pulse them.
@@ -56,6 +58,15 @@ function DashboardView() {
       return t.id.toLowerCase().includes(q) || donor.includes(q) || (t.campaign||'').toLowerCase().includes(q);
     });
   }, [processedTxns, txnQuery, txnStatusFilter, txnMethodFilter, range]);
+
+  // Pagination over the filtered set.
+  const totalRows = visibleTxns.length;
+  const pageSizeNum = pageSize === 'all' ? totalRows : pageSize;
+  const totalPages = Math.max(1, Math.ceil(totalRows / (pageSizeNum || 1)));
+  const pagedTxns = pageSize === 'all' ? visibleTxns : visibleTxns.slice((pageNum - 1) * pageSize, pageNum * pageSize);
+
+  // Reset to page 1 whenever any filter or the page size changes.
+  useEffectA(() => { setPageNum(1); }, [txnQuery, txnStatusFilter, txnMethodFilter, range, pageSize]);
 
   // Export respects all active filters (date range + query/status/method).
   const exportRows = () => visibleTxns.map(t => ({
@@ -213,21 +224,39 @@ function DashboardView() {
             Tidak ada transaksi yang cocok dengan filter.
           </div>
         ) : (
-          <TxnTable
-            rows={visibleTxns.slice(0, tw.txnRowCount)}
-            onOpen={setInvoiceTxn}
-            density={tw.txnDensity}
-            striped={tw.txnStriped}
-            accent={tw.txnAccent}
-            anonymizeAll={tw.txnAnonymizeAll}
-            highlightAutoConfirm={tw.txnHighlightAutoConfirm}
-            showDonatur={tw.txnShowDonatur}
-            showCampaign={tw.txnShowCampaign}
-            showMetode={tw.txnShowMetode}
-            showSumber={tw.txnShowSumber}
-            showStatus={tw.txnShowStatus}
-            showTanggal={tw.txnShowTanggal}
-          />
+          <>
+            <TxnTable
+              rows={pagedTxns}
+              onOpen={setInvoiceTxn}
+              density={tw.txnDensity}
+              striped={tw.txnStriped}
+              accent={tw.txnAccent}
+              anonymizeAll={tw.txnAnonymizeAll}
+              highlightAutoConfirm={tw.txnHighlightAutoConfirm}
+              showDonatur={tw.txnShowDonatur}
+              showCampaign={tw.txnShowCampaign}
+              showMetode={tw.txnShowMetode}
+              showSumber={tw.txnShowSumber}
+              showStatus={tw.txnShowStatus}
+              showTanggal={tw.txnShowTanggal}
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2 mt-3 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-mute">Tampilkan</span>
+                <select value={pageSize} onChange={(e)=>setPageSize(e.target.value==='all'?'all':+e.target.value)} className="h-8 px-2 rounded-lg border border-line bg-white text-xs font-semibold">
+                  <option value={10}>10</option><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option><option value="all">Semua</option>
+                </select>
+                <span className="text-mute">dari {fmtNum(totalRows)} transaksi</span>
+              </div>
+              {pageSize!=='all' && totalPages>1 && (
+                <div className="flex items-center gap-1">
+                  <button onClick={()=>setPageNum(p=>Math.max(1,p-1))} disabled={pageNum<=1} className="h-8 px-2.5 rounded-lg border border-line bg-white disabled:opacity-40 font-semibold">‹</button>
+                  <span className="px-2 font-semibold text-ink">Hal {pageNum} / {totalPages}</span>
+                  <button onClick={()=>setPageNum(p=>Math.min(totalPages,p+1))} disabled={pageNum>=totalPages} className="h-8 px-2.5 rounded-lg border border-line bg-white disabled:opacity-40 font-semibold">›</button>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </Card>
 

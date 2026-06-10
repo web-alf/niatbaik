@@ -43,7 +43,7 @@ func (h *SettingHandler) Get(c echo.Context) error {
 func (h *SettingHandler) Update(c echo.Context) error {
 	var req request.UpdateSettingRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body: "+err.Error()))
 	}
 
 	if err := h.service.Update(&req); err != nil {

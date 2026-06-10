@@ -32,9 +32,10 @@ function SettingsView() {
 
   const saveSettings = async (patch) => {
     try {
-      const merged = { ...settings, ...patch };
-      await api.updateSettings(merged);
-      setSettings(merged);
+      // Send ONLY the patch — backend merges field-by-field. Spreading the full
+      // GET response sent nested objects/strings that broke c.Bind ("invalid request body").
+      await api.updateSettings(patch);
+      setSettings(prev => ({ ...(prev || {}), ...patch }));
       showToast('Pengaturan berhasil disimpan');
     } catch (e) { showToast('Gagal menyimpan: ' + (e?.message || '')); }
   };
@@ -559,16 +560,21 @@ function PaymentEditorModal({ open, onClose, editing, onSave }) {
     }
   }, [providerOptions]);
 
-  // Auto-suggest name: "BCA Virtual Account", "Bank BCA Transfer", "GoPay", etc.
+  // Compute a display name from type+provider (used for auto-suggest AND as a
+  // guaranteed non-empty fallback at submit, so backend never gets empty bank_name).
+  const autoName = (type, provider) => {
+    if (type === 'Virtual Account (VA)' && VA_GATEWAYS.includes(provider)) return provider + ' Payment Gateway';
+    if (type === 'Virtual Account (VA)') return (provider || '').replace(/^Bank\s+/i, '') + ' Virtual Account';
+    if (type === 'Bank Transfer') return (provider || '').replace(/^Bank\s+/i, '') + ' Transfer';
+    if (type === 'Card (CC/Debit)') return 'Kartu Kredit / Debit';
+    if (type === 'QRIS') return 'QRIS';
+    return provider || 'Metode Pembayaran';
+  };
+
+  // Auto-suggest name into the field when empty.
   useEffectA(() => {
     if (!form.name || (editing && editing.name === form.name)) {
-      let auto = form.provider;
-      if (form.type === 'Virtual Account (VA)' && VA_GATEWAYS.includes(form.provider)) auto = form.provider + ' Payment Gateway';
-      else if (form.type === 'Virtual Account (VA)') auto = form.provider.replace(/^Bank\s+/i, '') + ' Virtual Account';
-      else if (form.type === 'Bank Transfer') auto = form.provider.replace(/^Bank\s+/i, '') + ' Transfer';
-      else if (form.type === 'Card (CC/Debit)') auto = 'Kartu Kredit / Debit';
-      else if (form.type === 'QRIS') auto = 'QRIS';
-      if (!isEdit) setForm((f) => ({ ...f, name: auto }));
+      if (!isEdit) setForm((f) => ({ ...f, name: autoName(f.type, f.provider) }));
     }
   }, [form.type, form.provider]);
 
@@ -581,7 +587,7 @@ function PaymentEditorModal({ open, onClose, editing, onSave }) {
 
   const validate = () => {
     const e = {};
-    if (!form.name.trim()) e.name = 'Nama metode wajib diisi';
+    // name is auto-derived at submit if blank — don't hard-block on it.
     if (isGateway) {
       if (form.provider === 'Moota' && !form.moota.secretToken.trim()) e.secretToken = 'Moota Secret Token wajib diisi';
       if (form.provider === 'Flip') {
@@ -602,8 +608,10 @@ function PaymentEditorModal({ open, onClose, editing, onSave }) {
   const submit = () => {
     if (!validate()) return;
     const typeMap = { 'Bank Transfer': 'va', 'Virtual Account (VA)': 'va', 'E-wallet': 'ewallet', 'QRIS': 'qris', 'Card (CC/Debit)': 'card' };
+    // Guarantee non-empty bank_name (backend requires it) — derive from type+provider if blank.
+    const bankName = form.name.trim() || autoName(form.type, form.provider);
     onSave({
-      bank_name: form.name.trim(),
+      bank_name: bankName,
       type: typeMap[form.type] || 'va',
       account_name: (!isGateway && needsAccount) ? form.holder.trim() : '',
       bank_number: (!isGateway && needsAccount) ? form.account.replace(/\s|-/g, '') : '',
@@ -928,6 +936,17 @@ function TrackingPanel({ settings, onSave }) {
     });
   }, [settings]);
 
+  // Global Meta Pixel: CAPI toggle + per-page event mapping (campaign editor inherits this on "Default").
+  const DEFAULT_EVENTS = { campaign:'PageView', form:'InitiateCheckout', invoice:'Lead', success:'Purchase' };
+  const parseObjSafe = (v, fb) => { if (v && typeof v === 'object') return v; if (typeof v === 'string' && v.trim()) { try { const p = JSON.parse(v); if (p && typeof p === 'object') return p; } catch {} } return fb; };
+  const [capiEnabled, setCapiEnabled] = useStateA(!!settings?.meta_capi_enabled);
+  const [metaEvents, setMetaEvents] = useStateA(parseObjSafe(settings?.event_tracking_config, DEFAULT_EVENTS));
+  useEffectA(() => {
+    setCapiEnabled(!!settings?.meta_capi_enabled);
+    setMetaEvents(parseObjSafe(settings?.event_tracking_config, DEFAULT_EVENTS));
+  }, [settings]);
+  const EVENT_OPTS = ['', 'PageView','ViewContent','InitiateCheckout','AddPaymentInfo','Lead','Purchase','CompleteDonation'];
+
   const openAddLooker = () => { setEditingLooker(null); setLookerForm({ name:'', url:'' }); setLookerModal(true); };
   const openEditLooker = (r, i) => { setEditingLooker(i); setLookerForm({ name: r.name, url: r.url }); setLookerModal(true); };
   const saveLooker = () => {
@@ -973,9 +992,31 @@ function TrackingPanel({ settings, onSave }) {
             </div>
           ))}
         </div>
+        {/* Global Meta Pixel — CAPI + per-page event mapping (campaigns inherit on Default) */}
+        <div className="mt-5 pt-4 border-t border-line">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-bold text-ink">Meta Pixel & Conversion API (Global)</div>
+              <div className="text-xs text-mute mt-0.5">Berlaku untuk semua campaign yang memilih "Default" di editor.</div>
+            </div>
+            <Toggle value={capiEnabled} onChange={setCapiEnabled} label=""/>
+          </div>
+          <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[['campaign','Page Campaign'],['form','Page Form'],['invoice','Page Invoice'],['success','Page Success Payment']].map(([k,label]) => (
+              <div key={k}>
+                <label className="text-xs font-semibold text-mute">{label}</label>
+                <select value={metaEvents[k] || ''} onChange={(e) => setMetaEvents({ ...metaEvents, [k]: e.target.value })} className="field mt-1">
+                  {EVENT_OPTS.map(o => <option key={o} value={o}>{o || 'Pilih Event'}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
         <div className="flex justify-end mt-4">
           <Btn icon="check" onClick={() => onSave({
             meta_pixel_id: pixelIds['Meta Pixel'] || '',
+            meta_capi_enabled: capiEnabled,
+            event_tracking_config: JSON.stringify(metaEvents),
             gtm_id: pixelIds['Google Tag Manager'] || '',
             google_ads_conversion_id: pixelIds['Google Ads Conversion'] || '',
             ga4_measurement_id: pixelIds['Google Analytics 4'] || '',
@@ -1073,17 +1114,15 @@ function NotificationPanel({ settings, onSave }) {
     { label:'Pengingat campaign berakhir',  sub:'5 hari sebelum campaign berakhir' },
     { label:'Alert pixel error',            sub:'Saat Meta/Google/TikTok gagal merespons' },
   ];
-  const [vals, setVals] = useStateA(() => {
-    if (settings?.notification_settings) {
-      return labels.map((n, i) => settings.notification_settings[n.label] ?? INIT[i]);
-    }
+  // notification_config is a JSON string column (backend). Parse map { label: bool }.
+  const parseNotif = (raw) => {
+    let obj = raw;
+    if (typeof raw === 'string' && raw.trim()) { try { obj = JSON.parse(raw); } catch { obj = null; } }
+    if (obj && typeof obj === 'object') return labels.map((n, i) => obj[n.label] ?? INIT[i]);
     return INIT;
-  });
-  useEffectA(() => {
-    if (settings?.notification_settings) {
-      setVals(labels.map((n, i) => settings.notification_settings[n.label] ?? INIT[i]));
-    }
-  }, [settings]);
+  };
+  const [vals, setVals] = useStateA(() => parseNotif(settings?.notification_config));
+  useEffectA(() => { if (settings?.notification_config) setVals(parseNotif(settings.notification_config)); }, [settings]);
   const toggle = (i) => setVals(prev => prev.map((v, j) => j === i ? !v : v));
   return (
     <>
@@ -1097,22 +1136,24 @@ function NotificationPanel({ settings, onSave }) {
         </div>
       </Section>
       <div className="flex justify-end mt-4">
-        <Btn icon="check" onClick={() => onSave({ notification_settings: Object.fromEntries(labels.map((n, i) => [n.label, vals[i]])) })}>Simpan Perubahan</Btn>
+        <Btn icon="check" onClick={() => onSave({ notification_config: JSON.stringify(Object.fromEntries(labels.map((n, i) => [n.label, vals[i]]))) })}>Simpan Perubahan</Btn>
       </div>
     </>
   );
 }
 
 function SocialPanel({ settings, onSave }) {
-  const sp = settings?.social_proof || {};
+  // social_proof_config is a JSON string column (backend).
+  const parseSP = (raw) => { let o = raw; if (typeof raw === 'string' && raw.trim()) { try { o = JSON.parse(raw); } catch { o = null; } } return (o && typeof o === 'object') ? o : {}; };
+  const sp = parseSP(settings?.social_proof_config);
   const [spEnabled, setSpEnabled] = useStateA(sp.enabled ?? true);
   const [spInterval, setSpInterval] = useStateA(sp.interval || '8');
   const [spPosition, setSpPosition] = useStateA(sp.position ?? 2);
   const [spTemplate, setSpTemplate] = useStateA(sp.template || '{{nama}} baru saja berdonasi {{nominal}} untuk {{campaign}}');
   const [spFallback, setSpFallback] = useStateA(sp.fallback || 'Hamba Allah, Rizky H., Siti N., Hamba Allah');
   useEffectA(() => {
-    if (settings?.social_proof) {
-      const s = settings.social_proof;
+    const s = parseSP(settings?.social_proof_config);
+    if (s && Object.keys(s).length) {
       if (s.enabled != null) setSpEnabled(s.enabled);
       if (s.interval) setSpInterval(s.interval);
       if (s.position != null) setSpPosition(s.position);
@@ -1171,7 +1212,7 @@ function SocialPanel({ settings, onSave }) {
       </Section>
 
       <div className="flex justify-end mt-4">
-        <Btn icon="check" onClick={() => onSave({ social_proof: { enabled: spEnabled, interval: spInterval, position: spPosition, template: spTemplate, fallback: spFallback } })}>Simpan Perubahan</Btn>
+        <Btn icon="check" onClick={() => onSave({ social_proof_config: JSON.stringify({ enabled: spEnabled, interval: spInterval, position: spPosition, template: spTemplate, fallback: spFallback }), social_proof_enabled: spEnabled })}>Simpan Perubahan</Btn>
       </div>
     </>
   );
@@ -1189,7 +1230,7 @@ const parseObj = (v) => {
 };
 
 function FundraisingPanel({ settings, onSave }) {
-  const fr = parseObj(settings?.fundraising);
+  const fr = parseObj(settings?.fundraising_config);
   const [enabled, setEnabled] = useStateA(fr.enabled ?? true);
   const [autoCalc, setAutoCalc] = useStateA(fr.auto_calc ?? true);
   const [commission, setCommission] = useStateA(fr.commission || '10');
@@ -1197,7 +1238,7 @@ function FundraisingPanel({ settings, onSave }) {
   const [period, setPeriod] = useStateA(fr.period || 'month');
   const [rules, setRules] = useStateA(parseArr(fr.rules, DEFAULT_RULES));
   useEffectA(() => {
-    const f = parseObj(settings?.fundraising);
+    const f = parseObj(settings?.fundraising_config);
     if (f && Object.keys(f).length) {
       if (f.enabled != null) setEnabled(f.enabled);
       if (f.auto_calc != null) setAutoCalc(f.auto_calc);
@@ -1235,7 +1276,7 @@ function FundraisingPanel({ settings, onSave }) {
         </div>
       </Section>
       <div className="flex justify-end mt-4">
-        <Btn icon="check" onClick={() => onSave({ fundraising: { enabled, auto_calc: autoCalc, commission, min_payout: minPayout, period, rules } })}>Simpan Perubahan</Btn>
+        <Btn icon="check" onClick={() => onSave({ fundraising_config: JSON.stringify({ enabled, auto_calc: autoCalc, commission, min_payout: minPayout, period, rules }), fundraiser_commission_percent: parseInt(String(commission).replace(/\D/g,''),10) || 0 })}>Simpan Perubahan</Btn>
       </div>
     </>
   );
@@ -1291,6 +1332,7 @@ function GeneralPanel({ settings, onSave }) {
               onChange={(e) => setFormPageName(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))}
               placeholder="donasi"/>
             <div className="text-[11px] text-mute mt-1">tanpa spasi, huruf kecil. Contoh: donasi, donasi-sekarang</div>
+            <div className="text-[11px] text-mute mt-1">Link: <span className="font-mono text-brand-600">https://donasi.niatbaik.org/campaign/&lt;slug&gt;/{formPageName || 'donasi'}</span></div>
           </div>
           <div>
             <label className="text-xs font-semibold text-mute">Thankyou/Invoice Page Name</label>
@@ -1298,6 +1340,7 @@ function GeneralPanel({ settings, onSave }) {
               onChange={(e) => setTypPageName(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))}
               placeholder="invoice"/>
             <div className="text-[11px] text-mute mt-1">tanpa spasi, huruf kecil. Contoh: invoice, terima-kasih</div>
+            <div className="text-[11px] text-mute mt-1">Link: <span className="font-mono text-brand-600">https://donasi.niatbaik.org/campaign/&lt;slug&gt;/{typPageName || 'invoice'}</span></div>
           </div>
         </div>
       </Section>

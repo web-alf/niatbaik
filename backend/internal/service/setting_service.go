@@ -148,6 +148,12 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	if req.SocialProofConfig != "" {
 		setting.SocialProofConfig = req.SocialProofConfig
 	}
+	if req.NotificationConfig != "" {
+		setting.NotificationConfig = req.NotificationConfig
+	}
+	if req.FundraisingConfig != "" {
+		setting.FundraisingConfig = req.FundraisingConfig
+	}
 
 	// Ads tracking & pixels
 	if req.MetaPixelID != "" {

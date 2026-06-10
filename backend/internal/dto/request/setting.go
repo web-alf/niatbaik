@@ -52,6 +52,8 @@ type UpdateSettingRequest struct {
 	// Social proof
 	SocialProofEnabled *bool  `json:"social_proof_enabled"`
 	SocialProofConfig  string `json:"social_proof_config"`
+	NotificationConfig string `json:"notification_config"`
+	FundraisingConfig  string `json:"fundraising_config"`
 
 	// Ads tracking & pixels
 	MetaPixelID           string `json:"meta_pixel_id"`

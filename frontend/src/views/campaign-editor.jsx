@@ -1,4 +1,5 @@
 // Full-page Campaign editor (Create / Edit). Matches the spec from the attached doc.
+const EVENT_OPTS = ['', 'PageView','ViewContent','InitiateCheckout','AddPaymentInfo','Lead','Purchase','CompleteDonation'];
 function CampaignEditorView() {
   const { editingCampaign, setView, setEditingCampaign, showToast } = useApp();
   const isEdit = !!editingCampaign;
@@ -76,6 +77,7 @@ function CampaignEditorView() {
     followupMsg: '', paymentSuccessMsg: '',
     metaPixelId: c?.meta_pixel_id || '', tiktokPixelId: c?.tiktok_pixel_id || '', gtmId: c?.gtm_id || '',
     metaPixelEnabled: true, metaCAPIEnabled: false, metaCAPIToken: '', metaTestEvent: '',
+    events: { campaign:'PageView', form:'InitiateCheckout', invoice:'Lead', success:'Purchase' },
     waFlyingNumber: '', waFlyingText: 'Chat via WhatsApp',
     extLinkUrl: c?.external_link || '', extLinkText: 'Kunjungi website',
     paymentRows: [{ bank:'', account:'', holder:'', method:'instant' }],
@@ -123,7 +125,11 @@ function CampaignEditorView() {
     payload.wa_flying_button = adv.waFlying === 'Custom';
     payload.form_fields_config = JSON.stringify({ anonim: formCustom.anonim, email: formCustom.email, comment: formCustom.comment, button1: formCustom.button1, button2: formCustom.button2 });
     if (adv.payment === 'Custom') payload.payment_config = JSON.stringify(advCustom.paymentRows || []);
-    if (advCustom.metaPixelId) payload.meta_pixel_id = advCustom.metaPixelId;
+    // Meta Pixel — Custom sends per-campaign config (global OFF); Default leaves meta_pixel_id empty = inherit global.
+    if (adv.metaPixel === 'Custom') {
+      payload.meta_pixel_id = advCustom.metaPixelId;
+      payload.pixel_config = JSON.stringify({ capi: advCustom.metaCAPIEnabled, token: advCustom.metaCAPIToken, test_event: advCustom.metaTestEvent, events: advCustom.events });
+    }
     if (advCustom.tiktokPixelId) payload.tiktok_pixel_id = advCustom.tiktokPixelId;
     if (advCustom.gtmId) payload.gtm_id = advCustom.gtmId;
     if (advCustom.extLinkUrl) payload.external_link = advCustom.extLinkUrl;
@@ -367,18 +373,40 @@ function CampaignEditorView() {
 
                 <div>
                   <AdvRadio label="Meta Pixel (Facebook)" value={adv.metaPixel} options={['Default','Custom']} onChange={(v) => setAdv({...adv, metaPixel:v})}/>
+                  {adv.metaPixel === 'Default' && (
+                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line">
+                      <div className="flex items-start gap-2 text-[12px] text-mute">
+                        <Icon name="pixel" size={15} className="text-brand-600 shrink-0 mt-0.5"/>
+                        <span>Mengikuti Meta Pixel global dari <b className="text-ink">Settings &rarr; Tracking &amp; Ads</b>.</span>
+                      </div>
+                    </div>
+                  )}
                   {adv.metaPixel === 'Custom' && (
-                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-3">
-                      <FieldToggle label="Meta Pixel" value={advCustom.metaPixelEnabled ?? true} onChange={(v) => setAdvCustom({...advCustom, metaPixelEnabled:v})}/>
-                      {advCustom.metaPixelEnabled !== false && (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          <div><label className="text-xs font-semibold text-mute">Pixel ID</label><input value={advCustom.metaPixelId} onChange={(e) => setAdvCustom({...advCustom, metaPixelId:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="123456789012345"/></div>
+                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-4">
+                      <div className="text-[11px] text-mute">Pixel global dimatikan untuk campaign ini. Konfigurasi tracking khusus di bawah.</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <FieldToggle label="Meta Pixel Only" value={advCustom.metaPixelEnabled ?? true} onChange={(v) => setAdvCustom({...advCustom, metaPixelEnabled:v})}/>
+                        <FieldToggle label="Meta Pixel & Conversion API" value={advCustom.metaCAPIEnabled ?? false} onChange={(v) => setAdvCustom({...advCustom, metaCAPIEnabled:v, metaPixelEnabled: v ? true : (advCustom.metaPixelEnabled ?? true)})}/>
+                      </div>
+                      <div className={`grid grid-cols-1 ${advCustom.metaCAPIEnabled ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-2`}>
+                        <div><label className="text-xs font-semibold text-mute">Pixel ID</label><input value={advCustom.metaPixelId} onChange={(e) => setAdvCustom({...advCustom, metaPixelId:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="123456789012345"/></div>
+                        {advCustom.metaCAPIEnabled && (
                           <div><label className="text-xs font-semibold text-mute">Secret Token (CAPI)</label><input value={advCustom.metaCAPIToken||''} onChange={(e) => setAdvCustom({...advCustom, metaCAPIToken:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="EAAxxxxx"/></div>
-                          <div><label className="text-xs font-semibold text-mute">Test Event Code</label><input value={advCustom.metaTestEvent||''} onChange={(e) => setAdvCustom({...advCustom, metaTestEvent:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="TEST12345"/></div>
+                        )}
+                        <div><label className="text-xs font-semibold text-mute">Test Event Code</label><input value={advCustom.metaTestEvent||''} onChange={(e) => setAdvCustom({...advCustom, metaTestEvent:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="TEST12345"/></div>
+                      </div>
+                      <div className="pt-3 border-t border-line">
+                        <div className="text-xs font-bold text-ink mb-2">Event Tracking per Halaman</div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {[['campaign','Page Campaign'],['form','Page Form'],['invoice','Page Invoice'],['success','Page Success Payment']].map(([k,label]) => (
+                            <div key={k}>
+                              <label className="text-xs font-semibold text-mute">{label}</label>
+                              <select value={advCustom.events?.[k]||''} onChange={(e) => setAdvCustom({...advCustom, events:{...advCustom.events, [k]:e.target.value}})} className="field mt-1 bg-white">
+                                {EVENT_OPTS.map(o => <option key={o} value={o}>{o||'Pilih Event'}</option>)}
+                              </select>
+                            </div>
+                          ))}
                         </div>
-                      )}
-                      <div className="rounded-lg bg-white border border-line p-2.5 text-[11px] text-mute">
-                        <b className="text-ink">Event otomatis:</b> PageView (halaman campaign), InitiateCheckout (halaman form), Lead (submit form), Purchase (pembayaran sukses).
                       </div>
                     </div>
                   )}

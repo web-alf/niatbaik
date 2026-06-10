@@ -72,6 +72,8 @@ type Setting struct {
 	MessageEnabled      bool   `gorm:"default:true" json:"message_enabled"`
 	SocialProofEnabled  bool   `gorm:"default:false" json:"social_proof_enabled"`
 	SocialProofConfig   string `gorm:"type:text" json:"social_proof_config"`
+	NotificationConfig  string `gorm:"type:text" json:"notification_config"`
+	FundraisingConfig   string `gorm:"type:text" json:"fundraising_config"`
 
 	// Messaging
 	WhatsappAdmin    string `gorm:"size:20" json:"whatsapp_admin"`

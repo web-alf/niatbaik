@@ -687,13 +687,14 @@ function ThumbUploader({ thumb, icon, onChange }) {
   const fileRef = useRefA();
   const [uploading, setUploading] = useStateA(false);
   const [uploadError, setUploadError] = useStateA('');
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
   const handleFile = async (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
     setUploadError('');
-    if (!allowedTypes.includes(f.type)) {
-      setUploadError('Format tidak didukung. Gunakan JPG, PNG, WebP, GIF, atau SVG.');
+    // Lenient check: only reject obvious non-images. Backend re-validates by content
+    // (JPEG/PNG/WebP/GIF). Some browsers report empty/odd MIME — let those through.
+    if (f.type && !f.type.startsWith('image/')) {
+      setUploadError('File harus berupa gambar (JPG, PNG, WebP, GIF).');
       e.target.value = '';
       return;
     }
@@ -707,8 +708,8 @@ function ThumbUploader({ thumb, icon, onChange }) {
       const res = await api.uploadImage(f);
       const url = res?.data?.url || res?.url;
       if (url) onChange(url);
-      else setUploadError('Upload gagal. Coba lagi.');
-    } catch { setUploadError('Upload gagal. Periksa koneksi.'); }
+      else setUploadError((res && res.message) ? res.message : 'Upload gagal. Coba lagi.');
+    } catch (err) { setUploadError(err?.message || 'Upload gagal. Periksa koneksi.'); }
     setUploading(false);
     e.target.value = '';
   };
@@ -748,7 +749,7 @@ function ThumbUploader({ thumb, icon, onChange }) {
           <button onClick={() => setUploadError('')} className="text-rose-400 hover:text-rose-600"><Icon name="close" size={12}/></button>
         </div>
       )}
-      <div className="text-[10px] text-mute mt-1">JPG, PNG, WebP, GIF, SVG · maks 5MB · 650 x 350 px</div>
+      <div className="text-[10px] text-mute mt-1">JPG, PNG, WebP, GIF · maks 5MB · ideal 650×350 (gambar lain otomatis di-fit)</div>
     </div>
   );
 }
@@ -756,6 +757,7 @@ function ThumbUploader({ thumb, icon, onChange }) {
 function RichEditor({ value, onChange }) {
   const ref = React.useRef();
   const imgRef = useRefA();
+  const savedRange = React.useRef(null);
   const [linkOpen, setLinkOpen] = useStateA(false);
   const [linkUrl, setLinkUrl] = useStateA('');
   const [videoOpen, setVideoOpen] = useStateA(false);
@@ -766,7 +768,53 @@ function RichEditor({ value, onChange }) {
   useEffectA(() => {
     if (ref.current && ref.current.innerHTML !== value) ref.current.innerHTML = value || '';
   }, []);
-  const exec = (cmd, val) => { document.execCommand(cmd, false, val); ref.current && onChange(ref.current.innerHTML); };
+
+  // Save the caret/selection whenever it's inside the editor so toolbar actions
+  // (which steal focus) can restore it before running execCommand.
+  const saveSel = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount && ref.current && ref.current.contains(sel.anchorNode)) {
+      savedRange.current = sel.getRangeAt(0).cloneRange();
+    }
+  };
+  const restoreSel = () => {
+    ref.current && ref.current.focus();
+    const sel = window.getSelection();
+    if (!sel || !ref.current) return;
+    if (savedRange.current) {
+      sel.removeAllRanges();
+      sel.addRange(savedRange.current);
+    } else {
+      // No saved range — place caret at end so inserts land somewhere valid.
+      const r = document.createRange();
+      r.selectNodeContents(ref.current); r.collapse(false);
+      sel.removeAllRanges(); sel.addRange(r);
+    }
+  };
+  const exec = (cmd, val) => {
+    restoreSel();
+    document.execCommand(cmd, false, val);
+    if (ref.current) onChange(ref.current.innerHTML);
+    saveSel();
+  };
+  const insertHTML = (html) => {
+    restoreSel();
+    // execCommand insertHTML is unreliable across browsers after focus loss;
+    // insert at the restored range manually as a robust fallback.
+    let ok = false;
+    try { ok = document.execCommand('insertHTML', false, html); } catch { ok = false; }
+    if (!ok && ref.current) {
+      const sel = window.getSelection();
+      const range = (sel && sel.rangeCount) ? sel.getRangeAt(0) : null;
+      const tmp = document.createElement('div'); tmp.innerHTML = html;
+      const frag = document.createDocumentFragment();
+      let node; while ((node = tmp.firstChild)) frag.appendChild(node);
+      if (range) { range.deleteContents(); range.insertNode(frag); }
+      else ref.current.appendChild(frag);
+    }
+    if (ref.current) onChange(ref.current.innerHTML);
+    saveSel();
+  };
   const wordCount = (value || '').replace(/<[^>]+>/g,'').trim().split(/\s+/).filter(Boolean).length;
 
   const insertLink = () => {
@@ -779,7 +827,7 @@ function RichEditor({ value, onChange }) {
     let embedUrl = url;
     const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
     if (yt) embedUrl = 'https://www.youtube.com/embed/' + yt[1];
-    exec('insertHTML', '<div class="my-3" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden"><iframe src="' + embedUrl + '" style="position:absolute;top:0;left:0;width:100%;height:100%" frameborder="0" allowfullscreen></iframe></div>');
+    insertHTML('<div class="my-3" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden"><iframe src="' + embedUrl + '" style="position:absolute;top:0;left:0;width:100%;height:100%" frameborder="0" allowfullscreen></iframe></div>');
     setVideoOpen(false); setVideoUrl('');
   };
   const handleImgUpload = async (e) => {
@@ -788,43 +836,47 @@ function RichEditor({ value, onChange }) {
     try {
       const res = await api.uploadImage(f);
       const url = res?.data?.url || res?.url;
-      if (url) exec('insertHTML', '<img src="' + url + '" class="rounded-lg max-w-full my-2"/>');
-    } catch {}
+      if (url) insertHTML('<img src="' + url + '" style="border-radius:8px;max-width:100%;height:auto;display:block;margin:8px 0"/>');
+      else alert('Upload gambar gagal. Coba lagi.');
+    } catch { alert('Upload gambar gagal. Periksa koneksi.'); }
     e.target.value = '';
   };
   const colors = ['#2E4191','#38B6FF','#16A34A','#DC2626','#F59E0B','#7C3AED','#1E293B','#64748B'];
 
   return (
     <div className="mt-1.5 rounded-xl border border-line bg-white overflow-hidden">
+      <style>{`.nb-rte h1{font-size:1.6em;font-weight:800;line-height:1.3;margin:.6em 0 .3em;color:inherit}.nb-rte h2{font-size:1.35em;font-weight:700;line-height:1.35;margin:.6em 0 .3em;color:inherit}.nb-rte h3{font-size:1.15em;font-weight:700;line-height:1.4;margin:.5em 0 .25em;color:inherit}.nb-rte p{margin:.4em 0}.nb-rte blockquote{border-left:3px solid var(--nb-brand,#2E4191);padding-left:12px;color:#64748B;margin:.5em 0}.nb-rte ul{list-style:disc;padding-left:1.5em;margin:.4em 0}.nb-rte ol{list-style:decimal;padding-left:1.5em;margin:.4em 0}.nb-rte img{max-width:100%;height:auto}.nb-rte a{color:var(--nb-brand,#2E4191);text-decoration:underline}`}</style>
       <div className="flex items-center gap-1 px-2 py-1.5 bg-bg2 border-b border-line flex-wrap relative z-20">
-        <button onClick={() => exec('undo')} title="Undo" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 1 2.6-6.4L3 7"/></svg>
+        <button onMouseDown={(e)=>e.preventDefault()} onClick={() => exec('undo')} title="Undo" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg>
         </button>
-        <button onClick={() => exec('redo')} title="Redo" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M21 13a9 9 0 1 0-2.6-6.4L21 7"/></svg>
+        <button onMouseDown={(e)=>e.preventDefault()} onClick={() => exec('redo')} title="Redo" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg>
         </button>
         <span className="h-5 w-px bg-line mx-1"/>
-        <select onChange={(e) => { if (e.target.value) { exec('formatBlock', e.target.value); } }} defaultValue="p" className="h-7 px-2 rounded bg-white border border-line text-xs font-semibold text-ink relative z-50">
+        <select onMouseDown={saveSel} onChange={(e) => { if (e.target.value) { exec('formatBlock', e.target.value); e.target.selectedIndex = 0; } }} defaultValue="" className="h-7 px-2 rounded bg-white border border-line text-xs font-semibold text-ink relative z-50">
+          <option value="" disabled>Format</option>
           <option value="p">Paragraph</option>
+          <option value="h1">Heading 1</option>
           <option value="h2">Heading 2</option>
           <option value="h3">Heading 3</option>
           <option value="blockquote">Quote</option>
         </select>
         <span className="h-5 w-px bg-line mx-1"/>
-        <button onClick={() => exec('bold')} title="Bold" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center font-bold text-ink">B</button>
-        <button onClick={() => exec('italic')} title="Italic" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center italic text-ink">I</button>
+        <button onMouseDown={(e)=>e.preventDefault()} onClick={() => exec('bold')} title="Bold" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center font-bold text-ink">B</button>
+        <button onMouseDown={(e)=>e.preventDefault()} onClick={() => exec('italic')} title="Italic" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center italic text-ink">I</button>
         <span className="h-5 w-px bg-line mx-1"/>
-        <button onClick={() => exec('justifyLeft')} title="Left" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><AlignIcon a="left"/></button>
-        <button onClick={() => exec('justifyCenter')} title="Center" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><AlignIcon a="center"/></button>
-        <button onClick={() => exec('justifyRight')} title="Right" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><AlignIcon a="right"/></button>
-        <button onClick={() => exec('justifyFull')} title="Justify" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><AlignIcon a="full"/></button>
+        <button onMouseDown={(e)=>e.preventDefault()} onClick={() => exec('justifyLeft')} title="Left" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><AlignIcon a="left"/></button>
+        <button onMouseDown={(e)=>e.preventDefault()} onClick={() => exec('justifyCenter')} title="Center" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><AlignIcon a="center"/></button>
+        <button onMouseDown={(e)=>e.preventDefault()} onClick={() => exec('justifyRight')} title="Right" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><AlignIcon a="right"/></button>
+        <button onMouseDown={(e)=>e.preventDefault()} onClick={() => exec('justifyFull')} title="Justify" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><AlignIcon a="full"/></button>
         <span className="h-5 w-px bg-line mx-1"/>
-        <button onClick={() => exec('insertUnorderedList')} title="Bulleted list" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><ListIcon ordered={false}/></button>
-        <button onClick={() => exec('insertOrderedList')} title="Numbered list" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><ListIcon ordered={true}/></button>
+        <button onMouseDown={(e)=>e.preventDefault()} onClick={() => exec('insertUnorderedList')} title="Bulleted list" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><ListIcon ordered={false}/></button>
+        <button onMouseDown={(e)=>e.preventDefault()} onClick={() => exec('insertOrderedList')} title="Numbered list" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><ListIcon ordered={true}/></button>
         <span className="h-5 w-px bg-line mx-1"/>
         {/* Link */}
         <div className="relative">
-          <button onClick={() => { setLinkOpen(!linkOpen); setColorOpen(false); setVideoOpen(false); }} title="Link" className={`h-7 w-7 rounded hover:bg-white flex items-center justify-center ${linkOpen ? 'bg-white ring-2 ring-brand-600/20' : 'text-ink'}`}><Icon name="link" size={14}/></button>
+          <button onMouseDown={(e)=>{e.preventDefault(); saveSel();}} onClick={() => { setLinkOpen(!linkOpen); setColorOpen(false); setVideoOpen(false); }} title="Link" className={`h-7 w-7 rounded hover:bg-white flex items-center justify-center ${linkOpen ? 'bg-white ring-2 ring-brand-600/20' : 'text-ink'}`}><Icon name="link" size={14}/></button>
           {linkOpen && (
             <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-pop border border-line p-2 z-50 w-64">
               <input value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && insertLink()}
@@ -838,10 +890,10 @@ function RichEditor({ value, onChange }) {
         </div>
         {/* Image upload */}
         <input ref={imgRef} type="file" accept="image/*" className="hidden" onChange={handleImgUpload}/>
-        <button onClick={() => imgRef.current?.click()} title="Insert gambar" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="image" size={14}/></button>
+        <button onMouseDown={(e)=>{e.preventDefault(); saveSel();}} onClick={() => imgRef.current?.click()} title="Insert gambar" className="h-7 w-7 rounded hover:bg-white flex items-center justify-center text-ink"><Icon name="image" size={14}/></button>
         {/* Video */}
         <div className="relative">
-          <button onClick={() => { setVideoOpen(!videoOpen); setLinkOpen(false); setColorOpen(false); }} title="Video" className={`h-7 w-7 rounded hover:bg-white flex items-center justify-center ${videoOpen ? 'bg-white ring-2 ring-brand-600/20' : 'text-ink'}`}><Icon name="play" size={14}/></button>
+          <button onMouseDown={(e)=>{e.preventDefault(); saveSel();}} onClick={() => { setVideoOpen(!videoOpen); setLinkOpen(false); setColorOpen(false); }} title="Video" className={`h-7 w-7 rounded hover:bg-white flex items-center justify-center ${videoOpen ? 'bg-white ring-2 ring-brand-600/20' : 'text-ink'}`}><Icon name="play" size={14}/></button>
           {videoOpen && (
             <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-pop border border-line p-2 z-50 w-72">
               <div className="text-[10px] font-bold text-mute mb-1">YouTube atau embed URL</div>
@@ -857,12 +909,12 @@ function RichEditor({ value, onChange }) {
         <span className="h-5 w-px bg-line mx-1"/>
         {/* Color picker */}
         <div className="relative">
-          <button onClick={() => { setColorOpen(!colorOpen); setLinkOpen(false); setVideoOpen(false); }} title="Text color" className={`h-7 px-2 rounded hover:bg-white flex items-center gap-1 ${colorOpen ? 'bg-white ring-2 ring-brand-600/20' : 'text-ink'}`}><b>A</b><span className="h-2 w-2 rounded-sm bg-brand-600"/></button>
+          <button onMouseDown={(e)=>{e.preventDefault(); saveSel();}} onClick={() => { setColorOpen(!colorOpen); setLinkOpen(false); setVideoOpen(false); }} title="Text color" className={`h-7 px-2 rounded hover:bg-white flex items-center gap-1 ${colorOpen ? 'bg-white ring-2 ring-brand-600/20' : 'text-ink'}`}><b>A</b><span className="h-2 w-2 rounded-sm bg-brand-600"/></button>
           {colorOpen && (
             <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-pop border border-line p-2 z-50">
               <div className="grid grid-cols-4 gap-1.5">
                 {colors.map((c) => (
-                  <button key={c} onClick={() => { exec('foreColor', c); setColorOpen(false); }}
+                  <button key={c} onMouseDown={(e)=>e.preventDefault()} onClick={() => { exec('foreColor', c); setColorOpen(false); }}
                     className="h-7 w-7 rounded-md border border-line hover:scale-110 transition-transform" style={{ background: c }}/>
                 ))}
               </div>
@@ -876,7 +928,10 @@ function RichEditor({ value, onChange }) {
         contentEditable
         suppressContentEditableWarning
         onInput={(e) => onChange(e.currentTarget.innerHTML)}
-        className="min-h-[260px] max-h-[420px] overflow-y-auto p-4 text-sm text-ink/90 leading-relaxed focus:outline-none prose prose-sm max-w-none"
+        onKeyUp={saveSel}
+        onMouseUp={saveSel}
+        onBlur={saveSel}
+        className="nb-rte min-h-[260px] max-h-[420px] overflow-y-auto p-4 text-sm text-ink/90 leading-relaxed focus:outline-none max-w-none"
       />
 
       <div className="flex justify-end px-3 py-1.5 bg-bg2 border-t border-line text-[11px] font-bold uppercase text-mute">

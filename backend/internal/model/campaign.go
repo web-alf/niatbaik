@@ -30,6 +30,7 @@ type Campaign struct {
 	AllocationTitle  string         `gorm:"size:255" json:"allocation_title"`
 	OptNominal       string         `gorm:"type:text" json:"opt_nominal"`          // JSON string
 	ButtonColor      string         `gorm:"size:20" json:"button_color"`
+	FormFieldsConfig string         `gorm:"type:text" json:"form_fields_config"`   // JSON: button labels, field toggles
 	Socialproof      bool           `gorm:"default:false" json:"socialproof"`
 	FundraiserSetting bool          `gorm:"default:false" json:"fundraiser_setting"`
 

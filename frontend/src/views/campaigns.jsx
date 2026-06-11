@@ -6,6 +6,12 @@ function CampaignsView() {
   // Live campaigns when API loaded them; else seed. Normalize backend status → design labels.
   const STATUS_NORM = { Berjalan: 'Running', Selesai: 'Ended', Aktif: 'Running' };
   const [ver, setVer] = useStateA(0);
+  // Re-render when categories change in Settings so the filter dropdown stays in sync.
+  useEffectA(() => {
+    const onCats = () => setVer(v => v + 1);
+    window.addEventListener('nb-categories-updated', onCats);
+    return () => window.removeEventListener('nb-categories-updated', onCats);
+  }, []);
   const src = (window.CAMPAIGNS && window.CAMPAIGNS.length) ? window.CAMPAIGNS : window.NB.campaignSeed;
   const all = useMemoA(() => src.map(c => ({ ...c, status: STATUS_NORM[c.status] || c.status })), [src, ver]);
   const [tab, setTab] = useStateA('all');
@@ -51,11 +57,11 @@ function CampaignsView() {
           <SearchInput placeholder="Cari judul campaign…" value={q} onChange={setQ} className="flex-1 min-w-[220px] max-w-md"/>
           <Select value={catFilter} onChange={setCatFilter} icon="filter" options={[
             {value:'all', label:'Semua kategori'},
-            {value:'medis', label:'Medis'},
-            {value:'pendidikan', label:'Pendidikan'},
-            {value:'air', label:'Air Bersih'},
-            {value:'wakaf', label:'Wakaf'},
-            {value:'bencana', label:'Bencana'},
+            // Categories come from the API (window.CATEGORIES) so the filter matches
+            // the categories actually assigned to campaigns. Value = name because
+            // mapCampaign stores c.category as the category name string.
+            ...((window.CATEGORIES || []).map(cat => ({ value: cat.name, label: cat.name }))),
+            {value:'', label:'Tanpa kategori'}, // campaigns whose category is empty
           ]}/>
           <DateRangePill/>
           <div className="ml-auto inline-flex p-1 bg-bg2 rounded-lg border border-line">

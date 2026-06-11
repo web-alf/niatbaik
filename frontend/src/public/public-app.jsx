@@ -5,6 +5,28 @@ const getCampaigns = () => (window.CAMPAIGNS && window.CAMPAIGNS.length) ? windo
 const getFirstCampaign = () => getCampaigns()[0] || { id:'', title:'', category:'', target:1, raised:0, donors:0, daysLeft:0, thumb:'linear-gradient(135deg,#2E4191,#38B6FF)', icon:'heart' };
 const getSocialProof = () => window.socialProofLines && window.socialProofLines.length ? window.socialProofLines : [];
 
+// Parse a campaign's form_fields_config JSON (button labels etc.) safely.
+const parseFormFieldsConfig = (ffc) => {
+  try { return ffc ? JSON.parse(ffc) : {}; } catch { return {}; }
+};
+
+// Resolve the CS contact(s) from public settings. In 'rotator' mode a contact is
+// picked pseudo-randomly so load spreads across numbers; otherwise the first is used.
+const getCsContacts = () => {
+  const s = window.PUBLIC_SETTINGS || {};
+  let list = [];
+  try { const p = s.cs_contacts ? JSON.parse(s.cs_contacts) : []; if (Array.isArray(p)) list = p; } catch {}
+  list = list.filter(x => x && (x.phone || '').trim());
+  return { list, mode: s.cs_rotator_mode || 'default' };
+};
+const pickCsContact = () => {
+  const { list, mode } = getCsContacts();
+  if (!list.length) return null;
+  if (mode === 'rotator') return list[Math.floor(Math.random() * list.length)];
+  return list[0];
+};
+const normalizeWa = (n) => String(n || '').replace(/[^0-9]/g, '').replace(/^0/, '62');
+
 // -------- Helpers --------
 const PrimaryBtn = ({ children, size='md', className='', ...rest }) => {
   const sizes = { sm:'text-sm px-4 py-2', md:'text-base px-5 py-3', lg:'text-lg px-7 py-4', xl:'text-lg px-8 py-4.5' };
@@ -593,6 +615,13 @@ function CampaignPage({ c, onNav }) {
   const presets = useMemo(() => getNominalPresets(c), [c]);
   const recentDonors = (window.TRANSACTIONS || []).slice(0, 8);
 
+  // Admin-customizable CTA label for the campaign page (button1). The form's
+  // confirm CTA (button2) is handled inside DonationForm. Falls back gracefully.
+  const ctaLabel = useMemo(() => {
+    const cfg = parseFormFieldsConfig(c?.form_fields_config);
+    return (cfg.button1 || '').trim() || 'Donasi Sekarang';
+  }, [c]);
+
   const updateCount = 4;
   const tabs = [
     { v:'story', l:'Cerita' },
@@ -698,7 +727,7 @@ function CampaignPage({ c, onNav }) {
 
                   <div className="mt-5 pt-5 border-t border-line">
                     <PrimaryBtn size="lg" className="w-full" onClick={() => setView('form')}>
-                      <Icon name="heart" size={18}/> Donasi Sekarang
+                      <Icon name="heart" size={18}/> {ctaLabel}
                     </PrimaryBtn>
                     <div className="mt-2 text-center text-[11px] text-mute">
                       <Icon name="shield" size={12} className="inline mr-1 text-emerald-600"/> Pembayaran aman melalui QRIS, VA, dan e-wallet
@@ -889,6 +918,11 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
   const methods = (Array.isArray(window.PAYMENT_METHODS_PUBLIC) && window.PAYMENT_METHODS_PUBLIC.length)
     ? window.PAYMENT_METHODS_PUBLIC : null;
 
+  // The campaign editor lets admins customize the donate-button labels (button1 on
+  // the campaign page, button2 = the confirm/submit CTA), stored in form_fields_config.
+  const formCfg = parseFormFieldsConfig(c?.form_fields_config);
+  const submitLabel = (formCfg.button2 || '').trim() || 'Lanjut ke Pembayaran';
+
   // Group API methods by type; fallback to flat string list.
   const grouped = useMemo(() => {
     if (!methods) return null;
@@ -972,7 +1006,7 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
 
         {/* Submit */}
         <PrimaryBtn size="lg" className="w-full" onClick={onSubmit} disabled={submitting}>
-          <Icon name="heart" size={16}/> {submitting ? 'Memproses…' : 'Lanjut ke Pembayaran'}
+          <Icon name="heart" size={16}/> {submitting ? 'Memproses…' : submitLabel}
         </PrimaryBtn>
         <div className="text-center text-[11px] text-mute">
           <Icon name="shield" size={12} className="inline mr-1 text-emerald-600"/> Pembayaran aman melalui QRIS, VA, dan e-wallet
@@ -1100,6 +1134,17 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
         </div>
       )}
 
+      {/* Admin-configured greeting message shown to the donor (Settings → General). */}
+      {(() => {
+        const greeting = (window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.donor_greeting || '').trim();
+        if (!greeting) return null;
+        return (
+          <div className="mt-4 rounded-xl bg-brand-50 border border-brand-100 p-3 text-sm text-brand-800 leading-relaxed whitespace-pre-line">
+            {greeting}
+          </div>
+        );
+      })()}
+
       <div className="mt-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-700 leading-relaxed">
         Transfer tepat sesuai nominal termasuk kode unik agar otomatis terverifikasi.
       </div>
@@ -1108,14 +1153,17 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
         <Icon name="check" size={16}/> {checking ? 'Memeriksa…' : 'Cek Status Pembayaran'}
       </PrimaryBtn>
       {(() => {
-        const waNum = (window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.whatsapp_admin) || '';
-        if (!waNum) return null;
-        const num = String(waNum).replace(/[^0-9]/g,'').replace(/^0/, '62');
+        // Prefer the configured CS contacts (rotator-aware); fall back to whatsapp_admin.
+        const cs = pickCsContact();
+        const fallback = (window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.whatsapp_admin) || '';
+        const num = normalizeWa(cs ? cs.phone : fallback);
+        if (!num) return null;
+        const label = cs && cs.name ? `Konfirmasi via WhatsApp (${cs.name})` : 'Konfirmasi via WhatsApp';
         const msg = encodeURIComponent(`Halo admin, saya sudah donasi. Invoice: ${invoice.invoice_number}, nominal: ${fmtIDR(total)}. Mohon konfirmasi.`);
         return (
           <a href={`https://wa.me/${num}?text=${msg}`} target="_blank" rel="noopener noreferrer"
              className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-emerald-500 text-white hover:bg-emerald-600">
-            <Icon name="wa" size={16}/> Konfirmasi via WhatsApp
+            <Icon name="wa" size={16}/> {label}
           </a>
         );
       })()}

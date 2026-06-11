@@ -17,6 +17,7 @@ function SettingsView() {
     { value:'notification', label:'Notification',   icon:'bell' },
     { value:'social',       label:'Social Proof',   icon:'smile' },
     { value:'fundraising',  label:'Fundraising',    icon:'handshake' },
+    { value:'category',     label:'Kategori',       icon:'filter' },
     { value:'general',      label:'General',        icon:'cog' },
   ];
 
@@ -66,6 +67,7 @@ function SettingsView() {
           {!settingsLoading && tab === 'notification' && <NotificationPanel settings={settings} onSave={saveSettings}/>}
           {!settingsLoading && tab === 'social' && <SocialPanel settings={settings} onSave={saveSettings}/>}
           {!settingsLoading && tab === 'fundraising' && <FundraisingPanel settings={settings} onSave={saveSettings}/>}
+          {!settingsLoading && tab === 'category' && <CategoryPanel/>}
           {!settingsLoading && tab === 'general' && <GeneralPanel settings={settings} onSave={saveSettings}/>}
         </div>
       </div>
@@ -905,15 +907,17 @@ function FlipConfig({ flip, setFlip, error }) {
 function TrackingPanel({ settings, onSave }) {
   const { showToast } = useApp();
   const [pixelIds, setPixelIds] = useStateA({});
+  // No demo IDs — each input is driven by real saved state (pixelIds, loaded from
+  // settings below). Status starts neutral until a real ID is entered.
   const pixels = [
-    { name:'Meta Pixel',         id:'PXL-928374',   status:'active',   icon:'pixel',  color:'bg-[#1877F2]' },
-    { name:'Meta Conversions API', id:'CAPI Token',  status:'active',   icon:'shield', color:'bg-[#1877F2]' },
-    { name:'Google Tag Manager', id:'GTM-7K9XYZ',   status:'active',   icon:'code',   color:'bg-emerald-600' },
-    { name:'Google Ads Conversion', id:'AW-1029384', status:'not',     icon:'target', color:'bg-emerald-600' },
-    { name:'Google Analytics 4', id:'G-X8K2J9LM',   status:'active',   icon:'chart',  color:'bg-amber-500' },
-    { name:'TikTok Pixel',       id:'CIK29JLM3',    status:'error',    icon:'pixel',  color:'bg-black' },
-    { name:'TikTok Events API',  id:'EvT-29JM',     status:'not',      icon:'shield', color:'bg-black' },
-    { name:'Looker Studio (Data Studio)', id:'a1b2c3d4-e5f6-7890-abcd-ef1234567890', status:'active', icon:'chart',  color:'bg-gradient-to-br from-[#4285F4] via-[#0F9D58] to-[#F4B400]' },
+    { name:'Meta Pixel',            status:'not', icon:'pixel',  color:'bg-[#1877F2]' },
+    { name:'Meta Conversions API',  status:'not', icon:'shield', color:'bg-[#1877F2]' },
+    { name:'Google Tag Manager',    status:'not', icon:'code',   color:'bg-emerald-600' },
+    { name:'Google Ads Conversion', status:'not', icon:'target', color:'bg-emerald-600' },
+    { name:'Google Analytics 4',    status:'not', icon:'chart',  color:'bg-amber-500' },
+    { name:'TikTok Pixel',          status:'not', icon:'pixel',  color:'bg-black' },
+    { name:'TikTok Events API',     status:'not', icon:'shield', color:'bg-black' },
+    { name:'Looker Studio (Data Studio)', status:'not', icon:'chart', color:'bg-gradient-to-br from-[#4285F4] via-[#0F9D58] to-[#F4B400]' },
   ];
   const events = ['PageView','ViewContent','InitiateCheckout','AddPaymentInfo','Lead','CompleteDonation','Purchase'];
 
@@ -984,7 +988,11 @@ function TrackingPanel({ settings, onSave }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <div className="font-bold text-ink">{p.name}</div>
-                    <Badge tone={statusMap[p.status].tone} dot={statusMap[p.status].dot} size="sm">{statusMap[p.status].label}</Badge>
+                    {(() => {
+                      // Status reflects whether a real ID has been entered/saved.
+                      const st = (pixelIds[p.name] || '').trim() ? 'active' : 'not';
+                      return <Badge tone={statusMap[st].tone} dot={statusMap[st].dot} size="sm">{statusMap[st].label}</Badge>;
+                    })()}
                   </div>
                   <input className="field mt-2 font-mono text-xs" value={pixelIds[p.name] ?? ''} onChange={(e) => setPixelIds(prev => ({...prev, [p.name]: e.target.value}))} placeholder="Masukkan ID…"/>
                 </div>
@@ -1288,6 +1296,75 @@ function FundraisingPanel({ settings, onSave }) {
   );
 }
 
+function CategoryPanel() {
+  const { showToast } = useApp();
+  const [cats, setCats] = useStateA(() => (window.CATEGORIES || []).slice());
+  const [name, setName] = useStateA('');
+  const [editing, setEditing] = useStateA(null); // {id, name}
+  const [busy, setBusy] = useStateA(false);
+
+  const refresh = async () => {
+    try {
+      const r = await window.api.categories();
+      if (r?.data && Array.isArray(r.data)) {
+        window.CATEGORIES = r.data;
+        setCats(r.data.slice());
+        // Notify other views (campaign list filter, campaign editor) to re-render
+        // so the category list stays in sync without a page reload.
+        try { window.dispatchEvent(new CustomEvent('nb-categories-updated')); } catch {}
+      }
+    } catch {}
+  };
+
+  const submit = async () => {
+    const nm = name.trim();
+    if (!nm) { showToast('Nama kategori wajib diisi'); return; }
+    setBusy(true);
+    try {
+      if (editing) { await window.api.updateCategory(editing.id, { name: nm }); showToast('Kategori diperbarui'); }
+      else { await window.api.createCategory({ name: nm }); showToast('Kategori ditambahkan'); }
+      setName(''); setEditing(null);
+      await refresh();
+    } catch (e) { showToast('Gagal: ' + (e?.message || 'coba lagi')); }
+    setBusy(false);
+  };
+
+  const remove = async (cat) => {
+    if (!confirm('Hapus kategori "' + cat.name + '"? Campaign yang memakainya akan menjadi tanpa kategori.')) return;
+    setBusy(true);
+    try { await window.api.deleteCategory(cat.id); showToast('Kategori dihapus'); await refresh(); }
+    catch (e) { showToast('Gagal menghapus: ' + (e?.message || '')); }
+    setBusy(false);
+  };
+
+  return (
+    <Section title="Kategori Campaign" sub="Kelola kategori yang dipakai di filter campaign dan form editor. Perubahan langsung tersinkron.">
+      <div className="flex flex-wrap items-end gap-2 mb-4">
+        <div className="flex-1 min-w-[200px]">
+          <label className="text-xs font-semibold text-mute">{editing ? 'Edit nama kategori' : 'Nama kategori baru'}</label>
+          <input className="field mt-1" value={name} onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()} placeholder="mis. Pendidikan"/>
+        </div>
+        <Btn icon={editing ? 'check' : 'plus'} onClick={submit} disabled={busy}>{editing ? 'Simpan' : 'Tambah'}</Btn>
+        {editing && <Btn variant="outline" tone="ink" onClick={() => { setEditing(null); setName(''); }}>Batal</Btn>}
+      </div>
+      <div className="space-y-2">
+        {cats.length === 0 && <div className="text-sm text-mute py-4 text-center">Belum ada kategori. Tambahkan di atas.</div>}
+        {cats.map((cat) => (
+          <div key={cat.id || cat.slug || cat.name} className="flex items-center gap-3 p-3 rounded-lg border border-line">
+            <div className="font-semibold text-ink flex-1">{cat.name}</div>
+            <span className="text-[11px] font-mono text-mute">{cat.slug}</span>
+            <button onClick={() => { setEditing({ id: cat.id, name: cat.name }); setName(cat.name); }}
+              className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink flex items-center justify-center"><Icon name="edit" size={14}/></button>
+            <button onClick={() => remove(cat)} disabled={busy}
+              className="h-8 w-8 rounded-md hover:bg-rose-50 text-mute hover:text-rose-600 flex items-center justify-center"><Icon name="trash" size={14}/></button>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 function GeneralPanel({ settings, onSave }) {
   const [siteName, setSiteName] = useStateA(settings?.site_name || 'NIATBAIK.ORG');
   const [domain, setDomain] = useStateA(settings?.domain || 'niatbaik.org');
@@ -1304,6 +1381,13 @@ function GeneralPanel({ settings, onSave }) {
   const [smtpShowPwd, setSmtpShowPwd] = useStateA(false);
   const [formPageName, setFormPageName] = useStateA(settings?.form_page_name || 'donasi');
   const [typPageName, setTypPageName] = useStateA(settings?.thankyou_page_name || 'invoice');
+  // Donor greeting message + CS contact rotator
+  const [donorGreeting, setDonorGreeting] = useStateA(settings?.donor_greeting || '');
+  const [csMode, setCsMode] = useStateA(settings?.cs_rotator_mode || 'default');
+  const parseCsContacts = (v) => {
+    try { const p = typeof v === 'string' && v ? JSON.parse(v) : v; return Array.isArray(p) ? p : []; } catch { return []; }
+  };
+  const [csContacts, setCsContacts] = useStateA(() => parseCsContacts(settings?.cs_contacts));
   const { showToast } = useApp();
   useEffectA(() => {
     if (settings?.site_name) setSiteName(settings.site_name);
@@ -1319,6 +1403,9 @@ function GeneralPanel({ settings, onSave }) {
     if (settings?.smtp_name) setSmtpName(settings.smtp_name);
     if (settings?.form_page_name) setFormPageName(settings.form_page_name);
     if (settings?.thankyou_page_name) setTypPageName(settings.thankyou_page_name);
+    if (settings?.donor_greeting != null) setDonorGreeting(settings.donor_greeting);
+    if (settings?.cs_rotator_mode) setCsMode(settings.cs_rotator_mode);
+    if (settings?.cs_contacts != null) setCsContacts(parseCsContacts(settings.cs_contacts));
   }, [settings]);
   return (
     <>
@@ -1386,12 +1473,62 @@ function GeneralPanel({ settings, onSave }) {
           </div>
         </div>
       </Section>
+      <Section title="Greeting Donatur & CS" sub="Pesan sambutan ke donatur dan kontak CS (mode default atau rotator antar beberapa nomor).">
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-mute">Pesan greeting donatur</label>
+            <textarea className="field mt-1" rows="2" value={donorGreeting} onChange={(e) => setDonorGreeting(e.target.value)}
+              placeholder="Terima kasih atas niat baik Anda 🙏 Tim kami siap membantu via WhatsApp."/>
+            <div className="text-[11px] text-mute mt-1">Ditampilkan ke donatur setelah donasi / di halaman invoice.</div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Mode kontak CS</label>
+            <Select value={csMode} onChange={setCsMode} options={[
+              {value:'default', label:'Default (satu nomor)'},
+              {value:'rotator', label:'Rotator (bergilir antar nomor)'},
+            ]} className="mt-1"/>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Nomor CS (WhatsApp)</label>
+            <div className="space-y-2 mt-1">
+              {csContacts.map((ct, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <div className="flex-1">
+                    <input className="field font-mono" value={ct.phone || ''} placeholder="628xxxxxxxxxx"
+                      onChange={(e) => {
+                        // Keep digits only, normalize leading 0 → 62 (Indonesia E.164-ish).
+                        let v = e.target.value.replace(/[^0-9]/g, '');
+                        if (v.startsWith('0')) v = '62' + v.slice(1);
+                        setCsContacts(prev => prev.map((x, j) => j === i ? { ...x, phone: v } : x));
+                      }}/>
+                    {(ct.phone || '').length > 0 && ((ct.phone || '').length < 8 || (ct.phone || '').length > 15) && (
+                      <div className="text-[10px] text-rose-600 mt-0.5">Nomor harus 8–15 digit (mis. 628123456789)</div>
+                    )}
+                  </div>
+                  <input className="field flex-1" value={ct.name || ''} placeholder="Nama CS (opsional)"
+                    onChange={(e) => setCsContacts(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}/>
+                  <button onClick={() => setCsContacts(prev => prev.filter((_, j) => j !== i))}
+                    className="h-9 w-9 rounded-md hover:bg-rose-50 text-mute hover:text-rose-600 flex items-center justify-center shrink-0"><Icon name="trash" size={14}/></button>
+                </div>
+              ))}
+              <button onClick={() => setCsContacts(prev => [...prev, { phone:'', name:'' }])}
+                className="text-xs font-bold text-brand-600 hover:underline">+ Tambah nomor CS</button>
+            </div>
+          </div>
+        </div>
+      </Section>
       <Section title="Maintenance Mode" sub="Aktifkan untuk menutup akses publik sementara saat update besar.">
         <Toggle value={maintenance} onChange={setMaintenance} label="Aktifkan maintenance mode" sub="Pengunjung akan melihat halaman maintenance."/>
       </Section>
       <div className="flex justify-end mt-4">
         <Btn icon="check" onClick={() => {
-          const patch = { site_name: siteName, domain, timezone: tz, currency, seo_title: seoTitle, seo_description: seoDesc, maintenance, smtp_host: smtpHost, smtp_port: smtpPort, smtp_email: smtpEmail, smtp_name: smtpName, form_page_name: formPageName || 'donasi', thankyou_page_name: typPageName || 'invoice' };
+          const patch = { site_name: siteName, domain, timezone: tz, currency, seo_title: seoTitle, seo_description: seoDesc, maintenance, smtp_host: smtpHost, smtp_port: smtpPort, smtp_email: smtpEmail, smtp_name: smtpName, form_page_name: formPageName || 'donasi', thankyou_page_name: typPageName || 'invoice',
+            donor_greeting: donorGreeting,
+            cs_rotator_mode: csMode,
+            cs_contacts: JSON.stringify(csContacts
+              .map(x => ({ phone: (x.phone || '').replace(/[^0-9]/g, ''), name: (x.name || '').trim() }))
+              .filter(x => x.phone.length >= 8 && x.phone.length <= 15)),
+          };
           if (smtpPassword) patch.smtp_password = smtpPassword;
           onSave(patch);
         }}>Simpan Perubahan</Btn>

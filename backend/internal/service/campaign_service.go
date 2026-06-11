@@ -2,6 +2,8 @@ package service
 
 import (
 	"errors"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
@@ -10,6 +12,22 @@ import (
 	"github.com/anrdart/niatbaik-api/pkg/slug"
 	"github.com/google/uuid"
 )
+
+// sanitizeImageRef reduces a campaign image reference to a safe bare filename,
+// stripping any directory/traversal components ("../", absolute or "/uploads/"
+// prefixes). Uploaded images are stored as a UUID filename and served from
+// /uploads/<name>, so only the final path element is ever valid here.
+func sanitizeImageRef(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	// Reject anything that looks like an absolute URL — keep image refs local.
+	if strings.Contains(s, "://") {
+		return ""
+	}
+	return path.Base(path.Clean("/" + s))
+}
 
 type CampaignService struct {
 	campaignRepo *repository.CampaignRepo
@@ -38,9 +56,10 @@ func (s *CampaignService) Create(req *request.CreateCampaignRequest, userID uuid
 		LocationName:     req.LocationName,
 		LocationGmaps:    req.LocationGmaps,
 		FormType:         req.FormType,
-		Status:           "Berjalan",
+		Status:           req.Status, // respect Draft/Published from the form; defaulted below
 		PostedAt:         &now,
 		Icon:             req.Icon,
+		Image:            sanitizeImageRef(req.Image),
 		ThumbGradient:    req.ThumbGradient,
 		FormStyle:        req.FormStyle,
 		WANotification:   req.WANotification,
@@ -55,6 +74,7 @@ func (s *CampaignService) Create(req *request.CreateCampaignRequest, userID uuid
 		MaxDonation:      req.MaxDonation,
 		OptNominal:       req.OptNominal,
 		ButtonColor:      req.ButtonColor,
+		FormFieldsConfig: req.FormFieldsConfig,
 	}
 
 	if req.Target != nil {
@@ -66,8 +86,9 @@ func (s *CampaignService) Create(req *request.CreateCampaignRequest, userID uuid
 	if req.CategoryID != nil {
 		c.CategoryID = req.CategoryID
 	}
-	if req.Status != "" {
-		c.Status = req.Status
+	// Status was set from req.Status above; default only when the form sent none.
+	if c.Status == "" {
+		c.Status = "Berjalan"
 	}
 	if c.FormType == "" {
 		c.FormType = "donasi"
@@ -85,16 +106,24 @@ func (s *CampaignService) Update(id uuid.UUID, req *request.UpdateCampaignReques
 		return nil, errors.New("campaign not found")
 	}
 
-	if req.Title != "" {
+	campaignID := c.ID
+	uniqueExceptSelf := func(candidate string) bool {
+		found, findErr := s.campaignRepo.FindBySlug(candidate)
+		if findErr != nil {
+			return false
+		}
+		return found.ID != campaignID
+	}
+
+	// A user-edited slug wins; otherwise re-derive from the (possibly new) title.
+	if req.Slug != "" {
+		c.Slug = slug.GenerateUnique(req.Slug, uniqueExceptSelf)
+		if req.Title != "" {
+			c.Title = req.Title
+		}
+	} else if req.Title != "" {
 		c.Title = req.Title
-		campaignID := c.ID
-		c.Slug = slug.GenerateUnique(req.Title, func(candidate string) bool {
-			found, findErr := s.campaignRepo.FindBySlug(candidate)
-			if findErr != nil {
-				return false
-			}
-			return found.ID != campaignID
-		})
+		c.Slug = slug.GenerateUnique(req.Title, uniqueExceptSelf)
 	}
 	if req.ShortDescription != "" {
 		c.ShortDescription = req.ShortDescription
@@ -126,6 +155,9 @@ func (s *CampaignService) Update(id uuid.UUID, req *request.UpdateCampaignReques
 	if req.Icon != "" {
 		c.Icon = req.Icon
 	}
+	if req.Image != "" {
+		c.Image = sanitizeImageRef(req.Image)
+	}
 	if req.ThumbGradient != "" {
 		c.ThumbGradient = req.ThumbGradient
 	}
@@ -149,6 +181,9 @@ func (s *CampaignService) Update(id uuid.UUID, req *request.UpdateCampaignReques
 	}
 	if req.ButtonColor != "" {
 		c.ButtonColor = req.ButtonColor
+	}
+	if req.FormFieldsConfig != "" {
+		c.FormFieldsConfig = req.FormFieldsConfig
 	}
 	if req.WANotification != nil {
 		c.WANotification = *req.WANotification

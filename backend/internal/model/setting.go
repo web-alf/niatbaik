@@ -80,6 +80,11 @@ type Setting struct {
 	TelegramBotToken string `gorm:"size:255" json:"-"`
 	TelegramChatID   string `gorm:"size:100" json:"telegram_chat_id"`
 
+	// Donor greeting + CS contact rotator
+	DonorGreeting string `gorm:"type:text" json:"donor_greeting"`            // greeting message shown to donor
+	CSContacts    string `gorm:"type:text" json:"cs_contacts"`              // JSON array of CS WA contacts (rotator)
+	CSRotatorMode string `gorm:"size:20;default:'default'" json:"cs_rotator_mode"` // "default" | "rotator"
+
 	// Ads tracking & pixels
 	MetaPixelID           string `gorm:"size:100" json:"meta_pixel_id"`
 	MetaCAPIEnabled       bool   `gorm:"default:false" json:"meta_capi_enabled"`

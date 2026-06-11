@@ -34,6 +34,12 @@ func (h *CategoryHandler) Create(c echo.Context) error {
 	if req.Name == "" {
 		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("nama kategori wajib diisi"))
 	}
+	if len(req.Name) > 100 {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("nama kategori maksimal 100 karakter"))
+	}
+	if h.categoryRepo.NameExists(req.Name, nil) {
+		return c.JSON(http.StatusConflict, response.ErrorResponse("kategori dengan nama ini sudah ada"))
+	}
 
 	cat := model.Category{
 		Name:  req.Name,
@@ -64,6 +70,12 @@ func (h *CategoryHandler) Update(c echo.Context) error {
 
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Name != "" && req.Name != cat.Name {
+		if len(req.Name) > 100 {
+			return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("nama kategori maksimal 100 karakter"))
+		}
+		if h.categoryRepo.NameExists(req.Name, &cat.ID) {
+			return c.JSON(http.StatusConflict, response.ErrorResponse("kategori dengan nama ini sudah ada"))
+		}
 		cat.Name = req.Name
 		categoryID := cat.ID
 		cat.Slug = slug.GenerateUnique(req.Name, func(candidate string) bool {

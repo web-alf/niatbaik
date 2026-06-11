@@ -457,8 +457,21 @@ const exportExcel = (rows, filename, range, sheetName = 'Data') => {
   downloadBlob(xml, `${filename}_${rangeStamp(range)}.xls`, 'application/vnd.ms-excel');
 };
 
-// Filter helper: parse "1 Mei 2026, 08:00" style dates from dummy data into proper Date
+// Filter helper: parse a transaction date into a Date. Handles both ISO 8601 from
+// the API ("2026-05-01T08:00:00Z") and the seed-data style ("1 Mei 2026, 08:00").
 const parseTxnDate = (s) => {
+  if (!s) return null;
+  if (s instanceof Date) return s;
+  // ISO / RFC date: starts with YYYY-MM-DD. Take the calendar date components
+  // directly and build a LOCAL-midnight Date — matching how the seed-format branch
+  // below builds dates. Using new Date(isoString) would parse 'Z' as UTC and shift
+  // the day in UTC+7, dropping evening transactions from same-day range filters.
+  if (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const ymd = s.slice(0, 10).split('-');
+    const y = +ymd[0], mo = +ymd[1], da = +ymd[2];
+    if (!y || !mo || !da) return null;
+    return new Date(y, mo - 1, da);
+  }
   const m = /(\d+)\s+(\w+)\s+(\d{4})/.exec(s || '');
   if (!m) return null;
   const monIdx = MONTHS_ID.findIndex(x => x.toLowerCase().startsWith(m[2].toLowerCase().slice(0,3)));

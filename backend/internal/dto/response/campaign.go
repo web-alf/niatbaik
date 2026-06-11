@@ -25,6 +25,12 @@ type CampaignListItem struct {
 	Icon               string    `json:"icon"`
 	ThumbGradient      string    `json:"thumb_gradient"`
 	FormStyle          string    `json:"form_style"`
+	FormType           string    `json:"form_type"`
+	OptNominal         string    `json:"opt_nominal"`
+	FormFieldsConfig   string    `json:"form_fields_config"`
+	ButtonColor        string    `json:"button_color"`
+	MinDonation        int64     `json:"min_donation"`
+	MaxDonation        int64     `json:"max_donation"`
 	CreatedAt          time.Time `json:"created_at"`
 }
 
@@ -48,6 +54,8 @@ type CampaignDetail struct {
 	FormStyle          string               `json:"form_style"`
 	FormType           string               `json:"form_type"`
 	OptNominal         string               `json:"opt_nominal"`
+	FormFieldsConfig   string               `json:"form_fields_config"`
+	ButtonColor        string               `json:"button_color"`
 	MinDonation        int64                `json:"min_donation"`
 	MaxDonation        int64                `json:"max_donation"`
 	LocationName       string               `json:"location_name"`
@@ -113,6 +121,12 @@ func ToCampaignListItem(c *model.Campaign, donorCount int64) CampaignListItem {
 		Icon:               c.Icon,
 		ThumbGradient:      c.ThumbGradient,
 		FormStyle:          c.FormStyle,
+		FormType:           c.FormType,
+		OptNominal:         c.OptNominal,
+		FormFieldsConfig:   c.FormFieldsConfig,
+		ButtonColor:        c.ButtonColor,
+		MinDonation:        c.MinDonation,
+		MaxDonation:        c.MaxDonation,
 		CreatedAt:          c.CreatedAt,
 	}
 }
@@ -142,6 +156,8 @@ func ToCampaignDetail(c *model.Campaign, donorCount int64, donors []CampaignDono
 		FormStyle:          c.FormStyle,
 		FormType:           c.FormType,
 		OptNominal:         c.OptNominal,
+		FormFieldsConfig:   c.FormFieldsConfig,
+		ButtonColor:        c.ButtonColor,
 		MinDonation:        c.MinDonation,
 		MaxDonation:        c.MaxDonation,
 		LocationName:       c.LocationName,

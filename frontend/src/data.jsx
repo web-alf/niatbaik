@@ -85,6 +85,8 @@ function mapCampaign(c) {
     form_style: c.form_style || 'Card',
     form_type: c.form_type || 'donasi',
     opt_nominal: c.opt_nominal || '',
+    form_fields_config: c.form_fields_config || '',
+    button_color: c.button_color || '',
     min_donation: c.min_donation || 0,
     location_name: c.location_name || '',
     progress_percentage: c.progress_percentage || (c.target > 0 ? Math.min(100, Math.round((c.total_raised || c.raised || 0) / c.target * 100)) : 0),
@@ -95,8 +97,17 @@ window.mapCampaign = mapCampaign;
 function mapInvoice(inv) {
   if (!inv) return inv;
   if (inv.donor !== undefined && inv.utm && typeof inv.utm === 'object') return inv;
-  const status = inv.status || (inv.is_paid ? 'Paid' : 'Pending');
-  const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+  // Normalize backend status (Indonesian, e.g. "Terbayar"/"Menunggu Pembayaran")
+  // to the English values the dashboard Status filter offers (Paid/Pending/Failed),
+  // so the filter actually matches. Fall back to is_paid when status is unknown.
+  const STATUS_MAP = {
+    'terbayar': 'Paid', 'sukses': 'Paid', 'lunas': 'Paid', 'paid': 'Paid',
+    'menunggu pembayaran': 'Pending', 'menunggu': 'Pending', 'tertunda': 'Pending', 'pending': 'Pending',
+    'gagal': 'Failed', 'kadaluarsa': 'Failed', 'expired': 'Failed', 'dibatalkan': 'Failed', 'failed': 'Failed',
+  };
+  const rawStatus = (inv.status || '').toString().trim().toLowerCase();
+  // Always one of Paid/Pending/Failed after this line (matches the filter options).
+  const status = STATUS_MAP[rawStatus] || (inv.is_paid ? 'Paid' : 'Pending');
   return {
     id: inv.invoice_number || inv.id || '',
     donor: inv.donor_name || inv.donor || '',
@@ -106,7 +117,7 @@ function mapInvoice(inv) {
     campaignId: inv.campaign_id || inv.campaignId || (inv.campaign && inv.campaign.id) || '',
     amount: inv.amount ?? inv.total ?? 0,
     method: inv.payment_method || inv.method || '',
-    status: ['Paid','Pending','Failed'].includes(status) ? status : cap(status),
+    status,
     date: inv.paid_at || inv.created_at || inv.date || '',
     utm: {
       source:   inv.utm_source   ?? inv.utm?.source   ?? '',

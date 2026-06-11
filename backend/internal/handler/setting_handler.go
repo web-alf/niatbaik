@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
@@ -50,6 +51,9 @@ func (h *SettingHandler) Update(c echo.Context) error {
 	}
 
 	if err := h.service.Update(&req); err != nil {
+		if errors.Is(err, service.ErrValidation) {
+			return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		}
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to update settings"))
 	}
 

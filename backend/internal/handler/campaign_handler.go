@@ -68,6 +68,9 @@ func (h *AdminCampaignHandler) Update(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
 	}
+	if err := c.Validate(&req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+	}
 
 	campaign, err := h.service.Update(id, &req)
 	if err != nil {

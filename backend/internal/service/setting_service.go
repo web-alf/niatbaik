@@ -1,10 +1,46 @@
 package service
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/internal/repository"
 )
+
+// validCSContacts returns true when s is empty or a JSON array of CS contacts
+// where every phone is 8–15 digits. Guards both malformed JSON and bad phone shape.
+func validCSContacts(s string) bool {
+	if s == "" {
+		return true
+	}
+	var contacts []struct {
+		Phone string `json:"phone"`
+		Name  string `json:"name"`
+	}
+	if err := json.Unmarshal([]byte(s), &contacts); err != nil {
+		return false
+	}
+	for _, ct := range contacts {
+		digits := strings.Map(func(r rune) rune {
+			if r >= '0' && r <= '9' {
+				return r
+			}
+			return -1
+		}, ct.Phone)
+		if len(digits) < 8 || len(digits) > 15 {
+			return false
+		}
+	}
+	return true
+}
+
+// ErrValidation marks an error as a client-side validation failure (HTTP 422),
+// distinguishing it from server/DB failures (HTTP 500).
+var ErrValidation = errors.New("validation error")
 
 type SettingService struct {
 	settingRepo *repository.SettingRepo
@@ -141,6 +177,18 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	}
 	if req.MessageEnabled != nil {
 		setting.MessageEnabled = *req.MessageEnabled
+	}
+	if req.DonorGreeting != nil {
+		setting.DonorGreeting = *req.DonorGreeting
+	}
+	if req.CSContacts != nil {
+		if !validCSContacts(*req.CSContacts) {
+			return fmt.Errorf("%w: cs_contacts harus JSON array dengan nomor telepon 8–15 digit", ErrValidation)
+		}
+		setting.CSContacts = *req.CSContacts
+	}
+	if req.CSRotatorMode != nil {
+		setting.CSRotatorMode = *req.CSRotatorMode
 	}
 	if req.SocialProofEnabled != nil {
 		setting.SocialProofEnabled = *req.SocialProofEnabled

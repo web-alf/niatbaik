@@ -77,10 +77,16 @@ function sanitizeHTML(html) {
   return doc.body.innerHTML;
 }
 
-// Secret fields must be sent EXACTLY as typed — escaping < > would make bcrypt
-// hash a different string than the user entered, silently mangling passwords.
+// Fields sent EXACTLY as typed (no <>-escaping):
+//  - secrets: escaping would make bcrypt hash a different string than typed.
+//  - JSON config blobs: escaping < > inside a JSON string corrupts the structure
+//    so the consumer's JSON.parse would fail. These are parsed (never rendered as
+//    HTML), so they carry no XSS risk and must be preserved byte-for-byte.
 const SANITIZE_RAW_KEYS = new Set([
   'password', 'password_confirm', 'current_password', 'new_password', 'token',
+  'form_fields_config', 'opt_nominal', 'cs_contacts', 'nominal_presets',
+  'social_proof_config', 'notification_config', 'fundraising_config',
+  'event_tracking_config', 'pixel_config', 'payment_config',
 ]);
 
 function sanitizeBody(obj) {
@@ -155,6 +161,9 @@ const api = {
   campaigns(params = '') { return this.get('/campaigns' + (params ? '?' + params : '')); },
   campaign(slug) { return this.get('/campaigns/' + slug); },
   categories() { return this.get('/categories'); },
+  createCategory(data) { return this.post('/admin/categories', data); },
+  updateCategory(id, data) { return this.put('/admin/categories/' + id, data); },
+  deleteCategory(id) { return this.del('/admin/categories/' + id); },
   publicSettings() { return this.get('/settings/public'); },
   publicPaymentMethods() { return this.get('/payment-methods/public'); },
   publicStats() { return this.get('/stats'); },

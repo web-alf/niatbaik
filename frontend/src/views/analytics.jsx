@@ -1,12 +1,17 @@
 // Analytics - performance, UTM, source breakdown
 function AnalyticsView() {
   const { showToast } = useApp();
-  const [platform, setPlatform] = useStateA('all');
   const [campaign, setCampaign] = useStateA('all');
 
   const trafficSources = window.ANALYTICS_TRAFFIC || window.TRAFFIC_SOURCES || [];
   const dailyDonations = window.DAILY_DONATIONS || [];
-  const campaigns = window.ANALYTICS_CAMPAIGNS || window.CAMPAIGNS || [];
+  const allCampaigns = window.ANALYTICS_CAMPAIGNS || window.CAMPAIGNS || [];
+  // Filter the table by the selected campaign. (A platform filter is intentionally
+  // omitted: the backend CampaignPerf has no per-platform breakdown, so offering a
+  // platform selector would falsely imply filtering that can't happen.)
+  const campaigns = allCampaigns.filter(c =>
+    campaign === 'all' || c.id === campaign || c.title === campaign
+  );
 
   const ov = window.ANALYTICS_OVERVIEW || {};
   // Backend /analytics/overview returns: total_raised, total_transactions, total_leads,
@@ -31,16 +36,9 @@ function AnalyticsView() {
         title="Analytics"
         subtitle="Bedah performa campaign, ads, dan funnel donasi."
         actions={<>
-          <Select value={platform} onChange={setPlatform} icon="filter" options={[
-            {value:'all', label:'Semua platform'},
-            {value:'meta', label:'Meta Ads'},
-            {value:'google', label:'Google Ads'},
-            {value:'tiktok', label:'TikTok Ads'},
-            {value:'organic', label:'Organic'},
-          ]}/>
           <Select value={campaign} onChange={setCampaign} options={[
             {value:'all', label:'Semua campaign'},
-            ...(campaigns).map(c => ({value: c.id || c.title, label: c.title}))
+            ...(allCampaigns).map(c => ({value: c.id || c.title, label: c.title}))
           ]}/>
           <DateRangePill/>
           <Btn variant="outline" tone="ink" icon="download" onClick={() => {

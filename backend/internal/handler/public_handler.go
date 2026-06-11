@@ -141,8 +141,11 @@ func (h *PublicHandler) GetPublicSettings(c echo.Context) error {
 		"ga4_measurement_id":     settings.GA4MeasurementID,
 		"tiktok_pixel_id":        settings.TiktokPixelID,
 		"event_tracking_config":  settings.EventTrackingConfig,
-		// Contact
-		"whatsapp_admin": settings.WhatsappAdmin,
+		// Contact + donor greeting / CS rotator
+		"whatsapp_admin":  settings.WhatsappAdmin,
+		"donor_greeting":  settings.DonorGreeting,
+		"cs_contacts":     settings.CSContacts,
+		"cs_rotator_mode": settings.CSRotatorMode,
 	}
 	return c.JSON(http.StatusOK, response.SuccessResponse(publicSettings, "success"))
 }

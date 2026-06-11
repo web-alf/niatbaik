@@ -5,6 +5,14 @@ function CampaignEditorView() {
   const isEdit = !!editingCampaign;
   const c = editingCampaign;
 
+  // Re-render if categories change in Settings while the editor is open.
+  const [, setCatVer] = useStateA(0);
+  useEffectA(() => {
+    const onCats = () => setCatVer(v => v + 1);
+    window.addEventListener('nb-categories-updated', onCats);
+    return () => window.removeEventListener('nb-categories-updated', onCats);
+  }, []);
+
   // ---- form state ----
   const [title, setTitle] = useStateA(c?.title || '');
   const [content, setContent] = useStateA(c?.description || c?.short_description || '');
@@ -120,7 +128,22 @@ function CampaignEditorView() {
     if (minDonasi > 0) payload.min_donation = minDonasi;
     if (maxDonasi > 0) payload.max_donation = maxDonasi;
     if (nominals.length) payload.opt_nominal = JSON.stringify(nominals.map(n => n.amount).filter(Boolean));
-    // Don't send category_id as integer — backend expects UUID
+    // Resolve the selected category NAME to its UUID (backend expects category_id as UUID).
+    // Note: clearing a category back to "Uncategorized" on an existing campaign is not
+    // sent (backend treats absent category_id as "leave unchanged").
+    if (category && category !== 'Uncategorized') {
+      const cat = (window.CATEGORIES || []).find(x => x.name === category);
+      if (cat && cat.id) {
+        payload.category_id = cat.id;
+      } else {
+        // The selected category was deleted (e.g. by another admin) while the editor
+        // was open. Warn instead of silently saving with a stale category.
+        showToast('Kategori yang dipilih sudah tidak ada. Pilih ulang kategori.');
+        setCategory('Uncategorized');
+        setSaving(false);
+        return;
+      }
+    }
     // Advanced options
     payload.wa_notification = adv.wa === 'Custom';
     payload.followup_enabled = adv.followup === 'Custom';
@@ -136,6 +159,10 @@ function CampaignEditorView() {
     if (advCustom.tiktokPixelId) payload.tiktok_pixel_id = advCustom.tiktokPixelId;
     if (advCustom.gtmId) payload.gtm_id = advCustom.gtmId;
     if (advCustom.extLinkUrl) payload.external_link = advCustom.extLinkUrl;
+    // Persist a user-edited campaign URL slug (backend keeps it instead of
+    // re-deriving from the title). The slug field is only editable when editing an
+    // existing campaign; on create the backend derives it from the title.
+    if (isEdit && longSlug && longSlug !== autoSlug) payload.slug = longSlug;
 
     try {
       if (isEdit) {
@@ -145,8 +172,11 @@ function CampaignEditorView() {
         await api.createCampaign(payload);
         showToast('Campaign berhasil di' + (publish ? 'publish' : 'simpan'));
       }
-      if (typeof window.loadApiData === 'function') try { window.loadApiData(); } catch {}
-      setTimeout(back, 500);
+      // Await the refresh so the campaign list reflects the change before we
+      // navigate back (previously fire-and-forget → list looked stale until reload).
+      if (typeof window.loadApiData === 'function') { try { await window.loadApiData(); } catch {} }
+      if (typeof window.loadAdminData === 'function') { try { await window.loadAdminData(); } catch {} }
+      setTimeout(back, 300);
     } catch (e) {
       showToast('Gagal: ' + (e?.message || 'Periksa isian'));
     }
@@ -238,9 +268,16 @@ function CampaignEditorView() {
                       <div className="grid grid-cols-[1fr_1fr_1fr_120px_auto] gap-2 text-[11px] font-bold text-mute uppercase px-0.5">
                         <div>Nama Bank</div><div>No. Rekening</div><div>Atas Nama</div><div>Method</div><div/>
                       </div>
+                      {/* Suggest bank names from the configured payment-method settings
+                          so they stay consistent with the payment gateway config. */}
+                      <datalist id="nb-payment-banks">
+                        {(window.PAYMENT_METHODS_LIST || window.PAYMENT_METHODS_PUBLIC || []).map((m, i) => (
+                          <option key={i} value={m.bank_name || m.name || m.bank_type || ''}/>
+                        ))}
+                      </datalist>
                       {(advCustom.paymentRows || []).map((row, i) => (
                         <div key={i} className="grid grid-cols-[1fr_1fr_1fr_120px_auto] gap-2 items-center">
-                          <input value={row.bank} onChange={(e) => { const arr = advCustom.paymentRows.map((r, j) => j === i ? { ...r, bank: e.target.value } : r); setAdvCustom({...advCustom, paymentRows: arr}); }} className="field bg-white" placeholder="Nama Bank"/>
+                          <input value={row.bank} onChange={(e) => { const arr = advCustom.paymentRows.map((r, j) => j === i ? { ...r, bank: e.target.value } : r); setAdvCustom({...advCustom, paymentRows: arr}); }} className="field bg-white" placeholder="Nama Bank" list="nb-payment-banks"/>
                           <input value={row.account} onChange={(e) => { const arr = advCustom.paymentRows.map((r, j) => j === i ? { ...r, account: e.target.value } : r); setAdvCustom({...advCustom, paymentRows: arr}); }} className="field bg-white font-mono" placeholder="No. Rekening"/>
                           <input value={row.holder} onChange={(e) => { const arr = advCustom.paymentRows.map((r, j) => j === i ? { ...r, holder: e.target.value } : r); setAdvCustom({...advCustom, paymentRows: arr}); }} className="field bg-white" placeholder="Atas Nama"/>
                           <select value={row.method} onChange={(e) => { const arr = advCustom.paymentRows.map((r, j) => j === i ? { ...r, method: e.target.value } : r); setAdvCustom({...advCustom, paymentRows: arr}); }} className="field bg-white">
@@ -523,15 +560,12 @@ function CampaignEditorView() {
               <div className="grid grid-cols-[80px_1fr] items-center gap-3">
                 <div className="text-mute">Category</div>
                 <select value={category} onChange={(e) => setCategory(e.target.value)} className="field py-2">
-                  <option>Uncategorized</option>
-                  <option>Medis</option>
-                  <option>Pendidikan</option>
-                  <option>Wakaf</option>
-                  <option>Bencana</option>
-                  <option>Ramadan</option>
-                  <option>Fidyah</option>
-                  <option>Qurban</option>
-                  <option>Zakat</option>
+                  <option value="Uncategorized">Uncategorized</option>
+                  {/* Categories from the API (window.CATEGORIES) so the editor matches
+                      the same list used by the campaign list/filter and public pages. */}
+                  {(window.CATEGORIES || []).map((cat) => (
+                    <option key={cat.id || cat.slug || cat.name} value={cat.name}>{cat.name}</option>
+                  ))}
                 </select>
               </div>
               <div className="grid grid-cols-[80px_1fr] items-center gap-3">

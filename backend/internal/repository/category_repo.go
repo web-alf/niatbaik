@@ -44,6 +44,18 @@ func (r *CategoryRepo) SlugExists(slug string) bool {
 	return count > 0
 }
 
+// NameExists reports whether a category with this name already exists, optionally
+// excluding a given ID (used on update so a row doesn't conflict with itself).
+func (r *CategoryRepo) NameExists(name string, excludeID *uuid.UUID) bool {
+	q := r.db.Model(&model.Category{}).Where("LOWER(name) = LOWER(?)", name)
+	if excludeID != nil {
+		q = q.Where("id <> ?", *excludeID)
+	}
+	var count int64
+	q.Count(&count)
+	return count > 0
+}
+
 func (r *CategoryRepo) Create(c *model.Category) error {
 	return r.db.Create(c).Error
 }

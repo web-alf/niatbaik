@@ -75,8 +75,12 @@ function mapCampaign(c) {
     status: c.status || 'Draft',
     daysLeft: c.days_left ?? c.daysLeft ?? 0,
     days: c.days_left ?? c.daysLeft ?? 0,
-    thumb: c.thumb_gradient || c.thumb || (c.image ? '/uploads/' + c.image : ''),
-    img: c.image ? (c.image.startsWith('http') ? c.image : '/uploads/' + c.image) : '',
+    // thumb stays a CSS-valid background (gradient or empty) used by list/admin views
+    // that do `style={{background: c.thumb}}`. The real uploaded image lives in `img`
+    // and is rendered as an <img> where supported, so it must NOT be folded into
+    // thumb (a raw "/uploads/x" path is not a valid CSS background value).
+    thumb: c.thumb_gradient || c.thumb || '',
+    img: c.image ? (c.image.startsWith('http') || c.image.startsWith('/uploads/') ? c.image : '/uploads/' + c.image) : '',
     icon: c.icon || 'heart',
     updatedAt: c.updated_at || c.updatedAt || '',
     description: c.description || c.short_description || '',
@@ -107,6 +111,23 @@ function mapCampaign(c) {
   };
 }
 window.mapCampaign = mapCampaign;
+
+// campaignBgStyle returns a CSS style object for a campaign thumbnail box: the
+// uploaded image as a cover background when present, otherwise the saved gradient,
+// otherwise a neutral brand gradient. Single source of truth so every view
+// (dashboard, advertiser, analytics, data-studio, campaign list/modal) shows the
+// real photo instead of an empty box or a placeholder icon over the image.
+function campaignBgStyle(c) {
+  const img = c && c.img;
+  if (img) {
+    const url = window.mediaUrl ? window.mediaUrl(img) : img;
+    return { backgroundImage: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center' };
+  }
+  const t = c && c.thumb;
+  if (typeof t === 'string' && t.startsWith('linear')) return { background: t };
+  return { background: 'linear-gradient(135deg,#2E4191,#38B6FF)' };
+}
+window.campaignBgStyle = campaignBgStyle;
 
 function mapInvoice(inv) {
   if (!inv) return inv;

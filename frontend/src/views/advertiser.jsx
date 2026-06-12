@@ -157,8 +157,8 @@ function AdvertiserView() {
             { c: campaigns[2], reason:'Campaign aktif · monitor ROAS', tone:'brand' },
           ].map((r, i) => (
             <div key={i} className="rounded-xl border border-line p-4">
-              <div className="h-24 rounded-lg mb-3" style={{ background: r.c.thumb }}>
-                <div className="h-full flex items-center justify-center text-white/90"><Icon name={r.c.icon} size={28}/></div>
+              <div className="h-24 rounded-lg mb-3 overflow-hidden bg-bg2" style={window.campaignBgStyle ? window.campaignBgStyle(r.c) : { background: r.c.thumb }}>
+                {!(r.c && r.c.img) && <div className="h-full flex items-center justify-center text-white/90"><Icon name={r.c.icon} size={28}/></div>}
               </div>
               <div className="font-bold text-ink line-clamp-2 leading-tight">{r.c.title}</div>
               <div className="mt-2 text-xs text-ink/80">{r.reason}</div>

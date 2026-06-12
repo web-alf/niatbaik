@@ -802,7 +802,7 @@ function EditableUrlRow({ label, prefix, value, onChange, onCopy, sanitize, help
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cancel(); }}
                 placeholder={short ? 'kode-unik' : 'slug-campaign'}
-                className="w-full px-2.5 py-1.5 font-mono text-sm text-ink focus:outline-none"/>
+                className="w-full px-2.5 py-1.5 font-mono text-sm text-ink bg-white placeholder:text-slate-400 focus:outline-none"/>
             </div>
             <div className="flex items-center justify-between gap-2">
               <div className="text-[10px]">

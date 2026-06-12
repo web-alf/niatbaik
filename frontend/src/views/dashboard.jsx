@@ -288,8 +288,10 @@ function DashboardView() {
           <div className="space-y-3">
             {campaignSeed.filter(c => c.status === 'Running').slice(0,4).map((c) => (
               <div key={c.id} className="flex items-center gap-3 p-2 -mx-2 rounded-lg hover:bg-bg2">
-                <div className="h-12 w-12 shrink-0 rounded-lg overflow-hidden" style={{background: c.thumb}}>
-                  <div className="h-full flex items-center justify-center text-white/90"><Icon name={c.icon} size={20}/></div>
+                <div className="relative h-12 w-12 shrink-0 rounded-lg overflow-hidden" style={window.campaignBgStyle ? window.campaignBgStyle(c) : (c.img ? {} : {background: c.thumb})}>
+                  {/* Icon sits behind as the fallback; a real image covers it. If the
+                      image 404s, onError hides it and the icon shows through. */}
+                  {!c.img && <div className="absolute inset-0 flex items-center justify-center text-white/90"><Icon name={c.icon} size={20}/></div>}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-sm text-ink truncate">{c.title}</div>

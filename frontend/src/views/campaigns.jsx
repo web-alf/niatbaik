@@ -300,8 +300,8 @@ function CampaignDetailModal({ campaign, onClose }) {
           <div className="grid lg:grid-cols-5 gap-0">
             <div className="lg:col-span-3">
               {/* Banner */}
-              <div className="relative aspect-[16/9]" style={{ background: c.thumb }}>
-                <div className="absolute inset-0 flex items-center justify-center text-white/90"><Icon name={c.icon} size={120} strokeWidth={1}/></div>
+              <div className="relative aspect-[16/9] overflow-hidden" style={window.campaignBgStyle ? window.campaignBgStyle(c) : { background: c.thumb }}>
+                {!(c && c.img) && <div className="absolute inset-0 flex items-center justify-center text-white/90"><Icon name={c.icon} size={120} strokeWidth={1}/></div>}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/0 to-transparent"/>
                 <div className="absolute top-4 left-4 flex gap-2">
                   <Badge tone="outline" className="bg-white/90 backdrop-blur">{c.category}</Badge>

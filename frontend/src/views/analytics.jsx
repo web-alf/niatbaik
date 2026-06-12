@@ -151,7 +151,7 @@ function AnalyticsView() {
                   <tr key={c.id} className="border-b border-line last:border-0 hover:bg-bg2/60">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-8 w-8 rounded-md shrink-0" style={{background: c.thumb || 'linear-gradient(135deg,#2E4191,#38B6FF)'}}/>
+                        <div className="h-8 w-8 rounded-md shrink-0 overflow-hidden bg-bg2" style={window.campaignBgStyle ? window.campaignBgStyle(c) : {background: c.thumb || 'linear-gradient(135deg,#2E4191,#38B6FF)'}}/>
                         <div className="font-semibold text-ink line-clamp-1 max-w-[280px]">{c.title}</div>
                       </div>
                     </td>

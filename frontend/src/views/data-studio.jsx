@@ -321,7 +321,7 @@ function DSOverview({ daily, sources, campaigns, data }) {
               const pct = (rev / 600_000_000) * 100;
               return (
                 <div key={c.id} className="flex items-center gap-2.5">
-                  <div className="h-8 w-8 rounded-md shrink-0" style={{ background: c.thumb }}/>
+                  <div className="h-8 w-8 rounded-md shrink-0 overflow-hidden bg-bg2" style={window.campaignBgStyle ? window.campaignBgStyle(c) : { background: c.thumb }}/>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-bold text-ink line-clamp-1">{c.title}</div>
                     <div className="mt-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">

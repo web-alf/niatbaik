@@ -6,6 +6,7 @@ import (
 	"github.com/anrdart/niatbaik-api/pkg/pagination"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type CampaignRepo struct {
@@ -137,7 +138,13 @@ func (r *CampaignRepo) Create(c *model.Campaign) error {
 }
 
 func (r *CampaignRepo) Update(c *model.Campaign) error {
-	return r.db.Save(c).Error
+	// Omit associations on Save. The service loads the campaign with Preload("Category")
+	// /Preload("User"), so c.Category holds the OLD related row. GORM's default Save
+	// upserts BelongsTo associations and back-fills CategoryID from that stale
+	// c.Category.ID — silently reverting a category change. Omitting associations
+	// persists only the campaign's own columns (incl. the new CategoryID/UserID the
+	// service set) and never touches the categories/users tables.
+	return r.db.Omit(clause.Associations).Save(c).Error
 }
 
 func (r *CampaignRepo) Delete(id uuid.UUID) error {

@@ -64,7 +64,12 @@ func main() {
 				h := c.Response().Header()
 				h.Set("X-Content-Type-Options", "nosniff")
 				h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
-				h.Set("Cache-Control", "private, max-age=86400")
+				// Campaign images are PUBLIC content with immutable UUID filenames, so
+				// allow shared-CDN caching for a year. "private" (the old value) told
+				// Cloudflare not to cache, forcing every image back to the origin —
+				// the cause of slow image loads. This is the single source of truth for
+				// the upload Cache-Control; nginx must NOT add its own (would duplicate).
+				h.Set("Cache-Control", "public, max-age=31536000, immutable")
 			}
 			return next(c)
 		}

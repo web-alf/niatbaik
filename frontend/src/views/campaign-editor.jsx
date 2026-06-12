@@ -13,6 +13,19 @@ function CampaignEditorView() {
     return () => window.removeEventListener('nb-categories-updated', onCats);
   }, []);
 
+  // Payment methods (from Setting → Payment) used to populate the bank dropdown in
+  // the advanced-option custom payment section. Load once on mount.
+  const [payMethods, setPayMethods] = useStateA(() => window.PAYMENT_METHODS_LIST || window.PAYMENT_METHODS_PUBLIC || []);
+  useEffectA(() => {
+    let alive = true;
+    if (window.api && window.api.paymentMethods) {
+      window.api.paymentMethods()
+        .then(r => { if (alive && r && Array.isArray(r.data)) { window.PAYMENT_METHODS_LIST = r.data; setPayMethods(r.data); } })
+        .catch(() => {});
+    }
+    return () => { alive = false; };
+  }, []);
+
   // ---- form state ----
   const [title, setTitle] = useStateA(c?.title || '');
   const [content, setContent] = useStateA(c?.description || c?.short_description || '');
@@ -274,16 +287,35 @@ function CampaignEditorView() {
                       <div className="grid grid-cols-[1fr_1fr_1fr_120px_auto] gap-2 text-[11px] font-bold text-mute uppercase px-0.5">
                         <div>Nama Bank</div><div>No. Rekening</div><div>Atas Nama</div><div>Method</div><div/>
                       </div>
-                      {/* Suggest bank names from the configured payment-method settings
-                          so they stay consistent with the payment gateway config. */}
-                      <datalist id="nb-payment-banks">
-                        {(window.PAYMENT_METHODS_LIST || window.PAYMENT_METHODS_PUBLIC || []).map((m, i) => (
-                          <option key={i} value={m.bank_name || m.name || m.bank_type || ''}/>
-                        ))}
-                      </datalist>
+                      {payMethods.length === 0 && (
+                        <div className="text-[11px] text-amber-600 bg-amber-50 rounded-md px-2 py-1">
+                          Belum ada metode pembayaran. Tambahkan dulu di Setting → Payment.
+                        </div>
+                      )}
                       {(advCustom.paymentRows || []).map((row, i) => (
                         <div key={i} className="grid grid-cols-[1fr_1fr_1fr_120px_auto] gap-2 items-center">
-                          <input value={row.bank} onChange={(e) => { const arr = advCustom.paymentRows.map((r, j) => j === i ? { ...r, bank: e.target.value } : r); setAdvCustom({...advCustom, paymentRows: arr}); }} className="field bg-white" placeholder="Nama Bank" list="nb-payment-banks"/>
+                          {/* Bank name is chosen from the methods configured in Setting → Payment.
+                              Selecting one auto-fills the account number, holder, and method. */}
+                          <select value={row.bank}
+                            onChange={(e) => {
+                              const name = e.target.value;
+                              const m = payMethods.find(x => (x.bank_name || x.name || x.bank_type) === name);
+                              const arr = advCustom.paymentRows.map((r, j) => j === i ? {
+                                ...r,
+                                bank: name,
+                                account: m ? (m.bank_number || m.account || r.account) : r.account,
+                                holder: m ? (m.account_name || r.holder) : r.holder,
+                                method: m ? (m.type || r.method) : r.method,
+                              } : r);
+                              setAdvCustom({...advCustom, paymentRows: arr});
+                            }}
+                            className="field bg-white">
+                            <option value="">Pilih bank…</option>
+                            {payMethods.map((m, k) => {
+                              const nm = m.bank_name || m.name || m.bank_type || '';
+                              return <option key={m.id || k} value={nm}>{nm}</option>;
+                            })}
+                          </select>
                           <input value={row.account} onChange={(e) => { const arr = advCustom.paymentRows.map((r, j) => j === i ? { ...r, account: e.target.value } : r); setAdvCustom({...advCustom, paymentRows: arr}); }} className="field bg-white font-mono" placeholder="No. Rekening"/>
                           <input value={row.holder} onChange={(e) => { const arr = advCustom.paymentRows.map((r, j) => j === i ? { ...r, holder: e.target.value } : r); setAdvCustom({...advCustom, paymentRows: arr}); }} className="field bg-white" placeholder="Atas Nama"/>
                           <select value={row.method} onChange={(e) => { const arr = advCustom.paymentRows.map((r, j) => j === i ? { ...r, method: e.target.value } : r); setAdvCustom({...advCustom, paymentRows: arr}); }} className="field bg-white">

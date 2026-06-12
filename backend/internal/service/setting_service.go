@@ -130,8 +130,40 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	if req.SmtpPort != nil {
 		setting.SMTPPort = *req.SmtpPort
 	}
+	if req.SmtpName != "" {
+		setting.SMTPName = req.SmtpName
+	}
 	if req.PaymentProvider != "" {
 		setting.PaymentProvider = req.PaymentProvider
+	}
+
+	// General panel fields
+	if req.Domain != "" {
+		setting.Domain = req.Domain
+	}
+	if req.Timezone != "" {
+		setting.Timezone = req.Timezone
+	}
+	if req.Currency != "" {
+		setting.Currency = req.Currency
+	}
+	if req.SEOTitle != "" {
+		setting.SEOTitle = req.SEOTitle
+	}
+	if req.SEODescription != "" {
+		setting.SEODescription = req.SEODescription
+	}
+	if req.Maintenance != nil {
+		setting.Maintenance = *req.Maintenance
+	}
+	if req.FormPageName != "" {
+		setting.FormPageName = req.FormPageName
+	}
+	if req.ThankyouPageName != "" {
+		setting.ThankyouPageName = req.ThankyouPageName
+	}
+	if req.LookerReports != "" {
+		setting.LookerReports = req.LookerReports
 	}
 	if req.MootaAPIKey != "" {
 		setting.MootaAPIKey = req.MootaAPIKey

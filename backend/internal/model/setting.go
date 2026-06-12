@@ -20,6 +20,18 @@ type Setting struct {
 	Description    string    `gorm:"type:text" json:"description"`
 	FooterCode     string    `gorm:"type:text" json:"footer_code"`
 	AutoSlide      int       `gorm:"default:5" json:"auto_slide"`
+
+	// General settings (edited in the admin General panel) — previously sent by the
+	// frontend but had no column, so they silently reverted on refresh.
+	Domain          string `gorm:"size:255" json:"domain"`
+	Timezone        string `gorm:"size:64" json:"timezone"`
+	Currency        string `gorm:"size:16" json:"currency"`
+	SEOTitle        string `gorm:"size:255" json:"seo_title"`
+	SEODescription  string `gorm:"type:text" json:"seo_description"`
+	Maintenance     bool   `gorm:"default:false" json:"maintenance"`
+	FormPageName    string `gorm:"size:64;default:'donasi'" json:"form_page_name"`
+	ThankyouPageName string `gorm:"size:64;default:'invoice'" json:"thankyou_page_name"`
+	LookerReports   string `gorm:"type:text" json:"looker_reports"`
 	AdminFee       int       `gorm:"default:0" json:"admin_fee"`
 
 	FundraiserCommissionPercent int `gorm:"default:0" json:"fundraiser_commission_percent"`

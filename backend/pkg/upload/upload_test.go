@@ -8,7 +8,37 @@ import (
 	"testing"
 )
 
-var allowed = []string{"image/jpeg", "image/png", "image/webp", "image/gif"}
+var allowed = []string{"image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp", "image/heic", "image/heif", "image/avif", "image/tiff"}
+
+// TestSniffImageType covers formats http.DetectContentType misses (the source of
+// the "application/octet-stream not allowed" upload failures, esp. iPhone HEIC).
+func TestSniffImageType(t *testing.T) {
+	heic := append([]byte{0, 0, 0, 0x18}, []byte("ftypheic")...)
+	avif := append([]byte{0, 0, 0, 0x1c}, []byte("ftypavif")...)
+	tiffLE := []byte{0x49, 0x49, 0x2A, 0x00, 0, 0, 0, 0}
+	tiffBE := []byte{0x4D, 0x4D, 0x00, 0x2A, 0, 0, 0, 0}
+	bmp := append([]byte("BM"), make([]byte, 20)...)
+	cases := map[string]string{
+		"image/heic": string(sniffImageType(heic)),
+		"image/avif": string(sniffImageType(avif)),
+		"image/tiff": string(sniffImageType(tiffLE)),
+		"image/tiff2": string(sniffImageType(tiffBE)),
+		"image/bmp": string(sniffImageType(bmp)),
+	}
+	want := map[string]string{
+		"image/heic": "image/heic", "image/avif": "image/avif",
+		"image/tiff": "image/tiff", "image/tiff2": "image/tiff", "image/bmp": "image/bmp",
+	}
+	for k, got := range cases {
+		if got != want[k] {
+			t.Errorf("%s: got %q want %q", k, got, want[k])
+		}
+	}
+	// Random binary that matches no signature stays octet-stream (rejected).
+	if got := sniffImageType([]byte{0x00, 0x01, 0x02, 0x03, 0xFF, 0xFE, 0x10, 0x42}); got != "application/octet-stream" {
+		t.Errorf("garbage sniff = %q, want application/octet-stream", got)
+	}
+}
 
 // makeMultipartFile builds a real multipart.File (which supports Seek, as SaveFile
 // requires) from raw bytes under the given upload filename.

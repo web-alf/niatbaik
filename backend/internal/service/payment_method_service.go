@@ -25,6 +25,7 @@ func (s *PaymentMethodService) Create(req *request.PaymentMethodInput) (*model.P
 		AccountName:   req.AccountName,
 		BankNumber:    req.BankNumber,
 		BankType:      req.BankType,
+		Image:         req.Image,
 		Type:          req.Type,
 		Category:      req.Category,
 		Code:          req.Code,
@@ -48,6 +49,7 @@ func (s *PaymentMethodService) Update(id uuid.UUID, req *request.PaymentMethodIn
 	pm.AccountName = req.AccountName
 	pm.BankNumber = req.BankNumber
 	pm.BankType = req.BankType
+	pm.Image = req.Image
 	pm.Type = req.Type
 	pm.Category = req.Category
 	pm.Code = req.Code

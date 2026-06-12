@@ -11,6 +11,11 @@ var allowedImageTypes = []string{
 	"image/png",
 	"image/webp",
 	"image/gif",
+	"image/bmp",
+	"image/heic", // iPhone default camera format
+	"image/heif",
+	"image/avif",
+	"image/tiff",
 }
 
 type UploadService struct {

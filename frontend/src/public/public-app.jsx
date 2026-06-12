@@ -289,9 +289,12 @@ function StatsSection() {
 function CampaignsSection({ onNav }) {
   const filterTabs = [{v:'all',l:'Semua'},{v:'Medis',l:'Medis'},{v:'Pendidikan',l:'Pendidikan'},{v:'Wakaf',l:'Wakaf'},{v:'Bencana',l:'Bencana'},{v:'Ramadan',l:'Ramadan'}];
   const [tab, setTab] = useState('all');
+  const [showAll, setShowAll] = useState(false);
   const src = (window.CAMPAIGNS && window.CAMPAIGNS.length) ? window.CAMPAIGNS : getCampaigns();
   const campaigns = src.filter(c => c.status === 'Running' || c.status === 'Published' || c.status === 'Berjalan');
-  const filtered = tab === 'all' ? campaigns : campaigns.filter(c => c.category === tab);
+  const filteredAll = tab === 'all' ? campaigns : campaigns.filter(c => c.category === tab);
+  // Show only the 6 newest by default; "Lihat semua" reveals the rest in place.
+  const filtered = showAll ? filteredAll : filteredAll.slice(0, 6);
 
   return (
     <section id="campaigns" className="py-14 lg:py-20 bg-bg2">
@@ -316,10 +319,10 @@ function CampaignsSection({ onNav }) {
           {filtered.map((c) => <PublicCampaignCard key={c.id} c={c} onNav={onNav}/>)}
         </div>
 
-        {filtered.length >= 6 && (
+        {!showAll && filteredAll.length > 6 && (
           <div className="mt-8 text-center">
-            <button onClick={() => setTab('all')} className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-ink bg-white border border-line hover:bg-bg2">
-              Lihat semua campaign <Icon name="arrowR" size={16}/>
+            <button onClick={() => setShowAll(true)} className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-ink bg-white border border-line hover:bg-bg2">
+              Lihat semua campaign ({filteredAll.length}) <Icon name="arrowR" size={16}/>
             </button>
           </div>
         )}
@@ -974,7 +977,7 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
           <div className="text-xs font-bold uppercase tracking-wider text-mute">Identitas donatur</div>
           <input className="field" placeholder="Nama (cth: Hamba Allah)" value={donor.name} onChange={(e) => setDonor({...donor, name:e.target.value})} disabled={anon}/>
           <input className="field" placeholder="No. WhatsApp · cth 08123… (wajib)" value={donor.wa} onChange={(e) => setDonor({...donor, wa:e.target.value})}/>
-          <input className="field" placeholder="Email · untuk kuitansi" value={donor.email} onChange={(e) => setDonor({...donor, email:e.target.value})}/>
+          <input className="field" placeholder="Email" value={donor.email} onChange={(e) => setDonor({...donor, email:e.target.value})}/>
           <label className="flex items-center gap-2 text-sm text-ink/80">
             <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded border-line"/>
             Donasi sebagai anonim (Hamba Allah)
@@ -1110,6 +1113,9 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
           <div className="text-xs font-bold uppercase tracking-wider text-mute mb-3">Scan QRIS untuk membayar</div>
           {invoice.qr_url ? (
             <img src={invoice.qr_url} alt="QRIS" className="w-52 h-52 rounded-xl border border-line"/>
+          ) : (pmObj && pmObj.image) ? (
+            /* Admin-uploaded static QRIS image from Setting → Payment. */
+            <img src={window.mediaUrl ? window.mediaUrl(pmObj.image) : pmObj.image} alt="QRIS" className="w-52 h-52 rounded-xl border border-line object-contain bg-white" onError={(e)=>{e.target.style.display='none';}}/>
           ) : (
             <div ref={qrRef} className="p-3 rounded-xl border border-line bg-white"/>
           )}

@@ -24,7 +24,19 @@ type UpdateSettingRequest struct {
 	SmtpEmail                   string `json:"smtp_email"`
 	SmtpPassword                string `json:"smtp_password"`
 	SmtpPort                    *int   `json:"smtp_port"`
+	SmtpName                    string `json:"smtp_name" validate:"omitempty,max=255"`
 	PaymentProvider             string `json:"payment_provider"`
+
+	// General panel fields (were dropped before — no DTO/column → reverted on refresh)
+	Domain           string `json:"domain" validate:"omitempty,max=255"`
+	Timezone         string `json:"timezone" validate:"omitempty,max=64"`
+	Currency         string `json:"currency" validate:"omitempty,max=16"`
+	SEOTitle         string `json:"seo_title" validate:"omitempty,max=255"`
+	SEODescription   string `json:"seo_description" validate:"omitempty,max=2000"`
+	Maintenance      *bool  `json:"maintenance"`
+	FormPageName     string `json:"form_page_name" validate:"omitempty,max=64"`
+	ThankyouPageName string `json:"thankyou_page_name" validate:"omitempty,max=64"`
+	LookerReports    string `json:"looker_reports" validate:"omitempty,max=65536"`
 
 	// Moota
 	MootaAPIKey        string `json:"moota_api_key"`

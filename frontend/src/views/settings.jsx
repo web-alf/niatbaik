@@ -164,6 +164,7 @@ function ThemesPanel({ settings, onSave }) {
               <div className="mt-1 flex items-center gap-2">
                 <input type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="h-10 w-10 rounded-lg border border-line cursor-pointer"/>
                 <input value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="field font-mono"/>
+                <Btn size="sm" variant="outline" tone="ink" onClick={() => { applyTheme(secondaryColor); showToast('Warna sekunder diterapkan'); }}>Apply</Btn>
               </div>
             </div>
             <div>
@@ -336,6 +337,7 @@ function PaymentPanel({ settings, onSave }) {
     holder: m.account_name || m.holder || '-',
     account: m.bank_number || m.account || '-',
     fee: m.admin_fee ? ('Rp ' + fmtNum(m.admin_fee)) : (m.fee || '0'),
+    image: m.image || '',
     active: m.active !== false,
     locked: false,
   });
@@ -531,10 +533,13 @@ function PaymentEditorModal({ open, onClose, editing, onSave }) {
     holder:   editing?.holder   || '',
     account:  editing?.account  || '',
     fee:      editing?.fee      || 'Rp 4.000',
+    image:    editing?.image    || '',
     moota:    editing?.moota    || blankMoota(),
     flip:     editing?.flip     || blankFlip(),
   }));
   const [error, setError] = useStateA({});
+  const [qrisUploading, setQrisUploading] = useStateA(false);
+  const qrisRef = useRefA();
 
   useEffectA(() => {
     if (open) {
@@ -545,12 +550,26 @@ function PaymentEditorModal({ open, onClose, editing, onSave }) {
         holder:   editing?.holder   || 'Yayasan Niat Baik',
         account:  editing?.account  || '',
         fee:      editing?.fee      || 'Rp 4.000',
+        image:    editing?.image    || '',
         moota:    editing?.moota    || blankMoota(),
         flip:     editing?.flip     || blankFlip(),
       });
       setError({});
     }
   }, [open, editing?.id]);
+
+  const handleQrisUpload = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setQrisUploading(true);
+    try {
+      const res = await window.api.uploadImage(f);
+      const url = res?.data?.url || res?.url;
+      if (url) setForm((prev) => ({ ...prev, image: url }));
+    } catch (err) { /* surfaced by global error handling */ }
+    setQrisUploading(false);
+    e.target.value = '';
+  };
 
   // Provider options reflect type
   const providerOptions = useMemoA(() => {
@@ -626,6 +645,8 @@ function PaymentEditorModal({ open, onClose, editing, onSave }) {
       bank_type: form.provider,
       admin_fee: parseInt(String(form.fee).replace(/[^\d]/g, ''), 10) || 0,
       active: true,
+      // QRIS code image (stored as relative /uploads ref) shown on the donation page.
+      image: form.type === 'QRIS' ? form.image : '',
       gateway_config: form.provider === 'Moota' ? JSON.stringify(form.moota) : form.provider === 'Flip' ? JSON.stringify(form.flip) : '',
     });
   };
@@ -699,6 +720,29 @@ function PaymentEditorModal({ open, onClose, editing, onSave }) {
                 className={`field mt-1.5 font-mono ${error.account ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
                 placeholder={form.type === 'E-wallet' ? '081234567890' : '8901234567'}/>
               {error.account && <div className="text-[11px] text-rose-600 font-semibold mt-1">{error.account}</div>}
+            </div>
+          </div>
+        )}
+
+        {/* QRIS code image — uploaded here, shown on the public donation page when
+            the donor selects QRIS. */}
+        {form.type === 'QRIS' && (
+          <div className="pt-4 border-t border-line">
+            <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Gambar QRIS</div>
+            <div className="flex items-center gap-4">
+              <div className="h-28 w-28 rounded-xl border-2 border-dashed border-line bg-bg2 flex items-center justify-center overflow-hidden shrink-0">
+                {form.image
+                  ? <img src={window.mediaUrl ? window.mediaUrl(form.image) : form.image} alt="QRIS" className="h-full w-full object-contain" onError={(e)=>{e.target.style.display='none';}}/>
+                  : <Icon name="image" size={28} className="text-mute"/>}
+              </div>
+              <div>
+                <input ref={qrisRef} type="file" accept="image/*" className="hidden" onChange={handleQrisUpload}/>
+                <Btn size="sm" variant="outline" tone="ink" icon="upload" onClick={() => qrisRef.current?.click()}>
+                  {qrisUploading ? 'Mengupload…' : (form.image ? 'Ganti gambar QRIS' : 'Upload gambar QRIS')}
+                </Btn>
+                {form.image && <button onClick={() => setForm({...form, image:''})} className="ml-2 text-xs font-semibold text-rose-600 hover:underline">Hapus</button>}
+                <div className="text-[11px] text-mute mt-2">PNG/JPG QR code. Tampil ke donatur saat memilih QRIS.</div>
+              </div>
             </div>
           </div>
         )}

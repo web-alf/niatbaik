@@ -8,6 +8,7 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
 	"github.com/anrdart/niatbaik-api/internal/model"
+	"github.com/anrdart/niatbaik-api/internal/repository"
 	"github.com/anrdart/niatbaik-api/internal/service"
 	"github.com/anrdart/niatbaik-api/pkg/pagination"
 	"github.com/google/uuid"
@@ -18,10 +19,11 @@ import (
 type InvoiceHandler struct {
 	db             *gorm.DB
 	paymentService *service.PaymentService
+	statusRepo     *repository.PaymentStatusRepo
 }
 
-func NewInvoiceHandler(db *gorm.DB, paymentService *service.PaymentService) *InvoiceHandler {
-	return &InvoiceHandler{db: db, paymentService: paymentService}
+func NewInvoiceHandler(db *gorm.DB, paymentService *service.PaymentService, statusRepo *repository.PaymentStatusRepo) *InvoiceHandler {
+	return &InvoiceHandler{db: db, paymentService: paymentService, statusRepo: statusRepo}
 }
 
 func (h *InvoiceHandler) List(c echo.Context) error {
@@ -107,8 +109,15 @@ func (h *InvoiceHandler) UpdateStatus(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
 	}
-	if err := c.Validate(req); err != nil {
-		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))
+	if req.Status == "" {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("status wajib diisi"))
+	}
+
+	// Validate the requested status against the admin-managed master list, and learn
+	// whether it counts as "paid" — replacing the old hardcoded oneof + string checks.
+	ps, err := h.statusRepo.FindByCode(req.Status)
+	if err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("status pembayaran tidak dikenal"))
 	}
 
 	var invoice model.Invoice
@@ -119,17 +128,16 @@ func (h *InvoiceHandler) UpdateStatus(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch invoice"))
 	}
 
-	// Marking an invoice paid must run the full bookkeeping flow (campaign
-	// balance, global balance, fundraiser commission, mutation records) and
-	// is idempotent thanks to the locking guard inside ProcessPayment.
-	if req.Status == "Sukses" || req.Status == "Terbayar" {
+	// A status flagged is_paid must run the full bookkeeping flow (campaign balance,
+	// global balance, fundraiser commission, mutation records). ProcessPayment is
+	// idempotent thanks to its locking guard. ProcessPayment forces status to
+	// "Terbayar", so honor the admin's chosen label afterward if it differs.
+	if ps.IsPaid {
 		if !invoice.IsPaid {
 			if err := h.paymentService.ProcessPayment(&invoice); err != nil {
 				return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to process payment"))
 			}
 		}
-		// ProcessPayment sets status to "Terbayar"; honor an explicit "Sukses"
-		// label if the caller asked for it.
 		if req.Status != invoice.Status {
 			if err := h.db.Model(&model.Invoice{}).Where("id = ?", id).Update("status", req.Status).Error; err != nil {
 				return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to update status"))
@@ -138,13 +146,9 @@ func (h *InvoiceHandler) UpdateStatus(c echo.Context) error {
 		return c.JSON(http.StatusOK, response.SuccessResponse(nil, "invoice status updated"))
 	}
 
-	updates := map[string]interface{}{
-		"status": req.Status,
-	}
-	if err := h.db.Model(&invoice).Updates(updates).Error; err != nil {
+	if err := h.db.Model(&invoice).Update("status", req.Status).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to update status"))
 	}
-
 	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "invoice status updated"))
 }
 

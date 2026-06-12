@@ -1,7 +1,9 @@
 package request
 
 type UpdateInvoiceStatusRequest struct {
-	Status string `json:"status" validate:"required,oneof=Sukses Pending Gagal Terbayar"`
+	// Validated dynamically against the admin-managed PaymentStatus list (not a fixed
+	// oneof), so new statuses can be added without a code change.
+	Status string `json:"status" validate:"required,max=50"`
 }
 
 type AddInvoiceNoteRequest struct {

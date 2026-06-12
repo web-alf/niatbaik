@@ -98,13 +98,20 @@ function mapInvoice(inv) {
   if (!inv) return inv;
   if (inv.donor !== undefined && inv.utm && typeof inv.utm === 'object') return inv;
   // Normalize backend status (Indonesian, e.g. "Terbayar"/"Menunggu Pembayaran")
-  // to the English values the dashboard Status filter offers (Paid/Pending/Failed),
-  // so the filter actually matches. Fall back to is_paid when status is unknown.
+  // to the English buckets the dashboard Status filter offers (Paid/Pending/Failed).
+  // Base static map for resilience, then augment from the admin-managed
+  // PAYMENT_STATUSES (is_paid → Paid; failure-ish codes → Failed; rest → Pending).
   const STATUS_MAP = {
     'terbayar': 'Paid', 'sukses': 'Paid', 'lunas': 'Paid', 'paid': 'Paid',
     'menunggu pembayaran': 'Pending', 'menunggu': 'Pending', 'tertunda': 'Pending', 'pending': 'Pending',
     'gagal': 'Failed', 'kadaluarsa': 'Failed', 'expired': 'Failed', 'dibatalkan': 'Failed', 'failed': 'Failed',
   };
+  for (const ps of (window.PAYMENT_STATUSES || [])) {
+    const code = (ps.code || '').toString().trim().toLowerCase();
+    if (!code) continue;
+    if (ps.is_paid) STATUS_MAP[code] = 'Paid';
+    else if (!(code in STATUS_MAP)) STATUS_MAP[code] = /gagal|fail|expire|kadaluarsa|batal|cancel|tolak/i.test(code) ? 'Failed' : 'Pending';
+  }
   const rawStatus = (inv.status || '').toString().trim().toLowerCase();
   // Always one of Paid/Pending/Failed after this line (matches the filter options).
   const status = STATUS_MAP[rawStatus] || (inv.is_paid ? 'Paid' : 'Pending');
@@ -156,9 +163,10 @@ async function loadApiData() {
   try {
     const api = window.api;
     const safe = async (fn) => { try { return await fn(); } catch { return null; } };
-    const [statsRes, campaignsRes, categoriesRes, pubSettingsRes, pubPayRes] = await Promise.all([
+    const [statsRes, campaignsRes, categoriesRes, pubSettingsRes, pubPayRes, payStatusRes] = await Promise.all([
       safe(() => api.publicStats()), safe(() => api.campaigns()), safe(() => api.categories()),
       safe(() => api.publicSettings()), safe(() => api.publicPaymentMethods()),
+      safe(() => api.paymentStatuses()),
     ]);
     if (statsRes?.data) {
       window.TOTAL_RAISED     = statsRes.data.total_raised     ?? 0;
@@ -175,6 +183,7 @@ async function loadApiData() {
       if (pubSettingsRes.data.primary_color) applyThemeColor(pubSettingsRes.data.primary_color);
     }
     if (pubPayRes?.data && Array.isArray(pubPayRes.data)) window.PAYMENT_METHODS_PUBLIC = pubPayRes.data;
+    if (payStatusRes?.data && Array.isArray(payStatusRes.data)) window.PAYMENT_STATUSES = payStatusRes.data;
     console.log('[data] API data loaded');
   } catch (e) {
     console.log('[data] API load error:', e?.message || e);

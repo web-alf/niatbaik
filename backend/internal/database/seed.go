@@ -37,6 +37,31 @@ func Seed(db *gorm.DB) error {
 	if err := seedPaymentMethods(db); err != nil {
 		return err
 	}
+	if err := seedPaymentStatuses(db); err != nil {
+		return err
+	}
+	return nil
+}
+
+func seedPaymentStatuses(db *gorm.DB) error {
+	var count int64
+	db.Model(&model.PaymentStatus{}).Count(&count)
+	if count > 0 {
+		return nil
+	}
+	statuses := []model.PaymentStatus{
+		{Code: "Menunggu Pembayaran", Label: "Menunggu Pembayaran", Color: "#F59E0B", IsPaid: false, IsDefault: true, SortOrder: 1},
+		{Code: "Terbayar", Label: "Terbayar", Color: "#10B981", IsPaid: true, SortOrder: 2},
+		{Code: "Sukses", Label: "Sukses", Color: "#10B981", IsPaid: true, SortOrder: 3},
+		{Code: "Gagal", Label: "Gagal", Color: "#EF4444", IsPaid: false, SortOrder: 4},
+		{Code: "Kadaluarsa", Label: "Kadaluarsa", Color: "#94A3B8", IsPaid: false, SortOrder: 5},
+	}
+	for i := range statuses {
+		if err := db.Create(&statuses[i]).Error; err != nil {
+			return err
+		}
+	}
+	log.Printf("[seed] %d payment statuses created\n", len(statuses))
 	return nil
 }
 

@@ -18,6 +18,7 @@ function SettingsView() {
     { value:'social',       label:'Social Proof',   icon:'smile' },
     { value:'fundraising',  label:'Fundraising',    icon:'handshake' },
     { value:'category',     label:'Kategori',       icon:'filter' },
+    { value:'paystatus',    label:'Status Bayar',   icon:'creditcard' },
     { value:'general',      label:'General',        icon:'cog' },
   ];
 
@@ -68,6 +69,7 @@ function SettingsView() {
           {!settingsLoading && tab === 'social' && <SocialPanel settings={settings} onSave={saveSettings}/>}
           {!settingsLoading && tab === 'fundraising' && <FundraisingPanel settings={settings} onSave={saveSettings}/>}
           {!settingsLoading && tab === 'category' && <CategoryPanel/>}
+          {!settingsLoading && tab === 'paystatus' && <PaymentStatusPanel/>}
           {!settingsLoading && tab === 'general' && <GeneralPanel settings={settings} onSave={saveSettings}/>}
         </div>
       </div>
@@ -1402,6 +1404,84 @@ function CategoryPanel() {
               className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink flex items-center justify-center"><Icon name="edit" size={14}/></button>
             <button onClick={() => remove(cat)} disabled={busy}
               className="h-8 w-8 rounded-md hover:bg-rose-50 text-mute hover:text-rose-600 flex items-center justify-center"><Icon name="trash" size={14}/></button>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function PaymentStatusPanel() {
+  const { showToast } = useApp();
+  const [rows, setRows] = useStateA(() => (window.PAYMENT_STATUSES || []).slice());
+  const blank = { code:'', label:'', color:'#10B981', is_paid:false, sort_order:0 };
+  const [form, setForm] = useStateA(blank);
+  const [editing, setEditing] = useStateA(null);
+  const [busy, setBusy] = useStateA(false);
+
+  const refresh = async () => {
+    try {
+      const r = await window.api.paymentStatuses();
+      if (r?.data && Array.isArray(r.data)) { window.PAYMENT_STATUSES = r.data; setRows(r.data.slice()); }
+    } catch {}
+  };
+
+  const submit = async () => {
+    const code = form.code.trim(), label = form.label.trim();
+    if (!code || !label) { showToast('Code dan label wajib diisi'); return; }
+    setBusy(true);
+    try {
+      const payload = { code, label, color: form.color, is_paid: !!form.is_paid, sort_order: Number(form.sort_order) || 0 };
+      if (editing) { await window.api.updatePaymentStatus(editing, payload); showToast('Status diperbarui'); }
+      else { await window.api.createPaymentStatus(payload); showToast('Status ditambahkan'); }
+      setForm(blank); setEditing(null);
+      await refresh();
+    } catch (e) { showToast('Gagal: ' + (e?.message || 'coba lagi')); }
+    setBusy(false);
+  };
+
+  const edit = (s) => { setEditing(s.id); setForm({ code:s.code, label:s.label, color:s.color || '#10B981', is_paid:!!s.is_paid, sort_order:s.sort_order || 0 }); };
+  const remove = async (s) => {
+    if (!confirm('Hapus status "' + s.label + '"? Invoice yang memakainya tetap menyimpan teks status lama.')) return;
+    setBusy(true);
+    try { await window.api.deletePaymentStatus(s.id); showToast('Status dihapus'); await refresh(); }
+    catch (e) { showToast('Gagal menghapus: ' + (e?.message || '')); }
+    setBusy(false);
+  };
+
+  return (
+    <Section title="Status Pembayaran" sub="Kelola label status invoice (mis. Terbayar, Menunggu, Gagal). Status ber-tanda 'Lunas' akan otomatis mengkreditkan campaign saat dipilih CS.">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto_auto] gap-2 items-end mb-4">
+        <div>
+          <label className="text-xs font-semibold text-mute">Code</label>
+          <input className="field mt-1" value={form.code} onChange={(e)=>setForm({...form, code:e.target.value})} placeholder="Terbayar"/>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-mute">Label tampilan</label>
+          <input className="field mt-1" value={form.label} onChange={(e)=>setForm({...form, label:e.target.value})} placeholder="Terbayar"/>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-mute">Warna</label>
+          <input type="color" className="h-10 w-12 rounded-lg border border-line cursor-pointer mt-1 block" value={form.color} onChange={(e)=>setForm({...form, color:e.target.value})}/>
+        </div>
+        <label className="flex items-center gap-2 text-xs font-semibold text-ink pb-2.5">
+          <input type="checkbox" checked={form.is_paid} onChange={(e)=>setForm({...form, is_paid:e.target.checked})} className="rounded border-line"/> Lunas
+        </label>
+        <div className="flex gap-2">
+          <Btn icon={editing ? 'check' : 'plus'} onClick={submit} disabled={busy}>{editing ? 'Simpan' : 'Tambah'}</Btn>
+          {editing && <Btn variant="outline" tone="ink" onClick={()=>{ setEditing(null); setForm(blank); }}>Batal</Btn>}
+        </div>
+      </div>
+      <div className="space-y-2">
+        {rows.length === 0 && <div className="text-sm text-mute py-4 text-center">Belum ada status.</div>}
+        {rows.map((s) => (
+          <div key={s.id} className="flex items-center gap-3 p-3 rounded-lg border border-line">
+            <span className="h-4 w-4 rounded-full shrink-0" style={{ background: s.color || '#94A3B8' }}/>
+            <div className="font-semibold text-ink flex-1">{s.label}</div>
+            <span className="text-[11px] font-mono text-mute">{s.code}</span>
+            {s.is_paid && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700">LUNAS</span>}
+            <button onClick={()=>edit(s)} className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink flex items-center justify-center"><Icon name="edit" size={14}/></button>
+            <button onClick={()=>remove(s)} disabled={busy} className="h-8 w-8 rounded-md hover:bg-rose-50 text-mute hover:text-rose-600 flex items-center justify-center"><Icon name="trash" size={14}/></button>
           </div>
         ))}
       </div>

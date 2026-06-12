@@ -62,12 +62,16 @@ function CSInboxView() {
     return true;
   }), [filter, search, adv, txns]);
 
-  // Update status (Paid) helper — optimistic local + best-effort API.
+  // Update status to paid — optimistic local + best-effort API. The backend expects
+  // a real PaymentStatus *code* (e.g. "Terbayar"), not the UI bucket "Paid"; pick the
+  // first status flagged is_paid from the admin-managed list, falling back to "Terbayar".
   const updateStatusToPaid = (t) => {
     setTxns((prev) => prev.map(x => x.id === t.id ? { ...x, status: 'Paid' } : x));
     setSelected((prev) => prev && prev.id === t.id ? { ...prev, status: 'Paid' } : prev);
     showToast(`Invoice ${t.id} → Paid`);
-    try { window.api?.updateInvoiceStatus?.(t.id, 'Paid'); } catch (e) { /* offline: optimistic only */ }
+    const paidStatus = (window.PAYMENT_STATUSES || []).find(s => s.is_paid);
+    const code = paidStatus ? paidStatus.code : 'Terbayar';
+    try { window.api?.updateInvoiceStatus?.(t.id, code); } catch (e) { /* offline: optimistic only */ }
   };
 
   const copyInvoice = (t) => {

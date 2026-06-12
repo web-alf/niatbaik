@@ -31,6 +31,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	paymentMethodRepo := repository.NewPaymentMethodRepo(db)
 	dataStudioRepo := repository.NewDataStudioRepo(db)
 	revokedTokenRepo := repository.NewRevokedTokenRepo(db)
+	paymentStatusRepo := repository.NewPaymentStatusRepo(db)
 
 	// Initialize services
 	authService := service.NewAuthService(db, cfg, revokedTokenRepo)
@@ -66,13 +67,14 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	withdrawalHandler := handler.NewWithdrawalHandler(withdrawalService, withdrawalRepo)
 	verificationHandler := handler.NewVerificationHandler(verificationService, verificationRepo)
 	trashHandler := handler.NewTrashHandler(trashService)
-	invoiceHandler := handler.NewInvoiceHandler(db, paymentService)
+	invoiceHandler := handler.NewInvoiceHandler(db, paymentService, paymentStatusRepo)
 	fundraiserHandler := handler.NewFundraiserHandler(fundraiserRepo, commissionRepo)
 	profileHandler := handler.NewProfileHandler(profileService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
 	uploadHandler := handler.NewUploadHandler(uploadService)
 	adCostHandler := handler.NewAdCostHandler(adCostService)
 	paymentMethodHandler := handler.NewPaymentMethodHandler(paymentMethodService)
+	paymentStatusHandler := handler.NewPaymentStatusHandler(paymentStatusRepo)
 	dataStudioHandler := handler.NewDataStudioHandler(dataStudioService)
 
 	// API group
@@ -87,6 +89,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	api.GET("/categories", publicHandler.ListCategories)
 	api.GET("/settings/public", publicHandler.GetPublicSettings)
 	api.GET("/payment-methods/public", publicHandler.ListPaymentMethods)
+	api.GET("/payment-statuses", paymentStatusHandler.List)
 	api.GET("/stats", publicHandler.GetPublicStats)
 	api.POST("/donations", donationHandler.CreateDonation)
 	api.GET("/donations/:invoice", donationHandler.GetPaymentStatus)
@@ -167,6 +170,10 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	admin.POST("/admin/payment-methods", paymentMethodHandler.Create)
 	admin.PUT("/admin/payment-methods/:id", paymentMethodHandler.Update)
 	admin.DELETE("/admin/payment-methods/:id", paymentMethodHandler.Delete)
+
+	admin.POST("/admin/payment-statuses", paymentStatusHandler.Create)
+	admin.PUT("/admin/payment-statuses/:id", paymentStatusHandler.Update)
+	admin.DELETE("/admin/payment-statuses/:id", paymentStatusHandler.Delete)
 
 	admin.GET("/withdrawals", withdrawalHandler.List)
 	admin.POST("/withdrawals/:id/approve", withdrawalHandler.Approve)

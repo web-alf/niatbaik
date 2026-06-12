@@ -48,16 +48,22 @@ echo "  NIATBAIK.ORG — Redeploy [prod] from $BRANCH"
 echo "============================================"
 echo ""
 
-# ---- 1. Ensure DB_SSLMODE=disable ----
+# ---- 1. Ensure DB_SSLMODE=disable (ONLY for the local Docker Postgres) ----
 # Postgres in the Docker network speaks plaintext; the app defaults to sslmode=require
-# in production, which would fail. Force disable unless the operator already set it.
+# in production, which would fail against it. Force disable ONLY when DB_HOST points
+# at the in-network container. For an external managed DB (RDS/Supabase/etc.),
+# disabling TLS would send credentials in plaintext over the network, so we must
+# never auto-disable there — leave the operator's setting (or the require default).
+DB_HOST_VAL="$(grep -E '^DB_HOST=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '"'"'"' \r')"
 if grep -qE '^DB_SSLMODE=' "$ENV_FILE"; then
     CUR="$(grep -E '^DB_SSLMODE=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d '"'"'"' \r')"
     log "DB_SSLMODE already set to '${CUR}' — leaving as is."
-else
+elif [ -z "$DB_HOST_VAL" ] || [ "$DB_HOST_VAL" = "postgres" ] || [ "$DB_HOST_VAL" = "localhost" ] || [ "$DB_HOST_VAL" = "127.0.0.1" ]; then
     cp -f "$ENV_FILE" "${ENV_FILE}.bak"
     printf '\nDB_SSLMODE=disable\n' >> "$ENV_FILE"
-    log "Added DB_SSLMODE=disable to $ENV_FILE (backup: ${ENV_FILE}.bak)"
+    log "Added DB_SSLMODE=disable to $ENV_FILE (local Docker Postgres; backup: ${ENV_FILE}.bak)"
+else
+    log "DB_HOST='${DB_HOST_VAL}' looks external — NOT forcing sslmode=disable. Set DB_SSLMODE explicitly (e.g. require) if needed."
 fi
 
 # ---- 2. Pull latest code ----

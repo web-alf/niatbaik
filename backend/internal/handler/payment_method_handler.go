@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
@@ -31,6 +32,8 @@ func (h *PaymentMethodHandler) Create(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
 	}
+	// Normalize type casing ('QRIS'/'Card' from the admin form) before enum validation.
+	req.Type = strings.ToLower(strings.TrimSpace(req.Type))
 	if err := c.Validate(&req); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
 	}
@@ -50,6 +53,7 @@ func (h *PaymentMethodHandler) Update(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
 	}
+	req.Type = strings.ToLower(strings.TrimSpace(req.Type))
 	if err := c.Validate(&req); err != nil {
 		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
 	}

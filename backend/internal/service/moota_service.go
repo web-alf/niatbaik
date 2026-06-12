@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"math"
 	"regexp"
 	"strings"
 
@@ -63,12 +64,21 @@ func (s *MootaService) HandleWebhook(mutations []MootaWebhookPayload) ([]string,
 			continue
 		}
 
-		amount := int64(m.Amount)
+		// Bank mutations are whole rupiah; round (not truncate) so a float like
+		// 99999.999 becomes 100000 instead of silently under-matching the invoice.
+		amount := int64(math.Round(m.Amount))
 		invoiceNumber := invoiceRegex.FindString(strings.ToUpper(m.Description))
 
 		if invoiceNumber != "" {
 			inv, err := s.invoiceRepo.FindUnpaidByInvoiceNumber(invoiceNumber)
 			if err == nil && inv != nil {
+				// The description named this invoice, but only credit it if the
+				// transferred amount actually covers the total. A transfer tagged
+				// with the right INV- but a smaller sum must not mark it paid.
+				// >= allows the unique-code overpayment used for manual transfers.
+				if amount < inv.Total {
+					continue
+				}
 				if err = s.paymentSvc.ProcessPayment(inv); err == nil {
 					processed = append(processed, inv.InvoiceNumber)
 				}
@@ -76,6 +86,9 @@ func (s *MootaService) HandleWebhook(mutations []MootaWebhookPayload) ([]string,
 			}
 		}
 
+		// Fallback: no (matching) invoice number in the description — reconcile by
+		// exact total. The query matches total = amount, so the amount is verified
+		// by construction here.
 		inv, err := s.invoiceRepo.FindUnpaidByAmountForUpdate(amount)
 		if err == nil && inv != nil {
 			if err = s.paymentSvc.ProcessPayment(inv); err == nil {

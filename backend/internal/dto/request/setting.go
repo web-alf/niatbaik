@@ -57,7 +57,7 @@ type UpdateSettingRequest struct {
 	// Form
 	FormFieldsConfig  string `json:"form_fields_config" validate:"omitempty,max=65536"`
 	NominalPresets    string `json:"nominal_presets" validate:"omitempty,max=65536"`
-	MinDonationGlobal *int64 `json:"min_donation_global"`
+	MinDonationGlobal *int64 `json:"min_donation_global" validate:"omitempty,min=0,max=100000000"`
 	AnonymousDefault  *bool  `json:"anonymous_default"`
 	MessageEnabled    *bool  `json:"message_enabled"`
 

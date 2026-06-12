@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -41,6 +42,11 @@ type Config struct {
 	FlipBaseURL         string
 
 	CORSOrigins string
+
+	// FrontendBaseURL is the public site origin used to build links in outbound
+	// emails (password reset, welcome). Configurable so non-production / custom-domain
+	// deploys don't hardcode the donasi.niatbaik.org production host.
+	FrontendBaseURL string
 }
 
 func Load() *Config {
@@ -74,6 +80,8 @@ func Load() *Config {
 		FlipBaseURL:         getEnv("FLIP_BASE_URL", "https://bigflip.id/api/v3"),
 
 		CORSOrigins: getEnv("CORS_ORIGINS", "http://localhost:3000"),
+
+		FrontendBaseURL: strings.TrimRight(getEnv("FRONTEND_BASE_URL", "https://donasi.niatbaik.org"), "/"),
 	}
 }
 

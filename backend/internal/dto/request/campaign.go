@@ -14,7 +14,7 @@ type CreateCampaignRequest struct {
 	LocationName     string     `json:"location_name"`
 	LocationGmaps    string     `json:"location_gmaps"`
 	FormType         string     `json:"form_type"`
-	Status           string     `json:"status"`
+	Status           string     `json:"status" validate:"omitempty,oneof=Draft Berjalan Running Published Selesai Ditolak Menunggu Pending Aktif Nonaktif Ended"`
 	Icon             string     `json:"icon"`
 	Image            string     `json:"image"`
 	ThumbGradient    string     `json:"thumb_gradient"`
@@ -43,7 +43,7 @@ type UpdateCampaignRequest struct {
 	CategoryID       *uuid.UUID `json:"category_id"`
 	Unlimited        bool       `json:"unlimited"`
 	Featured         bool       `json:"featured"`
-	Status           string     `json:"status"`
+	Status           string     `json:"status" validate:"omitempty,oneof=Draft Berjalan Running Published Selesai Ditolak Menunggu Pending Aktif Nonaktif Ended"`
 	LocationName     string     `json:"location_name"`
 	LocationGmaps    string     `json:"location_gmaps"`
 	FormType         string     `json:"form_type"`

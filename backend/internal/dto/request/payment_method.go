@@ -6,7 +6,7 @@ type PaymentMethodInput struct {
 	BankNumber    string `json:"bank_number"`
 	BankType      string `json:"bank_type"`
 	Image         string `json:"image"` // QRIS code image (filename), shown on the public donation page
-	Type          string `json:"type" validate:"required"` // va/ewallet/qris/card
+	Type          string `json:"type" validate:"required,oneof=va ewallet qris card"` // lowercased in handler before validation
 	Category      string `json:"category"`
 	Code          string `json:"code"`
 	AdminFee      int    `json:"admin_fee"`

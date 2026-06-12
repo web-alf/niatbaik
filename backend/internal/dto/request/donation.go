@@ -12,4 +12,9 @@ type CreateDonationRequest struct {
 	UTMSource     string `json:"utm_source"`
 	UTMMedium     string `json:"utm_medium"`
 	UTMCampaign   string `json:"utm_campaign"`
+	// ReferralCode is the referring fundraiser's user ID, captured from a
+	// ?ref=<user_id> share link on the public donation page. When it resolves to a
+	// real fundraiser, the invoice is tagged so the commission payout in
+	// PaymentService.ProcessPayment credits that fundraiser once the donation is paid.
+	ReferralCode string `json:"referral_code"`
 }

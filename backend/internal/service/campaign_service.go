@@ -42,6 +42,11 @@ func NewCampaignService(campaignRepo *repository.CampaignRepo, categoryRepo *rep
 }
 
 func (s *CampaignService) Create(req *request.CreateCampaignRequest, userID uuid.UUID) (*model.Campaign, error) {
+	// A min above max would silently reject every donation to the campaign.
+	if req.MinDonation > 0 && req.MaxDonation > 0 && req.MinDonation > req.MaxDonation {
+		return nil, errors.New("donasi minimal tidak boleh lebih besar dari donasi maksimal")
+	}
+
 	campaignSlug := slug.GenerateUnique(req.Title, s.campaignRepo.SlugExists)
 
 	now := time.Now()
@@ -202,6 +207,12 @@ func (s *CampaignService) Update(id uuid.UUID, req *request.UpdateCampaignReques
 	}
 	if req.MaxDonation != nil {
 		c.MaxDonation = *req.MaxDonation
+	}
+	// Re-validate against the merged result (only some of min/max may be in this
+	// request) so an edit can't leave the campaign with min > max — which would
+	// reject every donation.
+	if c.MinDonation > 0 && c.MaxDonation > 0 && c.MinDonation > c.MaxDonation {
+		return nil, errors.New("donasi minimal tidak boleh lebih besar dari donasi maksimal")
 	}
 	c.Unlimited = req.Unlimited
 	c.Featured = req.Featured

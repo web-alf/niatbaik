@@ -613,7 +613,7 @@ function getNominalPresets(c) {
 
 const PAYMENT_FALLBACK = ['QRIS','BCA','Mandiri','BNI','GoPay','OVO','Dana','ShopeePay'];
 
-function CampaignPage({ c, onNav }) {
+function CampaignPage({ c: listItem, onNav }) {
   const [view, setView] = useState('content'); // 'content' | 'form'
   const [tab, setTab] = useState('story');
   const [amount, setAmount] = useState(100_000);
@@ -625,8 +625,60 @@ function CampaignPage({ c, onNav }) {
   const [invoice, setInvoice] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // The landing list only carries summary fields (short_description, no story /
+  // donors / updates). Fetch the full detail by slug and merge it over the list
+  // item so the page shows this campaign's real content instead of placeholders.
+  const [detail, setDetail] = useState(null);
+  const c = detail || listItem;
+  const slug = listItem && (listItem.slug || listItem.id);
+  useEffect(() => {
+    let cancelled = false;
+    if (!slug || !window.api) return;
+    setDetail(null); // reset when switching campaigns so stale detail isn't shown
+    (async () => {
+      try {
+        const res = await window.api.campaign(slug);
+        const d = res && res.data;
+        if (!cancelled && d) {
+          // Normalize the detail payload onto the shape the page already uses.
+          setDetail({
+            ...listItem,
+            ...d,
+            raised: d.total_raised ?? listItem.raised ?? 0,
+            donors: d.donor_count ?? listItem.donors ?? 0,
+            daysLeft: d.days_left ?? listItem.daysLeft ?? 0,
+            thumb: listItem.thumb || (d.image ? '/uploads/' + d.image : ''),
+            category: d.category || listItem.category,
+            icon: d.icon || listItem.icon,
+          });
+        }
+      } catch { /* keep list item as fallback */ }
+    })();
+    return () => { cancelled = true; };
+  }, [slug]);
+
+  // Capture a fundraiser referral code from the share link (?ref=<user_id>) once,
+  // so it can be attached to the donation and credit the referrer's commission.
+  const referralCode = useMemo(() => {
+    try { return new URLSearchParams(window.location.search).get('ref') || ''; } catch { return ''; }
+  }, []);
+
+  // CS "need help" link: use the configured CS contact (rotator-aware), falling
+  // back to the admin WhatsApp from public settings. Avoids the old hardcoded
+  // placeholder number that sent every donor to a dead test contact.
+  const csHelpHref = useMemo(() => {
+    const cs = pickCsContact();
+    const num = normalizeWa((cs && cs.phone) || (window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.whatsapp_admin) || '');
+    const text = encodeURIComponent(`Halo, saya butuh bantuan terkait campaign "${(c && c.title) || ''}"`);
+    return num ? `https://wa.me/${num}?text=${text}` : '#';
+  }, [c && c.title]);
+
   const presets = useMemo(() => getNominalPresets(c), [c]);
-  const recentDonors = (window.TRANSACTIONS || []).slice(0, 8);
+  // Prefer the campaign's own paid-donor list from the detail endpoint; fall back
+  // to the global recent-transactions feed only when detail hasn't loaded.
+  const detailDonors = (detail && Array.isArray(detail.donors)) ? detail.donors : null;
+  const recentDonors = detailDonors || (window.TRANSACTIONS || []).slice(0, 8);
+  const updates = (detail && Array.isArray(detail.updates)) ? detail.updates : null;
 
   // Admin-customizable CTA label for the campaign page (button1). The form's
   // confirm CTA (button2) is handled inside DonationForm. Falls back gracefully.
@@ -635,7 +687,7 @@ function CampaignPage({ c, onNav }) {
     return (cfg.button1 || '').trim() || 'Donasi Sekarang';
   }, [c]);
 
-  const updateCount = 4;
+  const updateCount = updates ? updates.length : 0;
   const tabs = [
     { v:'story', l:'Cerita' },
     { v:'updates', l:`Update (${updateCount})` },
@@ -657,6 +709,7 @@ function CampaignPage({ c, onNav }) {
         message: donor.message || '',
         is_anonymous: anon,
         payment_method: typeof paymentMethod === 'object' ? (paymentMethod.type || paymentMethod.bank_name) : paymentMethod,
+        referral_code: referralCode || undefined,
       });
       if (res?.data) { setInvoice(res.data); }
       else alert(res?.message || 'Gagal membuat donasi');
@@ -717,7 +770,7 @@ function CampaignPage({ c, onNav }) {
 
                 <div className="mt-5">
                   {tab === 'story' && <CampaignStory c={c}/>}
-                  {tab === 'updates' && <CampaignUpdates/>}
+                  {tab === 'updates' && <CampaignUpdates updates={updates}/>}
                   {tab === 'donors' && <CampaignDonors donors={recentDonors}/>}
                   {tab === 'faq' && <CampaignFAQ/>}
                 </div>
@@ -755,7 +808,7 @@ function CampaignPage({ c, onNav }) {
                 </div>
 
                 <div className="hidden lg:block mt-3 text-center text-xs text-mute">
-                  Butuh bantuan? <a href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer" className="font-bold text-brand-600 hover:underline cursor-pointer">Hubungi CS via WhatsApp</a>
+                  Butuh bantuan? <a href={csHelpHref} target="_blank" rel="noopener noreferrer" className="font-bold text-brand-600 hover:underline cursor-pointer">Hubungi CS via WhatsApp</a>
                 </div>
               </div>
             </div>
@@ -1034,6 +1087,7 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
   const [status, setStatus] = useState(invoice.status || 'Menunggu Pembayaran');
   const [checking, setChecking] = useState(false);
   const [copied, setCopied] = useState('');
+  const [pollTimedOut, setPollTimedOut] = useState(false);
   const qrRef = useRef();
 
   const total = invoice.amount ?? invoice.total ?? amount ?? 0;
@@ -1061,10 +1115,20 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
     }
   }, [isQRIS, invoice.qr_url, invoice.pay_code, invoice.invoice_number]);
 
-  // Poll status every 12s until paid.
+  // Poll status every 12s until paid, but cap at ~12 min (60 attempts). Without a
+  // cap, an invoice that never settles (e.g. a stuck webhook) polls forever with
+  // no signal to the donor. After the cap we stop and surface a "contact CS" path.
   useEffect(() => {
-    if (isPaid) return;
+    if (isPaid || pollTimedOut) return;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 60;
     const id = setInterval(async () => {
+      attempts += 1;
+      if (attempts > MAX_ATTEMPTS) {
+        clearInterval(id);
+        setPollTimedOut(true);
+        return;
+      }
       try {
         const res = await window.api.paymentStatus(invoice.invoice_number);
         if (res?.data) {
@@ -1074,10 +1138,11 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
       } catch {}
     }, 12000);
     return () => clearInterval(id);
-  }, [invoice.invoice_number, isPaid]);
+  }, [invoice.invoice_number, isPaid, pollTimedOut]);
 
   const checkNow = async () => {
     setChecking(true);
+    setPollTimedOut(false); // a manual check re-arms the automatic poller below
     try {
       const res = await window.api.paymentStatus(invoice.invoice_number);
       if (res?.data) setStatus(res.data.status || status);
@@ -1165,6 +1230,12 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
         Transfer tepat sesuai nominal termasuk kode unik agar otomatis terverifikasi.
       </div>
 
+      {!isPaid && pollTimedOut && (
+        <div className="mt-4 rounded-xl bg-rose-50 border border-rose-100 p-3 text-xs text-rose-700 leading-relaxed">
+          Status belum otomatis terverifikasi. Jika Anda sudah membayar, tekan <b>Cek Status Pembayaran</b> di bawah atau konfirmasi ke CS via WhatsApp — kami akan bantu verifikasi manual.
+        </div>
+      )}
+
       <PrimaryBtn size="md" className="w-full mt-4" onClick={checkNow} disabled={checking}>
         <Icon name="check" size={16}/> {checking ? 'Memeriksa…' : 'Cek Status Pembayaran'}
       </PrimaryBtn>
@@ -1193,66 +1264,49 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
 }
 
 function CampaignStory({ c }) {
+  // Render the campaign's real story. `description` is rich HTML authored in the
+  // admin editor; sanitize it (window.sanitizeHTML, same allow-list used on save)
+  // before injecting so stored content can't carry active markup. Fall back to the
+  // short description, then to a neutral message when a campaign has no story yet.
+  const rawHtml = (c && typeof c.description === 'string' && c.description.trim()) ? c.description : '';
+  const shortText = (c && (c.short_description || c.shortDescription) || '').trim();
+
+  // Only inject HTML when the sanitizer is actually available. If it somehow isn't,
+  // fail safe to the plain-text path below rather than dumping raw HTML into the DOM.
+  if (rawHtml && typeof window.sanitizeHTML === 'function') {
+    const clean = window.sanitizeHTML(rawHtml);
+    return (
+      <div className="prose prose-slate prose-sm max-w-none text-ink/85"
+        dangerouslySetInnerHTML={{ __html: clean }}/>
+    );
+  }
+
   return (
     <div className="prose prose-slate prose-sm max-w-none">
-      <p className="text-ink/85 leading-relaxed">
-        Saudara/i pejuang kebaikan, di Desa Lengkong, NTT, anak-anak harus berjalan 4 km setiap
-        pagi hanya untuk mendapatkan seember air keruh. Air yang sama digunakan untuk minum,
-        masak, dan mencuci — menyebabkan diare berulang dan kasus stunting yang terus meningkat.
-      </p>
-      <p className="text-ink/85 leading-relaxed">
-        Bersama NIATBAIK.ORG, kita berikhtiar membangun <b>sumur bor + filtrasi bersih</b> yang
-        dapat melayani 380 keluarga. Dengan donasi <b>Rp 100.000</b>, satu keluarga bisa
-        mengakses air bersih selama 1 tahun penuh.
-      </p>
-
-      <div className="not-prose grid grid-cols-3 gap-3 my-5">
-        {[
-          { s:'Pengeboran',  v:100 },
-          { s:'Filtrasi',    v:65 },
-          { s:'Distribusi',  v:12 },
-        ].map((t, i) => (
-          <div key={i} className="rounded-xl border border-line p-3">
-            <div className="text-[10px] font-bold uppercase text-mute">Tahap {i+1}</div>
-            <div className="font-bold text-ink text-sm">{t.s}</div>
-            <Progress value={t.v} max={100} className="h-1.5 mt-2"/>
-            <div className="text-[10px] text-mute mt-1">{t.v}% selesai</div>
-          </div>
-        ))}
-      </div>
-
-      <h4 className="font-bold text-ink">Rincian penggunaan dana</h4>
-      <ul className="text-sm text-ink/85">
-        <li>Pengeboran sumur 60m + casing — <b>Rp 80 jt</b></li>
-        <li>Instalasi filter & pompa — <b>Rp 65 jt</b></li>
-        <li>Tower + pipa distribusi 4 titik desa — <b>Rp 70 jt</b></li>
-        <li>Pelatihan kader pemelihara — <b>Rp 15 jt</b></li>
-        <li>Cadangan + monitoring 6 bulan — <b>Rp 20 jt</b></li>
-      </ul>
-
-      <p className="text-ink/85 leading-relaxed">
-        Setiap donasi akan dilaporkan transparan setiap minggu di halaman ini dan kanal WhatsApp.
-        <b> InsyaAllah</b> niat baik kita menjadi penolong di akhirat.
-      </p>
+      {shortText
+        ? <p className="text-ink/85 leading-relaxed">{shortText}</p>
+        : <p className="text-mute italic">Cerita campaign ini belum ditambahkan.</p>}
     </div>
   );
 }
 
-function CampaignUpdates() {
-  const items = [
-    { d:'18 Mei 2026', t:'Tim sudah tiba di lokasi 🚛', body:'Survey geologi selesai, titik bor ditentukan. Pengeboran dimulai esok pagi.' },
-    { d:'10 Mei 2026', t:'Donasi tembus 50% target 🎉', body:'Alhamdulillah, semua proses pengadaan dimulai. Kami targetkan groundbreaking akhir Mei.' },
-    { d:'02 Mei 2026', t:'Kampanye resmi dibuka',     body:'Terima kasih atas dukungan awal 312 donatur pertama. Mari kita ajak lebih banyak teman!' },
-    { d:'28 Apr 2026', t:'Verifikasi lapangan',        body:'Tim NIATBAIK.ORG menyelesaikan verifikasi lapangan & pemerintah desa.' },
-  ];
+function CampaignUpdates({ updates }) {
+  const items = Array.isArray(updates) ? updates : [];
+  if (!items.length) {
+    return <div className="text-sm text-mute italic py-2">Belum ada update untuk campaign ini.</div>;
+  }
+  const fmtDate = (s) => {
+    try { return new Date(s).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' }); }
+    catch { return ''; }
+  };
   return (
     <div className="space-y-4">
       {items.map((u, i) => (
         <div key={i} className="flex gap-3">
           <div className="h-9 w-9 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0"><Icon name="pin" size={16}/></div>
           <div>
-            <div className="text-xs text-mute">{u.d}</div>
-            <div className="font-bold text-ink">{u.t}</div>
+            <div className="text-xs text-mute">{fmtDate(u.created_at)}</div>
+            <div className="font-bold text-ink">{u.title}</div>
             <div className="text-sm text-ink/85 mt-0.5 leading-relaxed">{u.body}</div>
           </div>
         </div>
@@ -1262,23 +1316,40 @@ function CampaignUpdates() {
 }
 
 function CampaignDonors({ donors }) {
+  const list = Array.isArray(donors) ? donors : [];
+  if (!list.length) {
+    return <div className="text-sm text-mute italic py-2">Jadilah donatur pertama untuk campaign ini.</div>;
+  }
+  // Donors may come from the campaign detail endpoint ({name, amount,
+  // is_anonymous, created_at}) or the legacy transactions feed ({donor, anon,
+  // message, date}). Normalize both into one shape before rendering.
+  const norm = (d) => {
+    const anon = d.is_anonymous ?? d.anon ?? false;
+    const name = anon ? 'Hamba Allah' : (d.name || d.donor || 'Hamba Allah');
+    let when = '';
+    if (d.created_at) { try { when = new Date(d.created_at).toLocaleDateString('id-ID', { day:'2-digit', month:'short' }); } catch {} }
+    else if (typeof d.date === 'string') when = d.date.split(',')[0];
+    return { anon, name, amount: d.amount || 0, message: d.message || '', when };
+  };
   return (
     <div className="space-y-2">
-      {donors.map((d, i) => (
-        <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-bg2">
-          <div className="h-9 w-9 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-xs">
-            {(d.anon ? 'HA' : d.donor.split(' ').map(s=>s[0]).join('')).slice(0,2)}
+      {list.map((raw, i) => {
+        const d = norm(raw);
+        const initials = d.anon ? 'HA' : d.name.split(' ').map(s => s[0]).join('').slice(0, 2);
+        return (
+          <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-bg2">
+            <div className="h-9 w-9 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-xs">{initials}</div>
+            <div className="flex-1">
+              <div className="text-sm font-bold text-ink">{d.name}</div>
+              {d.message && <div className="text-xs text-mute italic line-clamp-1">"{d.message}"</div>}
+            </div>
+            <div className="text-right">
+              <div className="font-extrabold text-brand-600">{fmtIDR(d.amount)}</div>
+              {d.when && <div className="text-[10px] text-mute">{d.when}</div>}
+            </div>
           </div>
-          <div className="flex-1">
-            <div className="text-sm font-bold text-ink">{d.anon ? 'Hamba Allah' : d.donor}</div>
-            <div className="text-xs text-mute italic line-clamp-1">"{d.message}"</div>
-          </div>
-          <div className="text-right">
-            <div className="font-extrabold text-brand-600">{fmtIDR(d.amount)}</div>
-            <div className="text-[10px] text-mute">{d.date.split(',')[0]}</div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

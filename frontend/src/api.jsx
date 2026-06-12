@@ -139,10 +139,21 @@ const api = {
     const opts = { method, headers };
     if (body) opts.body = JSON.stringify(sanitizeBody(body));
 
+    const hadToken = !!authToken;
     try {
       const res = await fetch(API_BASE + path, opts);
       const data = await res.json();
-      if (!res.ok) throw { status: res.status, message: data.message || 'Error' };
+      if (!res.ok) {
+        // A 401 on a request we authenticated means the session expired or was
+        // revoked. Clear the dead token and signal the app to return to login so
+        // the user isn't stuck with silently-failing actions. (A 401 with no token
+        // is just a normal auth failure, e.g. wrong login — leave it to the caller.)
+        if (res.status === 401 && hadToken) {
+          this.clearToken();
+          try { window.dispatchEvent(new CustomEvent('nb-session-expired')); } catch {}
+        }
+        throw { status: res.status, message: data.message || 'Error' };
+      }
       return data;
     } catch (err) {
       if (err.status) throw err;

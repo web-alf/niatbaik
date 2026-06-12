@@ -11,6 +11,7 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/internal/repository"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -80,6 +81,26 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 		return nil, fmt.Errorf("permintaan donasi serupa baru saja dibuat, mohon tunggu sebentar")
 	}
 
+	// Resolve an optional referral code (?ref=<user_id>) to the referring
+	// fundraiser. Only a real, fundraiser-role user counts; an unknown/garbage code
+	// is ignored (donation still proceeds, just unattributed). Tagging the invoice
+	// here is what activates the commission payout in PaymentService.ProcessPayment.
+	var referredBy *uuid.UUID
+	if req.ReferralCode != "" {
+		if refID, err := uuid.Parse(strings.TrimSpace(req.ReferralCode)); err == nil {
+			var refUser model.User
+			if err := s.db.Select("id", "role").First(&refUser, "id = ?", refID).Error; err == nil {
+				// Only a fundraiser earns a referral commission, and never on a
+				// donation to a campaign they own — that would let a campaign owner
+				// self-deal a commission off their own program's donations. Both
+				// conditions must hold for the invoice to be attributed.
+				if refUser.Role == "fundraiser" && refUser.ID != campaign.UserID {
+					referredBy = &refUser.ID
+				}
+			}
+		}
+	}
+
 	// Unique code (1-999) for manual bank transfer to disambiguate mutations.
 	var uniqueCode int64 = 0
 	method := strings.ToUpper(req.PaymentMethod)
@@ -111,6 +132,7 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 				ExpiredAt:     time.Now().Add(24 * time.Hour),
 				Status:        "Menunggu Pembayaran",
 				IP:            ip,
+				ReferredBy:    referredBy,
 				UTMSource:     req.UTMSource,
 				UTMMedium:     req.UTMMedium,
 				UTMCampaign:   req.UTMCampaign,

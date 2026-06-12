@@ -53,21 +53,26 @@ func (s *AuthService) Login(email, password, ip, userAgent string) (*response.To
 
 	// Record login history (best-effort: a failure here must not block login, but
 	// we log it so a broken audit trail is visible instead of silently corrupting).
-	if err := s.db.Model(&model.LoginHistory{}).
-		Where("user_id = ? AND is_current = ?", user.ID, true).
-		Update("is_current", false).Error; err != nil {
-		log.Printf("[Login] failed to clear previous is_current for user %s: %v", user.ID, err)
-	}
-	history := model.LoginHistory{
-		UserID:     user.ID,
-		IP:         ip,
-		UserAgent:  userAgent,
-		Device:     parseDevice(userAgent),
-		Location:   "",
-		LoggedInAt: time.Now(),
-		IsCurrent:  true,
-	}
-	if err := s.db.Create(&history).Error; err != nil {
+	// Clearing the old is_current flag and inserting the new current row must be
+	// atomic — otherwise two concurrent logins can both clear, then both insert,
+	// leaving multiple is_current=true rows. Wrap them in one transaction.
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.LoginHistory{}).
+			Where("user_id = ? AND is_current = ?", user.ID, true).
+			Update("is_current", false).Error; err != nil {
+			return err
+		}
+		history := model.LoginHistory{
+			UserID:     user.ID,
+			IP:         ip,
+			UserAgent:  userAgent,
+			Device:     parseDevice(userAgent),
+			Location:   "",
+			LoggedInAt: time.Now(),
+			IsCurrent:  true,
+		}
+		return tx.Create(&history).Error
+	}); err != nil {
 		log.Printf("[Login] failed to record login history for user %s: %v", user.ID, err)
 	}
 
@@ -119,7 +124,18 @@ func (s *AuthService) Register(req *request.RegisterRequest) (*response.UserResp
 		Role:     "user",
 	}
 
+	// The pre-checks above are a friendly fast-path, but two concurrent registrations
+	// with the same email/phone can both pass them. The unique indexes on
+	// users.email / users.phone are the authoritative guard: translate the resulting
+	// duplicate-key violation into the same friendly message instead of a raw 500.
 	if err := s.db.Create(&user).Error; err != nil {
+		le := strings.ToLower(err.Error())
+		if strings.Contains(le, "duplicate") || strings.Contains(le, "unique") || strings.Contains(le, "23505") {
+			if strings.Contains(le, "phone") {
+				return nil, errors.New("nomor telepon sudah digunakan")
+			}
+			return nil, errors.New("email already registered")
+		}
 		return nil, err
 	}
 
@@ -214,8 +230,8 @@ func (s *AuthService) ForgotPassword(email string) error {
 	// Send reset email via SMTP (best-effort: log on failure, don't leak to client).
 	var settings model.Setting
 	if err := s.db.First(&settings).Error; err == nil {
-		resetURL := fmt.Sprintf("https://donasi.niatbaik.org/reset-password?email=%s&token=%s",
-			url.QueryEscape(user.Email), url.QueryEscape(token))
+		resetURL := fmt.Sprintf("%s/reset-password?email=%s&token=%s",
+			s.cfg.FrontendBaseURL, url.QueryEscape(user.Email), url.QueryEscape(token))
 		body := fmt.Sprintf(`
 			<div style="font-family:sans-serif;max-width:480px;margin:auto">
 			  <h2 style="color:#2E4191">Reset Password NIATBAIK.ORG</h2>

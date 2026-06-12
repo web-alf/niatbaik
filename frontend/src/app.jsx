@@ -496,7 +496,10 @@ function App() {
   // --- Login handler (accepts backend user object) ---
   const handleLogin = (userData) => {
     setUser(userData);
-    try { localStorage.setItem('niatbaik_session', JSON.stringify(userData)); } catch {}
+    // Note: the user object is intentionally NOT persisted to localStorage. Auth
+    // state is rehydrated on mount from the JWT via api.me(), which is the single
+    // source of truth; mirroring the full user (role/email) into localStorage was
+    // dead (never read back) and needlessly exposed it to any XSS on the page.
     const r = toDesignRole(userData);
     const firstKey = NAV_ROLE_KEYS[r]?.[0] || 'dashboard';
     setView(firstKey);
@@ -506,6 +509,7 @@ function App() {
   const handleLogout = () => {
     api.logout && api.logout();
     setUser(null);
+    // Clear any legacy persisted session left by older builds (no longer written).
     try { localStorage.removeItem('niatbaik_session'); } catch {}
     setView('landing');
   };
@@ -514,9 +518,7 @@ function App() {
   const updateUser = (patch) => {
     setUser(prev => {
       if (!prev) return prev;
-      const next = { ...prev, ...patch };
-      try { localStorage.setItem('niatbaik_session', JSON.stringify(next)); } catch {}
-      return next;
+      return { ...prev, ...patch }; // not persisted — see handleLogin note
     });
   };
 
@@ -534,6 +536,24 @@ function App() {
     const cur = all.find(n => n.key === route);
     if (cur && cur.roles && !cur.roles.includes(role)) setRouteRaw('dashboard');
   }, [route, user, role]);
+
+  // --- Session-expiry recovery ---
+  // api.jsx fires 'nb-session-expired' when an authenticated request gets a 401
+  // (token expired/revoked). Drop the user back to login instead of leaving them
+  // on a dashboard where every action silently fails.
+  uE(() => {
+    const onExpired = () => {
+      // Already logged out (no active user) — nothing to clean up and no reason to
+      // flash a "session expired" toast at an anonymous visitor.
+      if (!user) return;
+      setUser(null);
+      try { localStorage.removeItem('niatbaik_session'); } catch {}
+      setView('login');
+      showToast('Sesi Anda telah berakhir. Silakan masuk kembali.');
+    };
+    window.addEventListener('nb-session-expired', onExpired);
+    return () => window.removeEventListener('nb-session-expired', onExpired);
+  }, [user]);
 
   // --- Context ---
   const ctx = uM(() => ({

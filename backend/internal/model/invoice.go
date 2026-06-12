@@ -15,7 +15,6 @@ type Invoice struct {
 	ReferredBy      *uuid.UUID `gorm:"type:uuid;index" json:"referred_by"`
 
 	Subtotal     int64  `gorm:"default:0" json:"subtotal"`
-	UniqueAmount int    `gorm:"default:0" json:"unique_amount"`
 	Total        int64  `gorm:"default:0" json:"total"`
 	IsPaid       bool   `gorm:"default:false" json:"is_paid"`
 	Status       string `gorm:"size:50;default:'Menunggu Pembayaran'" json:"status"`

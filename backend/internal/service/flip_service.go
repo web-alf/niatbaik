@@ -1,6 +1,7 @@
 package service
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -153,7 +154,9 @@ func (s *FlipService) VerifyWebhookToken(token string) bool {
 	if validationToken == "" {
 		return false // Fail-closed: reject if not configured
 	}
-	return token == validationToken
+	// Constant-time compare so an attacker can't recover the token byte-by-byte
+	// from response-timing differences of a plain string ==.
+	return subtle.ConstantTimeCompare([]byte(token), []byte(validationToken)) == 1
 }
 
 func (s *FlipService) HandleWebhook(payload FlipWebhookPayload) error {
@@ -180,6 +183,15 @@ func (s *FlipService) HandleWebhook(payload FlipWebhookPayload) error {
 	inv, err := s.invoiceRepo.FindUnpaidByInvoiceNumber(invoiceNumber)
 	if err != nil {
 		return fmt.Errorf("invoice not found: %w", err)
+	}
+
+	// Verify the paid amount actually covers the invoice before crediting. Flip
+	// is a hosted gateway, so a SUCCESSFUL event should always equal inv.Total,
+	// but a forged/replayed webhook (token leak) or a partial-payment edge case
+	// must never credit the campaign for more than was received. Use >= (not ==)
+	// so an accidental overpayment still settles rather than getting stuck unpaid.
+	if payload.Amount < inv.Total {
+		return fmt.Errorf("flip amount mismatch for %s: received %d, expected %d", invoiceNumber, payload.Amount, inv.Total)
 	}
 
 	return s.paymentSvc.ProcessPayment(inv)

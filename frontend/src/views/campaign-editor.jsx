@@ -38,17 +38,28 @@ function CampaignEditorForm({ campaign }) {
   const [location, setLocation] = useStateA(c?.location_name || '');
   const [gmaps, setGmaps] = useStateA(c?.location_gmaps || '');
   const [category, setCategory] = useStateA(c?.category || 'Uncategorized');
-  const [status, setStatus] = useStateA(c?.status || 'Draft');
+  // The campaigns list remaps backend statuses to design labels (Berjalan→Running,
+  // Selesai→Ended) before passing the campaign here, so normalize back to the
+  // canonical backend value the status <select> options + backend enum expect —
+  // otherwise the dropdown shows blank and looks "reverted".
+  const STATUS_DENORM = { Running: 'Berjalan', Ended: 'Selesai', Aktif: 'Berjalan' };
+  const [status, setStatus] = useStateA(STATUS_DENORM[c?.status] || c?.status || 'Draft');
   const [thumb, setThumb] = useStateA(c?.img || c?.thumb || null);
 
   // Editable URL slugs
   const autoSlug = (title || c?.title || 'kampanye-baru').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-  const [longSlug, setLongSlug] = useStateA(c?.id ? autoSlug : autoSlug);
+  // When editing, seed the Long URL from the campaign's SAVED slug (was previously
+  // derived from the title every time, so a custom slug never loaded and looked like
+  // it reverted). New campaigns start from the title-derived slug.
+  const [longSlug, setLongSlug] = useStateA(c?.slug || autoSlug);
   const [shortSlug, setShortSlug] = useStateA(c?.id || 'djag7hj20pg');
-  // Re-sync long slug if title changes AND user hasn't custom-edited it
+  // Re-sync the long slug from the title only for NEW campaigns the user hasn't
+  // hand-edited. On an existing campaign the saved slug is authoritative — don't
+  // clobber it when the title field mounts/changes.
   const [longTouched, setLongTouched] = useStateA(false);
   useEffectA(() => {
-    if (!longTouched) setLongSlug((title || 'kampanye-baru').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''));
+    if (isEdit || longTouched) return;
+    setLongSlug((title || 'kampanye-baru').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''));
   }, [title]);
 
   // ---- form type panel ----
@@ -149,11 +160,23 @@ function CampaignEditorForm({ campaign }) {
     // stored HTML is portable (works in prod where everything is same-origin).
     const desc = (content || '').split('http://localhost:8080/uploads/').join('/uploads/');
     const shortDesc = desc.replace(/<[^>]+>/g, '').trim().slice(0, 500) || title;
+    // Status: "Save Draft" always unpublishes to Draft. "Update/Publish" honors the
+    // status dropdown when editing (so an admin can set Selesai/Ditolak/etc. and it
+    // sticks), defaulting a still-Draft campaign to Berjalan on publish. New
+    // campaigns publish as Berjalan.
+    let finalStatus;
+    if (!publish) {
+      finalStatus = 'Draft';
+    } else if (isEdit) {
+      finalStatus = (status && status !== 'Draft') ? status : 'Berjalan';
+    } else {
+      finalStatus = 'Berjalan';
+    }
     const payload = {
       title: title.trim(),
       description: desc,
       short_description: shortDesc,
-      status: publish ? 'Berjalan' : 'Draft',
+      status: finalStatus,
     };
     // Optional fields — only include if has value
     if (target > 0) payload.target = Number(target);
@@ -209,10 +232,11 @@ function CampaignEditorForm({ campaign }) {
     if (advCustom.tiktokPixelId) payload.tiktok_pixel_id = advCustom.tiktokPixelId;
     if (advCustom.gtmId) payload.gtm_id = advCustom.gtmId;
     if (advCustom.extLinkUrl) payload.external_link = advCustom.extLinkUrl;
-    // Persist a user-edited campaign URL slug (backend keeps it instead of
-    // re-deriving from the title). The slug field is only editable when editing an
-    // existing campaign; on create the backend derives it from the title.
-    if (isEdit && longSlug && longSlug !== autoSlug) payload.slug = longSlug;
+    // Persist the campaign URL slug on edit. Send it whenever it has a valid value
+    // and differs from what's already stored (c.slug) — the backend keeps it instead
+    // of re-deriving from the title. Only editable when editing an existing campaign;
+    // on create the backend derives the slug from the title.
+    if (isEdit && longSlug && longSlug.length >= 3 && longSlug !== c?.slug) payload.slug = longSlug;
 
     try {
       if (isEdit) {
@@ -641,7 +665,16 @@ function CampaignEditorForm({ campaign }) {
                 <div className="text-mute">Status</div>
                 <div className="flex items-center gap-2">
                   <StatusBadge status={status}/>
-                  <button className="h-7 w-7 rounded-md hover:bg-bg2 text-mute hover:text-ink flex items-center justify-center"><Icon name="edit" size={13}/></button>
+                  {/* Editable status — admin can move a campaign to Berjalan / Selesai /
+                      Ditolak etc. and it persists (was a dead button before). The Save
+                      buttons still override: "Save Draft" → Draft, "Update" honors this. */}
+                  <select value={status} onChange={(e) => setStatus(e.target.value)} className="field py-1.5 text-xs flex-1">
+                    <option value="Draft">Draft</option>
+                    <option value="Berjalan">Berjalan</option>
+                    <option value="Selesai">Selesai</option>
+                    <option value="Ditolak">Ditolak</option>
+                    <option value="Menunggu">Menunggu</option>
+                  </select>
                 </div>
               </div>
 
@@ -661,13 +694,11 @@ function CampaignEditorForm({ campaign }) {
                     label="Short URL"
                     prefix="https://niatbaik.org/c/"
                     value={shortSlug}
-                    onChange={setShortSlug}
                     onCopy={() => showToast('Short URL disalin')}
-                    sanitize={(v) => v.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0, 16)}
-                    helper="Maks 16 karakter alfanumerik. Gunakan untuk iklan & QR code."
+                    helper="Tautan permanen berbasis ID campaign. Salin untuk iklan & QR code."
                     minLen={4}
-                    maxLen={16}
                     short
+                    readOnly
                   />
                 </>
               )}
@@ -715,12 +746,15 @@ function CampaignEditorForm({ campaign }) {
 // ============================================================
 // Subcomponents
 // ============================================================
-function EditableUrlRow({ label, prefix, value, onChange, onCopy, sanitize, helper, minLen = 3, maxLen, short }) {
+function EditableUrlRow({ label, prefix, value, onChange, onCopy, sanitize, helper, minLen = 3, maxLen, short, readOnly }) {
   const [editing, setEditing] = useStateA(false);
   const [draft, setDraft] = useStateA(value);
   const inputRef = React.useRef();
 
   useEffectA(() => { if (editing) { setDraft(value); setTimeout(() => inputRef.current?.focus(), 0); } }, [editing]);
+  // Keep the draft in sync if the parent value changes while not editing (e.g. the
+  // saved slug loads in after the full record is fetched).
+  useEffectA(() => { if (!editing) setDraft(value); }, [value]);
 
   const save = () => {
     const clean = sanitize ? sanitize(draft.trim()) : draft.trim();
@@ -743,12 +777,14 @@ function EditableUrlRow({ label, prefix, value, onChange, onCopy, sanitize, help
               <span className="text-mute">{prefix}</span>
               <span className="bg-brand-50 text-brand-700 px-1 rounded font-bold">{value}</span>
             </div>
-            <button
-              onClick={() => setEditing(true)}
-              aria-label={`Edit ${label}`}
-              className="shrink-0 h-7 w-7 rounded-md hover:bg-brand-50 text-mute hover:text-brand-600 flex items-center justify-center transition-colors">
-              <Icon name="edit" size={13}/>
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => setEditing(true)}
+                aria-label={`Edit ${label}`}
+                className="shrink-0 h-7 w-7 rounded-md hover:bg-brand-50 text-mute hover:text-brand-600 flex items-center justify-center transition-colors">
+                <Icon name="edit" size={13}/>
+              </button>
+            )}
             <button
               onClick={onCopy}
               aria-label={`Copy ${label}`}

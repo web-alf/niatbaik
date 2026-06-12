@@ -105,7 +105,7 @@ function CampaignsView() {
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-14 rounded-md overflow-hidden shrink-0 bg-bg2" style={c.img ? {} : {background:c.thumb}}>
                         {c.img ? (
-                          <img src={c.img} alt={c.title||''} className="h-full w-full object-cover" onError={(e)=>{e.target.style.display='none';}}/>
+                          <img src={window.mediaUrl ? window.mediaUrl(c.img) : c.img} alt={c.title||''} className="h-full w-full object-cover" onError={(e)=>{e.target.style.display='none';}}/>
                         ) : (
                           <div className="h-full flex items-center justify-center text-white/90"><Icon name={c.icon} size={16}/></div>
                         )}

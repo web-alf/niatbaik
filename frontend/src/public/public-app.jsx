@@ -27,6 +27,16 @@ const pickCsContact = () => {
 };
 const normalizeWa = (n) => String(n || '').replace(/[^0-9]/g, '').replace(/^0/, '62');
 
+// Build a CSS background style from a campaign thumb. A gradient string is used as-is;
+// an uploaded image path is wrapped in url() (resolved to the media origin) so it
+// actually renders. Empty → a neutral brand gradient fallback.
+const thumbStyle = (thumb) => {
+  if (!thumb) return { background: 'linear-gradient(135deg,#2E4191,#38B6FF)' };
+  if (typeof thumb === 'string' && thumb.startsWith('linear')) return { background: thumb };
+  const url = window.mediaUrl ? window.mediaUrl(thumb) : thumb;
+  return { backgroundImage: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center' };
+};
+
 // -------- Helpers --------
 const PrimaryBtn = ({ children, size='md', className='', ...rest }) => {
   const sizes = { sm:'text-sm px-4 py-2', md:'text-base px-5 py-3', lg:'text-lg px-7 py-4', xl:'text-lg px-8 py-4.5' };
@@ -177,7 +187,7 @@ function HeroCard({ c, onNav }) {
     <div className="relative float-in">
       <div className="absolute -top-3 -left-3 bg-rose-500 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-pop rotate-[-6deg] z-10">URGENT · 6 hari lagi</div>
       <div className="rounded-3xl bg-white border border-line shadow-pop overflow-hidden">
-        <div className="relative aspect-[16/10]" style={{ background: c.thumb }}>
+        <div className="relative aspect-[16/10]" style={thumbStyle(c.thumb)}>
           <div className="absolute inset-0 flex items-center justify-center text-white/85"><Icon name={c.icon} size={120} strokeWidth={1}/></div>
           <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-transparent"/>
           <div className="absolute top-3 left-3 flex gap-2">
@@ -321,7 +331,7 @@ function CampaignsSection({ onNav }) {
 function PublicCampaignCard({ c, onNav }) {
   return (
     <div onClick={() => onNav('campaign', c)} className="group cursor-pointer rounded-2xl bg-white border border-line shadow-card hover:shadow-pop transition-all hover:-translate-y-1 overflow-hidden">
-      <div className="relative aspect-[16/10]" style={{ background: c.thumb }}>
+      <div className="relative aspect-[16/10]" style={thumbStyle(c.thumb)}>
         <div className="absolute inset-0 flex items-center justify-center text-white/85"><Icon name={c.icon} size={70} strokeWidth={1.2}/></div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"/>
         <div className="absolute top-3 left-3 flex gap-1.5">
@@ -667,7 +677,7 @@ function CampaignPage({ c, onNav }) {
           <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 lg:py-10 grid lg:grid-cols-5 gap-6">
             {/* Left main */}
             <div className="lg:col-span-3">
-              <div className="relative aspect-[16/9] rounded-2xl overflow-hidden" style={{ background: c.thumb }}>
+              <div className="relative aspect-[16/9] rounded-2xl overflow-hidden" style={thumbStyle(c.thumb)}>
                 <div className="absolute inset-0 flex items-center justify-center text-white/85"><Icon name={c.icon} size={140} strokeWidth={1}/></div>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/0 to-transparent"/>
                 <div className="absolute top-4 left-4 flex gap-2">
@@ -855,7 +865,7 @@ function NominalSelect({ c, presets, amount, setAmount }) {
           {presets.map((p, i) => (
             <button key={p} onClick={() => setAmount(p)}
               className={`rounded-2xl border-2 overflow-hidden transition-all text-left ${amount===p ? 'border-brand-600 shadow-card' : 'border-line hover:border-brand-200'}`}>
-              <div className="relative aspect-[16/10] flex items-center justify-center text-white/85" style={{ background: c.thumb }}>
+              <div className="relative aspect-[16/10] flex items-center justify-center text-white/85" style={thumbStyle(c.thumb)}>
                 <Icon name={c.icon} size={44} strokeWidth={1.2}/>
                 {amount===p && <span className="absolute top-2 right-2 h-6 w-6 rounded-full bg-brand-600 text-white flex items-center justify-center"><Icon name="check" size={14}/></span>}
               </div>
@@ -946,7 +956,7 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
       </button>
 
       <div className="flex items-center gap-3 pb-4 border-b border-line">
-        <div className="h-12 w-12 rounded-xl overflow-hidden shrink-0" style={{ background: c.thumb }}>
+        <div className="h-12 w-12 rounded-xl overflow-hidden shrink-0" style={thumbStyle(c.thumb)}>
           <div className="w-full h-full flex items-center justify-center text-white/85"><Icon name={c.icon} size={24} strokeWidth={1.5}/></div>
         </div>
         <div className="min-w-0">

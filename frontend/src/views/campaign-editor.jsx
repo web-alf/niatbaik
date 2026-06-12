@@ -101,7 +101,9 @@ function CampaignEditorView() {
     if (!title.trim()) { showToast('Judul campaign wajib diisi'); return; }
     if (!content.trim()) { showToast('Keterangan campaign wajib diisi'); return; }
     setSaving(true);
-    const desc = content || '';
+    // Rewrite any absolute dev media origin back to a relative /uploads/ path so the
+    // stored HTML is portable (works in prod where everything is same-origin).
+    const desc = (content || '').split('http://localhost:8080/uploads/').join('/uploads/');
     const shortDesc = desc.replace(/<[^>]+>/g, '').trim().slice(0, 500) || title;
     const payload = {
       title: title.trim(),
@@ -113,12 +115,16 @@ function CampaignEditorView() {
     if (target > 0) payload.target = Number(target);
     if (location.trim()) payload.location_name = location.trim();
     if (gmaps.trim()) payload.location_gmaps = gmaps.trim();
-    // thumb may be a CSS gradient or an uploaded image URL — route to the right field
+    // thumb may be a CSS gradient or an uploaded image URL — route to the right field.
+    // Reduce any image ref (relative "/uploads/x.png", bare "x.png", or an absolute
+    // dev URL "http://localhost:8080/uploads/x.png") down to the bare filename the
+    // backend stores. Strip query/hash, take the last path segment.
     if (thumb) {
       if (typeof thumb === 'string' && thumb.startsWith('linear')) {
         payload.thumb_gradient = thumb;
       } else {
-        payload.image = String(thumb).replace(/^\/uploads\//, '');
+        const clean = String(thumb).split(/[?#]/)[0];
+        payload.image = clean.substring(clean.lastIndexOf('/') + 1);
       }
     }
     // form_type = donation category (Donation/Zakat); form_style = visual layout
@@ -744,6 +750,8 @@ function ThumbUploader({ thumb, icon, onChange }) {
     try {
       const res = await api.uploadImage(f);
       const url = res?.data?.url || res?.url;
+      // Keep the canonical relative ref (/uploads/x.png) in state so the save logic
+      // can strip it to a bare filename. Display is resolved at render via mediaUrl.
       if (url) onChange(url);
       else setUploadError((res && res.message) ? res.message : 'Upload gagal. Coba lagi.');
     } catch (err) { setUploadError(err?.message || 'Upload gagal. Periksa koneksi.'); }
@@ -755,9 +763,9 @@ function ThumbUploader({ thumb, icon, onChange }) {
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile}/>
       <div onClick={() => fileRef.current?.click()}
         className="aspect-[13/7] rounded-xl bg-bg2 border-2 border-dashed border-line hover:border-brand-400 cursor-pointer overflow-hidden relative group"
-        style={thumb && !thumb.startsWith('linear') ? { backgroundImage: `url(${thumb})`, backgroundSize: 'cover', backgroundPosition: 'center' } : thumb ? { background: thumb } : {}}>
+        style={thumb && !thumb.startsWith('linear') ? { backgroundImage: `url(${window.mediaUrl ? window.mediaUrl(thumb) : thumb})`, backgroundSize: 'cover', backgroundPosition: 'center' } : thumb ? { background: thumb } : {}}>
         {thumb && !thumb.startsWith('linear') && (
-          <img src={thumb} alt="Preview" className="absolute inset-0 w-full h-full object-cover" onError={(e) => { e.target.style.display='none'; }}/>
+          <img src={window.mediaUrl ? window.mediaUrl(thumb) : thumb} alt="Preview" className="absolute inset-0 w-full h-full object-cover" onError={(e) => { e.target.style.display='none'; }}/>
         )}
         {thumb && thumb.startsWith('linear') && (
           <div className="absolute inset-0 flex items-center justify-center text-white/80">
@@ -805,7 +813,13 @@ function RichEditor({ value, onChange }) {
   useEffectA(() => {
     // Sanitize on load so any already-stored malicious HTML can't execute when an
     // admin opens the editor. window.sanitizeHTML comes from api.jsx.
-    const clean = (window.sanitizeHTML ? window.sanitizeHTML(value || '') : (value || ''));
+    let clean = (window.sanitizeHTML ? window.sanitizeHTML(value || '') : (value || ''));
+    // Resolve stored relative /uploads/ image src to a loadable URL so previews show
+    // in the editor (dev serves uploads from a different origin). Rewritten back to
+    // relative on save.
+    if (window.mediaUrl && clean) {
+      clean = clean.replace(/(<img[^>]+src=")(\/uploads\/[^"]+)(")/gi, (_m, a, src, b) => a + window.mediaUrl(src) + b);
+    }
     if (ref.current && ref.current.innerHTML !== clean) ref.current.innerHTML = clean;
   }, []);
 
@@ -876,7 +890,10 @@ function RichEditor({ value, onChange }) {
     try {
       const res = await api.uploadImage(f);
       const url = res?.data?.url || res?.url;
-      if (url) insertHTML('<img src="' + url + '" style="border-radius:8px;max-width:100%;height:auto;display:block;margin:8px 0"/>');
+      // Insert a display-resolved URL so the preview loads in the editor (dev: :8080).
+      // It's rewritten back to a relative /uploads/ path on save (see handleSave) so
+      // stored content stays portable across environments.
+      if (url) insertHTML('<img src="' + (window.mediaUrl ? window.mediaUrl(url) : url) + '" style="border-radius:8px;max-width:100%;height:auto;display:block;margin:8px 0"/>');
       else alert('Upload gambar gagal. Coba lagi.');
     } catch { alert('Upload gambar gagal. Periksa koneksi.'); }
     e.target.value = '';

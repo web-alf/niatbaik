@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
@@ -53,26 +54,25 @@ func main() {
 	e.Use(middleware.SecurityHeaders())
 	e.Use(middleware.CORSMiddleware(cfg.CORSOrigins))
 
-	// Static file serving for uploads. Uploads are restricted to raster images
-	// (extension derived from sniffed content type, so no SVG/HTML/polyglot can be
-	// stored). These headers are defense-in-depth: nosniff stops MIME confusion and
-	// a restrictive CSP sandbox neuters any active content if one ever slipped
-	// through. Disposition stays "inline" so legitimate images still render in <img>.
-	uploadFS := e.Group("/uploads")
-	uploadFS.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+	// Defense-in-depth headers for uploaded files, applied via a global middleware
+	// scoped by path (echo's Static has no per-route middleware hook). Uploads are
+	// restricted to raster images (extension derived from sniffed content type), so
+	// nosniff + a sandbox CSP neuter any active content that might slip through.
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			h := c.Response().Header()
-			h.Set("X-Content-Type-Options", "nosniff")
-			h.Set("Content-Disposition", "inline; filename=\"download\"")
-			h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
-			// UUID filenames are immutable, so override the global no-store with a
-			// long cache. Keep it private to avoid shared-proxy caching of any
-			// potentially sensitive uploaded document.
-			h.Set("Cache-Control", "private, max-age=86400")
+			if strings.HasPrefix(c.Request().URL.Path, "/uploads/") {
+				h := c.Response().Header()
+				h.Set("X-Content-Type-Options", "nosniff")
+				h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
+				h.Set("Cache-Control", "private, max-age=86400")
+			}
 			return next(c)
 		}
 	})
-	uploadFS.Static("", cfg.UploadDir)
+
+	// Static file serving for uploads. Use e.Static (NOT a group with an empty
+	// prefix, which registered a malformed "/uploads*" route and 404'd everything).
+	e.Static("/uploads", cfg.UploadDir)
 
 	// Setup routes
 	router.Setup(e, db, cfg)

@@ -2,6 +2,28 @@ const API_BASE = window.location.hostname === 'localhost'
   ? 'http://localhost:8080/api'
   : '/api';
 
+// Origin that serves uploaded media (/uploads/...). In local dev the frontend runs
+// on :3000 but the API (and the /uploads static dir) is on :8080, so a relative
+// "/uploads/x.png" would resolve to :3000 and 404. In production both share one
+// origin behind nginx, so the prefix is empty (relative URLs work).
+const MEDIA_ORIGIN = window.location.hostname === 'localhost'
+  ? 'http://localhost:8080'
+  : '';
+
+// mediaUrl resolves any image reference to a loadable absolute/relative URL:
+//  - empty / data: / blob: / http(s):// → returned as-is
+//  - "/uploads/x.png"  → MEDIA_ORIGIN + path
+//  - "uploads/x.png" or bare "x.png" → MEDIA_ORIGIN + "/uploads/" + name
+function mediaUrl(ref) {
+  if (!ref || typeof ref !== 'string') return ref || '';
+  if (/^(data:|blob:|https?:\/\/)/i.test(ref)) return ref;
+  if (ref.startsWith('/uploads/')) return MEDIA_ORIGIN + ref;
+  if (ref.startsWith('uploads/')) return MEDIA_ORIGIN + '/' + ref;
+  if (ref.startsWith('/')) return MEDIA_ORIGIN + ref;
+  return MEDIA_ORIGIN + '/uploads/' + ref;
+}
+window.mediaUrl = mediaUrl;
+
 let authToken = localStorage.getItem('nb_token') || null;
 
 function sanitizeText(s) {

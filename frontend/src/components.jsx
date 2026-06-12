@@ -586,7 +586,7 @@ const Donut = ({ data, size = 160, thickness = 22 }) => {
 const CampaignThumb = ({ c, className = '' }) => (
   <div className={'relative rounded-xl overflow-hidden bg-bg2 ' + className} style={c.img ? {} : { background: c.thumb }}>
     {c.img ? (
-      <img src={c.img} alt={c.title||''} className="absolute inset-0 w-full h-full object-cover" onError={(e)=>{e.target.style.display='none';}}/>
+      <img src={window.mediaUrl ? window.mediaUrl(c.img) : c.img} alt={c.title||''} className="absolute inset-0 w-full h-full object-cover" onError={(e)=>{e.target.style.display='none';}}/>
     ) : (
       <div className="absolute inset-0 flex items-center justify-center text-white/80">
         <Icon name={c.icon || 'heart'} size={56} strokeWidth={1.2}/>

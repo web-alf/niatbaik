@@ -92,3 +92,22 @@ func (h *AdminCampaignHandler) Delete(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "campaign deleted"))
 }
+
+// Get returns the FULL campaign record for the admin editor. The public list and
+// detail responses are intentionally trimmed (no advanced toggles / raw fields),
+// which made the editor lose the rich-text story image and revert Publish/advanced
+// settings on re-edit. The editor needs every persisted field to round-trip, so
+// this returns the raw model.
+func (h *AdminCampaignHandler) Get(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid campaign id"))
+	}
+
+	campaign, err := h.campaignRepo.FindByID(id)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, response.ErrorResponse("campaign not found"))
+	}
+
+	return c.JSON(http.StatusOK, response.SuccessResponse(campaign, "success"))
+}

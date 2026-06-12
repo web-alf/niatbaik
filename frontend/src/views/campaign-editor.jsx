@@ -1,9 +1,13 @@
 // Full-page Campaign editor (Create / Edit). Matches the spec from the attached doc.
 const EVENT_OPTS = ['', 'PageView','ViewContent','InitiateCheckout','AddPaymentInfo','Lead','Purchase','CompleteDonation'];
-function CampaignEditorView() {
-  const { editingCampaign, setView, setEditingCampaign, showToast } = useApp();
-  const isEdit = !!editingCampaign;
-  const c = editingCampaign;
+// Inner form. Receives the campaign to edit as a prop (the FULL record when
+// editing — see CampaignEditorView wrapper) so every field round-trips. All seed
+// state below is derived from `c` on mount; the wrapper remounts this via `key` so
+// fresh data re-seeds the form.
+function CampaignEditorForm({ campaign }) {
+  const { setView, setEditingCampaign, showToast } = useApp();
+  const isEdit = !!campaign;
+  const c = campaign;
 
   // Re-render if categories change in Settings while the editor is open.
   const [, setCatVer] = useStateA(0);
@@ -52,9 +56,24 @@ function CampaignEditorView() {
   const [formMode, setFormMode] = useStateA(c?.form_type || 'Donation'); // Donation | Zakat
   const [formStyle, setFormStyle] = useStateA(c?.form_style || 'Card');  // List | Typing | Package | Card | Package2 | Qurban
 
+  // Safe JSON parse helper for the per-campaign config blobs (payment/pixel/form).
+  const parseJSONObj = (raw) => {
+    if (raw && typeof raw === 'object') return raw;
+    if (typeof raw === 'string' && raw.trim()) { try { return JSON.parse(raw) || {}; } catch { return {}; } }
+    return {};
+  };
+  // Saved per-campaign payment rows + pixel config, so the "Custom" advanced panels
+  // round-trip on re-edit instead of resetting (these were previously dropped by the
+  // backend entirely; now persisted via payment_config / pixel_config columns).
+  const savedPaymentRows = (() => {
+    const p = parseJSONObj(c?.payment_config);
+    return Array.isArray(p) ? p : (Array.isArray(p.rows) ? p.rows : []);
+  })();
+  const savedPixel = parseJSONObj(c?.pixel_config);
+
   // ---- advanced sections ----
   const [adv, setAdv] = useStateA({
-    payment: 'Default',
+    payment: savedPaymentRows.length ? 'Custom' : 'Default',
     form: 'Default',
     fundraising: 'Default',
     wa: c?.wa_notification ? 'Custom' : 'Default',
@@ -69,15 +88,24 @@ function CampaignEditorView() {
     general: 'Default',
   });
 
-  // Form custom panel state
+  // Form custom panel state. Seed from the campaign's saved form_fields_config so
+  // button labels + field toggles round-trip on re-edit instead of reverting to
+  // the hardcoded defaults below (which was a second cause of "settings revert").
+  const parseFFC = (raw) => {
+    let o = {};
+    if (typeof raw === 'string' && raw.trim()) { try { o = JSON.parse(raw) || {}; } catch { o = {}; } }
+    else if (raw && typeof raw === 'object') { o = raw; }
+    return o;
+  };
+  const ffc = parseFFC(c?.form_fields_config);
   const [formCustom, setFormCustom] = useStateA({
-    button1: 'Tunaikan Fidyah',
-    button2: 'Tunaikan Fidyah Sekarang',
-    smallTitleCampaign: '',
-    smallTitleDonate: '',
-    anonim: true,
-    email: false,
-    comment: true,
+    button1: ffc.button1 || 'Tunaikan Fidyah',
+    button2: ffc.button2 || 'Tunaikan Fidyah Sekarang',
+    smallTitleCampaign: ffc.smallTitleCampaign || '',
+    smallTitleDonate: ffc.smallTitleDonate || '',
+    anonim: ffc.anonim != null ? !!ffc.anonim : true,
+    email: ffc.email != null ? !!ffc.email : false,
+    comment: ffc.comment != null ? !!ffc.comment : true,
   });
 
   // Nominal preset rows
@@ -98,11 +126,14 @@ function CampaignEditorView() {
     waNumber: '', waTemplate: '',
     followupMsg: '', paymentSuccessMsg: '',
     metaPixelId: c?.meta_pixel_id || '', tiktokPixelId: c?.tiktok_pixel_id || '', gtmId: c?.gtm_id || '',
-    metaPixelEnabled: true, metaCAPIEnabled: false, metaCAPIToken: '', metaTestEvent: '',
-    events: { campaign:'PageView', form:'InitiateCheckout', invoice:'Lead', success:'Purchase' },
+    metaPixelEnabled: true,
+    metaCAPIEnabled: !!savedPixel.capi, metaCAPIToken: savedPixel.token || '', metaTestEvent: savedPixel.test_event || '',
+    events: (savedPixel.events && typeof savedPixel.events === 'object')
+      ? { campaign:'PageView', form:'InitiateCheckout', invoice:'Lead', success:'Purchase', ...savedPixel.events }
+      : { campaign:'PageView', form:'InitiateCheckout', invoice:'Lead', success:'Purchase' },
     waFlyingNumber: '', waFlyingText: 'Chat via WhatsApp',
     extLinkUrl: c?.external_link || '', extLinkText: 'Kunjungi website',
-    paymentRows: [{ bank:'', account:'', holder:'', method:'instant' }],
+    paymentRows: savedPaymentRows.length ? savedPaymentRows : [{ bank:'', account:'', holder:'', method:'instant' }],
     popupTitle: '', popupDesc: '', popupButton: 'Ya, Lanjutkan',
   });
   const [advOpen, setAdvOpen] = useStateA(true);
@@ -1154,6 +1185,54 @@ function FormTypePreview({ style }) {
       )}
     </div>
   );
+}
+
+// Wrapper: when editing, the list passes a TRIMMED campaign (window.CAMPAIGNS from
+// the public list — no `description`, no advanced toggles). Fetch the FULL record
+// from the admin endpoint first so the rich-text story (incl. images), thumbnail,
+// Publish status, and all advanced settings load back correctly. While the fetch is
+// in flight we show the trimmed item so the form isn't blank; once full data
+// arrives we remount the form (via `key`) to re-seed every field. On create
+// (no editingCampaign) we render the empty form immediately.
+function CampaignEditorView() {
+  const { editingCampaign } = useApp();
+  const editId = editingCampaign && editingCampaign.id;
+  const [full, setFull] = useStateA(editingCampaign);
+  const [loaded, setLoaded] = useStateA(!editId); // create mode: nothing to load
+
+  useEffectA(() => {
+    let alive = true;
+    if (!editId || !window.api || !window.api.adminCampaign) { setLoaded(true); return; }
+    setLoaded(false);
+    window.api.adminCampaign(editId)
+      .then(r => {
+        if (!alive) return;
+        if (r && r.data) {
+          // Merge the full record over the trimmed list item; mapCampaign normalizes
+          // field names (image→img, category object→name, etc.) the form expects.
+          const mapped = window.mapCampaign ? window.mapCampaign(r.data) : r.data;
+          setFull({ ...editingCampaign, ...mapped });
+        }
+      })
+      .catch(() => { /* keep trimmed item as fallback */ })
+      .finally(() => { if (alive) setLoaded(true); });
+    return () => { alive = false; };
+  }, [editId]);
+
+  // While the full record loads (edit mode only), show a placeholder rather than
+  // mounting the form with trimmed data — that would flash the wrong content and
+  // discard any early edits when we remount with full data.
+  if (editId && !loaded) {
+    return (
+      <div className="flex items-center justify-center py-24 text-mute text-sm">
+        <span className="h-5 w-5 mr-3 rounded-full border-2 border-brand-600 border-t-transparent animate-spin"/>
+        Memuat data campaign…
+      </div>
+    );
+  }
+
+  // key forces a fresh seed when switching between edited campaigns.
+  return <CampaignEditorForm key={editId || 'new'} campaign={editId ? full : null}/>;
 }
 
 window.CampaignEditorView = CampaignEditorView;

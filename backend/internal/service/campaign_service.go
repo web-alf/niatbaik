@@ -80,6 +80,8 @@ func (s *CampaignService) Create(req *request.CreateCampaignRequest, userID uuid
 		OptNominal:       req.OptNominal,
 		ButtonColor:      req.ButtonColor,
 		FormFieldsConfig: req.FormFieldsConfig,
+		PaymentConfig:    req.PaymentConfig,
+		PixelConfig:      req.PixelConfig,
 	}
 
 	if req.Target != nil {
@@ -189,6 +191,12 @@ func (s *CampaignService) Update(id uuid.UUID, req *request.UpdateCampaignReques
 	}
 	if req.FormFieldsConfig != "" {
 		c.FormFieldsConfig = req.FormFieldsConfig
+	}
+	if req.PaymentConfig != "" {
+		c.PaymentConfig = req.PaymentConfig
+	}
+	if req.PixelConfig != "" {
+		c.PixelConfig = req.PixelConfig
 	}
 	if req.WANotification != nil {
 		c.WANotification = *req.WANotification

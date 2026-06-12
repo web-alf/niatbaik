@@ -47,6 +47,8 @@ type Campaign struct {
 	ExternalLink     string  `gorm:"size:500" json:"external_link"`
 	MinDonation      int64   `gorm:"default:0" json:"min_donation"`
 	MaxDonation      int64   `gorm:"default:0" json:"max_donation"`
+	PaymentConfig    string  `gorm:"type:text" json:"payment_config"` // JSON: per-campaign custom payment rows
+	PixelConfig      string  `gorm:"type:text" json:"pixel_config"`   // JSON: Meta CAPI token, test event, event map
 
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`

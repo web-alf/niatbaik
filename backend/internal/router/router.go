@@ -149,6 +149,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	admin.Use(middleware.RequireAdmin())
 
 	admin.GET("/admin/campaigns", adminCampaignHandler.List)
+	admin.GET("/admin/campaigns/:id", adminCampaignHandler.Get)
 	admin.POST("/admin/campaigns", adminCampaignHandler.Create)
 	admin.PUT("/admin/campaigns/:id", adminCampaignHandler.Update)
 	admin.DELETE("/admin/campaigns/:id", adminCampaignHandler.Delete)

@@ -32,6 +32,8 @@ type CreateCampaignRequest struct {
 	OptNominal       string     `json:"opt_nominal" validate:"omitempty,max=10000"`
 	ButtonColor      string     `json:"button_color" validate:"omitempty,max=30"`
 	FormFieldsConfig string     `json:"form_fields_config" validate:"omitempty,max=10000"`
+	PaymentConfig    string     `json:"payment_config" validate:"omitempty,max=20000"`
+	PixelConfig      string     `json:"pixel_config" validate:"omitempty,max=20000"`
 }
 
 type UpdateCampaignRequest struct {
@@ -65,4 +67,6 @@ type UpdateCampaignRequest struct {
 	OptNominal       string     `json:"opt_nominal" validate:"omitempty,max=10000"`
 	ButtonColor      string     `json:"button_color" validate:"omitempty,max=30"`
 	FormFieldsConfig string     `json:"form_fields_config" validate:"omitempty,max=10000"`
+	PaymentConfig    string     `json:"payment_config" validate:"omitempty,max=20000"`
+	PixelConfig      string     `json:"pixel_config" validate:"omitempty,max=20000"`
 }

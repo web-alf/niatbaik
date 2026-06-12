@@ -86,9 +86,23 @@ function mapCampaign(c) {
     form_type: c.form_type || 'donasi',
     opt_nominal: c.opt_nominal || '',
     form_fields_config: c.form_fields_config || '',
+    payment_config: c.payment_config || '',
+    pixel_config: c.pixel_config || '',
     button_color: c.button_color || '',
     min_donation: c.min_donation || 0,
+    max_donation: c.max_donation || 0,
     location_name: c.location_name || '',
+    location_gmaps: c.location_gmaps || '',
+    // Advanced / Publish-panel fields — needed so the editor can round-trip them
+    // (they are absent from the trimmed public list, present in the admin detail).
+    wa_notification: c.wa_notification || false,
+    followup_enabled: c.followup_enabled || false,
+    popup_info: c.popup_info || false,
+    wa_flying_button: c.wa_flying_button || false,
+    external_link: c.external_link || '',
+    meta_pixel_id: c.meta_pixel_id || '',
+    tiktok_pixel_id: c.tiktok_pixel_id || '',
+    gtm_id: c.gtm_id || '',
     progress_percentage: c.progress_percentage || (c.target > 0 ? Math.min(100, Math.round((c.total_raised || c.raised || 0) / c.target * 100)) : 0),
   };
 }

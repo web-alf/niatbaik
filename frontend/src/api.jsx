@@ -218,6 +218,7 @@ const api = {
 
   // Admin campaigns
   adminCampaigns(params = '') { return this.get('/admin/campaigns' + (params ? '?' + params : '')); },
+  adminCampaign(id) { return this.get('/admin/campaigns/' + id); },
   createCampaign(data) { return this.post('/admin/campaigns', data); },
   updateCampaign(id, data) { return this.put('/admin/campaigns/' + id, data); },
   deleteCampaign(id) { return this.del('/admin/campaigns/' + id); },

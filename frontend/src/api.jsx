@@ -249,6 +249,10 @@ const api = {
   updateSettings(data) { return this.put('/settings', data); },
   testEmail(to) { return this.post('/settings/test-email', { to }); },
 
+  // Realtime long-poll: resolves when the server data revision advances past `since`
+  // (or after the server's ~25s hold). Returns { revision, changed }.
+  events(since) { return this.get('/events?since=' + (since || 0)); },
+
   // Notifications
   notifications() { return this.get('/notifications'); },
   markNotificationRead(id) { return this.put('/notifications/' + id + '/read'); },

@@ -95,9 +95,9 @@ type UpdateSettingRequest struct {
 	MootaEndpoint         *string `json:"moota_endpoint"`
 	MootaSignatureEnabled *bool   `json:"moota_signature_enabled"`
 	MootaDateRange        *int    `json:"moota_date_range"`
-	FlipMode              *string `json:"flip_mode"`
+	FlipMode              *string `json:"flip_mode" validate:"omitempty,oneof=sandbox production"`
 	FlipAutoRedirect      *bool   `json:"flip_auto_redirect"`
-	FlipChargeFee         *string `json:"flip_charge_fee"`
+	FlipChargeFee         *string `json:"flip_charge_fee" validate:"omitempty,oneof=merchant donatur"`
 
 	// Unique number / Kode Unik
 	UniqueCodeMode  *string `json:"unique_code_mode" validate:"omitempty,oneof=none fixed range"`

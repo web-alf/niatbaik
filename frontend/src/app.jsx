@@ -514,26 +514,51 @@ function App() {
 
   // --- Load API data (await before rendering views) ---
   const [dataReady, setDataReady] = uS(false);
+  // dataTick bumps on every realtime refresh; changing it re-renders the current view
+  // so it re-reads the freshly-updated window.* globals (covers all dashboard pages).
+  const [dataTick, setDataTick] = uS(0);
   uE(() => {
     let cancelled = false;
     (async () => {
       setDataReady(false);
-      // Public data
-      try { await window.loadApiData?.(); } catch {}
-      // Protected data
-      if (user) {
-        const safe = async (fn) => { try { await fn?.(); } catch {} };
-        await Promise.all([
-          safe(window.loadAdminData), safe(window.loadDashboardChart),
-          safe(window.loadDashboardStats), safe(window.loadProfile),
-          safe(window.loadInvoices), safe(window.loadAnalytics),
-          safe(window.loadDataStudio), safe(window.loadPaymentMethods),
-          safe(window.loadAdCosts),
-        ]);
-      }
+      await (window.refreshAllData ? window.refreshAllData(!!user) : Promise.resolve());
       if (!cancelled) setDataReady(true);
     })();
     return () => { cancelled = true; };
+  }, [user]);
+
+  // --- Realtime auto-refresh (long-poll) ---
+  // While logged in, hold a long-poll on /api/events; when the server's data revision
+  // advances (any mutation anywhere), refetch everything and bump dataTick to
+  // re-render. Pauses while the tab is hidden; backs off on error; self-cancels on
+  // logout/unmount. Near-instant (<1s) without WebSockets — Cloudflare-friendly.
+  uE(() => {
+    if (!user) return;
+    let stopped = false;
+    let rev = 0;
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    (async () => {
+      // Seed the revision so the first poll only returns on a *new* change.
+      try { const r0 = await api.events(0); rev = r0?.revision || 0; } catch {}
+      while (!stopped) {
+        if (document.hidden) { await sleep(2000); continue; }
+        try {
+          const res = await api.events(rev);
+          if (stopped) break;
+          if (res && res.changed) {
+            rev = res.revision || rev;
+            await (window.refreshAllData ? window.refreshAllData(true) : Promise.resolve());
+            if (!stopped) setDataTick(t => t + 1);
+          } else if (res && res.revision != null) {
+            rev = res.revision; // timeout tick — just re-poll
+          }
+        } catch {
+          // Network/auth blip — wait before retrying so we don't hot-loop.
+          if (!stopped) await sleep(5000);
+        }
+      }
+    })();
+    return () => { stopped = true; };
   }, [user]);
 
   // --- Landing/login nav helpers (used by login + reset pages) ---
@@ -635,8 +660,11 @@ function App() {
     dark, setDark,
     openCampaign: (id) => { setCampaignDetail(id); setView('campaign-detail'); },
     openInvoice: (tx) => setInvoiceTxn(tx),
+    // Increments on every realtime data refresh; views can read this from useApp()
+    // and pass it to useMemo deps to recompute derived lists when fresh data lands.
+    dataTick,
     setRole: () => {}
-  }), [user, role, route, invoiceTxn, campaignDetail, editingCampaign, dark]);
+  }), [user, role, route, invoiceTxn, campaignDetail, editingCampaign, dark, dataTick]);
 
   // --- Auth loading skeleton ---
   if (authLoading) {

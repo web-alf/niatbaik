@@ -315,6 +315,24 @@ async function loadAdCosts() {
   } catch {}
 }
 
+// refreshAllData re-runs the public + (when logged in) protected loaders into the
+// window.* globals. Used both for the initial load and for realtime auto-refresh so
+// there's a single source of truth for "reload everything". Returns when done.
+async function refreshAllData(isLoggedIn) {
+  const safe = async (fn) => { try { await fn?.(); } catch {} };
+  await safe(window.loadApiData);
+  if (isLoggedIn) {
+    await Promise.all([
+      safe(window.loadAdminData), safe(window.loadDashboardChart),
+      safe(window.loadDashboardStats), safe(window.loadProfile),
+      safe(window.loadInvoices), safe(window.loadAnalytics),
+      safe(window.loadDataStudio), safe(window.loadPaymentMethods),
+      safe(window.loadAdCosts),
+    ]);
+  }
+}
+window.refreshAllData = refreshAllData;
+
 /* ------------------------------------------------------------------ */
 /*  Export to window scope — all empty, API fills them                  */
 /* ------------------------------------------------------------------ */

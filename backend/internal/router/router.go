@@ -9,6 +9,7 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/middleware"
 	"github.com/anrdart/niatbaik-api/internal/repository"
 	"github.com/anrdart/niatbaik-api/internal/service"
+	"github.com/anrdart/niatbaik-api/pkg/realtime"
 )
 
 func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
@@ -77,8 +78,15 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	paymentStatusHandler := handler.NewPaymentStatusHandler(paymentStatusRepo)
 	dataStudioHandler := handler.NewDataStudioHandler(dataStudioService)
 
+	// Realtime change notifier: a global revision is bumped after every successful
+	// mutating request (RevisionBumper), and long-poll clients block on /events until
+	// it advances. Drives near-instant dashboard auto-refresh without WebSockets.
+	notifier := realtime.New()
+	eventsHandler := handler.NewEventsHandler(notifier)
+
 	// API group
 	api := e.Group("/api")
+	api.Use(middleware.RevisionBumper(notifier))
 
 	// Health
 	api.GET("/health", publicHandler.HealthCheck)
@@ -112,6 +120,9 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	// Protected routes (require JWT)
 	protected := api.Group("")
 	protected.Use(middleware.JWTMiddleware(cfg.JWTSecret, revokedTokenRepo))
+
+	// Realtime long-poll (any authenticated dashboard user).
+	protected.GET("/events", eventsHandler.Poll)
 
 	// Auth (protected)
 	protected.POST("/auth/logout", authHandler.Logout)

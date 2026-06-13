@@ -35,7 +35,7 @@ func (h *PaymentMethodHandler) Create(c echo.Context) error {
 	// Normalize type casing ('QRIS'/'Card' from the admin form) before enum validation.
 	req.Type = strings.ToLower(strings.TrimSpace(req.Type))
 	if err := c.Validate(&req); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(response.ValidationMessage(err)))
 	}
 	pm, err := h.service.Create(&req)
 	if err != nil {
@@ -55,7 +55,7 @@ func (h *PaymentMethodHandler) Update(c echo.Context) error {
 	}
 	req.Type = strings.ToLower(strings.TrimSpace(req.Type))
 	if err := c.Validate(&req); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(response.ValidationMessage(err)))
 	}
 	pm, err := h.service.Update(id, &req)
 	if err != nil {

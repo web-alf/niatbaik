@@ -47,7 +47,7 @@ func (h *AdminCampaignHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
 	}
 	if err := c.Validate(&req); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(response.ValidationMessage(err)))
 	}
 
 	campaign, err := h.service.Create(&req, claims.UserID)
@@ -69,7 +69,7 @@ func (h *AdminCampaignHandler) Update(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
 	}
 	if err := c.Validate(&req); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(response.ValidationMessage(err)))
 	}
 
 	campaign, err := h.service.Update(id, &req)

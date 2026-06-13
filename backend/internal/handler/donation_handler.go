@@ -23,7 +23,7 @@ func (h *DonationHandler) CreateDonation(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("Invalid request body"))
 	}
 	if err := c.Validate(req); err != nil {
-		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse(response.ValidationMessage(err)))
 	}
 
 	ip := c.RealIP()

@@ -383,11 +383,21 @@ function Topbar({ onMenu }) {
 // APP
 // =============================================================
 // Map a URL path (from a reset email link or deep link) to an initial public route.
+// Parse the campaign slug from a /c/<slug> share URL, if present.
+function campaignSlugFromPath() {
+  try {
+    const m = window.location.pathname.match(/^\/c\/([^/?#]+)/);
+    if (m && m[1]) return decodeURIComponent(m[1]);
+  } catch {}
+  return '';
+}
+
 function initialRouteFromPath() {
   try {
     const p = window.location.pathname;
     if (p === '/reset-password') return 'reset-password';
     if (p === '/forgot-password') return 'forgot-password';
+    if (/^\/c\/[^/?#]+/.test(p)) return 'campaign-detail';
   } catch {}
   return 'landing';
 }
@@ -399,7 +409,8 @@ function App() {
   const [toast, setToast] = uS('');
   const [sidebarOpen, setSidebarOpen] = uS(false);
   const [invoiceTxn, setInvoiceTxn] = uS(null);
-  const [campaignDetail, setCampaignDetail] = uS(null);
+  // Seed from a /c/<slug> deep-link so a direct visit/refresh opens that campaign.
+  const [campaignDetail, setCampaignDetail] = uS(() => campaignSlugFromPath() || null);
   const [editingCampaign, setEditingCampaign] = uS(null);
   const [adsGuideOpen, setAdsGuideOpen] = uS(false);
   const [dark, setDarkRaw] = uS(() => {
@@ -735,8 +746,12 @@ function Placeholder() {
 // --- Campaign detail wrapper (public route) ---
 function CampaignDetailWrap() {
   const { navigate, campaignDetail } = useApp();
-  const list = window.CAMPAIGNS || (window.NB && window.NB.campaignSeed) || [];
-  const id = campaignDetail || list[0]?.slug || list[0]?.id;
+  // The slug comes from in-app navigation (campaignDetail — may be a slug string or
+  // a campaign object) or the /c/<slug> URL. Do NOT fall back to list[0] — an unknown
+  // slug must reach CampaignDetail so it shows "not found" instead of silently
+  // opening a different campaign.
+  const cd = campaignDetail;
+  const id = (cd && typeof cd === 'object') ? (cd.slug || cd.id) : (cd || campaignSlugFromPath());
   if (typeof window.CampaignDetail !== 'function') {
     return <div className="min-h-screen flex items-center justify-center text-mute">Memuat campaign…</div>;
   }

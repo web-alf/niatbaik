@@ -25,7 +25,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
 	}
 	if err := c.Validate(&req); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(response.ValidationMessage(err)))
 	}
 
 	ip := c.RealIP()
@@ -48,7 +48,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
 	}
 	if err := c.Validate(&req); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(response.ValidationMessage(err)))
 	}
 
 	userResp, err := h.service.Register(&req)
@@ -111,7 +111,7 @@ func (h *AuthHandler) ForgotPassword(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
 	}
 	if err := c.Validate(&req); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(response.ValidationMessage(err)))
 	}
 
 	if err := h.service.ForgotPassword(req.Email); err != nil {
@@ -127,7 +127,7 @@ func (h *AuthHandler) ResetPassword(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
 	}
 	if err := c.Validate(&req); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(response.ValidationMessage(err)))
 	}
 
 	if err := h.service.ResetPassword(&req); err != nil {

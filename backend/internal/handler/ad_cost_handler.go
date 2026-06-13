@@ -25,7 +25,7 @@ func (h *AdCostHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request"))
 	}
 	if err := c.Validate(&req); err != nil {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(response.ValidationMessage(err)))
 	}
 
 	claims := middleware.GetUserFromContext(c)

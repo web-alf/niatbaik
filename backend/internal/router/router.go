@@ -38,7 +38,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	paymentService := service.NewPaymentService(db, invoiceRepo, campaignRepo, settingRepo, fundraiserRepo, commissionRepo)
 	mootaService := service.NewMootaService(cfg, paymentService, invoiceRepo, settingRepo)
 	flipService := service.NewFlipService(cfg, paymentService, invoiceRepo, settingRepo)
-	donationService := service.NewDonationService(db, cfg, invoiceRepo, campaignRepo, donationRepo, settingRepo, flipService)
+	donationService := service.NewDonationService(db, cfg, invoiceRepo, campaignRepo, donationRepo, settingRepo, paymentMethodRepo, flipService)
 	dashboardService := service.NewDashboardService(statsRepo)
 	campaignService := service.NewCampaignService(campaignRepo, categoryRepo)
 	userService := service.NewUserService(userRepo, settingRepo)

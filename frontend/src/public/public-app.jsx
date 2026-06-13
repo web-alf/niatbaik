@@ -643,6 +643,10 @@ function CampaignPage({ c: listItem, onNav }) {
   const [paid, setPaid] = useState(false);
   const [invoice, setInvoice] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  // Track mount so a deferred setSubmitting (idempotency retry hold) doesn't fire on
+  // an unmounted component if the donor navigates away during the 5s window.
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   // The landing list only carries summary fields (short_description, no story /
   // donors / updates). Fetch the full detail by slug and merge it over the list
@@ -715,8 +719,21 @@ function CampaignPage({ c: listItem, onNav }) {
   ];
 
   const handleSubmit = async () => {
-    if (!donor.wa.trim()) { alert('No. WhatsApp wajib diisi'); return; }
+    // Client-side validation mirrors the server rules so the donor gets immediate,
+    // Indonesian feedback (the flowchart's "Form valid? Tidak → Pesan error" path)
+    // instead of a round-trip + generic error.
+    const wa = (donor.wa || '').trim();
+    const digits = wa.replace(/[^0-9]/g, '');
+    if (!wa) { alert('No. WhatsApp wajib diisi'); return; }
+    if (digits.length < 8 || digits.length > 15) { alert('No. WhatsApp tidak valid (8–15 digit)'); return; }
+    if (!anon) {
+      const nm = (donor.name || '').trim();
+      if (nm && nm.length < 2) { alert('Nama minimal 2 karakter'); return; }
+    }
+    if (donor.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(donor.email.trim())) { alert('Format email tidak valid'); return; }
     if (!amount || amount < 10000) { alert('Minimal donasi Rp 10.000'); return; }
+    if (amount > 1000000000) { alert('Nominal donasi maksimal Rp 1.000.000.000'); return; }
+
     setSubmitting(true);
     try {
       const res = await window.api.createDonation({
@@ -727,12 +744,26 @@ function CampaignPage({ c: listItem, onNav }) {
         amount: Number(amount),
         message: donor.message || '',
         is_anonymous: anon,
-        payment_method: typeof paymentMethod === 'object' ? (paymentMethod.type || paymentMethod.bank_name) : paymentMethod,
+        payment_method: typeof paymentMethod === 'object' ? (paymentMethod.bank_name || paymentMethod.type) : paymentMethod,
+        // Send the method's UUID when chosen from the API list so the backend records
+        // the exact method on the invoice (admin dashboard + correct confirmation info).
+        payment_method_id: (typeof paymentMethod === 'object' && paymentMethod) ? paymentMethod.id : undefined,
         referral_code: referralCode || undefined,
       });
-      if (res?.data) { setInvoice(res.data); }
-      else alert(res?.message || 'Gagal membuat donasi');
-    } catch (e) { alert('Gagal: ' + (e?.message || 'Periksa koneksi')); }
+      if (res?.data) { setInvoice(res.data); return; } // keep submitting=true; view swaps to confirmation
+      alert(res?.message || 'Gagal membuat donasi');
+    } catch (e) {
+      const msg = e?.message || 'Periksa koneksi';
+      // Duplicate-donation guard (server idempotency, 60s window): hold the button
+      // disabled a few seconds so an impatient donor on a slow connection can't fire
+      // a second request that escapes the window and creates a duplicate invoice.
+      if (/serupa baru saja|terlalu banyak|duplicate/i.test(msg)) {
+        alert(msg + '\n\nMohon tunggu beberapa detik sebelum mencoba lagi.');
+        setTimeout(() => { if (mountedRef.current) setSubmitting(false); }, 5000);
+        return;
+      }
+      alert('Gagal: ' + msg);
+    }
     setSubmitting(false);
   };
 
@@ -1440,26 +1471,85 @@ window.LandingPage = PublicApp;
 // campaign by slug/id from live CAMPAIGNS (else seed) and renders the public
 // CampaignPage; onBack returns to the landing route.
 function CampaignDetail({ id, onBack }) {
-  const list = window.CAMPAIGNS || getCampaigns();
-  const c = list.find(x => x.slug === id || x.id === id) || list[1] || list[0];
   const [dark, toggleDark] = usePublicDark();
+  const list = window.CAMPAIGNS || getCampaigns();
+  // Resolve strictly by exact slug/id — NO fallback to another campaign (a wrong
+  // slug like /c/anjay must not silently show a different program).
+  const fromList = (id && list.find(x => x.slug === id || x.id === id)) || null;
+
+  // 'loading' until we know; then either the campaign object or null (not found).
+  const [resolved, setResolved] = useState(fromList);
+  const [state, setState] = useState(fromList ? 'ok' : (id ? 'loading' : 'notfound'));
+
+  useEffect(() => {
+    let alive = true;
+    if (fromList || !id) { return; }
+    // Not in the in-memory list (e.g. a direct deep-link before the list loaded, or
+    // a paused/non-listed campaign). Try fetching it by slug from the API.
+    if (window.api && window.api.campaign) {
+      window.api.campaign(id)
+        .then(r => {
+          if (!alive) return;
+          if (r && r.data) { setResolved(window.mapCampaign ? window.mapCampaign(r.data) : r.data); setState('ok'); }
+          else setState('notfound');
+        })
+        .catch(() => { if (alive) setState('notfound'); });
+    } else {
+      setState('notfound');
+    }
+    return () => { alive = false; };
+  }, [id]);
+
+  const Header = (
+    <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-line">
+      <div className="max-w-7xl mx-auto px-4 lg:px-6 h-16 flex items-center gap-4">
+        <button onClick={onBack} className="inline-flex items-center gap-2 text-sm font-bold text-ink">
+          <Icon name="chevronL" size={16}/> Kembali
+        </button>
+        <div className="flex-1"/>
+        <button onClick={toggleDark} aria-label="Toggle dark mode"
+          className="h-9 w-9 rounded-lg border border-line bg-white hover:bg-bg2 flex items-center justify-center text-ink">
+          <Icon name={dark ? 'sun' : 'moon'} size={16}/>
+        </button>
+        <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-7"/>
+      </div>
+    </header>
+  );
+
+  if (state === 'loading') {
+    return (
+      <div className="min-h-screen flex flex-col bg-white">
+        {Header}
+        <main className="flex-1 flex items-center justify-center text-mute text-sm">
+          <span className="h-5 w-5 mr-3 rounded-full border-2 border-brand-600 border-t-transparent animate-spin"/>
+          Memuat campaign…
+        </main>
+      </div>
+    );
+  }
+
+  if (state === 'notfound' || !resolved) {
+    return (
+      <div className="min-h-screen flex flex-col bg-white">
+        {Header}
+        <main className="flex-1 flex flex-col items-center justify-center text-center px-6 py-24">
+          <div className="h-16 w-16 rounded-2xl bg-bg2 flex items-center justify-center text-mute mb-4"><Icon name="search" size={28}/></div>
+          <div className="text-xl font-extrabold text-ink">Campaign tidak ditemukan</div>
+          <div className="mt-1 text-sm text-mute max-w-sm">Tautan mungkin salah atau campaign sudah tidak tersedia.</div>
+          <button onClick={onBack} className="mt-5 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-brand-600 text-white font-bold text-sm hover:bg-brand-700">
+            <Icon name="home" size={16}/> Kembali ke beranda
+          </button>
+        </main>
+        <Footer/>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-line">
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 h-16 flex items-center gap-4">
-          <button onClick={onBack} className="inline-flex items-center gap-2 text-sm font-bold text-ink">
-            <Icon name="chevronL" size={16}/> Kembali
-          </button>
-          <div className="flex-1"/>
-          <button onClick={toggleDark} aria-label="Toggle dark mode"
-            className="h-9 w-9 rounded-lg border border-line bg-white hover:bg-bg2 flex items-center justify-center text-ink">
-            <Icon name={dark ? 'sun' : 'moon'} size={16}/>
-          </button>
-          <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-7"/>
-        </div>
-      </header>
+      {Header}
       <main className="flex-1 pb-24 lg:pb-0">
-        <CampaignPage c={c} onNav={(name) => { if (name === 'home') onBack(); }}/>
+        <CampaignPage c={resolved} onNav={(name) => { if (name === 'home') onBack(); }}/>
       </main>
       <SocialPopup/>
     </div>

@@ -163,7 +163,7 @@ func (h *InvoiceHandler) AddNote(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
 	}
 	if err := c.Validate(req); err != nil {
-		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse(response.ValidationMessage(err)))
 	}
 
 	result := h.db.Model(&model.Invoice{}).Where("id = ?", id).

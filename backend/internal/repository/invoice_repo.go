@@ -83,6 +83,16 @@ func (r *InvoiceRepo) Update(invoice *model.Invoice) error {
 	return r.db.Save(invoice).Error
 }
 
+// ExpireStale flips unpaid invoices whose ExpiredAt has passed to the "Kadaluarsa"
+// status in one bulk UPDATE. Only touches still-pending, not-yet-expired-labeled
+// rows so it is idempotent and never disturbs paid invoices. Returns rows affected.
+func (r *InvoiceRepo) ExpireStale() (int64, error) {
+	res := r.db.Model(&model.Invoice{}).
+		Where("is_paid = ? AND status <> ? AND expired_at < ?", false, "Kadaluarsa", time.Now()).
+		Update("status", "Kadaluarsa")
+	return res.RowsAffected, res.Error
+}
+
 func (r *InvoiceRepo) CountDonors(campaignID uuid.UUID) (int64, error) {
 	var count int64
 	if err := r.db.Model(&model.Invoice{}).

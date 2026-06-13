@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
@@ -11,6 +12,7 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/config"
 	"github.com/anrdart/niatbaik-api/internal/database"
 	"github.com/anrdart/niatbaik-api/internal/middleware"
+	"github.com/anrdart/niatbaik-api/internal/repository"
 	"github.com/anrdart/niatbaik-api/internal/router"
 	"github.com/anrdart/niatbaik-api/pkg/validator"
 )
@@ -38,6 +40,26 @@ func main() {
 
 	// Seed default data
 	database.Seed(db)
+
+	// Background sweeper: flip unpaid invoices past their 24h window to "Kadaluarsa"
+	// so stale pending donations age out instead of lingering forever. Runs once at
+	// boot, then hourly. Best-effort — log on error, never crash the server.
+	go func() {
+		invoiceRepo := repository.NewInvoiceRepo(db)
+		sweep := func() {
+			if n, err := invoiceRepo.ExpireStale(); err != nil {
+				log.Printf("[expiry] failed to expire stale invoices: %v", err)
+			} else if n > 0 {
+				log.Printf("[expiry] marked %d stale invoice(s) as Kadaluarsa", n)
+			}
+		}
+		sweep()
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			sweep()
+		}
+	}()
 
 	// Create Echo instance
 	e := echo.New()

@@ -3,6 +3,7 @@ package service
 import (
 	"crypto/rand"
 	"fmt"
+	"log"
 	"math/big"
 	"strings"
 	"time"
@@ -16,13 +17,14 @@ import (
 )
 
 type DonationService struct {
-	db           *gorm.DB
-	cfg          *config.Config
-	invoiceRepo  *repository.InvoiceRepo
-	campaignRepo *repository.CampaignRepo
-	donationRepo *repository.DonationRepo
-	settingRepo  *repository.SettingRepo
-	flipService  *FlipService
+	db                *gorm.DB
+	cfg               *config.Config
+	invoiceRepo       *repository.InvoiceRepo
+	campaignRepo      *repository.CampaignRepo
+	donationRepo      *repository.DonationRepo
+	settingRepo       *repository.SettingRepo
+	paymentMethodRepo *repository.PaymentMethodRepo
+	flipService       *FlipService
 }
 
 func NewDonationService(
@@ -32,16 +34,18 @@ func NewDonationService(
 	campaignRepo *repository.CampaignRepo,
 	donationRepo *repository.DonationRepo,
 	settingRepo *repository.SettingRepo,
+	paymentMethodRepo *repository.PaymentMethodRepo,
 	flipService *FlipService,
 ) *DonationService {
 	return &DonationService{
-		db:           db,
-		cfg:          cfg,
-		invoiceRepo:  invoiceRepo,
-		campaignRepo: campaignRepo,
-		donationRepo: donationRepo,
-		settingRepo:  settingRepo,
-		flipService:  flipService,
+		db:                db,
+		cfg:               cfg,
+		invoiceRepo:       invoiceRepo,
+		campaignRepo:      campaignRepo,
+		donationRepo:      donationRepo,
+		settingRepo:       settingRepo,
+		paymentMethodRepo: paymentMethodRepo,
+		flipService:       flipService,
 	}
 }
 
@@ -101,16 +105,43 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 		}
 	}
 
-	// Unique code (1-999) for manual bank transfer to disambiguate mutations.
+	// Resolve the chosen payment method. The frontend sends payment_method_id (UUID
+	// from /payment-methods/public); fall back to the legacy free-text label. We
+	// record the method on the invoice so the admin dashboard and the donor's
+	// confirmation page show the real method (bank name / type), and so the right
+	// gateway routing is chosen.
+	var chosenMethod *model.PaymentMethod
+	if req.PaymentMethodID != "" && s.paymentMethodRepo != nil {
+		if pmID, err := uuid.Parse(strings.TrimSpace(req.PaymentMethodID)); err == nil {
+			if pm, err := s.paymentMethodRepo.FindByID(pmID); err == nil {
+				chosenMethod = pm
+			}
+		}
+	}
+
+	// Payment model: Flip is the automatic gateway. When Flip is enabled, every
+	// method (QRIS / VA / e-wallet) is settled instantly through Flip and needs NO
+	// unique code — the gateway disambiguates each payment itself. Only when Flip is
+	// disabled do we fall back to manual bank transfer, where a 1-999 unique code is
+	// appended so Moota/manual reconciliation can tell two same-amount transfers apart.
+	settingsForPay, _ := s.settingRepo.Get()
+	isGateway := settingsForPay != nil && settingsForPay.FlipEnabled && s.flipService != nil // Flip-auto
+
 	var uniqueCode int64 = 0
-	method := strings.ToUpper(req.PaymentMethod)
-	isGateway := method == "QRIS" || method == "FLIP"
 	if !isGateway {
 		if nBig, err := rand.Int(rand.Reader, big.NewInt(999)); err == nil {
 			uniqueCode = nBig.Int64() + 1
 		}
 	}
 	totalAmount := req.Amount + uniqueCode
+
+	// Name + FK recorded on the invoice for display/reporting/admin dashboard.
+	paymentMethodName := req.PaymentMethod
+	var paymentMethodID *uuid.UUID
+	if chosenMethod != nil {
+		paymentMethodName = chosenMethod.BankName
+		paymentMethodID = &chosenMethod.ID
+	}
 
 	msg := req.Message
 	var invoice model.Invoice
@@ -129,13 +160,15 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 				DonorEmail:    req.DonorEmail,
 				Message:       &msg,
 				IsAnonymous:   req.IsAnonymous,
-				ExpiredAt:     time.Now().Add(24 * time.Hour),
-				Status:        "Menunggu Pembayaran",
-				IP:            ip,
-				ReferredBy:    referredBy,
-				UTMSource:     req.UTMSource,
-				UTMMedium:     req.UTMMedium,
-				UTMCampaign:   req.UTMCampaign,
+				ExpiredAt:         time.Now().Add(24 * time.Hour),
+				Status:            "Menunggu Pembayaran",
+				IP:                ip,
+				ReferredBy:        referredBy,
+				PaymentMethodID:   paymentMethodID,
+				PaymentMethodName: paymentMethodName,
+				UTMSource:         req.UTMSource,
+				UTMMedium:         req.UTMMedium,
+				UTMCampaign:       req.UTMCampaign,
 			}
 			lastErr = tx.Create(&invoice).Error
 			if lastErr == nil {
@@ -165,28 +198,39 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 		return nil, txErr
 	}
 
-	// Create Flip payment bill only when Flip is enabled + configured.
-	if isGateway && s.flipService != nil {
-		settings, _ := s.settingRepo.Get()
-		flipReady := settings != nil && settings.FlipEnabled
-		if flipReady {
-			redirectURL := fmt.Sprintf("https://donasi.niatbaik.org/donations/%s", invoice.InvoiceNumber)
-			bill, flipErr := s.flipService.CreateBill(&invoice, redirectURL)
-			if flipErr == nil && bill != nil {
-				invoice.PayCode = fmt.Sprintf("%d", bill.LinkID)
-				invoice.QrURL = bill.PaymentURL
-				invoice.URLAlternative = bill.LinkURL
-				invoice.TypePayment = "Flip"
-				_ = s.invoiceRepo.Update(&invoice)
-			} else {
-				// Flip failed — fall back to manual QRIS/transfer, keep invoice valid.
-				invoice.TypePayment = "QRIS Manual"
-				_ = s.invoiceRepo.Update(&invoice)
+	// When Flip is the active gateway, create the hosted bill so the donor is sent to
+	// Flip's payment page (QRIS/VA/e-wallet, settled via webhook). The redirect host
+	// is configurable (FRONTEND_BASE_URL) instead of hardcoded to production.
+	if isGateway {
+		redirectURL := fmt.Sprintf("%s/donations/%s", s.cfg.FrontendBaseURL, invoice.InvoiceNumber)
+		bill, flipErr := s.flipService.CreateBill(&invoice, redirectURL)
+		if flipErr == nil && bill != nil {
+			invoice.PayCode = fmt.Sprintf("%d", bill.LinkID)
+			invoice.QrURL = bill.PaymentURL
+			invoice.URLAlternative = bill.LinkURL
+			invoice.TypePayment = "Flip"
+			if err := s.invoiceRepo.Update(&invoice); err != nil {
+				log.Printf("[donation] failed to persist Flip bill details for %s: %v", invoice.InvoiceNumber, err)
 			}
 		} else {
-			// Flip disabled — manual QRIS. Invoice stays "Menunggu Pembayaran".
-			invoice.TypePayment = "QRIS Manual"
-			_ = s.invoiceRepo.Update(&invoice)
+			// Flip call failed at runtime — degrade to a manual transfer so the invoice
+			// stays payable. Add a unique code now (it wasn't added above because we
+			// expected the gateway to disambiguate) so manual reconciliation can match it.
+			if nBig, rerr := rand.Int(rand.Reader, big.NewInt(999)); rerr == nil {
+				invoice.Total = invoice.Subtotal + nBig.Int64() + 1
+			} else {
+				log.Printf("[donation] unique-code generation failed for %s: %v", invoice.InvoiceNumber, rerr)
+			}
+			invoice.TypePayment = "Transfer Manual"
+			if err := s.invoiceRepo.Update(&invoice); err != nil {
+				log.Printf("[donation] failed to persist manual fallback for %s: %v", invoice.InvoiceNumber, err)
+			}
+		}
+	} else {
+		// Flip disabled — manual bank transfer. Unique code already appended above.
+		invoice.TypePayment = "Transfer Manual"
+		if err := s.invoiceRepo.Update(&invoice); err != nil {
+			log.Printf("[donation] failed to persist manual transfer type for %s: %v", invoice.InvoiceNumber, err)
 		}
 	}
 

@@ -14,3 +14,8 @@ frontend/debug.html
 # DonasiAja reference material (local only)
 Campaigns _ DonasiAja*
 *.html.ref/
+
+# Local reference material (flowcharts, DonasiAja setting dumps)
+flow/
+flowchart_donasi_donasiaja.jpeg
+.vscode/

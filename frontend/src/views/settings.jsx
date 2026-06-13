@@ -9,6 +9,25 @@ function SettingsView() {
   const [tab, setTab] = useStateA('themes');
   const [settings, setSettings] = useStateA(null);
   const [settingsLoading, setSettingsLoading] = useStateA(true);
+  // Unsaved-changes guard. A panel is considered "dirty" once the user interacts
+  // with a control inside it (captured on the panel container). Cleared on save or
+  // when leaving the tab after confirmation. Avoids per-field wiring across 10 panels.
+  const dirtyRef = useRefA(false);
+  const markDirty = () => { dirtyRef.current = true; };
+
+  // Warn before a hard close/reload while there are unsaved edits.
+  useEffectA(() => {
+    const onBeforeUnload = (e) => { if (dirtyRef.current) { e.preventDefault(); e.returnValue = ''; } };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
+
+  const switchTab = (next) => {
+    if (next === tab) return;
+    if (dirtyRef.current && !confirm('Ada perubahan yang belum disimpan di tab ini. Pindah tab dan buang perubahan?')) return;
+    dirtyRef.current = false;
+    setTab(next);
+  };
   const tabs = [
     { value:'themes',       label:'Branding',       icon:'palette' },
     { value:'form',         label:'Form',           icon:'edit' },
@@ -32,14 +51,18 @@ function SettingsView() {
     })();
   }, []);
 
+  // Returns true on success / false on failure so panels can drive a saving spinner
+  // and avoid clearing their dirty flag on error.
   const saveSettings = async (patch) => {
     try {
       // Send ONLY the patch — backend merges field-by-field. Spreading the full
       // GET response sent nested objects/strings that broke c.Bind ("invalid request body").
       await api.updateSettings(patch);
       setSettings(prev => ({ ...(prev || {}), ...patch }));
+      dirtyRef.current = false; // saved → no longer dirty
       showToast('Pengaturan berhasil disimpan');
-    } catch (e) { showToast('Gagal menyimpan: ' + (e?.message || '')); }
+      return true;
+    } catch (e) { showToast('Gagal menyimpan: ' + (e?.message || '')); return false; }
   };
 
   return (
@@ -50,7 +73,7 @@ function SettingsView() {
         <Card className="lg:col-span-1 p-3 h-fit lg:sticky top-20">
           <nav className="flex flex-row lg:flex-col gap-1 overflow-x-auto no-scrollbar">
             {tabs.map((t) => (
-              <button key={t.value} onClick={() => setTab(t.value)}
+              <button key={t.value} onClick={() => switchTab(t.value)}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap ${tab===t.value ? 'bg-brand-50 text-brand-700' : 'text-ink/80 hover:bg-bg2'}`}>
                 <Icon name={t.icon} size={16} className={tab===t.value ? 'text-brand-600' : 'text-mute'}/>
                 {t.label}
@@ -59,7 +82,8 @@ function SettingsView() {
           </nav>
         </Card>
 
-        <div className="lg:col-span-4 space-y-5">
+        {/* Capture any input/change inside the panel area to flag unsaved edits. */}
+        <div className="lg:col-span-4 space-y-5" onInputCapture={markDirty} onChangeCapture={markDirty}>
           {settingsLoading && <Card className="p-8 text-center text-mute">Memuat pengaturan…</Card>}
           {!settingsLoading && tab === 'themes' && <ThemesPanel settings={settings} onSave={saveSettings}/>}
           {!settingsLoading && tab === 'form' && <FormPanel settings={settings} onSave={saveSettings}/>}
@@ -89,6 +113,24 @@ function Section({ title, sub, children, actions }) {
       </div>
       {children}
     </Card>
+  );
+}
+
+// SaveButton wraps an async onClick with a saving state: shows a spinner label and
+// disables itself while in flight, so admins get feedback and can't double-submit.
+// onClick may return a Promise (and optionally a boolean); rejection is swallowed
+// (the panel's own toast surfaces the error).
+function SaveButton({ onClick, children, icon = 'check', disabled, ...rest }) {
+  const [saving, setSaving] = useStateA(false);
+  const run = async () => {
+    if (saving) return;
+    setSaving(true);
+    try { await onClick(); } catch {} finally { setSaving(false); }
+  };
+  return (
+    <Btn icon={icon} onClick={run} disabled={saving || disabled} {...rest}>
+      {saving ? 'Menyimpan…' : children}
+    </Btn>
   );
 }
 
@@ -220,7 +262,7 @@ function ThemesPanel({ settings, onSave }) {
       </Section>
 
       <div className="flex justify-end mt-4">
-        <Btn icon="check" onClick={() => { applyTheme(color); onSave({ primary_color: color, secondary_color: secondaryColor, border_radius: radius, logo: logoSrc === DEFAULT_LOGO ? '' : logoSrc, font_family: fontFamily, button_style: buttonStyle }); }}>Simpan Perubahan</Btn>
+        <SaveButton onClick={() => { applyTheme(color); return onSave({ primary_color: color, secondary_color: secondaryColor, border_radius: radius, logo: logoSrc === DEFAULT_LOGO ? '' : logoSrc, font_family: fontFamily, button_style: buttonStyle }); }}>Simpan Perubahan</SaveButton>
       </div>
     </>
   );
@@ -312,13 +354,13 @@ function FormPanel({ settings, onSave }) {
       </Section>
 
       <div className="flex justify-end mt-4">
-        <Btn icon="check" onClick={() => onSave({
+        <SaveButton onClick={() => onSave({
           form_fields_config: JSON.stringify(fields),
           nominal_presets: JSON.stringify(presets),
           min_donation_global: parseInt(String(minDonation).replace(/\D/g, ''), 10) || 10000,
           anonymous_default: allowAnon,
           message_enabled: allowDoa,
-        })}>Simpan Perubahan</Btn>
+        })}>Simpan Perubahan</SaveButton>
       </div>
     </>
   );
@@ -1117,7 +1159,7 @@ function TrackingPanel({ settings, onSave }) {
           </div>
         </div>
         <div className="flex justify-end mt-4">
-          <Btn icon="check" onClick={() => onSave({
+          <SaveButton onClick={() => onSave({
             meta_pixel_id: pixelIds['Meta Pixel'] || '',
             meta_capi_enabled: capiEnabled,
             event_tracking_config: JSON.stringify(metaEvents),
@@ -1126,7 +1168,7 @@ function TrackingPanel({ settings, onSave }) {
             ga4_measurement_id: pixelIds['Google Analytics 4'] || '',
             tiktok_pixel_id: pixelIds['TikTok Pixel'] || '',
             looker_studio_embed: pixelIds['Looker Studio (Data Studio)'] || '',
-          })}>Simpan Semua Tracking</Btn>
+          })}>Simpan Semua Tracking</SaveButton>
         </div>
       </Section>
 
@@ -1240,7 +1282,7 @@ function NotificationPanel({ settings, onSave }) {
         </div>
       </Section>
       <div className="flex justify-end mt-4">
-        <Btn icon="check" onClick={() => onSave({ notification_config: JSON.stringify(Object.fromEntries(labels.map((n, i) => [n.label, vals[i]]))) })}>Simpan Perubahan</Btn>
+        <SaveButton onClick={() => onSave({ notification_config: JSON.stringify(Object.fromEntries(labels.map((n, i) => [n.label, vals[i]]))) })}>Simpan Perubahan</SaveButton>
       </div>
     </>
   );
@@ -1316,7 +1358,7 @@ function SocialPanel({ settings, onSave }) {
       </Section>
 
       <div className="flex justify-end mt-4">
-        <Btn icon="check" onClick={() => onSave({ social_proof_config: JSON.stringify({ enabled: spEnabled, interval: spInterval, position: spPosition, template: spTemplate, fallback: spFallback }), social_proof_enabled: spEnabled })}>Simpan Perubahan</Btn>
+        <SaveButton onClick={() => onSave({ social_proof_config: JSON.stringify({ enabled: spEnabled, interval: spInterval, position: spPosition, template: spTemplate, fallback: spFallback }), social_proof_enabled: spEnabled })}>Simpan Perubahan</SaveButton>
       </div>
     </>
   );
@@ -1334,6 +1376,7 @@ const parseObj = (v) => {
 };
 
 function FundraisingPanel({ settings, onSave }) {
+  const { showToast } = useApp();
   const fr = parseObj(settings?.fundraising_config);
   const [enabled, setEnabled] = useStateA(fr.enabled ?? true);
   const [autoCalc, setAutoCalc] = useStateA(fr.auto_calc ?? true);
@@ -1359,7 +1402,9 @@ function FundraisingPanel({ settings, onSave }) {
           <Toggle value={enabled} onChange={setEnabled} label="Aktifkan fundraiser" sub="Izinkan mitra mempromosikan campaign dengan link referral."/>
           <Toggle value={autoCalc} onChange={setAutoCalc} label="Otomatis hitung komisi" sub="Komisi dihitung tiap minggu, payout manual oleh admin."/>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div><label className="text-xs font-semibold text-mute">Default komisi</label><div className="mt-1 flex items-center gap-2"><input className="field" value={commission} onChange={(e) => setCommission(e.target.value)}/><span className="text-mute">%</span></div></div>
+            <div><label className="text-xs font-semibold text-mute">Default komisi</label><div className="mt-1 flex items-center gap-2"><input type="number" min="0" max="100" className="field" value={commission} onChange={(e) => setCommission(e.target.value)}/><span className="text-mute">%</span></div>
+              {(() => { const n = parseInt(String(commission).replace(/\D/g,''),10); return (commission !== '' && (isNaN(n) || n < 0 || n > 100)) ? <div className="text-[10px] text-rose-600 mt-0.5">Komisi harus 0–100%</div> : null; })()}
+            </div>
             <div><label className="text-xs font-semibold text-mute">Minimum payout</label><input className="field mt-1" value={minPayout} onChange={(e) => setMinPayout(e.target.value)}/></div>
             <div><label className="text-xs font-semibold text-mute">Periode payout</label><Select value={period} onChange={setPeriod} options={[{value:'week',label:'Mingguan'},{value:'month',label:'Bulanan'}]} className="mt-1"/></div>
           </div>
@@ -1380,7 +1425,13 @@ function FundraisingPanel({ settings, onSave }) {
         </div>
       </Section>
       <div className="flex justify-end mt-4">
-        <Btn icon="check" onClick={() => onSave({ fundraising_config: JSON.stringify({ enabled, auto_calc: autoCalc, commission, min_payout: minPayout, period, rules }), fundraiser_commission_percent: parseInt(String(commission).replace(/\D/g,''),10) || 0 })}>Simpan Perubahan</Btn>
+        <SaveButton onClick={() => {
+          const pct = parseInt(String(commission).replace(/\D/g,''),10);
+          if (isNaN(pct) || pct < 0 || pct > 100) { showToast('Komisi harus 0–100%'); return; }
+          // Clamp per-rule percentages to 0–100 too.
+          const safeRules = (Array.isArray(rules)?rules:[]).map(r => ({ ...r, pct: Math.max(0, Math.min(100, +r.pct || 0)) }));
+          return onSave({ fundraising_config: JSON.stringify({ enabled, auto_calc: autoCalc, commission: String(pct), min_payout: minPayout, period, rules: safeRules }), fundraiser_commission_percent: pct });
+        }}>Simpan Perubahan</SaveButton>
       </div>
     </>
   );
@@ -1712,7 +1763,7 @@ function GeneralPanel({ settings, onSave }) {
         <Toggle value={maintenance} onChange={setMaintenance} label="Aktifkan maintenance mode" sub="Pengunjung akan melihat halaman maintenance."/>
       </Section>
       <div className="flex justify-end mt-4">
-        <Btn icon="check" onClick={() => {
+        <SaveButton onClick={() => {
           const patch = { site_name: siteName, domain, timezone: tz, currency, seo_title: seoTitle, seo_description: seoDesc, maintenance, smtp_host: smtpHost, smtp_port: smtpPort, smtp_email: smtpEmail, smtp_name: smtpName, form_page_name: formPageName || 'donasi', thankyou_page_name: typPageName || 'invoice',
             donor_greeting: donorGreeting,
             cs_rotator_mode: csMode,
@@ -1721,8 +1772,8 @@ function GeneralPanel({ settings, onSave }) {
               .filter(x => x.phone.length >= 8 && x.phone.length <= 15)),
           };
           if (smtpPassword) patch.smtp_password = smtpPassword;
-          onSave(patch);
-        }}>Simpan Perubahan</Btn>
+          return onSave(patch);
+        }}>Simpan Perubahan</SaveButton>
       </div>
     </>
   );

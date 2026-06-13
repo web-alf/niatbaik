@@ -55,6 +55,14 @@ func (r *PaymentStatusRepo) Update(s *model.PaymentStatus) error {
 	return r.db.Save(s).Error
 }
 
+// CountInvoicesUsing reports how many invoices currently carry this status code.
+// Used to block deleting a status that is still in use (would orphan those invoices).
+func (r *PaymentStatusRepo) CountInvoicesUsing(code string) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.Invoice{}).Where("status = ?", code).Count(&count).Error
+	return count, err
+}
+
 func (r *PaymentStatusRepo) Delete(id uuid.UUID) error {
 	return r.db.Delete(&model.PaymentStatus{}, "id = ?", id).Error
 }

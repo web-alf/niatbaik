@@ -60,110 +60,68 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 		return err
 	}
 
-	// Only update non-empty fields
-	if req.SiteName != "" {
-		setting.SiteName = req.SiteName
+	// Display/config string fields use *string semantics: nil = key absent in this
+	// patch (leave unchanged), non-nil = set to the given value (empty string CLEARS
+	// it). This is what lets an admin remove a logo, blank a pixel id, etc. — the old
+	// `!= ""` guard made every string field impossible to clear.
+	set := func(dst *string, v *string) {
+		if v != nil {
+			*dst = *v
+		}
 	}
-	if req.Logo != "" {
-		setting.Logo = req.Logo
-	}
-	if req.Favicon != "" {
-		setting.Favicon = req.Favicon
-	}
-	if req.Email != "" {
-		setting.Email = req.Email
-	}
-	if req.Phone != "" {
-		setting.Phone = req.Phone
-	}
-	if req.Address != "" {
-		setting.Address = req.Address
-	}
-	if req.Description != "" {
-		setting.Description = req.Description
-	}
-	if req.PrimaryColor != "" {
-		setting.PrimaryColor = req.PrimaryColor
-	}
-	if req.SecondaryColor != "" {
-		setting.SecondaryColor = req.SecondaryColor
-	}
-	if req.AdminFee != nil {
-		setting.AdminFee = *req.AdminFee
-	}
-	if req.FundraiserCommissionPercent != nil {
-		setting.FundraiserCommissionPercent = *req.FundraiserCommissionPercent
-	}
-	if req.ThemeColor != "" {
-		setting.ThemeColor = req.ThemeColor
-	}
-	if req.ProgressbarColor != "" {
-		setting.ProgressbarColor = req.ProgressbarColor
-	}
-	if req.ButtonColor != "" {
-		setting.ButtonColor = req.ButtonColor
-	}
-	if req.WhatsappAdmin != "" {
-		setting.WhatsappAdmin = req.WhatsappAdmin
-	}
-	if req.SocialproofSetting != nil {
-		setting.SocialproofSetting = *req.SocialproofSetting
-	}
-	if req.IpaymuVA != "" {
-		setting.IpaymuVA = req.IpaymuVA
-	}
-	if req.IpaymuSecret != "" {
-		setting.IpaymuSecret = req.IpaymuSecret
-	}
-	if req.IpaymuURL != "" {
-		setting.IpaymuURL = req.IpaymuURL
-	}
-	if req.SmtpHost != "" {
-		setting.SMTPHost = req.SmtpHost
-	}
-	if req.SmtpEmail != "" {
-		setting.SMTPEmail = req.SmtpEmail
-	}
+	set(&setting.SiteName, req.SiteName)
+	set(&setting.Logo, req.Logo)
+	set(&setting.Favicon, req.Favicon)
+	set(&setting.Email, req.Email)
+	set(&setting.Phone, req.Phone)
+	set(&setting.Address, req.Address)
+	set(&setting.Description, req.Description)
+	set(&setting.PrimaryColor, req.PrimaryColor)
+	set(&setting.SecondaryColor, req.SecondaryColor)
+	set(&setting.ThemeColor, req.ThemeColor)
+	set(&setting.ProgressbarColor, req.ProgressbarColor)
+	set(&setting.ButtonColor, req.ButtonColor)
+	set(&setting.WhatsappAdmin, req.WhatsappAdmin)
+	set(&setting.IpaymuVA, req.IpaymuVA)
+	set(&setting.IpaymuURL, req.IpaymuURL)
+	set(&setting.SMTPHost, req.SmtpHost)
+	set(&setting.SMTPEmail, req.SmtpEmail)
+	set(&setting.SMTPName, req.SmtpName)
+	set(&setting.PaymentProvider, req.PaymentProvider)
+	set(&setting.Domain, req.Domain)
+	set(&setting.Timezone, req.Timezone)
+	set(&setting.Currency, req.Currency)
+	set(&setting.SEOTitle, req.SEOTitle)
+	set(&setting.SEODescription, req.SEODescription)
+	set(&setting.FormPageName, req.FormPageName)
+	set(&setting.ThankyouPageName, req.ThankyouPageName)
+	set(&setting.LookerReports, req.LookerReports)
+	set(&setting.FlipBaseURL, req.FlipBaseURL)
+	set(&setting.FontFamily, req.FontFamily)
+	set(&setting.ButtonStyle, req.ButtonStyle)
+	set(&setting.FormFieldsConfig, req.FormFieldsConfig)
+	set(&setting.NominalPresets, req.NominalPresets)
+	set(&setting.SocialProofConfig, req.SocialProofConfig)
+	set(&setting.NotificationConfig, req.NotificationConfig)
+	set(&setting.FundraisingConfig, req.FundraisingConfig)
+	set(&setting.MetaPixelID, req.MetaPixelID)
+	set(&setting.GTMID, req.GTMID)
+	set(&setting.GoogleAdsConversionID, req.GoogleAdsConversionID)
+	set(&setting.GA4MeasurementID, req.GA4MeasurementID)
+	set(&setting.TiktokPixelID, req.TiktokPixelID)
+	set(&setting.LookerStudioEmbed, req.LookerStudioEmbed)
+	set(&setting.EventTrackingConfig, req.EventTrackingConfig)
+	set(&setting.MootaEndpoint, req.MootaEndpoint)
+	set(&setting.FlipMode, req.FlipMode)
+	set(&setting.FlipChargeFee, req.FlipChargeFee)
+
+	// SECRET fields keep "blank = keep existing" (masked-field pattern) so an
+	// accidental blank save never wipes live SMTP / gateway credentials.
 	if req.SmtpPassword != "" {
 		setting.SMTPPassword = req.SmtpPassword
 	}
-	if req.SmtpPort != nil {
-		setting.SMTPPort = *req.SmtpPort
-	}
-	if req.SmtpName != "" {
-		setting.SMTPName = req.SmtpName
-	}
-	if req.PaymentProvider != "" {
-		setting.PaymentProvider = req.PaymentProvider
-	}
-
-	// General panel fields
-	if req.Domain != "" {
-		setting.Domain = req.Domain
-	}
-	if req.Timezone != "" {
-		setting.Timezone = req.Timezone
-	}
-	if req.Currency != "" {
-		setting.Currency = req.Currency
-	}
-	if req.SEOTitle != "" {
-		setting.SEOTitle = req.SEOTitle
-	}
-	if req.SEODescription != "" {
-		setting.SEODescription = req.SEODescription
-	}
-	if req.Maintenance != nil {
-		setting.Maintenance = *req.Maintenance
-	}
-	if req.FormPageName != "" {
-		setting.FormPageName = req.FormPageName
-	}
-	if req.ThankyouPageName != "" {
-		setting.ThankyouPageName = req.ThankyouPageName
-	}
-	if req.LookerReports != "" {
-		setting.LookerReports = req.LookerReports
+	if req.IpaymuSecret != "" {
+		setting.IpaymuSecret = req.IpaymuSecret
 	}
 	if req.MootaAPIKey != "" {
 		setting.MootaAPIKey = req.MootaAPIKey
@@ -171,35 +129,37 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	if req.MootaWebhookSecret != "" {
 		setting.MootaWebhookSecret = req.MootaWebhookSecret
 	}
-	if req.MootaEnabled != nil {
-		setting.MootaEnabled = *req.MootaEnabled
-	}
 	if req.FlipSecretKey != "" {
 		setting.FlipSecretKey = req.FlipSecretKey
 	}
 	if req.FlipValidationToken != "" {
 		setting.FlipValidationToken = req.FlipValidationToken
 	}
-	if req.FlipBaseURL != "" {
-		setting.FlipBaseURL = req.FlipBaseURL
+
+	// Numeric + boolean tri-state fields (nil = absent = skip).
+	if req.AdminFee != nil {
+		setting.AdminFee = *req.AdminFee
+	}
+	if req.FundraiserCommissionPercent != nil {
+		setting.FundraiserCommissionPercent = *req.FundraiserCommissionPercent
+	}
+	if req.SocialproofSetting != nil {
+		setting.SocialproofSetting = *req.SocialproofSetting
+	}
+	if req.SmtpPort != nil {
+		setting.SMTPPort = *req.SmtpPort
+	}
+	if req.Maintenance != nil {
+		setting.Maintenance = *req.Maintenance
+	}
+	if req.MootaEnabled != nil {
+		setting.MootaEnabled = *req.MootaEnabled
 	}
 	if req.FlipEnabled != nil {
 		setting.FlipEnabled = *req.FlipEnabled
 	}
-	if req.FontFamily != "" {
-		setting.FontFamily = req.FontFamily
-	}
 	if req.BorderRadius != nil {
 		setting.BorderRadius = *req.BorderRadius
-	}
-	if req.ButtonStyle != "" {
-		setting.ButtonStyle = req.ButtonStyle
-	}
-	if req.FormFieldsConfig != "" {
-		setting.FormFieldsConfig = req.FormFieldsConfig
-	}
-	if req.NominalPresets != "" {
-		setting.NominalPresets = req.NominalPresets
 	}
 	if req.MinDonationGlobal != nil {
 		setting.MinDonationGlobal = *req.MinDonationGlobal
@@ -225,48 +185,11 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	if req.SocialProofEnabled != nil {
 		setting.SocialProofEnabled = *req.SocialProofEnabled
 	}
-	if req.SocialProofConfig != "" {
-		setting.SocialProofConfig = req.SocialProofConfig
-	}
-	if req.NotificationConfig != "" {
-		setting.NotificationConfig = req.NotificationConfig
-	}
-	if req.FundraisingConfig != "" {
-		setting.FundraisingConfig = req.FundraisingConfig
-	}
-
-	// Ads tracking & pixels
-	if req.MetaPixelID != "" {
-		setting.MetaPixelID = req.MetaPixelID
-	}
 	if req.MetaCAPIEnabled != nil {
 		setting.MetaCAPIEnabled = *req.MetaCAPIEnabled
 	}
-	if req.GTMID != "" {
-		setting.GTMID = req.GTMID
-	}
-	if req.GoogleAdsConversionID != "" {
-		setting.GoogleAdsConversionID = req.GoogleAdsConversionID
-	}
-	if req.GA4MeasurementID != "" {
-		setting.GA4MeasurementID = req.GA4MeasurementID
-	}
-	if req.TiktokPixelID != "" {
-		setting.TiktokPixelID = req.TiktokPixelID
-	}
 	if req.TiktokEAPIEnabled != nil {
 		setting.TiktokEAPIEnabled = *req.TiktokEAPIEnabled
-	}
-	if req.LookerStudioEmbed != "" {
-		setting.LookerStudioEmbed = req.LookerStudioEmbed
-	}
-	if req.EventTrackingConfig != "" {
-		setting.EventTrackingConfig = req.EventTrackingConfig
-	}
-
-	// Moota / Flip detail
-	if req.MootaEndpoint != "" {
-		setting.MootaEndpoint = req.MootaEndpoint
 	}
 	if req.MootaSignatureEnabled != nil {
 		setting.MootaSignatureEnabled = *req.MootaSignatureEnabled
@@ -274,14 +197,8 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	if req.MootaDateRange != nil {
 		setting.MootaDateRange = *req.MootaDateRange
 	}
-	if req.FlipMode != "" {
-		setting.FlipMode = req.FlipMode
-	}
 	if req.FlipAutoRedirect != nil {
 		setting.FlipAutoRedirect = *req.FlipAutoRedirect
-	}
-	if req.FlipChargeFee != "" {
-		setting.FlipChargeFee = req.FlipChargeFee
 	}
 
 	return s.settingRepo.Update(setting)

@@ -97,11 +97,16 @@ function ThemesPanel({ settings, onSave }) {
   const [color, setColor] = useStateA(settings?.primary_color || '#2E4191');
   const [secondaryColor, setSecondaryColor] = useStateA(settings?.secondary_color || '#38B6FF');
   const [radius, setRadius] = useStateA(settings?.border_radius ?? 16);
+  const [fontFamily, setFontFamily] = useStateA(settings?.font_family || 'plus-jakarta');
+  const [buttonStyle, setButtonStyle] = useStateA(settings?.button_style || 'Solid');
   const logoRef = useRefA();
-  const [logoSrc, setLogoSrc] = useStateA(settings?.logo || settings?.logo_url || 'assets/logo.png');
+  const DEFAULT_LOGO = 'assets/logo.png';
+  const [logoSrc, setLogoSrc] = useStateA(settings?.logo || settings?.logo_url || DEFAULT_LOGO);
   useEffectA(() => { if (settings?.primary_color) setColor(settings.primary_color); }, [settings]);
   useEffectA(() => { if (settings?.secondary_color) setSecondaryColor(settings.secondary_color); }, [settings]);
   useEffectA(() => { if (settings?.border_radius != null) setRadius(settings.border_radius); }, [settings]);
+  useEffectA(() => { if (settings?.font_family) setFontFamily(settings.font_family); }, [settings]);
+  useEffectA(() => { if (settings?.button_style) setButtonStyle(settings.button_style); }, [settings]);
   useEffectA(() => { const l = settings?.logo || settings?.logo_url; if (l) setLogoSrc(l); }, [settings]);
   const applyTheme = (c) => {
     try {
@@ -146,9 +151,14 @@ function ThemesPanel({ settings, onSave }) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="rounded-xl border border-dashed border-line bg-bg2 p-6 flex items-center justify-center min-h-[140px]">
             <div className="text-center">
-              <img src={logoSrc} alt="logo" className="mx-auto h-12"/>
+              <img src={logoSrc || DEFAULT_LOGO} alt="logo" className="mx-auto h-12"/>
               <input ref={logoRef} type="file" accept="image/png,image/svg+xml" className="hidden" onChange={handleLogoUpload}/>
-              <Btn size="sm" variant="outline" tone="ink" icon="upload" className="mt-3" onClick={() => logoRef.current?.click()}>Upload Logo</Btn>
+              <div className="mt-3 flex items-center justify-center gap-2">
+                <Btn size="sm" variant="outline" tone="ink" icon="upload" onClick={() => logoRef.current?.click()}>Upload Logo</Btn>
+                {logoSrc && logoSrc !== DEFAULT_LOGO && (
+                  <Btn size="sm" variant="outline" tone="ink" icon="trash" onClick={() => { setLogoSrc(''); showToast('Logo dihapus. Klik Simpan untuk menerapkan.'); }}>Hapus</Btn>
+                )}
+              </div>
               <div className="text-xs text-mute mt-2">PNG / SVG · max 1MB</div>
             </div>
           </div>
@@ -171,7 +181,7 @@ function ThemesPanel({ settings, onSave }) {
             </div>
             <div>
               <label className="text-xs font-semibold text-mute">Font</label>
-              <Select value="plus-jakarta" onChange={() => {}} options={[
+              <Select value={fontFamily} onChange={setFontFamily} options={[
                 {value:'plus-jakarta', label:'Plus Jakarta Sans'},
                 {value:'inter', label:'Inter'},
                 {value:'manrope', label:'Manrope'},
@@ -186,7 +196,8 @@ function ThemesPanel({ settings, onSave }) {
               <label className="text-xs font-semibold text-mute">Button Style</label>
               <div className="grid grid-cols-3 gap-2 mt-1">
                 {['Solid','Outline','Ghost'].map((s) => (
-                  <button key={s} className="py-2 rounded-lg border border-line text-xs font-bold hover:border-brand-600 hover:bg-brand-50 hover:text-brand-700">{s}</button>
+                  <button key={s} onClick={() => setButtonStyle(s)}
+                    className={`py-2 rounded-lg border text-xs font-bold ${buttonStyle === s ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line hover:border-brand-600 hover:bg-brand-50 hover:text-brand-700'}`}>{s}</button>
                 ))}
               </div>
             </div>
@@ -209,7 +220,7 @@ function ThemesPanel({ settings, onSave }) {
       </Section>
 
       <div className="flex justify-end mt-4">
-        <Btn icon="check" onClick={() => { applyTheme(color); onSave({ primary_color: color, secondary_color: secondaryColor, border_radius: radius, logo: logoSrc }); }}>Simpan Perubahan</Btn>
+        <Btn icon="check" onClick={() => { applyTheme(color); onSave({ primary_color: color, secondary_color: secondaryColor, border_radius: radius, logo: logoSrc === DEFAULT_LOGO ? '' : logoSrc, font_family: fontFamily, button_style: buttonStyle }); }}>Simpan Perubahan</Btn>
       </div>
     </>
   );
@@ -379,7 +390,29 @@ function PaymentPanel({ settings, onSave }) {
     setConfirmDel(null);
   };
 
-  const toggle = (m) => setMethods((prev) => prev.map(x => x.id === m.id ? { ...x, active: !x.active } : x));
+  // Persist the active/inactive change, not just local UI state (was a no-op that
+  // reverted on reload). Optimistically flip, then PUT; revert + toast on failure.
+  // The update DTO requires bank_name + type, so reconstruct them from the row.
+  const typeMapFwd = { 'Bank Transfer':'va', 'E-wallet':'ewallet', 'QRIS':'qris', 'Card':'card' };
+  const toggle = async (m) => {
+    const next = !m.active;
+    setMethods((prev) => prev.map(x => x.id === m.id ? { ...x, active: next } : x));
+    try {
+      await api.updatePaymentMethod(m.id, {
+        bank_name: m.name,
+        bank_type: m.provider,
+        bank_number: m.account === '-' ? '' : m.account,
+        account_name: m.holder === '-' ? '' : m.holder,
+        type: typeMapFwd[m.type] || 'va',
+        image: m.image || '',
+        active: next,
+      });
+      showToast(next ? 'Metode pembayaran diaktifkan' : 'Metode pembayaran dinonaktifkan');
+    } catch (e) {
+      setMethods((prev) => prev.map(x => x.id === m.id ? { ...x, active: m.active } : x)); // revert
+      showToast('Gagal mengubah status: ' + (e?.message || ''));
+    }
+  };
 
   return (
     <>
@@ -1414,7 +1447,7 @@ function CategoryPanel() {
 function PaymentStatusPanel() {
   const { showToast } = useApp();
   const [rows, setRows] = useStateA(() => (window.PAYMENT_STATUSES || []).slice());
-  const blank = { code:'', label:'', color:'#10B981', is_paid:false, sort_order:0 };
+  const blank = { code:'', label:'', color:'#10B981', is_paid:false, is_default:false, sort_order:0 };
   const [form, setForm] = useStateA(blank);
   const [editing, setEditing] = useStateA(null);
   const [busy, setBusy] = useStateA(false);
@@ -1431,7 +1464,7 @@ function PaymentStatusPanel() {
     if (!code || !label) { showToast('Code dan label wajib diisi'); return; }
     setBusy(true);
     try {
-      const payload = { code, label, color: form.color, is_paid: !!form.is_paid, sort_order: Number(form.sort_order) || 0 };
+      const payload = { code, label, color: form.color, is_paid: !!form.is_paid, is_default: !!form.is_default, sort_order: Number(form.sort_order) || 0 };
       if (editing) { await window.api.updatePaymentStatus(editing, payload); showToast('Status diperbarui'); }
       else { await window.api.createPaymentStatus(payload); showToast('Status ditambahkan'); }
       setForm(blank); setEditing(null);
@@ -1440,7 +1473,7 @@ function PaymentStatusPanel() {
     setBusy(false);
   };
 
-  const edit = (s) => { setEditing(s.id); setForm({ code:s.code, label:s.label, color:s.color || '#10B981', is_paid:!!s.is_paid, sort_order:s.sort_order || 0 }); };
+  const edit = (s) => { setEditing(s.id); setForm({ code:s.code, label:s.label, color:s.color || '#10B981', is_paid:!!s.is_paid, is_default:!!s.is_default, sort_order:s.sort_order || 0 }); };
   const remove = async (s) => {
     if (!confirm('Hapus status "' + s.label + '"? Invoice yang memakainya tetap menyimpan teks status lama.')) return;
     setBusy(true);
@@ -1451,7 +1484,7 @@ function PaymentStatusPanel() {
 
   return (
     <Section title="Status Pembayaran" sub="Kelola label status invoice (mis. Terbayar, Menunggu, Gagal). Status ber-tanda 'Lunas' akan otomatis mengkreditkan campaign saat dipilih CS.">
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto_auto] gap-2 items-end mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto_auto_auto] gap-2 items-end mb-4">
         <div>
           <label className="text-xs font-semibold text-mute">Code</label>
           <input className="field mt-1" value={form.code} onChange={(e)=>setForm({...form, code:e.target.value})} placeholder="Terbayar"/>
@@ -1466,6 +1499,9 @@ function PaymentStatusPanel() {
         </div>
         <label className="flex items-center gap-2 text-xs font-semibold text-ink pb-2.5">
           <input type="checkbox" checked={form.is_paid} onChange={(e)=>setForm({...form, is_paid:e.target.checked})} className="rounded border-line"/> Lunas
+        </label>
+        <label className="flex items-center gap-2 text-xs font-semibold text-ink pb-2.5" title="Status default untuk invoice baru">
+          <input type="checkbox" checked={form.is_default} onChange={(e)=>setForm({...form, is_default:e.target.checked})} className="rounded border-line"/> Default
         </label>
         <div className="flex gap-2">
           <Btn icon={editing ? 'check' : 'plus'} onClick={submit} disabled={busy}>{editing ? 'Simpan' : 'Tambah'}</Btn>

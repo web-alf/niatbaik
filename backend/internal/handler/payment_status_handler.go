@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -104,8 +105,17 @@ func (h *PaymentStatusHandler) Delete(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid id"))
 	}
-	if _, err := h.repo.FindByID(id); err != nil {
+	s, err := h.repo.FindByID(id)
+	if err != nil {
 		return c.JSON(http.StatusNotFound, response.ErrorResponse("payment status not found"))
+	}
+	// Guard: never delete the default status (new invoices fall back to it) or one
+	// still referenced by invoices (would orphan their status label).
+	if s.IsDefault {
+		return c.JSON(http.StatusConflict, response.ErrorResponse("status default tidak dapat dihapus; tetapkan status default lain dulu"))
+	}
+	if n, _ := h.repo.CountInvoicesUsing(s.Code); n > 0 {
+		return c.JSON(http.StatusConflict, response.ErrorResponse(fmt.Sprintf("status dipakai oleh %d invoice, tidak dapat dihapus", n)))
 	}
 	if err := h.repo.Delete(id); err != nil {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))

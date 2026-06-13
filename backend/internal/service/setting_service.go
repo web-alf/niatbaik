@@ -146,6 +146,10 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	set(&setting.MootaEndpoint, req.MootaEndpoint)
 	set(&setting.FlipMode, req.FlipMode)
 	set(&setting.FlipChargeFee, req.FlipChargeFee)
+	set(&setting.UniqueCodeMode, req.UniqueCodeMode)
+	set(&setting.BankName, req.BankName)
+	set(&setting.BankNumber, req.BankNumber)
+	set(&setting.BankAccountName, req.BankAccountName)
 
 	// SECRET fields keep "blank = keep existing" (masked-field pattern) so an
 	// accidental blank save never wipes live SMTP / gateway credentials.
@@ -228,6 +232,15 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	}
 	if req.FlipAutoRedirect != nil {
 		setting.FlipAutoRedirect = *req.FlipAutoRedirect
+	}
+	if req.UniqueCodeMin != nil {
+		setting.UniqueCodeMin = *req.UniqueCodeMin
+	}
+	if req.UniqueCodeMax != nil {
+		setting.UniqueCodeMax = *req.UniqueCodeMax
+	}
+	if req.UniqueCodeFixed != nil {
+		setting.UniqueCodeFixed = *req.UniqueCodeFixed
 	}
 
 	return s.settingRepo.Update(setting)

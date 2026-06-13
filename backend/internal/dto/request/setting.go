@@ -98,4 +98,15 @@ type UpdateSettingRequest struct {
 	FlipMode              *string `json:"flip_mode"`
 	FlipAutoRedirect      *bool   `json:"flip_auto_redirect"`
 	FlipChargeFee         *string `json:"flip_charge_fee"`
+
+	// Unique number / Kode Unik
+	UniqueCodeMode  *string `json:"unique_code_mode" validate:"omitempty,oneof=none fixed range"`
+	UniqueCodeMin   *int    `json:"unique_code_min" validate:"omitempty,min=0,max=99999"`
+	UniqueCodeMax   *int    `json:"unique_code_max" validate:"omitempty,min=0,max=99999"`
+	UniqueCodeFixed *int    `json:"unique_code_fixed" validate:"omitempty,min=0,max=99999"`
+
+	// Manual bank-transfer destination
+	BankName        *string `json:"bank_name" validate:"omitempty,max=100"`
+	BankNumber      *string `json:"bank_number" validate:"omitempty,max=50"`
+	BankAccountName *string `json:"bank_account_name" validate:"omitempty,max=150"`
 }

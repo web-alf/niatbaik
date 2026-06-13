@@ -129,9 +129,7 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 
 	var uniqueCode int64 = 0
 	if !isGateway {
-		if nBig, err := rand.Int(rand.Reader, big.NewInt(999)); err == nil {
-			uniqueCode = nBig.Int64() + 1
-		}
+		uniqueCode = uniqueCodeFromSettings(settingsForPay)
 	}
 	totalAmount := req.Amount + uniqueCode
 
@@ -216,11 +214,7 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 			// Flip call failed at runtime — degrade to a manual transfer so the invoice
 			// stays payable. Add a unique code now (it wasn't added above because we
 			// expected the gateway to disambiguate) so manual reconciliation can match it.
-			if nBig, rerr := rand.Int(rand.Reader, big.NewInt(999)); rerr == nil {
-				invoice.Total = invoice.Subtotal + nBig.Int64() + 1
-			} else {
-				log.Printf("[donation] unique-code generation failed for %s: %v", invoice.InvoiceNumber, rerr)
-			}
+			invoice.Total = invoice.Subtotal + uniqueCodeFromSettings(settingsForPay)
 			invoice.TypePayment = "Transfer Manual"
 			if err := s.invoiceRepo.Update(&invoice); err != nil {
 				log.Printf("[donation] failed to persist manual fallback for %s: %v", invoice.InvoiceNumber, err)
@@ -240,6 +234,44 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 
 func (s *DonationService) GetPaymentStatus(invoiceNumber string) (*model.Invoice, error) {
 	return s.invoiceRepo.FindByInvoiceNumber(invoiceNumber)
+}
+
+// uniqueCodeFromSettings derives the manual-transfer unique code from the admin's
+// "Kode Unik" config: none → 0, fixed → the configured number, range → a random
+// value in [min,max]. Falls back to the legacy 1–999 range when settings are nil or
+// the mode/range is invalid, so reconciliation still works.
+func uniqueCodeFromSettings(s *model.Setting) int64 {
+	if s == nil {
+		if n, err := rand.Int(rand.Reader, big.NewInt(999)); err == nil {
+			return n.Int64() + 1
+		}
+		return 0
+	}
+	switch strings.ToLower(strings.TrimSpace(s.UniqueCodeMode)) {
+	case "none":
+		return 0
+	case "fixed":
+		if s.UniqueCodeFixed < 0 {
+			return 0
+		}
+		return int64(s.UniqueCodeFixed)
+	default: // "range" (or unset)
+		lo, hi := s.UniqueCodeMin, s.UniqueCodeMax
+		if lo <= 0 {
+			lo = 1
+		}
+		if hi < lo {
+			hi = 999
+			if lo > hi {
+				lo = 1
+			}
+		}
+		span := int64(hi - lo + 1)
+		if n, err := rand.Int(rand.Reader, big.NewInt(span)); err == nil {
+			return int64(lo) + n.Int64()
+		}
+		return int64(lo)
+	}
 }
 
 func randomAlphanumeric(n int) string {

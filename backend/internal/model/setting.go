@@ -110,6 +110,19 @@ type Setting struct {
 	FlipAutoRedirect      bool   `gorm:"default:true" json:"flip_auto_redirect"`
 	FlipChargeFee         string `gorm:"size:20;default:'merchant'" json:"flip_charge_fee"`
 
+	// Unique number / Kode Unik — appended to manual-transfer totals so two transfers
+	// of the same nominal can be told apart. Mode: none|fixed|range.
+	UniqueCodeMode  string `gorm:"size:10;default:'range'" json:"unique_code_mode"`
+	UniqueCodeMin   int    `gorm:"default:1" json:"unique_code_min"`
+	UniqueCodeMax   int    `gorm:"default:999" json:"unique_code_max"`
+	UniqueCodeFixed int    `gorm:"default:0" json:"unique_code_fixed"`
+
+	// Manual bank-transfer destination shown to the donor when Flip is off (gateway
+	// disabled / failed). Was previously per-payment-method; now a single org account.
+	BankName        string `gorm:"size:100" json:"bank_name"`
+	BankNumber      string `gorm:"size:50" json:"bank_number"`
+	BankAccountName string `gorm:"size:150" json:"bank_account_name"`
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

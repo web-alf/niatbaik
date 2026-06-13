@@ -1181,11 +1181,13 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
   const isQRIS = pmType.includes('qris') || !!invoice.qr_url;
   const isPaid = invoice.is_paid || /paid|berhasil|lunas|success/i.test(status);
 
-  // VA / account number: gateway returns it in pay_code; manual transfer uses the
-  // selected method's bank_number. Fall back to invoice.bank_number if backend adds it.
-  const bankNumber = invoice.pay_code || invoice.bank_number || pmObj?.bank_number || '';
-  const accountName = pmObj?.account_name || invoice.account_name || 'Yayasan Niat Baik';
-  const bankName = pmObj?.bank_name || invoice.payment_method || (typeof paymentMethod === 'string' ? paymentMethod : 'Transfer Bank');
+  // Manual-transfer destination. Flip (gateway) returns a pay_code; otherwise the
+  // donor transfers to the single org account configured in Settings → Payment
+  // (exposed via public settings). Order: gateway pay_code → invoice → org settings.
+  const ps = (typeof window !== 'undefined' && window.PUBLIC_SETTINGS) || {};
+  const bankNumber = invoice.pay_code || invoice.bank_number || pmObj?.bank_number || ps.bank_number || '';
+  const accountName = pmObj?.account_name || invoice.account_name || ps.bank_account_name || 'Yayasan Niat Baik';
+  const bankName = pmObj?.bank_name || invoice.payment_method || ps.bank_name || (typeof paymentMethod === 'string' ? paymentMethod : 'Transfer Bank');
 
   // Generate QR client-side if no qr_url provided.
   useEffect(() => {

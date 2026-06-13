@@ -434,17 +434,73 @@ function App() {
   // --- Route setter ---
   const setView = (v) => { setRouteRaw(v); window.scrollTo({ top: 0, behavior: 'instant' }); };
 
+  // --- Keep the browser URL in sync with the route ---
+  // Without this the address bar stayed bare "/" no matter where you navigated, so a
+  // shared campaign link couldn't be produced and the back button did nothing. We
+  // reflect only PUBLIC, shareable locations into the path: /c/<slug> for a campaign
+  // detail, "/" otherwise. (Dashboard sub-views stay on "/" — they're behind login.)
+  const urlSyncedOnce = uR(false);
+  uE(() => {
+    let target = '/';
+    if (route === 'campaign-detail') {
+      const cd = campaignDetail;
+      const slug = (cd && typeof cd === 'object') ? (cd.slug || cd.id) : cd;
+      if (slug) target = '/c/' + slug;
+    } else if (route === 'reset-password') {
+      target = '/reset-password';
+    } else if (route === 'forgot-password') {
+      target = '/forgot-password';
+    }
+    try {
+      // No-op when the URL already matches (prevents stacking duplicate "/" entries
+      // as you move between dashboard sub-views).
+      if (window.location.pathname === target) { urlSyncedOnce.current = true; return; }
+      // First sync after mount replaces (don't add a spurious history entry on top of
+      // the entry the user arrived on); later navigations push so Back works.
+      if (!urlSyncedOnce.current) {
+        window.history.replaceState({ route }, '', target + window.location.search);
+      } else {
+        window.history.pushState({ route }, '', target + window.location.search);
+      }
+      urlSyncedOnce.current = true;
+    } catch {}
+  }, [route, campaignDetail]);
+
+  // Back/forward: re-derive the route from the URL so navigation history works.
+  // user is read from a ref so the listener is registered once (no re-register churn
+  // on login/profile changes, which could drop a queued back-click).
+  const userRef = uR(user);
+  userRef.current = user;
+  uE(() => {
+    const onPop = () => {
+      const slug = campaignSlugFromPath();
+      if (slug) { setCampaignDetail(slug); setRouteRaw('campaign-detail'); }
+      else {
+        const p = window.location.pathname;
+        if (p === '/reset-password') setRouteRaw('reset-password');
+        else if (p === '/forgot-password') setRouteRaw('forgot-password');
+        else setRouteRaw(userRef.current ? 'dashboard' : 'landing');
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   // --- Auth: check token on mount ---
   uE(() => {
-    // Reset/forgot links are public flows — never auto-redirect them to dashboard,
-    // even if a stale session token exists.
-    const onAuthFlow = route === 'reset-password' || route === 'forgot-password';
+    // Public flows must NOT be auto-redirected to the dashboard even when a valid
+    // session exists — otherwise a logged-in admin opening a /c/<slug> share link gets
+    // bounced to the dashboard and the campaign looks like a 404 (only worked in a
+    // logged-out browser). Covers reset/forgot AND the public campaign-detail route.
+    // (Bare "/" still lands logged-in users on the dashboard, the established UX.)
+    const onPublicFlow = route === 'reset-password' || route === 'forgot-password' ||
+      route === 'campaign-detail';
     const token = api.getToken && api.getToken();
     if (token) {
       api.me().then(res => {
         if (res?.data) {
           setUser(res.data);
-          if (!onAuthFlow) setRouteRaw('dashboard');
+          if (!onPublicFlow) setRouteRaw('dashboard');
         } else {
           api.clearToken && api.clearToken();
         }

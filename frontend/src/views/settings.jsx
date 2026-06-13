@@ -367,660 +367,231 @@ function FormPanel({ settings, onSave }) {
 }
 
 function PaymentPanel({ settings, onSave }) {
-  const { showToast } = useApp();
-  const [methods, setMethods] = useStateA([
-    { id:'m1', name:'QRIS',                provider:'QRIS',         type:'QRIS',          holder:'Yayasan Niat Baik', account:'-',                  fee:'0.7%',           active:true,  locked:true },
-    { id:'m2', name:'BCA Virtual Account', provider:'Bank BCA',     type:'Bank Transfer', holder:'Yayasan Niat Baik', account:'8901234567',         fee:'Rp 4.000',       active:true },
-    { id:'m3', name:'Mandiri VA',          provider:'Bank Mandiri', type:'Bank Transfer', holder:'Yayasan Niat Baik', account:'8908765432',         fee:'Rp 4.000',       active:true },
-    { id:'m4', name:'BNI VA',              provider:'Bank BNI',     type:'Bank Transfer', holder:'Yayasan Niat Baik', account:'8901122334',         fee:'Rp 4.000',       active:true },
-    { id:'m5', name:'GoPay',               provider:'GoPay',        type:'E-wallet',      holder:'Yayasan Niat Baik', account:'08123456789',        fee:'2%',             active:true,  locked:true },
-    { id:'m6', name:'OVO',                 provider:'OVO',          type:'E-wallet',      holder:'Yayasan Niat Baik', account:'08129876543',        fee:'2%',             active:true,  locked:true },
-    { id:'m7', name:'Dana',                provider:'Dana',         type:'E-wallet',      holder:'Yayasan Niat Baik', account:'08118887766',        fee:'2%',             active:true,  locked:true },
-    { id:'m8', name:'ShopeePay',           provider:'ShopeePay',    type:'E-wallet',      holder:'Yayasan Niat Baik', account:'08113334455',        fee:'2%',             active:false, locked:true },
-    { id:'m9', name:'Kartu Kredit',        provider:'Visa/Master',  type:'Card',          holder:'-',                 account:'-',                   fee:'2.9% + Rp 2.000', active:false, locked:true },
-  ]);
-  const [modalOpen, setModalOpen] = useStateA(false);
-  const [editing, setEditing]     = useStateA(null);
-  const [confirmDel, setConfirmDel] = useStateA(null);
+  // Layout mirrors the reference Setting → Payment page: a general section (Kode
+  // Unik + Admin Fee + rekening manual), then Flip (automatic gateway), then Moota
+  // (bank-balance sync). No per-method CRUD — donors pay via Flip when enabled,
+  // else manual transfer to the single org account below.
+  const { showToast: showToastSafe } = useApp();
+  const flipConfigured = !!(settings?.flip_configured);
+  const mootaConfigured = !!(settings?.moota_configured);
 
-  const typeMapReverse = { va:'Bank Transfer', ewallet:'E-wallet', qris:'QRIS', card:'Card' };
-  const mapMethod = (m) => ({
-    id: m.id,
-    name: m.bank_name || m.name || '—',
-    provider: m.bank_type || m.provider || m.bank_name || '—',
-    type: typeMapReverse[m.type] || m.type || 'Bank Transfer',
-    holder: m.account_name || m.holder || '-',
-    account: m.bank_number || m.account || '-',
-    fee: m.admin_fee ? ('Rp ' + fmtNum(m.admin_fee)) : (m.fee || '0'),
-    image: m.image || '',
-    active: m.active !== false,
-    locked: false,
-  });
-  useEffectA(() => {
-    api.paymentMethods().then(res => { if (res?.data?.length) setMethods(res.data.map(mapMethod)); }).catch(() => {});
-  }, []);
+  // ---- Umum / Kode Unik ----
+  const [ucMode, setUcMode] = useStateA(settings?.unique_code_mode || 'range');
+  const [ucMin, setUcMin] = useStateA(settings?.unique_code_min ?? 1);
+  const [ucMax, setUcMax] = useStateA(settings?.unique_code_max ?? 999);
+  const [ucFixed, setUcFixed] = useStateA(settings?.unique_code_fixed ?? 0);
+  const [adminFee, setAdminFee] = useStateA(settings?.admin_fee ?? 0);
+  const [bankName, setBankName] = useStateA(settings?.bank_name || '');
+  const [bankNumber, setBankNumber] = useStateA(settings?.bank_number || '');
+  const [bankHolder, setBankHolder] = useStateA(settings?.bank_account_name || '');
 
-  const openAdd  = () => { setEditing(null); setModalOpen(true); };
-  const openEdit = (m) => { setEditing(m);  setModalOpen(true); };
+  // ---- Flip ----
+  const [flipEnabled, setFlipEnabled] = useStateA(settings?.flip_enabled ?? false);
+  const [flipMode, setFlipMode] = useStateA(settings?.flip_mode || 'sandbox');
+  const [flipSecret, setFlipSecret] = useStateA('');        // secret: blank = keep
+  const [flipToken, setFlipToken] = useStateA('');          // secret: blank = keep
+  const [flipCallback, setFlipCallback] = useStateA(settings?.flip_base_url || '');
+  const [flipRedirect, setFlipRedirect] = useStateA(settings?.flip_auto_redirect ?? true);
+  const [flipFee, setFlipFee] = useStateA(settings?.flip_charge_fee || 'merchant');
 
-  const handleSave = async (data) => {
-    try {
-      if (editing) {
-        await api.updatePaymentMethod(editing.id, data);
-        showToast('Payment berhasil diupdate');
-      } else {
-        await api.createPaymentMethod(data);
-        showToast('Payment berhasil ditambahkan');
-      }
-      try {
-        const res = await api.paymentMethods();
-        if (res?.data) setMethods(res.data.map(mapMethod));
-      } catch {}
-    } catch (e) { showToast('Gagal: ' + (e?.message || '')); }
-    setModalOpen(false);
-    setEditing(null);
-  };
+  // ---- Moota ----
+  const [mootaEnabled, setMootaEnabled] = useStateA(settings?.moota_enabled ?? false);
+  const [mootaKey, setMootaKey] = useStateA('');            // secret: blank = keep
+  const [mootaSecret, setMootaSecret] = useStateA('');      // secret: blank = keep
+  const [mootaSignature, setMootaSignature] = useStateA(settings?.moota_signature_enabled ?? true);
+  const [mootaEndpoint, setMootaEndpoint] = useStateA(settings?.moota_endpoint || '');
+  const [mootaRange, setMootaRange] = useStateA(settings?.moota_date_range ?? 7);
 
-  const handleDelete = async () => {
-    try {
-      await api.deletePaymentMethod(confirmDel.id);
-      setMethods((prev) => prev.filter(x => x.id !== confirmDel.id));
-      showToast(`Payment "${confirmDel.name}" dihapus`);
-    } catch (e) {
-      showToast('Gagal menghapus: ' + (e?.message || ''));
+  const callbackHint = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/flip`;
+  const mootaWebhook = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/moota`;
+
+  const saveGeneral = () => {
+    const patch = {
+      unique_code_mode: ucMode,
+      admin_fee: parseInt(String(adminFee).replace(/\D/g, ''), 10) || 0,
+      bank_name: bankName.trim(),
+      bank_number: bankNumber.replace(/[^0-9]/g, ''),
+      bank_account_name: bankHolder.trim(),
+    };
+    if (ucMode === 'fixed') patch.unique_code_fixed = parseInt(String(ucFixed).replace(/\D/g, ''), 10) || 0;
+    if (ucMode === 'range') {
+      patch.unique_code_min = parseInt(String(ucMin).replace(/\D/g, ''), 10) || 1;
+      patch.unique_code_max = parseInt(String(ucMax).replace(/\D/g, ''), 10) || 999;
+      if (patch.unique_code_min > patch.unique_code_max) { showToastSafe('Min kode unik tidak boleh lebih besar dari Max'); return; }
     }
-    setConfirmDel(null);
+    return onSave(patch);
   };
 
-  // Persist the active/inactive change, not just local UI state (was a no-op that
-  // reverted on reload). Optimistically flip, then PUT; revert + toast on failure.
-  // The update DTO requires bank_name + type, so reconstruct them from the row.
-  const typeMapFwd = { 'Bank Transfer':'va', 'E-wallet':'ewallet', 'QRIS':'qris', 'Card':'card' };
-  const toggle = async (m) => {
-    const next = !m.active;
-    setMethods((prev) => prev.map(x => x.id === m.id ? { ...x, active: next } : x));
-    try {
-      await api.updatePaymentMethod(m.id, {
-        bank_name: m.name,
-        bank_type: m.provider,
-        bank_number: m.account === '-' ? '' : m.account,
-        account_name: m.holder === '-' ? '' : m.holder,
-        type: typeMapFwd[m.type] || 'va',
-        image: m.image || '',
-        active: next,
-      });
-      showToast(next ? 'Metode pembayaran diaktifkan' : 'Metode pembayaran dinonaktifkan');
-    } catch (e) {
-      setMethods((prev) => prev.map(x => x.id === m.id ? { ...x, active: m.active } : x)); // revert
-      showToast('Gagal mengubah status: ' + (e?.message || ''));
-    }
+  const saveFlip = () => {
+    const patch = {
+      flip_enabled: flipEnabled,
+      flip_mode: flipMode,
+      flip_base_url: flipCallback.trim(),
+      flip_auto_redirect: flipRedirect,
+      flip_charge_fee: flipFee,
+    };
+    if (flipSecret.trim()) patch.flip_secret_key = flipSecret.trim();
+    if (flipToken.trim()) patch.flip_validation_token = flipToken.trim();
+    if (flipEnabled && !flipConfigured && !flipSecret.trim()) { showToastSafe('Isi Flip API Secret Key untuk mengaktifkan Flip'); return; }
+    return onSave(patch).then((ok) => { if (ok) { setFlipSecret(''); setFlipToken(''); } return ok; });
   };
+
+  const saveMoota = () => {
+    const patch = {
+      moota_enabled: mootaEnabled,
+      moota_signature_enabled: mootaSignature,
+      moota_endpoint: mootaEndpoint.trim(),
+      moota_date_range: parseInt(String(mootaRange).replace(/\D/g, ''), 10) || 7,
+    };
+    if (mootaKey.trim()) patch.moota_api_key = mootaKey.trim();
+    if (mootaSecret.trim()) patch.moota_webhook_secret = mootaSecret.trim();
+    return onSave(patch).then((ok) => { if (ok) { setMootaKey(''); setMootaSecret(''); } return ok; });
+  };
+
+  const copy = (t) => { try { navigator.clipboard?.writeText(t); showToastSafe('Disalin'); } catch {} };
 
   return (
     <>
-      <Section title="Payment Gateway" sub="Kelola metode pembayaran yang tersedia bagi donatur. Tambah rekening bank tujuan, atau aktifkan/nonaktifkan metode existing."
-        actions={<Btn size="sm" icon="plus" onClick={openAdd}>Add Payment</Btn>}>
-
-        <div className="space-y-2">
-          {methods.map((m) => (
-            <div key={m.id} className="flex items-center gap-3 p-3 rounded-xl border border-line hover:border-brand-200 transition-colors group">
-              <PaymentLogo provider={m.provider}/>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="font-bold text-ink">{m.name}</div>
-                  <Badge tone={m.type === 'QRIS' ? 'brand' : m.type === 'Bank Transfer' ? 'sky' : m.type === 'E-wallet' ? 'purple' : 'slate'} size="sm">
-                    {m.type}
-                  </Badge>
-                  {m.locked && <Badge tone="outline" size="sm">default</Badge>}
-                </div>
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-mute">
-                  {m.account && m.account !== '-' && (
-                    <span className="font-mono">
-                      <span className="text-mute">No. Rek:</span> <b className="text-ink">{m.account}</b>
-                    </span>
-                  )}
-                  {m.holder && m.holder !== '-' && <span>a.n. {m.holder}</span>}
-                  <span>fee {m.fee}</span>
-                </div>
-              </div>
-
-              <div className="hidden sm:flex items-center gap-2">
-                <StatusBadge status={m.active ? 'active' : 'inactive'}/>
-                <Toggle value={m.active} onChange={() => toggle(m)}/>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <button onClick={() => openEdit(m)} title="Edit"
-                  className="h-8 w-8 rounded-md text-mute hover:bg-brand-50 hover:text-brand-600 flex items-center justify-center">
-                  <Icon name="edit" size={14}/>
-                </button>
-                <button onClick={() => setConfirmDel(m)} disabled={m.locked} title={m.locked ? 'Default · tidak bisa dihapus' : 'Hapus'}
-                  className={`h-8 w-8 rounded-md flex items-center justify-center ${m.locked ? 'text-mute/40 cursor-not-allowed' : 'text-mute hover:bg-rose-50 hover:text-rose-600'}`}>
-                  <Icon name="trash" size={14}/>
-                </button>
-              </div>
+      {/* ---------------- Umum ---------------- */}
+      <Section title="Pengaturan Umum" sub="Kode unik untuk transfer manual, biaya admin, dan rekening tujuan donasi (dipakai saat Flip nonaktif).">
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-mute">Kode Unik (Unique Number)</label>
+            <div className="mt-1 grid grid-cols-3 gap-2">
+              {[{v:'none',l:'Nonaktif'},{v:'fixed',l:'Tetap (Fixed)'},{v:'range',l:'Rentang (Range)'}].map((o) => (
+                <button key={o.v} onClick={() => setUcMode(o.v)}
+                  className={`py-2 rounded-lg border text-xs font-bold ${ucMode===o.v ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line hover:bg-bg2'}`}>{o.l}</button>
+              ))}
             </div>
-          ))}
-
-        </div>
-      </Section>
-
-      <Section title="Payment Report" sub="Unduh laporan berdasarkan metode pembayaran." actions={<Btn size="sm" icon="download">Download semua</Btn>}>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {['QRIS','Bank VA','GoPay','OVO','Dana','ShopeePay','Card','Lainnya'].map((p) => (
-            <button key={p} className="p-3 rounded-xl border border-line hover:border-brand-600 hover:bg-brand-50 text-left">
-              <div className="text-xs text-mute">Metode</div>
-              <div className="font-bold text-ink">{p}</div>
-              <div className="mt-2 text-[11px] inline-flex items-center gap-1 text-brand-600 font-semibold"><Icon name="download" size={12}/> Unduh CSV</div>
-            </button>
-          ))}
-        </div>
-      </Section>
-
-      <PaymentEditorModal open={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }} editing={editing} onSave={handleSave}/>
-
-      <Modal open={!!confirmDel} onClose={() => setConfirmDel(null)} title="Hapus Metode Pembayaran" size="sm"
-        footer={<>
-          <Btn variant="outline" tone="ink" onClick={() => setConfirmDel(null)}>Batal</Btn>
-          <Btn tone="bad" icon="trash" onClick={handleDelete}>Hapus permanen</Btn>
-        </>}>
-        <div className="text-sm text-ink/85">
-          Hapus <b>{confirmDel?.name}</b> dari daftar metode pembayaran?
-        </div>
-        {confirmDel?.account && confirmDel.account !== '-' && (
-          <div className="mt-3 rounded-lg bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800">
-            <Icon name="shield" size={12} className="inline mr-1"/>
-            No. Rek <b className="font-mono">{confirmDel.account}</b> a.n. <b>{confirmDel.holder}</b> tidak akan tersedia lagi untuk donatur baru.
+            {ucMode === 'fixed' && (
+              <div className="mt-2">
+                <label className="text-[11px] text-mute">Nilai tetap (contoh: 57)</label>
+                <input type="number" min="0" className="field mt-1 max-w-[160px]" value={ucFixed} onChange={(e) => setUcFixed(e.target.value)}/>
+              </div>
+            )}
+            {ucMode === 'range' && (
+              <div className="mt-2 flex items-end gap-3">
+                <div><label className="text-[11px] text-mute">Min</label><input type="number" min="0" className="field mt-1 w-28" value={ucMin} onChange={(e) => setUcMin(e.target.value)}/></div>
+                <div><label className="text-[11px] text-mute">Max</label><input type="number" min="0" className="field mt-1 w-28" value={ucMax} onChange={(e) => setUcMax(e.target.value)}/></div>
+              </div>
+            )}
+            <div className="text-[11px] text-mute mt-1">Ditambahkan ke nominal transfer manual agar tiap pembayaran nominal sama bisa dibedakan. Flip (gateway) tidak memakai kode unik.</div>
           </div>
-        )}
-      </Modal>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-mute">Biaya Admin (Rp)</label>
+              <input type="number" min="0" className="field mt-1" value={adminFee} onChange={(e) => setAdminFee(e.target.value)}/>
+              <div className="text-[11px] text-mute mt-1">Dipotong dari nominal yang masuk ke campaign.</div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-line p-4">
+            <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Rekening Tujuan (Transfer Manual)</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div><label className="text-[11px] text-mute">Nama Bank</label><input className="field mt-1" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="BCA"/></div>
+              <div><label className="text-[11px] text-mute">No. Rekening</label><input className="field mt-1 font-mono" value={bankNumber} onChange={(e) => setBankNumber(e.target.value)} placeholder="8901234567"/></div>
+              <div><label className="text-[11px] text-mute">Atas Nama</label><input className="field mt-1" value={bankHolder} onChange={(e) => setBankHolder(e.target.value)} placeholder="Yayasan Niat Baik"/></div>
+            </div>
+            <div className="text-[11px] text-mute mt-2">Ditampilkan ke donatur saat Flip nonaktif (transfer manual + kode unik, direkonsiliasi Moota).</div>
+          </div>
+        </div>
+        <div className="flex justify-end mt-4"><SaveButton onClick={saveGeneral}>Simpan Umum</SaveButton></div>
+      </Section>
+
+      {/* ---------------- Flip ---------------- */}
+      <Section title="Flip — Payment Gateway"
+        sub="Gateway otomatis (QRIS / VA / e-wallet). Saat aktif, donatur dibayar lewat Flip & otomatis terverifikasi via webhook."
+        actions={<Badge tone={flipEnabled ? 'ok' : 'slate'} dot={flipEnabled} size="sm">{flipEnabled ? 'Aktif' : 'Nonaktif'}</Badge>}>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between rounded-xl border border-line p-3">
+            <div><div className="text-sm font-bold text-ink">Aktifkan Flip</div><div className="text-xs text-mute">Belum punya akun? <a href="https://flip.id/business" target="_blank" rel="noopener noreferrer" className="text-brand-600 font-semibold hover:underline">Daftar Flip Business</a></div></div>
+            <Toggle value={flipEnabled} onChange={setFlipEnabled}/>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Mode</label>
+            <div className="mt-1 grid grid-cols-2 gap-2 max-w-xs">
+              {[{v:'sandbox',l:'Sandbox'},{v:'production',l:'LIVE (Production)'}].map((o) => (
+                <button key={o.v} onClick={() => setFlipMode(o.v)}
+                  className={`py-2 rounded-lg border text-xs font-bold ${flipMode===o.v ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line hover:bg-bg2'}`}>{o.l}</button>
+              ))}
+            </div>
+          </div>
+          <SecretInput label="Flip API Secret Key" value={flipSecret} onChange={setFlipSecret} configured={flipConfigured} placeholder="Secret key dari dashboard Flip"/>
+          <SecretInput label="Flip Validation Token" value={flipToken} onChange={setFlipToken} configured={flipConfigured} placeholder="Validation token (untuk verifikasi webhook)"/>
+          <div>
+            <label className="text-xs font-semibold text-mute">URL Callback (set di dashboard Flip)</label>
+            <div className="mt-1 flex items-center gap-2 rounded-lg border border-line bg-bg2 px-3 py-2">
+              <span className="flex-1 min-w-0 truncate text-xs font-mono text-mute">{callbackHint}</span>
+              <button type="button" onClick={() => copy(callbackHint)} className="text-xs font-bold text-brand-600 hover:underline shrink-0">Salin</button>
+            </div>
+            <input className="field mt-2" value={flipCallback} onChange={(e) => setFlipCallback(e.target.value)} placeholder="Override base URL Flip (opsional — kosongkan untuk otomatis dari Mode)"/>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex items-center justify-between rounded-xl border border-line p-3">
+              <div className="text-sm font-semibold text-ink">Auto Redirect</div>
+              <Toggle value={flipRedirect} onChange={setFlipRedirect}/>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-mute">Biaya (Charge Fee)</label>
+              <Select value={flipFee} onChange={setFlipFee} options={[{value:'merchant',label:'Ditanggung Merchant'},{value:'donatur',label:'Ditanggung Donatur'}]} className="mt-1"/>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end mt-4"><SaveButton onClick={saveFlip}>Simpan Flip</SaveButton></div>
+      </Section>
+
+      {/* ---------------- Moota ---------------- */}
+      <Section title="Moota — Sinkronisasi Saldo"
+        sub="Moota memantau mutasi rekening bank & menampung saldo di sistem (bukan payment gateway). Dipakai untuk rekonsiliasi transfer manual."
+        actions={<Badge tone={mootaEnabled ? 'ok' : 'slate'} dot={mootaEnabled} size="sm">{mootaEnabled ? 'Aktif' : 'Nonaktif'}</Badge>}>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between rounded-xl border border-line p-3">
+            <div><div className="text-sm font-bold text-ink">Aktifkan Moota</div><div className="text-xs text-mute">Belum punya akun? <a href="https://moota.co" target="_blank" rel="noopener noreferrer" className="text-brand-600 font-semibold hover:underline">Daftar Moota</a></div></div>
+            <Toggle value={mootaEnabled} onChange={setMootaEnabled}/>
+          </div>
+          <SecretInput label="Moota API Key" value={mootaKey} onChange={setMootaKey} configured={mootaConfigured} placeholder="API key dari dashboard Moota"/>
+          <SecretInput label="Moota Secret Token (webhook)" value={mootaSecret} onChange={setMootaSecret} configured={mootaConfigured} placeholder="Secret token untuk verifikasi signature webhook"/>
+          <div className="flex items-center justify-between rounded-xl border border-line p-3">
+            <div><div className="text-sm font-semibold text-ink">Signature Moota</div><div className="text-xs text-mute">Verifikasi keaslian webhook. Nonaktifkan hanya jika bermasalah.</div></div>
+            <Toggle value={mootaSignature} onChange={setMootaSignature}/>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">URL Webhook (set di dashboard Moota)</label>
+            <div className="mt-1 flex items-center gap-2 rounded-lg border border-line bg-bg2 px-3 py-2">
+              <span className="flex-1 min-w-0 truncate text-xs font-mono text-mute">{mootaWebhook}</span>
+              <button type="button" onClick={() => copy(mootaWebhook)} className="text-xs font-bold text-brand-600 hover:underline shrink-0">Salin</button>
+            </div>
+            <input className="field mt-2" value={mootaEndpoint} onChange={(e) => setMootaEndpoint(e.target.value)} placeholder="Endpoint Moota (opsional)"/>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Rentang Tanggal Cek (hari)</label>
+            <input type="number" min="1" max="90" className="field mt-1 w-28" value={mootaRange} onChange={(e) => setMootaRange(e.target.value)}/>
+          </div>
+        </div>
+        <div className="flex justify-end mt-4"><SaveButton onClick={saveMoota}>Simpan Moota</SaveButton></div>
+      </Section>
     </>
   );
 }
 
-// =========================================================
-// Payment provider logo / acronym tile
-// =========================================================
-function PaymentLogo({ provider }) {
-  const brands = {
-    'QRIS':         { label:'QRIS',  bg:'#E21A1A', fg:'#fff' },
-    'Bank BCA':     { label:'BCA',   bg:'#003D79', fg:'#fff' },
-    'Bank Mandiri': { label:'MANDIRI', bg:'#003B71', fg:'#F5A623' },
-    'Bank BNI':     { label:'BNI',   bg:'#F05A22', fg:'#fff' },
-    'Bank BRI':     { label:'BRI',   bg:'#00529C', fg:'#fff' },
-    'Bank Syariah Indonesia': { label:'BSI', bg:'#00A651', fg:'#fff' },
-    'CIMB Niaga':   { label:'CIMB',  bg:'#7B0C14', fg:'#fff' },
-    'Permata Bank': { label:'PRMT',  bg:'#005C37', fg:'#fff' },
-    'BTN':          { label:'BTN',   bg:'#F37021', fg:'#fff' },
-    'Maybank':      { label:'MAY',   bg:'#FFC72C', fg:'#000' },
-    'GoPay':        { label:'GoPay', bg:'#00AED6', fg:'#fff' },
-    'OVO':          { label:'OVO',   bg:'#4C3494', fg:'#fff' },
-    'Dana':         { label:'DANA',  bg:'#108EE9', fg:'#fff' },
-    'ShopeePay':    { label:'SPay',  bg:'#EE4D2D', fg:'#fff' },
-    'LinkAja':      { label:'LINK',  bg:'#E32127', fg:'#fff' },
-    'Visa/Master':  { label:'VISA',  bg:'#1A1F71', fg:'#F7B600' },
-    'Moota':        { label:'MOOTA', bg:'#4F46E5', fg:'#fff' },
-    'Flip':         { label:'FLIP',  bg:'#FF6B35', fg:'#fff' },
-  };
-  const b = brands[provider] || { label: (provider || '??').slice(0,4).toUpperCase(), bg:'#94A3B8', fg:'#fff' };
+// Masked secret input: shows a "tersimpan" hint when a value already exists server
+// side (secrets are never sent back). Leaving it blank keeps the stored secret.
+function SecretInput({ label, value, onChange, configured, placeholder }) {
+  const [show, setShow] = useStateA(false);
   return (
-    <div className="h-10 w-14 rounded-md border border-line flex items-center justify-center shrink-0"
-      style={{ background: b.bg, color: b.fg }}>
-      <span className="text-[9px] font-extrabold tracking-wider leading-none">{b.label}</span>
-    </div>
-  );
-}
-
-// =========================================================
-// Payment Editor Modal
-// =========================================================
-const PAYMENT_TYPES = ['Bank Transfer', 'Virtual Account (VA)', 'QRIS', 'E-wallet', 'Card (CC/Debit)'];
-const BANKS = [
-  'Bank BCA', 'Bank Mandiri', 'Bank BNI', 'Bank BRI', 'Bank Syariah Indonesia',
-  'CIMB Niaga', 'Permata Bank', 'BTN', 'Maybank', 'OCBC NISP', 'Danamon', 'Panin',
-  'Bank Mega', 'Bank Jago', 'SeaBank', 'Jenius',
-];
-const EWALLETS = ['GoPay', 'OVO', 'Dana', 'ShopeePay', 'LinkAja'];
-// Payment-gateway aggregators offered under the Virtual Account section
-const VA_GATEWAYS = ['Moota', 'Flip'];
-
-function PaymentEditorModal({ open, onClose, editing, onSave }) {
-  const isEdit = !!editing;
-
-  const blankMoota = () => ({
-    signature:   true,
-    endpoint:    'https://donasi.niatbaik.org/push',
-    secretToken: '',
-    dateRange:   2,
-  });
-  const blankFlip = () => ({
-    mode:           'live',          // 'sandbox' | 'live'
-    secretKey:      '',
-    validationToken:'',
-    callbackUrl:    'https://donasi.niatbaik.org/callback_flip/',
-    autoRedirect:   false,
-    chargeFee:      'merchant',      // 'merchant' | 'donatur'
-  });
-
-  const [form, setForm] = useStateA(() => ({
-    type:     editing?.type     || 'Bank Transfer',
-    provider: editing?.provider || 'Bank BCA',
-    name:     editing?.name     || '',
-    holder:   editing?.holder   || '',
-    account:  editing?.account  || '',
-    fee:      editing?.fee      || 'Rp 4.000',
-    image:    editing?.image    || '',
-    moota:    editing?.moota    || blankMoota(),
-    flip:     editing?.flip     || blankFlip(),
-  }));
-  const [error, setError] = useStateA({});
-  const [qrisUploading, setQrisUploading] = useStateA(false);
-  const qrisRef = useRefA();
-
-  useEffectA(() => {
-    if (open) {
-      setForm({
-        type:     editing?.type     || 'Bank Transfer',
-        provider: editing?.provider || 'Bank BCA',
-        name:     editing?.name     || '',
-        holder:   editing?.holder   || 'Yayasan Niat Baik',
-        account:  editing?.account  || '',
-        fee:      editing?.fee      || 'Rp 4.000',
-        image:    editing?.image    || '',
-        moota:    editing?.moota    || blankMoota(),
-        flip:     editing?.flip     || blankFlip(),
-      });
-      setError({});
-    }
-  }, [open, editing?.id]);
-
-  const handleQrisUpload = async (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setQrisUploading(true);
-    try {
-      const res = await window.api.uploadImage(f);
-      const url = res?.data?.url || res?.url;
-      if (url) setForm((prev) => ({ ...prev, image: url }));
-    } catch (err) { /* surfaced by global error handling */ }
-    setQrisUploading(false);
-    e.target.value = '';
-  };
-
-  // Provider options reflect type
-  const providerOptions = useMemoA(() => {
-    if (form.type === 'QRIS') return ['QRIS'];
-    if (form.type === 'E-wallet') return EWALLETS;
-    if (form.type === 'Card (CC/Debit)') return ['Visa/Master', 'JCB', 'AMEX'];
-    if (form.type === 'Virtual Account (VA)') return [...VA_GATEWAYS, ...BANKS];
-    return BANKS;
-  }, [form.type]);
-
-  // When type changes, snap provider to first valid option
-  useEffectA(() => {
-    if (!providerOptions.includes(form.provider)) {
-      setForm((f) => ({ ...f, provider: providerOptions[0] }));
-    }
-  }, [providerOptions]);
-
-  // Compute a display name from type+provider (used for auto-suggest AND as a
-  // guaranteed non-empty fallback at submit, so backend never gets empty bank_name).
-  const autoName = (type, provider) => {
-    if (type === 'Virtual Account (VA)' && VA_GATEWAYS.includes(provider)) return provider + ' Payment Gateway';
-    if (type === 'Virtual Account (VA)') return (provider || '').replace(/^Bank\s+/i, '') + ' Virtual Account';
-    if (type === 'Bank Transfer') return (provider || '').replace(/^Bank\s+/i, '') + ' Transfer';
-    if (type === 'Card (CC/Debit)') return 'Kartu Kredit / Debit';
-    if (type === 'QRIS') return 'QRIS';
-    return provider || 'Metode Pembayaran';
-  };
-
-  // Auto-suggest name into the field when empty.
-  useEffectA(() => {
-    if (!form.name || (editing && editing.name === form.name)) {
-      if (!isEdit) setForm((f) => ({ ...f, name: autoName(f.type, f.provider) }));
-    }
-  }, [form.type, form.provider]);
-
-  const isGateway = form.type === 'Virtual Account (VA)' && VA_GATEWAYS.includes(form.provider);
-  const needsAccount = !isGateway && (form.type === 'Bank Transfer' || form.type === 'Virtual Account (VA)' || form.type === 'E-wallet');
-  const setMoota = (patch) => setForm((f) => ({ ...f, moota: { ...f.moota, ...patch } }));
-  const setFlip  = (patch) => setForm((f) => ({ ...f, flip:  { ...f.flip,  ...patch } }));
-  const accountLabel = form.type === 'E-wallet' ? 'No. HP / akun e-wallet' : 'Nomor Rekening';
-  const accountPattern = form.type === 'E-wallet' ? /^[0-9+]+$/ : /^\d+$/;
-
-  const validate = () => {
-    const e = {};
-    // name is auto-derived at submit if blank — don't hard-block on it.
-    if (isGateway) {
-      if (form.provider === 'Moota' && !form.moota.secretToken.trim()) e.secretToken = 'Moota Secret Token wajib diisi';
-      if (form.provider === 'Flip') {
-        if (!form.flip.secretKey.trim()) e.secretKey = 'Flip API Secret Key wajib diisi';
-        if (!form.flip.validationToken.trim()) e.validationToken = 'Flip Validation Token wajib diisi';
-      }
-    } else if (needsAccount) {
-      if (!form.holder.trim()) e.holder = 'Atas nama wajib diisi';
-      if (!form.account.trim()) e.account = 'Nomor rekening / akun wajib diisi';
-      else if (!accountPattern.test(form.account.replace(/\s|-/g, ''))) e.account = 'Hanya angka diperbolehkan';
-      else if (form.account.replace(/\D/g,'').length < 6) e.account = 'Minimal 6 digit';
-    }
-    if (!form.fee.trim()) e.fee = 'Fee wajib diisi';
-    setError(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const submit = () => {
-    if (!validate()) return;
-    const typeMap = { 'Bank Transfer': 'va', 'Virtual Account (VA)': 'va', 'E-wallet': 'ewallet', 'QRIS': 'qris', 'Card (CC/Debit)': 'card' };
-    // Guarantee non-empty bank_name (backend requires it) — derive from type+provider if blank.
-    const bankName = form.name.trim() || autoName(form.type, form.provider);
-    onSave({
-      bank_name: bankName,
-      type: typeMap[form.type] || 'va',
-      account_name: (!isGateway && needsAccount) ? form.holder.trim() : '',
-      bank_number: (!isGateway && needsAccount) ? form.account.replace(/\s|-/g, '') : '',
-      bank_type: form.provider,
-      admin_fee: parseInt(String(form.fee).replace(/[^\d]/g, ''), 10) || 0,
-      active: true,
-      // QRIS code image (stored as relative /uploads ref) shown on the donation page.
-      image: form.type === 'QRIS' ? form.image : '',
-      gateway_config: form.provider === 'Moota' ? JSON.stringify(form.moota) : form.provider === 'Flip' ? JSON.stringify(form.flip) : '',
-    });
-  };
-
-  return (
-    <Modal open={open} onClose={onClose} size="lg"
-      title={<span className="flex items-center gap-2">
-        <span className="h-7 w-7 rounded-md bg-brand-50 text-brand-600 flex items-center justify-center"><Icon name={isEdit ? 'edit' : 'plus'} size={14}/></span>
-        {isEdit ? 'Edit Payment Method' : 'Add Payment Method'}
-      </span>}
-      footer={<>
-        <Btn variant="outline" tone="ink" onClick={onClose}>Batal</Btn>
-        <Btn icon={isEdit ? 'check' : 'plus'} onClick={submit}>{isEdit ? 'Simpan perubahan' : 'Tambah Metode'}</Btn>
-      </>}>
-
-      <div className="space-y-5">
-        {/* Type */}
-        <div>
-          <label className="text-sm font-semibold text-ink">Methode Pembayaran <span className="text-rose-600">*</span></label>
-          <div className="mt-2 grid grid-cols-2 sm:grid-cols-5 gap-2">
-            {PAYMENT_TYPES.map((t) => (
-              <button key={t} type="button" onClick={() => setForm({ ...form, type: t })}
-                className={`p-2.5 rounded-lg border-2 text-xs font-bold text-left transition-all ${form.type === t ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:bg-bg2'}`}>
-                <Icon name={t === 'QRIS' ? 'pix' : t.includes('Card') ? 'creditcard' : t === 'E-wallet' ? 'wallet' : 'briefcase'} size={14}
-                  className={form.type === t ? 'text-brand-600 mb-1' : 'text-mute mb-1'}/>
-                <div className="leading-tight">{t}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Provider / Bank */}
-          <div>
-            <label className="text-sm font-semibold text-ink">
-              {form.type === 'E-wallet' ? 'Provider E-wallet' : form.type === 'Card (CC/Debit)' ? 'Jaringan Kartu' : form.type === 'QRIS' ? 'Penerbit QRIS' : 'Nama Bank'}
-              <span className="text-rose-600"> *</span>
-            </label>
-            <div className="mt-1.5 relative">
-              <select value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })}
-                className="appearance-none w-full h-10 rounded-lg border border-line bg-white pl-3 pr-9 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600">
-                {providerOptions.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-              <Icon name="chevronD" size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-mute pointer-events-none"/>
-            </div>
-          </div>
-
-          {/* Name */}
-          <div>
-            <label className="text-sm font-semibold text-ink">Nama Tampilan <span className="text-rose-600">*</span></label>
-            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className={`field mt-1.5 ${error.name ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
-              placeholder="cth: BCA Virtual Account"/>
-            {error.name && <div className="text-[11px] text-rose-600 font-semibold mt-1">{error.name}</div>}
-          </div>
-        </div>
-
-        {needsAccount && (
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr] gap-4 pt-4 border-t border-line">
-            <div className="sm:col-span-2 text-xs font-bold uppercase tracking-wider text-mute">Detail Rekening</div>
-            <div>
-              <label className="text-sm font-semibold text-ink">Atas Nama <span className="text-rose-600">*</span></label>
-              <input value={form.holder} onChange={(e) => setForm({ ...form, holder: e.target.value })}
-                className={`field mt-1.5 ${error.holder ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
-                placeholder="cth: Yayasan Niat Baik"/>
-              {error.holder && <div className="text-[11px] text-rose-600 font-semibold mt-1">{error.holder}</div>}
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-ink">{accountLabel} <span className="text-rose-600">*</span></label>
-              <input value={form.account} onChange={(e) => setForm({ ...form, account: e.target.value })}
-                className={`field mt-1.5 font-mono ${error.account ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
-                placeholder={form.type === 'E-wallet' ? '081234567890' : '8901234567'}/>
-              {error.account && <div className="text-[11px] text-rose-600 font-semibold mt-1">{error.account}</div>}
-            </div>
-          </div>
-        )}
-
-        {/* QRIS code image — uploaded here, shown on the public donation page when
-            the donor selects QRIS. */}
-        {form.type === 'QRIS' && (
-          <div className="pt-4 border-t border-line">
-            <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Gambar QRIS</div>
-            <div className="flex items-center gap-4">
-              <div className="h-28 w-28 rounded-xl border-2 border-dashed border-line bg-bg2 flex items-center justify-center overflow-hidden shrink-0">
-                {form.image
-                  ? <img src={window.mediaUrl ? window.mediaUrl(form.image) : form.image} alt="QRIS" className="h-full w-full object-contain" onError={(e)=>{e.target.style.display='none';}}/>
-                  : <Icon name="image" size={28} className="text-mute"/>}
-              </div>
-              <div>
-                <input ref={qrisRef} type="file" accept="image/*" className="hidden" onChange={handleQrisUpload}/>
-                <Btn size="sm" variant="outline" tone="ink" icon="upload" onClick={() => qrisRef.current?.click()}>
-                  {qrisUploading ? 'Mengupload…' : (form.image ? 'Ganti gambar QRIS' : 'Upload gambar QRIS')}
-                </Btn>
-                {form.image && <button onClick={() => setForm({...form, image:''})} className="ml-2 text-xs font-semibold text-rose-600 hover:underline">Hapus</button>}
-                <div className="text-[11px] text-mute mt-2">PNG/JPG QR code. Tampil ke donatur saat memilih QRIS.</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isGateway && form.provider === 'Moota' && <MootaConfig moota={form.moota} setMoota={setMoota} error={error}/>}
-        {isGateway && form.provider === 'Flip'  && <FlipConfig  flip={form.flip}   setFlip={setFlip}   error={error}/>}
-
-        <div className="pt-4 border-t border-line">
-          <label className="text-sm font-semibold text-ink">Fee Transaksi <span className="text-rose-600">*</span></label>
-          <input value={form.fee} onChange={(e) => setForm({ ...form, fee: e.target.value })}
-            className={`field mt-1.5 ${error.fee ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
-            placeholder="cth: Rp 4.000 atau 2%"/>
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {['Gratis', 'Rp 2.500', 'Rp 4.000', '0.7%', '2%', '2.9% + Rp 2.000'].map((f) => (
-              <button key={f} type="button" onClick={() => setForm({ ...form, fee: f })}
-                className="px-2 py-0.5 rounded-full bg-bg2 hover:bg-brand-50 hover:text-brand-700 text-[10px] font-bold text-ink/80 border border-line">
-                {f}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Live preview */}
-        <div className="pt-4 border-t border-line">
-          <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Preview Item</div>
-          <div className="flex items-center gap-3 p-3 rounded-xl border border-line bg-bg2/40">
-            <PaymentLogo provider={form.provider}/>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="font-bold text-ink">{form.name || 'Nama metode…'}</div>
-                <Badge tone="sky" size="sm">{form.type === 'Virtual Account (VA)' ? 'Bank Transfer' : form.type}</Badge>
-              </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-mute">
-                {needsAccount && form.account && (
-                  <span className="font-mono"><span>No. Rek:</span> <b className="text-ink">{form.account}</b></span>
-                )}
-                {needsAccount && form.holder && <span>a.n. {form.holder}</span>}
-                <span>fee {form.fee || '—'}</span>
-              </div>
-            </div>
-            <Badge tone="ok" dot>active</Badge>
-          </div>
-        </div>
+    <div>
+      <label className="text-xs font-semibold text-mute flex items-center gap-2">
+        {label}
+        {configured && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">tersimpan</span>}
+      </label>
+      <div className="mt-1 relative">
+        <input type={show ? 'text' : 'password'} className="field pr-9 font-mono" value={value} onChange={(e) => onChange(e.target.value)}
+          placeholder={configured ? 'Isi untuk mengganti · kosongkan untuk tetap' : (placeholder || '')}/>
+        <button type="button" onClick={() => setShow(!show)} className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-md hover:bg-bg2 flex items-center justify-center text-mute">
+          <Icon name="eye" size={15} className={show ? 'text-brand-600' : ''}/>
+        </button>
       </div>
-    </Modal>
-  );
-}
-
-// =========================================================
-// Moota gateway config (Signature, URL Endpoint, Secret Token, Date Range)
-// =========================================================
-function MootaConfig({ moota, setMoota, error }) {
-  const { showToast } = useApp();
-  const copy = (txt) => { try { navigator.clipboard.writeText(txt); } catch{} showToast('URL endpoint disalin'); };
-  return (
-    <div className="pt-4 border-t border-line space-y-5">
-      <div className="flex items-center gap-2">
-        <div className="h-7 w-7 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center"><Icon name="shield" size={14}/></div>
-        <div className="text-xs font-bold uppercase tracking-wider text-mute">Konfigurasi Moota</div>
-      </div>
-
-      {/* Signature */}
-      <div>
-        <label className="text-sm font-semibold text-ink">Signature Moota</label>
-        <p className="text-xs text-mute mt-0.5 max-w-md">Default aktif untuk keamanan. Non-aktifkan jika website Anda mengalami kendala dengan pembuatan Signature Moota.</p>
-        <div className="mt-2 flex items-center gap-2">
-          <Toggle value={moota.signature} onChange={(v) => setMoota({ signature: v })}/>
-          <span className={`text-sm font-semibold ${moota.signature ? 'text-emerald-600' : 'text-mute'}`}>{moota.signature ? 'Active' : 'Nonaktif'}</span>
-        </div>
-      </div>
-
-      {/* URL Endpoint */}
-      <div>
-        <label className="text-sm font-semibold text-ink">URL Endpoint</label>
-        <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-line bg-bg2 px-3 h-10">
-          <span className="flex-1 min-w-0 truncate text-sm text-mute font-mono">{moota.endpoint}</span>
-          <button type="button" onClick={() => copy(moota.endpoint)}
-            className="shrink-0 inline-flex items-center gap-1 text-brand-600 text-xs font-bold hover:underline">
-            <Icon name="copy" size={12}/> Copy
-          </button>
-        </div>
-        <p className="text-[11px] text-mute mt-1">Tambahkan URL ini sebagai webhook di dashboard Moota Anda.</p>
-      </div>
-
-      {/* Secret Token */}
-      <div>
-        <label className="text-sm font-semibold text-ink">Moota Secret Token <span className="text-rose-600">*</span></label>
-        <input value={moota.secretToken} onChange={(e) => setMoota({ secretToken: e.target.value })}
-          className={`field mt-1.5 font-mono ${error.secretToken ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
-          placeholder="cth: RHRbv4xy"/>
-        {error.secretToken && <div className="text-[11px] text-rose-600 font-semibold mt-1">{error.secretToken}</div>}
-      </div>
-
-      {/* Date Range */}
-      <div>
-        <label className="text-sm font-semibold text-ink">Moota Date Range</label>
-        <input type="number" min={1} max={30} value={moota.dateRange}
-          onChange={(e) => setMoota({ dateRange: Math.max(1, Math.min(30, Number(e.target.value) || 1)) })}
-          className="field mt-1.5 w-32"/>
-        <p className="text-[11px] text-mute mt-1">Rentang hari pengecekan mutasi (1–30 hari).</p>
-      </div>
-    </div>
-  );
-}
-
-// =========================================================
-// Flip gateway config (Sandbox / LIVE Production)
-// =========================================================
-function FlipConfig({ flip, setFlip, error }) {
-  const { showToast } = useApp();
-  const isLive = flip.mode === 'live';
-  const envLabel = isLive ? 'Production' : 'Sandbox';
-  const copy = (txt) => { try { navigator.clipboard.writeText(txt); } catch{} showToast('URL callback disalin'); };
-  return (
-    <div className="pt-4 border-t border-line space-y-5">
-      <div className="flex items-center gap-2">
-        <div className="h-7 w-7 rounded-md bg-orange-50 text-orange-600 flex items-center justify-center"><Icon name="creditcard" size={14}/></div>
-        <div className="text-xs font-bold uppercase tracking-wider text-mute">Konfigurasi Flip</div>
-      </div>
-
-      {/* Flip Mode */}
-      <div>
-        <label className="text-sm font-semibold text-ink">Flip Mode</label>
-        <p className="text-xs text-mute mt-0.5 max-w-md">Gunakan mode Sandbox (Development) untuk uji coba, dan LIVE jika sistem sudah berjalan.</p>
-        <div className="mt-2 grid grid-cols-2 gap-2 max-w-sm">
-          {[{ v:'sandbox', label:'Sandbox', sub:'Development' }, { v:'live', label:'LIVE', sub:'Production' }].map((o) => (
-            <button key={o.v} type="button" onClick={() => setFlip({ mode: o.v })}
-              className={`p-2.5 rounded-lg border-2 text-left transition-all ${flip.mode === o.v ? (o.v === 'live' ? 'border-emerald-500 bg-emerald-50' : 'border-amber-500 bg-amber-50') : 'border-line hover:bg-bg2'}`}>
-              <div className="flex items-center gap-1.5">
-                <span className={`h-2.5 w-2.5 rounded-full ${flip.mode === o.v ? (o.v === 'live' ? 'bg-emerald-500' : 'bg-amber-500') : 'bg-slate-300'}`}/>
-                <span className="text-sm font-bold text-ink">{o.label}</span>
-              </div>
-              <div className="text-[11px] text-mute mt-0.5 ml-4">{o.sub}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* API Secret Key */}
-      <div>
-        <label className="text-sm font-semibold text-ink">Flip API Secret Key — {envLabel} <span className="text-rose-600">*</span></label>
-        <input value={flip.secretKey} onChange={(e) => setFlip({ secretKey: e.target.value })}
-          className={`field mt-1.5 font-mono text-xs ${error.secretKey ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
-          placeholder={isLive ? 'JDJ5JDEzJExHYnIITUpRbFVqaEVlRlIPeGVT…' : 'sandbox_xxxxxxxxxxxxxxxxxxxx'}/>
-        {error.secretKey && <div className="text-[11px] text-rose-600 font-semibold mt-1">{error.secretKey}</div>}
-      </div>
-
-      {/* Validation Token */}
-      <div>
-        <label className="text-sm font-semibold text-ink">Flip Validation Token — {envLabel} <span className="text-rose-600">*</span></label>
-        <input value={flip.validationToken} onChange={(e) => setFlip({ validationToken: e.target.value })}
-          className={`field mt-1.5 font-mono text-xs ${error.validationToken ? 'border-rose-400 ring-2 ring-rose-300/30' : ''}`}
-          placeholder="cth: $2y$13$gE087s82sD7K8ze8P2G6…"/>
-        {error.validationToken && <div className="text-[11px] text-rose-600 font-semibold mt-1">{error.validationToken}</div>}
-      </div>
-
-      {/* URL Callback */}
-      <div>
-        <label className="text-sm font-semibold text-ink">URL Callback — {envLabel}</label>
-        <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-line bg-bg2 px-3 h-10">
-          <span className="flex-1 min-w-0 truncate text-sm text-mute font-mono">{flip.callbackUrl}</span>
-          <button type="button" onClick={() => copy(flip.callbackUrl)}
-            className="shrink-0 inline-flex items-center gap-1 text-brand-600 text-xs font-bold hover:underline">
-            <Icon name="copy" size={12}/> Copy
-          </button>
-        </div>
-      </div>
-
-      {/* Auto Redirect */}
-      <div>
-        <label className="text-sm font-semibold text-ink">Flip Auto Redirect</label>
-        <p className="text-xs text-mute mt-0.5">Hanya berlaku untuk metode Instant &amp; Transfer Flip.</p>
-        <div className="mt-2 flex items-center gap-2">
-          <Toggle value={flip.autoRedirect} onChange={(v) => setFlip({ autoRedirect: v })}/>
-          <span className={`text-sm font-semibold ${flip.autoRedirect ? 'text-emerald-600' : 'text-mute'}`}>{flip.autoRedirect ? 'ON' : 'OFF'}</span>
-        </div>
-      </div>
-
-      {/* Charge Fee */}
-      <div>
-        <label className="text-sm font-semibold text-ink">Flip Charge Fee</label>
-        <p className="text-xs text-mute mt-0.5 max-w-md">Biaya admin transaksi dapat dibebankan kepada Donatur atau ditanggung oleh Merchant.</p>
-        <div className="mt-2 grid grid-cols-2 gap-2 max-w-sm">
-          {[{ v:'merchant', label:'Merchant' }, { v:'donatur', label:'Donatur' }].map((o) => (
-            <button key={o.v} type="button" onClick={() => setFlip({ chargeFee: o.v })}
-              className={`p-2.5 rounded-lg border-2 text-sm font-bold transition-all ${flip.chargeFee === o.v ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:bg-bg2'}`}>
-              <span className="inline-flex items-center gap-1.5">
-                <span className={`h-2.5 w-2.5 rounded-full ${flip.chargeFee === o.v ? 'bg-brand-600' : 'bg-slate-300'}`}/>
-                {o.label}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {isLive && (
-        <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 flex items-start gap-2">
-          <Icon name="shield" size={13} className="mt-0.5 shrink-0"/>
-          <div>Mode <b>LIVE (Production)</b> aktif — transaksi akan diproses secara nyata. Pastikan kredensial sudah benar.</div>
-        </div>
-      )}
     </div>
   );
 }

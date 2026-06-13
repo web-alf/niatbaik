@@ -81,6 +81,25 @@ func (r *CampaignRepo) FindBySlug(slug string) (*model.Campaign, error) {
 	return &c, nil
 }
 
+// FindBySlugOrID resolves a campaign by its slug OR its UUID id. The public detail
+// route is hit by both the Long URL (/c/<slug>) and the Short URL (/c/<uuid>), so
+// the lookup must accept either — looking up a UUID by the slug column always 404'd.
+func (r *CampaignRepo) FindBySlugOrID(key string) (*model.Campaign, error) {
+	var c model.Campaign
+	q := r.db.Preload("Category").Preload("User").Preload("Updates")
+	if id, err := uuid.Parse(key); err == nil {
+		err = q.Where("id = ? OR slug = ?", id, key).First(&c).Error
+		if err != nil {
+			return nil, err
+		}
+		return &c, nil
+	}
+	if err := q.Where("slug = ?", key).First(&c).Error; err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
 func (r *CampaignRepo) FindByID(id uuid.UUID) (*model.Campaign, error) {
 	var c model.Campaign
 	err := r.db.Preload("Category").Preload("User").Preload("Updates").Preload("Funds").

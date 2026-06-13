@@ -61,7 +61,8 @@ func (h *PublicHandler) ListCampaigns(c echo.Context) error {
 
 func (h *PublicHandler) GetCampaign(c echo.Context) error {
 	slug := c.Param("slug")
-	campaign, err := h.campaignRepo.FindBySlug(slug)
+	// Accept either the slug (Long URL) or the UUID (Short URL /c/<id>).
+	campaign, err := h.campaignRepo.FindBySlugOrID(slug)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, response.ErrorResponse("Campaign not found"))
 	}
@@ -147,6 +148,12 @@ func (h *PublicHandler) GetPublicSettings(c echo.Context) error {
 		"donor_greeting":  settings.DonorGreeting,
 		"cs_contacts":     settings.CSContacts,
 		"cs_rotator_mode": settings.CSRotatorMode,
+		// Manual bank-transfer destination (shown on the confirmation page when Flip
+		// is off). Public, non-secret — it's the org's donation account.
+		"bank_name":         settings.BankName,
+		"bank_number":       settings.BankNumber,
+		"bank_account_name": settings.BankAccountName,
+		"flip_enabled":      settings.FlipEnabled,
 	}
 	return c.JSON(http.StatusOK, response.SuccessResponse(publicSettings, "success"))
 }

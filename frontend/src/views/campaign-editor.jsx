@@ -46,7 +46,10 @@ function CampaignEditorForm({ campaign }) {
   const [status, setStatus] = useStateA(STATUS_DENORM[c?.status] || c?.status || 'Draft');
   const [thumb, setThumb] = useStateA(c?.img || c?.thumb || null);
 
-  // Editable URL slugs
+  // Editable URL slugs. Public campaign page lives at <origin>/c/<slug>; use the
+  // current origin so the displayed/copied link matches the real host (was hardcoded
+  // to niatbaik.org, the wrong host — public site is donasi.niatbaik.org).
+  const publicBaseUrl = (typeof window !== 'undefined' && window.location && window.location.origin) || 'https://donasi.niatbaik.org';
   const autoSlug = (title || c?.title || 'kampanye-baru').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
   // When editing, seed the Long URL from the campaign's SAVED slug (was previously
   // derived from the title every time, so a custom slug never loaded and looked like
@@ -682,7 +685,7 @@ function CampaignEditorForm({ campaign }) {
                 <>
                   <EditableUrlRow
                     label="Long URL"
-                    prefix="https://niatbaik.org/c/"
+                    prefix={publicBaseUrl + '/c/'}
                     value={longSlug}
                     onChange={(v) => { setLongSlug(v); setLongTouched(true); }}
                     onCopy={() => showToast('Long URL disalin')}
@@ -692,7 +695,7 @@ function CampaignEditorForm({ campaign }) {
                   />
                   <EditableUrlRow
                     label="Short URL"
-                    prefix="https://niatbaik.org/c/"
+                    prefix={publicBaseUrl + '/c/'}
                     value={shortSlug}
                     onCopy={() => showToast('Short URL disalin')}
                     helper="Tautan permanen berbasis ID campaign. Salin untuk iklan & QR code."
@@ -786,7 +789,7 @@ function EditableUrlRow({ label, prefix, value, onChange, onCopy, sanitize, help
               </button>
             )}
             <button
-              onClick={onCopy}
+              onClick={() => { try { navigator.clipboard?.writeText(prefix + value); } catch {} if (onCopy) onCopy(); }}
               aria-label={`Copy ${label}`}
               className="shrink-0 h-7 w-7 rounded-md hover:bg-bg2 text-mute hover:text-ink flex items-center justify-center">
               <Icon name="copy" size={13}/>

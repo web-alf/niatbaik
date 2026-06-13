@@ -27,9 +27,27 @@ func NewFlipService(cfg *config.Config, paymentSvc *PaymentService, invoiceRepo 
 	return &FlipService{cfg: cfg, paymentSvc: paymentSvc, invoiceRepo: invoiceRepo, settingRepo: settingRepo}
 }
 
+// Flip API base URLs. Production is bigflip.id; the sandbox (Big Flip "test")
+// environment is bigflip.id/big_sandbox_api. getCredentials picks the right base
+// from the admin's Flip Mode setting when an explicit base URL isn't configured.
+const (
+	flipProdBaseURL    = "https://bigflip.id/api/v3"
+	flipSandboxBaseURL = "https://bigflip.id/big_sandbox_api/v3"
+)
+
 func (s *FlipService) getCredentials() (secretKey, validationToken, baseURL string) {
 	if setting, err := s.settingRepo.Get(); err == nil && setting.FlipEnabled {
-		return setting.FlipSecretKey, setting.FlipValidationToken, setting.FlipBaseURL
+		base := setting.FlipBaseURL
+		if base == "" {
+			// Derive from Flip Mode (sandbox/production) so the admin only toggles a
+			// mode instead of pasting the right API host.
+			if strings.EqualFold(strings.TrimSpace(setting.FlipMode), "sandbox") {
+				base = flipSandboxBaseURL
+			} else {
+				base = flipProdBaseURL
+			}
+		}
+		return setting.FlipSecretKey, setting.FlipValidationToken, base
 	}
 	return s.cfg.FlipSecretKey, s.cfg.FlipValidationToken, s.cfg.FlipBaseURL
 }

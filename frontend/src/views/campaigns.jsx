@@ -1,3 +1,18 @@
+// Campaign share helpers. The public campaign page lives at <origin>/c/<slug>.
+// Prefer the human slug; fall back to id; return '' when neither exists so callers
+// can disable share actions instead of producing a ".../c/undefined" dead link.
+function campaignSlugOrId(c) {
+  return (c && (c.slug || c.id)) || '';
+}
+function campaignShareUrl(c) {
+  const s = campaignSlugOrId(c);
+  if (!s) return '';
+  // Use the current origin so the link is correct on any host (prod/staging/local),
+  // not hardcoded to donasi.niatbaik.org.
+  const origin = (typeof window !== 'undefined' && window.location && window.location.origin) || 'https://donasi.niatbaik.org';
+  return origin + '/c/' + s;
+}
+
 // Campaigns list + detail preview modal
 function CampaignsView() {
   const { setCampaignDetail, setView, setEditingCampaign, showToast } = useApp();
@@ -215,8 +230,8 @@ function CampaignOptionMenu({ c, onEdit, onPreview, onDelete, align = 'right' })
     { l: `Add Info Update (${updateCount})`, icon: 'pin',      onClick: () => { setOpen(false); showToast('Form update campaign dibuka'); } },
     { l: 'Data Donasi',                icon: 'wallet',   onClick: () => { setOpen(false); showToast('Membuka data donasi'); } },
     { l: 'Preview',                    icon: 'eye',      onClick: () => { setOpen(false); onPreview && onPreview(); } },
-    { l: 'Buka di Tab Baru',            icon: 'eye',      onClick: () => { setOpen(false); window.open(`https://donasi.niatbaik.org/c/${c.slug || c.id}`, '_blank'); } },
-    { l: 'Salin URL',                  icon: 'copy',     onClick: () => { setOpen(false); navigator.clipboard?.writeText(`https://donasi.niatbaik.org/c/${c.slug || c.id}`); showToast('URL campaign disalin'); } },
+    { l: 'Buka di Tab Baru',            icon: 'eye',      onClick: () => { setOpen(false); const u = campaignShareUrl(c); if (u) window.open(u, '_blank'); else showToast('URL campaign belum tersedia'); } },
+    { l: 'Salin URL',                  icon: 'copy',     onClick: () => { setOpen(false); const u = campaignShareUrl(c); if (u) { navigator.clipboard?.writeText(u); showToast('URL campaign disalin'); } else showToast('URL campaign belum tersedia'); } },
     { sep: true },
     { l: 'Delete Data',                icon: 'trash',    onClick: () => { setOpen(false); onDelete && onDelete(); }, danger: true },
     { l: 'Delete All',                 icon: 'trash',    onClick: () => { setOpen(false); showToast('Semua data terkait dihapus'); }, danger: true },
@@ -276,11 +291,11 @@ function CampaignDetailModal({ campaign, onClose }) {
     <Modal open={true} onClose={onClose} title="Preview Halaman Campaign" size="xl"
       footer={<>
         <span className="text-xs text-mute mr-auto flex items-center gap-1.5">
-          <Icon name="globe" size={14}/> donasi.niatbaik.org/c/{c.slug || c.id}
+          <Icon name="globe" size={14}/> {(campaignShareUrl(c) || 'URL belum tersedia').replace(/^https?:\/\//, '')}
         </span>
-        <Btn variant="outline" tone="ink" icon="copy" onClick={() => { navigator.clipboard?.writeText('https://donasi.niatbaik.org/c/' + (c.slug || c.id)); showToast('URL disalin'); }}>Salin URL</Btn>
+        <Btn variant="outline" tone="ink" icon="copy" onClick={() => { const u = campaignShareUrl(c); if (u) { navigator.clipboard?.writeText(u); showToast('URL disalin'); } else showToast('URL campaign belum tersedia'); }}>Salin URL</Btn>
         <Btn variant="outline" tone="ink" icon="edit" onClick={() => { onClose(); setEditingCampaign(c); setView('campaign-editor'); }}>Edit campaign</Btn>
-        <Btn icon="eye" onClick={() => window.open('https://donasi.niatbaik.org/c/' + (c.slug || c.id), '_blank')}>Buka di tab baru</Btn>
+        <Btn icon="eye" onClick={() => { const u = campaignShareUrl(c); if (u) window.open(u, '_blank'); else showToast('URL campaign belum tersedia'); }}>Buka di tab baru</Btn>
       </>}>
       <div className="bg-bg2 -m-5 p-5">
         <div className="rounded-2xl border border-line bg-white overflow-hidden">
@@ -293,7 +308,7 @@ function CampaignDetailModal({ campaign, onClose }) {
             </div>
             <div className="ml-2 flex-1 h-6 rounded-md bg-white border border-line flex items-center px-2.5 text-[11px] font-mono text-mute">
               <Icon name="shield" size={12} className="mr-1.5 text-emerald-600"/>
-              donasi.niatbaik.org/c/{c.slug || c.id}
+              {(campaignShareUrl(c) || 'donasi.niatbaik.org/c/…').replace(/^https?:\/\//, '')}
             </div>
           </div>
 

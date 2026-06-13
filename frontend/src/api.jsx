@@ -247,6 +247,7 @@ const api = {
   // Settings
   settings() { return this.get('/settings'); },
   updateSettings(data) { return this.put('/settings', data); },
+  testEmail(to) { return this.post('/settings/test-email', { to }); },
 
   // Notifications
   notifications() { return this.get('/notifications'); },

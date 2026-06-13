@@ -133,6 +133,7 @@ func (h *PublicHandler) GetPublicSettings(c echo.Context) error {
 		"anonymous_default":   settings.AnonymousDefault,
 		"message_enabled":     settings.MessageEnabled,
 		"social_proof_enabled": settings.SocialProofEnabled,
+		"social_proof_config":  settings.SocialProofConfig,
 		// Tracking (public IDs, not secrets)
 		"meta_pixel_id":          settings.MetaPixelID,
 		"meta_capi_enabled":      settings.MetaCAPIEnabled,

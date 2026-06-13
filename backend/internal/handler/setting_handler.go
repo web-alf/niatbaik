@@ -41,6 +41,24 @@ func (h *SettingHandler) Get(c echo.Context) error {
 	return c.JSON(http.StatusOK, response.SuccessResponse(resp, "success"))
 }
 
+// TestEmail sends a test email via the saved SMTP settings so an admin can verify
+// the configuration without waiting for a real donation receipt to fail.
+func (h *SettingHandler) TestEmail(c echo.Context) error {
+	var req struct {
+		To string `json:"to"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
+	}
+	if err := h.service.SendTestEmail(req.To); err != nil {
+		if errors.Is(err, service.ErrValidation) {
+			return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		}
+		return c.JSON(http.StatusBadGateway, response.ErrorResponse(err.Error()))
+	}
+	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "email tes terkirim ke "+req.To))
+}
+
 func (h *SettingHandler) Update(c echo.Context) error {
 	var req request.UpdateSettingRequest
 	if err := c.Bind(&req); err != nil {

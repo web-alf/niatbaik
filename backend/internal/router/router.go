@@ -166,6 +166,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 
 	admin.GET("/settings", settingHandler.Get)
 	admin.PUT("/settings", settingHandler.Update)
+	admin.POST("/settings/test-email", settingHandler.TestEmail)
 
 	admin.GET("/admin/payment-methods", paymentMethodHandler.List)
 	admin.POST("/admin/payment-methods", paymentMethodHandler.Create)

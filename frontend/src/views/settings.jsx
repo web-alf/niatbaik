@@ -999,6 +999,19 @@ function TrackingPanel({ settings, onSave }) {
     { name:'Looker Studio (Data Studio)', status:'not', icon:'chart', color:'bg-gradient-to-br from-[#4285F4] via-[#0F9D58] to-[#F4B400]' },
   ];
   const events = ['PageView','ViewContent','InitiateCheckout','AddPaymentInfo','Lead','CompleteDonation','Purchase'];
+  // Real verification of pixel events happens in each platform's official debug tool
+  // (fired from the live public page), not from this admin form. Link there instead
+  // of faking a "test event sent" toast.
+  const PIXEL_VERIFY_URL = {
+    'Meta Pixel': 'https://business.facebook.com/events_manager2',
+    'Meta Conversions API': 'https://business.facebook.com/events_manager2',
+    'Google Tag Manager': 'https://tagmanager.google.com/',
+    'Google Ads Conversion': 'https://ads.google.com/aw/conversions',
+    'Google Analytics 4': 'https://analytics.google.com/',
+    'TikTok Pixel': 'https://ads.tiktok.com/i18n/events_manager',
+    'TikTok Events API': 'https://ads.tiktok.com/i18n/events_manager',
+    'Looker Studio (Data Studio)': 'https://lookerstudio.google.com/',
+  };
 
   const DEFAULT_LOOKER = [
     { name:'Overview Donasi (Master)',   url:'lookerstudio.google.com/reporting/a1b2-…',  updated:'baru saja', status:'active', dim:'47 widget · 6 page', owner:'andre@niatbaik.org' },
@@ -1077,10 +1090,8 @@ function TrackingPanel({ settings, onSave }) {
                 </div>
               </div>
               <div className="mt-2 flex items-center justify-between text-xs">
-                <span className="text-mute">Last fired: 12 detik lalu</span>
-                <div className="flex gap-2">
-                  <button className="text-brand-600 font-semibold hover:underline" onClick={() => showToast('Event test dikirim ke ' + p.name)}>Test event</button>
-                </div>
+                <span className="text-mute">{(pixelIds[p.name] || '').trim() ? 'ID tersimpan — verifikasi event live di tool resmi' : 'Belum dikonfigurasi'}</span>
+                <a className="text-brand-600 font-semibold hover:underline" href={PIXEL_VERIFY_URL[p.name] || '#'} target="_blank" rel="noopener noreferrer">Cara verifikasi</a>
               </div>
             </div>
           ))}
@@ -1526,6 +1537,7 @@ function PaymentStatusPanel() {
 }
 
 function GeneralPanel({ settings, onSave }) {
+  const { showToast } = useApp();
   const [siteName, setSiteName] = useStateA(settings?.site_name || 'NIATBAIK.ORG');
   const [domain, setDomain] = useStateA(settings?.domain || 'niatbaik.org');
   const [tz, setTz] = useStateA(settings?.timezone || 'Asia/Jakarta (WIB) · GMT+7');
@@ -1539,6 +1551,18 @@ function GeneralPanel({ settings, onSave }) {
   const [smtpPassword, setSmtpPassword] = useStateA('');
   const [smtpName, setSmtpName] = useStateA(settings?.smtp_name || 'NIATBAIK.ORG');
   const [smtpShowPwd, setSmtpShowPwd] = useStateA(false);
+  const [testTo, setTestTo] = useStateA(settings?.smtp_email || '');
+  const [testBusy, setTestBusy] = useStateA(false);
+  const sendTest = async () => {
+    const to = (testTo || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { showToast('Masukkan email tujuan yang valid'); return; }
+    setTestBusy(true);
+    try {
+      await window.api.testEmail(to);
+      showToast('Email tes terkirim ke ' + to);
+    } catch (e) { showToast('Gagal kirim tes: ' + (e?.message || 'periksa konfigurasi SMTP')); }
+    setTestBusy(false);
+  };
   const [formPageName, setFormPageName] = useStateA(settings?.form_page_name || 'donasi');
   const [typPageName, setTypPageName] = useStateA(settings?.thankyou_page_name || 'invoice');
   // Donor greeting message + CS contact rotator
@@ -1548,7 +1572,6 @@ function GeneralPanel({ settings, onSave }) {
     try { const p = typeof v === 'string' && v ? JSON.parse(v) : v; return Array.isArray(p) ? p : []; } catch { return []; }
   };
   const [csContacts, setCsContacts] = useStateA(() => parseCsContacts(settings?.cs_contacts));
-  const { showToast } = useApp();
   useEffectA(() => {
     if (settings?.site_name) setSiteName(settings.site_name);
     if (settings?.domain) setDomain(settings.domain);
@@ -1631,6 +1654,14 @@ function GeneralPanel({ settings, onSave }) {
             </div>
             <div className="text-[10px] text-mute mt-1">Untuk Gmail: aktifkan 2FA lalu buat App Password di myaccount.google.com/apppasswords</div>
           </div>
+        </div>
+        <div className="mt-4 pt-4 border-t border-line">
+          <label className="text-xs font-semibold text-mute">Tes konfigurasi SMTP</label>
+          <div className="mt-1 flex flex-col sm:flex-row gap-2">
+            <input type="email" className="field flex-1" value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="email tujuan tes"/>
+            <Btn variant="outline" tone="ink" icon="bell" onClick={sendTest} disabled={testBusy}>{testBusy ? 'Mengirim…' : 'Kirim Email Tes'}</Btn>
+          </div>
+          <div className="text-[11px] text-mute mt-1">Mengirim email tes memakai SMTP yang <b>sudah tersimpan</b>. Simpan dulu bila baru mengubah.</div>
         </div>
       </Section>
       <Section title="Greeting Donatur & CS" sub="Pesan sambutan ke donatur dan kontak CS (mode default atau rotator antar beberapa nomor).">

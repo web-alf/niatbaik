@@ -586,28 +586,60 @@ function StickyCTA({ onClick, label = 'Donasi Sekarang' }) {
 }
 
 // -------- Social proof popup --------
+// Read the admin's social-proof config (Settings → Social Proof). Returns the
+// resolved {enabled, intervalMs, posClass, template}. Defaults match the panel.
+const POS_CLASS = ['top-4 left-4', 'top-4 right-4', 'left-4 bottom-4', 'right-4 bottom-4'];
+function getSocialProofConfig() {
+  const raw = window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.social_proof_config;
+  let cfg = {};
+  if (typeof raw === 'string' && raw.trim()) { try { cfg = JSON.parse(raw) || {}; } catch {} }
+  else if (raw && typeof raw === 'object') { cfg = raw; }
+  // social_proof_enabled is the authoritative toggle; config.enabled mirrors it.
+  const enabledTop = window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.social_proof_enabled;
+  const enabled = (cfg.enabled != null ? !!cfg.enabled : (enabledTop != null ? !!enabledTop : true));
+  const secs = parseInt(cfg.interval, 10);
+  const intervalMs = (secs > 0 ? secs : 8) * 1000;
+  const posIdx = (typeof cfg.position === 'number' && cfg.position >= 0 && cfg.position < 4) ? cfg.position : 2;
+  return { enabled, intervalMs, posClass: POS_CLASS[posIdx], template: (cfg.template || '').trim() };
+}
+
 function SocialPopup() {
+  const cfg = getSocialProofConfig();
   const [idx, setIdx] = useState(0);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
+    if (!cfg.enabled) return;
     const t1 = setTimeout(() => setVisible(true), 4000);
     const id = setInterval(() => {
       setVisible(false);
       setTimeout(() => { setIdx((i) => { const sp = getSocialProof(); return sp.length ? (i + 1) % sp.length : 0; }); setVisible(true); }, 400);
-    }, 8000);
+    }, cfg.intervalMs);
     return () => { clearTimeout(t1); clearInterval(id); };
-  }, []);
+  }, [cfg.enabled, cfg.intervalMs]);
+  // Respect the admin toggle: when disabled, render nothing.
+  if (!cfg.enabled) return null;
   const sp = getSocialProof();
   if (!sp.length) return null;
   const p = sp[idx] || sp[0];
+  // If the admin set a custom template, render it with {{nama}}/{{nominal}}/{{campaign}}
+  // substituted; otherwise use the default structured layout.
+  const customLine = cfg.template
+    ? cfg.template.replace(/\{\{\s*nama\s*\}\}/gi, p.name || '').replace(/\{\{\s*nominal\s*\}\}/gi, fmtIDR(p.amount)).replace(/\{\{\s*campaign\s*\}\}/gi, p.campaign || '')
+    : '';
   return (
-    <div className={`hidden lg:flex fixed left-4 bottom-4 z-30 transition-all ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'}`}>
+    <div className={`hidden lg:flex fixed ${cfg.posClass} z-30 transition-all ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'}`}>
       <div className="bg-white rounded-xl shadow-pop border border-line p-3 flex items-center gap-3 max-w-xs">
         <div className="h-10 w-10 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center"><Icon name="heart" size={18}/></div>
         <div className="min-w-0">
-          <div className="text-xs font-semibold text-ink"><b>{p.name}</b> baru saja berdonasi</div>
-          <div className="text-sm font-bold text-brand-600">{fmtIDR(p.amount)}</div>
-          <div className="text-[10px] text-mute truncate">untuk "{p.campaign}" · {p.when}</div>
+          {customLine ? (
+            <div className="text-xs font-semibold text-ink">{customLine}</div>
+          ) : (
+            <>
+              <div className="text-xs font-semibold text-ink"><b>{p.name}</b> baru saja berdonasi</div>
+              <div className="text-sm font-bold text-brand-600">{fmtIDR(p.amount)}</div>
+              <div className="text-[10px] text-mute truncate">untuk "{p.campaign}" · {p.when}</div>
+            </>
+          )}
         </div>
         <button onClick={() => setVisible(false)} className="self-start text-mute hover:text-ink"><Icon name="close" size={12}/></button>
       </div>

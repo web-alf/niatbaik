@@ -9,6 +9,7 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/internal/repository"
+	"github.com/anrdart/niatbaik-api/pkg/mailer"
 )
 
 // validCSContacts returns true when s is empty or a JSON array of CS contacts
@@ -52,6 +53,39 @@ func NewSettingService(settingRepo *repository.SettingRepo) *SettingService {
 
 func (s *SettingService) Get() (*model.Setting, error) {
 	return s.settingRepo.Get()
+}
+
+// SendTestEmail sends a test message using the saved SMTP settings, so an admin can
+// verify the configuration before relying on it for real donor receipts. Returns a
+// validation error when SMTP is not configured or the recipient is missing.
+func (s *SettingService) SendTestEmail(to string) error {
+	to = strings.TrimSpace(to)
+	if to == "" {
+		return fmt.Errorf("%w: alamat email tujuan wajib diisi", ErrValidation)
+	}
+	setting, err := s.settingRepo.Get()
+	if err != nil {
+		return err
+	}
+	if setting.SMTPHost == "" || setting.SMTPEmail == "" || setting.SMTPPassword == "" || setting.SMTPPort == 0 {
+		return fmt.Errorf("%w: SMTP belum dikonfigurasi (host/email/password/port)", ErrValidation)
+	}
+	cfg := mailer.Config{
+		Host:     setting.SMTPHost,
+		Port:     setting.SMTPPort,
+		Email:    setting.SMTPEmail,
+		Password: setting.SMTPPassword,
+		Name:     setting.SMTPName,
+	}
+	body := `<div style="font-family:sans-serif;max-width:480px;margin:auto">
+	  <h2 style="color:#2E4191">Tes Email NIATBAIK.ORG</h2>
+	  <p>Jika Anda menerima email ini, konfigurasi SMTP Anda sudah benar. 🎉</p>
+	  <p style="color:#64748B;font-size:13px">Email ini dikirim dari halaman Settings → Notification.</p>
+	</div>`
+	if err := mailer.Send(cfg, to, "Tes Email NIATBAIK.ORG", body); err != nil {
+		return fmt.Errorf("gagal mengirim email tes: %w", err)
+	}
+	return nil
 }
 
 func (s *SettingService) Update(req *request.UpdateSettingRequest) error {

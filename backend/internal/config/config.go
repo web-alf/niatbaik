@@ -29,11 +29,6 @@ type Config struct {
 	UploadDir     string
 	MaxUploadSize int64
 
-	IpaymuVA           string
-	IpaymuSecret       string
-	IpaymuURL          string
-	IpaymuMerchantCode string
-
 	MootaAPIKey        string
 	MootaWebhookSecret string
 
@@ -66,11 +61,6 @@ func Load() *Config {
 
 		UploadDir:     getEnv("UPLOAD_DIR", "./uploads"),
 		MaxUploadSize: getInt64("MAX_UPLOAD_SIZE", 10<<20), // 10MB
-
-		IpaymuVA:           getEnv("IPAYMU_VA", ""),
-		IpaymuSecret:       getEnv("IPAYMU_SECRET", ""),
-		IpaymuURL:          getEnv("IPAYMU_URL", ""),
-		IpaymuMerchantCode: getEnv("IPAYMU_MERCHANT_CODE", ""),
 
 		MootaAPIKey:        getEnv("MOOTA_API_KEY", ""),
 		MootaWebhookSecret: getEnv("MOOTA_WEBHOOK_SECRET", ""),

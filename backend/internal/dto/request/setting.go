@@ -28,9 +28,6 @@ type UpdateSettingRequest struct {
 	ButtonColor                 *string `json:"button_color" validate:"omitempty,max=30"`
 	WhatsappAdmin               *string `json:"whatsapp_admin" validate:"omitempty,max=30"`
 	SocialproofSetting          *bool   `json:"socialproof_setting"`
-	IpaymuVA                    *string `json:"ipaymu_va"`
-	IpaymuSecret                string  `json:"ipaymu_secret"` // secret: blank = keep
-	IpaymuURL                   *string `json:"ipaymu_url"`
 	SmtpHost                    *string `json:"smtp_host"`
 	SmtpEmail                   *string `json:"smtp_email"`
 	SmtpPassword                string  `json:"smtp_password"` // secret: blank = keep

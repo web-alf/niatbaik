@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/model"
-	"github.com/gosimple/slug"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -31,12 +30,9 @@ func Seed(db *gorm.DB) error {
 	if err := seedSettings(db); err != nil {
 		return err
 	}
-	if err := seedCategories(db); err != nil {
-		return err
-	}
-	if err := seedPaymentMethods(db); err != nil {
-		return err
-	}
+	// Sample categories and payment methods are intentionally NOT seeded — the admin
+	// creates real categories and payment methods from Settings. Only the functional
+	// essentials (admin/staff users, base settings, invoice statuses) are seeded.
 	if err := seedPaymentStatuses(db); err != nil {
 		return err
 	}
@@ -186,53 +182,3 @@ func seedSettings(db *gorm.DB) error {
 	return nil
 }
 
-func seedCategories(db *gorm.DB) error {
-	var count int64
-	db.Model(&model.Category{}).Count(&count)
-	if count > 0 {
-		log.Println("[seed] categories already exist, skipping")
-		return nil
-	}
-
-	names := []string{"Beasiswa", "Sekolah", "Yatim", "Tahfidz", "Mahasiswa", "Guru", "Literasi"}
-	for _, name := range names {
-		cat := model.Category{
-			Name: name,
-			Slug: slug.Make(name),
-		}
-		if err := db.Create(&cat).Error; err != nil {
-			return err
-		}
-	}
-	log.Printf("[seed] %d categories created\n", len(names))
-	return nil
-}
-
-func seedPaymentMethods(db *gorm.DB) error {
-	var count int64
-	db.Model(&model.PaymentMethod{}).Count(&count)
-	if count > 0 {
-		log.Println("[seed] payment methods already exist, skipping")
-		return nil
-	}
-
-	methods := []model.PaymentMethod{
-		{BankName: "BCA Virtual Account", BankType: "BCA", Type: "va", Code: "bca", Category: "bank_transfer", Active: true, IsDefault: true},
-		{BankName: "BNI Virtual Account", BankType: "BNI", Type: "va", Code: "bni", Category: "bank_transfer", Active: true, IsDefault: true},
-		{BankName: "Mandiri Virtual Account", BankType: "Mandiri", Type: "va", Code: "mandiri", Category: "bank_transfer", Active: true, IsDefault: true},
-		{BankName: "BSI Virtual Account", BankType: "BSI", Type: "va", Code: "bsi", Category: "bank_transfer", Active: true, IsDefault: true},
-		{BankName: "QRIS", BankType: "QRIS", Type: "qris", Code: "qris", Category: "qris", Active: true, IsDefault: true},
-		{BankName: "GoPay", BankType: "GoPay", Type: "ewallet", Code: "gopay", Category: "ewallet", Active: true, IsDefault: true},
-		{BankName: "OVO", BankType: "OVO", Type: "ewallet", Code: "ovo", Category: "ewallet", Active: true, IsDefault: true},
-		{BankName: "DANA", BankType: "DANA", Type: "ewallet", Code: "dana", Category: "ewallet", Active: true, IsDefault: true},
-		{BankName: "ShopeePay", BankType: "ShopeePay", Type: "ewallet", Code: "shopeepay", Category: "ewallet", Active: true, IsDefault: true},
-	}
-
-	for i := range methods {
-		if err := db.Create(&methods[i]).Error; err != nil {
-			return err
-		}
-	}
-	log.Printf("[seed] %d payment methods created\n", len(methods))
-	return nil
-}

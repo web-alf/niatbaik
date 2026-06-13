@@ -116,8 +116,6 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	set(&setting.ProgressbarColor, req.ProgressbarColor)
 	set(&setting.ButtonColor, req.ButtonColor)
 	set(&setting.WhatsappAdmin, req.WhatsappAdmin)
-	set(&setting.IpaymuVA, req.IpaymuVA)
-	set(&setting.IpaymuURL, req.IpaymuURL)
 	set(&setting.SMTPHost, req.SmtpHost)
 	set(&setting.SMTPEmail, req.SmtpEmail)
 	set(&setting.SMTPName, req.SmtpName)
@@ -153,9 +151,6 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	// accidental blank save never wipes live SMTP / gateway credentials.
 	if req.SmtpPassword != "" {
 		setting.SMTPPassword = req.SmtpPassword
-	}
-	if req.IpaymuSecret != "" {
-		setting.IpaymuSecret = req.IpaymuSecret
 	}
 	if req.MootaAPIKey != "" {
 		setting.MootaAPIKey = req.MootaAPIKey

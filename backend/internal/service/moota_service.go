@@ -4,13 +4,60 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"math"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/anrdart/niatbaik-api/internal/config"
 	"github.com/anrdart/niatbaik-api/internal/repository"
 )
+
+// Moota types its webhook fields inconsistently: top-level account_number/amount/
+// balance arrive as bare JSON numbers, but the nested bank object sends the same
+// concepts as strings ("123123123123", "8704362.00"). A plain `string`/`float64`
+// field fails json.Unmarshal on the unexpected token, which rejected the ENTIRE
+// payload with 400 "Invalid payload" — silently dropping a real, signature-valid
+// mutation. These flexible types accept either representation so reconciliation
+// never breaks on Moota's loose typing.
+
+// flexString accepts a JSON string OR number, keeping the raw textual form.
+type flexString string
+
+func (f *flexString) UnmarshalJSON(b []byte) error {
+	if len(b) == 0 || string(b) == "null" {
+		*f = ""
+		return nil
+	}
+	if b[0] == '"' {
+		var s string
+		if err := json.Unmarshal(b, &s); err != nil {
+			return err
+		}
+		*f = flexString(s)
+		return nil
+	}
+	*f = flexString(string(b)) // number (or other bare token) → its literal text
+	return nil
+}
+
+// flexFloat accepts a JSON number OR a numeric string ("10000.00").
+type flexFloat float64
+
+func (f *flexFloat) UnmarshalJSON(b []byte) error {
+	s := strings.Trim(string(b), `"`)
+	if s == "" || s == "null" {
+		*f = 0
+		return nil
+	}
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return err
+	}
+	*f = flexFloat(v)
+	return nil
+}
 
 type MootaService struct {
 	cfg         *config.Config
@@ -66,18 +113,22 @@ func (s *MootaService) ExpectedSignature(payload []byte) string {
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
-// MootaWebhookPayload represents a single mutation from Moota webhook.
+// MootaWebhookPayload represents a single mutation from Moota webhook. Fields use
+// flex types because Moota sends numbers and strings interchangeably across its
+// payload (see flexString/flexFloat). ID is flexString too — Moota's mutation id is
+// an alphanumeric token like "VSO78wsOJ0nu9", not an integer.
 type MootaWebhookPayload struct {
-	ID          int64   `json:"id"`
-	BankID      string  `json:"bank_id"`
-	AccountNo   string  `json:"account_number"`
-	BankType    string  `json:"bank_type"`
-	Amount      float64 `json:"amount"`
-	Description string  `json:"description"`
-	Type        string  `json:"type"` // "CR" for credit (incoming)
-	Balance     float64 `json:"balance"`
-	CreatedAt   string  `json:"created_at"`
-	Token       string  `json:"token"`
+	ID          flexString `json:"id"`
+	MutationID  flexString `json:"mutation_id"`
+	BankID      flexString `json:"bank_id"`
+	AccountNo   flexString `json:"account_number"`
+	BankType    flexString `json:"bank_type"`
+	Amount      flexFloat  `json:"amount"`
+	Description string     `json:"description"`
+	Type        string     `json:"type"` // "CR" for credit (incoming)
+	Balance     flexFloat  `json:"balance"`
+	CreatedAt   string     `json:"created_at"`
+	Token       flexString `json:"token"`
 }
 
 // VerifySignature returns (ok, reason). reason is "" on success; otherwise a short
@@ -114,7 +165,7 @@ func (s *MootaService) HandleWebhook(mutations []MootaWebhookPayload) ([]string,
 
 		// Bank mutations are whole rupiah; round (not truncate) so a float like
 		// 99999.999 becomes 100000 instead of silently under-matching the invoice.
-		amount := int64(math.Round(m.Amount))
+		amount := int64(math.Round(float64(m.Amount)))
 		invoiceNumber := invoiceRegex.FindString(strings.ToUpper(m.Description))
 
 		if invoiceNumber != "" {

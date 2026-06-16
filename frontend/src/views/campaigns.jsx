@@ -429,7 +429,7 @@ function CampaignDetailModal({ campaign, onClose }) {
                   <div className="text-xs font-semibold uppercase tracking-wider text-mute">Donasi terkumpul</div>
                   <div className="mt-1 text-3xl font-extrabold text-brand-600">{fmtIDR(c.raised)}</div>
                   <div className="text-sm text-mute">dari target {fmtIDR(c.target)}</div>
-                  <div className="mt-2"><Progress value={c.raised} max={c.target} height="h-2.5"/></div>
+                  <div className="mt-2"><Progress value={c.raised} max={c.target || 1} height="h-2.5"/></div>
                   <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
                     <div className="p-2 rounded-lg bg-white border border-line">
                       <div className="text-mute">Donatur</div><div className="font-bold text-ink">{fmtNum(c.donors)}</div>
@@ -438,7 +438,7 @@ function CampaignDetailModal({ campaign, onClose }) {
                       <div className="text-mute">Sisa hari</div><div className="font-bold text-ink">{c.daysLeft}</div>
                     </div>
                     <div className="p-2 rounded-lg bg-white border border-line">
-                      <div className="text-mute">Tercapai</div><div className="font-bold text-emerald-600">{Math.round(c.raised/c.target*100)}%</div>
+                      <div className="text-mute">Tercapai</div><div className="font-bold text-emerald-600">{c.target ? Math.round(c.raised/c.target*100) : 0}%</div>
                     </div>
                   </div>
                 </div>

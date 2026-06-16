@@ -59,6 +59,10 @@ type CampaignDetail struct {
 	MinDonation        int64                `json:"min_donation"`
 	MaxDonation        int64                `json:"max_donation"`
 	LocationName       string               `json:"location_name"`
+	// PaymentConfig is the per-campaign custom payment rows (JSON). Surfaced publicly so
+	// the donation form can honor a campaign-level payment override configured in the
+	// editor's Advanced → Payment panel. Empty string = use the global/public methods.
+	PaymentConfig      string               `json:"payment_config"`
 	MetaPixelID        string               `json:"meta_pixel_id"`
 	TikTokPixelID      string               `json:"tiktok_pixel_id"`
 	GTMID              string               `json:"gtm_id"`
@@ -161,6 +165,7 @@ func ToCampaignDetail(c *model.Campaign, donorCount int64, donors []CampaignDono
 		MinDonation:        c.MinDonation,
 		MaxDonation:        c.MaxDonation,
 		LocationName:       c.LocationName,
+		PaymentConfig:      c.PaymentConfig,
 		MetaPixelID:        c.MetaPixelID,
 		TikTokPixelID:      c.TikTokPixelID,
 		GTMID:              c.GTMID,

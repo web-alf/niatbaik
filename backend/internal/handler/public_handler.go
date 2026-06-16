@@ -39,7 +39,10 @@ func NewPublicHandler(
 
 func (h *PublicHandler) ListCampaigns(c echo.Context) error {
 	params := request.ParsePaginationParams(c)
-	campaigns, total, err := h.campaignRepo.FindAll(params)
+	// Only donatable (live) campaigns are public — a Draft/Pending/Selesai campaign must
+	// never be listed, because donation_service would reject any donation to it with a
+	// generic error ("lead ga bisa masuk"). FindAllLive filters status IN donatableStatuses.
+	campaigns, total, err := h.campaignRepo.FindAllLive(params)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("Failed to fetch campaigns"))
 	}
@@ -159,25 +162,104 @@ func (h *PublicHandler) GetPublicSettings(c echo.Context) error {
 }
 
 func (h *PublicHandler) ListPaymentMethods(c echo.Context) error {
-	methods, err := h.paymentMethodRepo.FindActive()
+	// Source of truth is the admin's Payment settings (Setting row), NOT the legacy
+	// payment_methods table — that table has no admin CRUD UI and ships empty, so the
+	// public form used to fall back to a hardcoded string list that never matched what
+	// the admin configured. Derive the list from settings so donor-facing methods stay
+	// in sync:
+	//   - Flip enabled (automatic gateway) → the channels Flip settles (QRIS / VA /
+	//     e-wallet). Routing is decided by settings.flip_enabled, not the chosen row,
+	//     so these are display-only; the donor pays on Flip's hosted page.
+	//   - Flip disabled → the single manual bank-transfer account the admin entered
+	//     (bank_name / bank_number / bank_account_name), reconciled via Moota.
+	// Any active rows an admin added directly to payment_methods are still surfaced
+	// (merged in) so manual/API-managed methods keep working.
+	settings, err := h.settingRepo.Get()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("Failed to fetch payment methods"))
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("Failed to fetch payment settings"))
 	}
-	items := make([]map[string]interface{}, 0, len(methods))
-	for _, m := range methods {
+
+	flipGateway := settings != nil && settings.FlipEnabled
+
+	items := make([]map[string]interface{}, 0, 12)
+
+	if flipGateway {
+		// QRIS first (most common), then VA banks, then e-wallets — matches the grouping
+		// the public form already renders. Stable string ids (not DB UUIDs): the backend
+		// records payment_method by label anyway when the id isn't a real payment_method.
+		channels := []struct {
+			id, name, typ, category string
+		}{
+			{"flip-qris", "QRIS", "qris", "qris"},
+			{"flip-va-bca", "BCA", "va", "bank_transfer"},
+			{"flip-va-mandiri", "Mandiri", "va", "bank_transfer"},
+			{"flip-va-bni", "BNI", "va", "bank_transfer"},
+			{"flip-va-bri", "BRI", "va", "bank_transfer"},
+			{"flip-ewallet-gopay", "GoPay", "ewallet", "ewallet"},
+			{"flip-ewallet-ovo", "OVO", "ewallet", "ewallet"},
+			{"flip-ewallet-dana", "Dana", "ewallet", "ewallet"},
+			{"flip-ewallet-shopeepay", "ShopeePay", "ewallet", "ewallet"},
+		}
+		for _, ch := range channels {
+			items = append(items, map[string]interface{}{
+				"id":           ch.id,
+				"bank_name":    ch.name,
+				"bank_number":  "",
+				"bank_type":    ch.typ,
+				"account_name": "",
+				"type":         ch.typ,
+				"category":     ch.category,
+				"code":         "",
+				"admin_fee":    settings.AdminFee,
+				"image":        "",
+			})
+		}
+	} else if settings != nil && settings.BankName != "" {
+		// Manual transfer to the org's account. This is what donors must actually pay to
+		// when the gateway is off, so surface the real account the admin configured.
 		items = append(items, map[string]interface{}{
-			"id":           m.ID,
-			"bank_name":    m.BankName,
-			"bank_number":  m.BankNumber,
-			"bank_type":    m.BankType,
-			"account_name": m.AccountName,
-			"type":         m.Type,
-			"category":     m.Category,
-			"code":         m.Code,
-			"admin_fee":    m.AdminFee,
-			"image":        m.Image,
+			"id":           "manual-bank",
+			"bank_name":    settings.BankName,
+			"bank_number":  settings.BankNumber,
+			"bank_type":    "va",
+			"account_name": settings.BankAccountName,
+			"type":         "va",
+			"category":     "bank_transfer",
+			"code":         "",
+			"admin_fee":    settings.AdminFee,
+			"image":        "",
 		})
 	}
+
+	// Merge any admin-managed rows from the payment_methods table (manual/API additions),
+	// de-duped by bank_name so a manually-added "BCA" doesn't double up with a Flip channel.
+	seen := make(map[string]bool, len(items))
+	for _, it := range items {
+		if n, ok := it["bank_name"].(string); ok {
+			seen[n] = true
+		}
+	}
+	if rows, err := h.paymentMethodRepo.FindActive(); err == nil {
+		for _, m := range rows {
+			if seen[m.BankName] {
+				continue
+			}
+			seen[m.BankName] = true
+			items = append(items, map[string]interface{}{
+				"id":           m.ID,
+				"bank_name":    m.BankName,
+				"bank_number":  m.BankNumber,
+				"bank_type":    m.BankType,
+				"account_name": m.AccountName,
+				"type":         m.Type,
+				"category":     m.Category,
+				"code":         m.Code,
+				"admin_fee":    m.AdminFee,
+				"image":        m.Image,
+			})
+		}
+	}
+
 	return c.JSON(http.StatusOK, response.SuccessResponse(items, "success"))
 }
 

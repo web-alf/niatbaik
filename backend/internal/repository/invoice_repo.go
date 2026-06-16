@@ -32,22 +32,34 @@ func (r *InvoiceRepo) FindByInvoiceNumber(number string) (*model.Invoice, error)
 	return &invoice, nil
 }
 
+// FindUnpaidByInvoiceNumber looks up an invoice by its exact invoice number for webhook
+// settlement. The expired_at filter is intentionally ABSENT here: a gateway/bank webhook
+// is the authoritative signal that the donor paid, so a payment landing moments after
+// the local 24h expiry clock must still be credited. Dropping the filter only widens the
+// match for an EXACT invoice number, so it cannot misattribute to a different donor.
+// (Previously the `expired_at >= now` clause silently dropped late payments = lost money.)
 func (r *InvoiceRepo) FindUnpaidByInvoiceNumber(number string) (*model.Invoice, error) {
 	var invoice model.Invoice
 	if err := r.db.Preload("Campaign").Preload("Referrer").
 		Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("invoice_number = ? AND is_paid = ? AND expired_at >= ?", number, false, time.Now()).
+		Where("invoice_number = ? AND is_paid = ?", number, false).
 		First(&invoice).Error; err != nil {
 		return nil, err
 	}
 	return &invoice, nil
 }
 
+// FindUnpaidByAmountForUpdate reconciles a transfer with no invoice tag by matching its
+// exact total. Because this is a FUZZY match (amount only), it keeps a 7-day grace window
+// past expired_at so a slightly-late manual transfer still reconciles, while a transfer
+// can't latch onto a months-old stale invoice. (Previously `expired_at >= now` rejected
+// every payment that arrived after the 24h mark = lost money.)
 func (r *InvoiceRepo) FindUnpaidByAmountForUpdate(amount int64) (*model.Invoice, error) {
 	var invoice model.Invoice
+	grace := time.Now().Add(-7 * 24 * time.Hour)
 	if err := r.db.Preload("Campaign").Preload("Referrer").
 		Clauses(clause.Locking{Strength: "UPDATE"}).
-		Where("total = ? AND is_paid = ? AND expired_at >= ?", amount, false, time.Now()).
+		Where("total = ? AND is_paid = ? AND expired_at >= ?", amount, false, grace).
 		Order("created_at asc").First(&invoice).Error; err != nil {
 		return nil, err
 	}

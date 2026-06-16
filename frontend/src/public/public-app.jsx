@@ -226,11 +226,11 @@ function HeroCard({ c, onNav }) {
               <div className="text-xs text-mute">terkumpul dari {fmtIDR(c.target)}</div>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-extrabold text-ink">{Math.round(c.raised/c.target*100)}%</div>
+              <div className="text-2xl font-extrabold text-ink">{c.target ? Math.round(c.raised/c.target*100) : 0}%</div>
               <div className="text-xs text-mute">tercapai</div>
             </div>
           </div>
-          <Progress value={c.raised} max={c.target} className="h-2.5 mt-3"/>
+          <Progress value={c.raised} max={c.target || 1} className="h-2.5 mt-3"/>
           <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
             <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Donatur</div><div className="font-extrabold text-ink">{fmtNum(c.donors)}</div></div>
             <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Sisa hari</div><div className="font-extrabold text-rose-600">{c.daysLeft}</div></div>
@@ -782,7 +782,7 @@ function CampaignPage({ c: listItem, onNav }) {
         payment_method_id: (typeof paymentMethod === 'object' && paymentMethod) ? paymentMethod.id : undefined,
         referral_code: referralCode || undefined,
       });
-      if (res?.data) { setInvoice(res.data); return; } // keep submitting=true; view swaps to confirmation
+      if (res?.data) { setSubmitting(false); setInvoice(res.data); return; } // view swaps to confirmation
       alert(res?.message || 'Gagal membuat donasi');
     } catch (e) {
       const msg = e?.message || 'Periksa koneksi';
@@ -1063,8 +1063,35 @@ function NominalSelect({ c, presets, amount, setAmount }) {
 
 // -------- Donation form (form view, before invoice) --------
 function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, setAnon, paymentMethod, setPaymentMethod, submitting, onBack, onSubmit }) {
-  const methods = (Array.isArray(window.PAYMENT_METHODS_PUBLIC) && window.PAYMENT_METHODS_PUBLIC.length)
-    ? window.PAYMENT_METHODS_PUBLIC : null;
+  // Per-campaign payment override: the editor's Advanced → Payment "Custom" rows are
+  // persisted in campaign.payment_config (shape {bank, account, holder, method}). When
+  // present, the donor sees THIS campaign's configured methods instead of the global
+  // public list — honoring the admin's per-campaign choice (previously a dead-end: the
+  // override was saved but never surfaced publicly).
+  const campaignMethods = useMemo(() => {
+    let rows = null;
+    try {
+      const parsed = c?.payment_config ? JSON.parse(c.payment_config) : null;
+      if (Array.isArray(parsed) && parsed.length) {
+        rows = parsed
+          .filter((r) => r && (r.bank || r.account))
+          .map((r, i) => ({
+            id: r.id || ('camp-' + i),
+            bank_name: r.bank || '',
+            bank_number: r.account || '',
+            account_name: r.holder || '',
+            type: r.method || 'va',
+            category: r.method === 'ewallet' ? 'ewallet' : (r.method === 'qris' ? 'qris' : 'bank_transfer'),
+            admin_fee: 0,
+          }));
+      }
+    } catch { rows = null; }
+    return (rows && rows.length) ? rows : null;
+  }, [c?.payment_config]);
+
+  const methods = campaignMethods
+    || (Array.isArray(window.PAYMENT_METHODS_PUBLIC) && window.PAYMENT_METHODS_PUBLIC.length
+      ? window.PAYMENT_METHODS_PUBLIC : null);
 
   // The campaign editor lets admins customize the donate-button labels (button1 on
   // the campaign page, button2 = the confirm/submit CTA), stored in form_fields_config.

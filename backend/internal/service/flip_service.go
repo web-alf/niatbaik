@@ -164,6 +164,15 @@ func (s *FlipService) CreateBill(invoice *model.Invoice, redirectURL string) (*F
 		return nil, err
 	}
 
+	// Flip returns 2xx even for logical errors (bad credentials, malformed request) with
+	// a body that unmarshals cleanly into a zero-value bill. Treat an unusable bill
+	// (no link id / payment URL) as a failure so CreateDonation falls back to manual
+	// transfer instead of persisting PayCode="0" + empty QR and stranding the donor on a
+	// broken payment page.
+	if bill.LinkID == 0 || bill.PaymentURL == "" {
+		return nil, fmt.Errorf("flip returned an invalid bill (no link/url): %s", string(respBody))
+	}
+
 	return &bill, nil
 }
 

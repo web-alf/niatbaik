@@ -71,7 +71,27 @@ function CSInboxView() {
     showToast(`Invoice ${t.id} → Paid`);
     const paidStatus = (window.PAYMENT_STATUSES || []).find(s => s.is_paid);
     const code = paidStatus ? paidStatus.code : 'Terbayar';
-    try { window.api?.updateInvoiceStatus?.(t.id, code); } catch (e) { /* offline: optimistic only */ }
+    // Use the DB UUID (t.uuid), NOT the display id (invoice_number) — the backend parses
+    // the path param as a UUID and would 400 on "INV-…" (previously silently failed).
+    try { if (t.uuid) window.api?.updateInvoiceStatus?.(t.uuid, code); } catch (e) { /* offline: optimistic only */ }
+  };
+
+  // Persist a CS internal note. Uses the DB UUID (t.uuid) — the note endpoint parses its
+  // path param as a UUID. Optimistic local update so the panel reflects the save
+  // immediately; surfaces a failure toast instead of pretending it saved.
+  const saveNote = async (t, noteText, setNoteSaving) => {
+    if (!t.uuid) { showToast('UUID invoice tidak tersedia, tidak bisa menyimpan catatan'); return; }
+    setNoteSaving(true);
+    try {
+      await window.api.addInvoiceNote(t.uuid, noteText);
+      setTxns((prev) => prev.map(x => x.id === t.id ? { ...x, note: noteText } : x));
+      setSelected((prev) => prev && prev.id === t.id ? { ...prev, note: noteText } : prev);
+      showToast('Catatan tersimpan');
+    } catch (e) {
+      showToast('Gagal menyimpan catatan: ' + (e?.message || ''));
+    } finally {
+      setNoteSaving(false);
+    }
   };
 
   const copyInvoice = (t) => {
@@ -154,7 +174,7 @@ function CSInboxView() {
 
         {/* Detail */}
         <Card className="lg:col-span-2 p-5">
-          {selected ? <CSDetail t={selected} onOpen={() => setInvoiceTxn(selected)} onCopy={copyInvoice} onMarkPaid={updateStatusToPaid} showToast={showToast}/>
+          {selected ? <CSDetail t={selected} onOpen={() => setInvoiceTxn(selected)} onCopy={copyInvoice} onMarkPaid={updateStatusToPaid} onSaveNote={saveNote} showToast={showToast}/>
                     : <Empty title="Pilih percakapan" sub="Pilih donatur di sebelah kiri."/>}
         </Card>
       </div>
@@ -472,9 +492,13 @@ function ExportLimitedModal({ open, onClose, rows, showToast }) {
 // =========================================================
 // CSDetail — wires up action buttons
 // =========================================================
-function CSDetail({ t, onOpen, onCopy, onMarkPaid, showToast }) {
+function CSDetail({ t, onOpen, onCopy, onMarkPaid, onSaveNote, showToast }) {
   const [confirmPaid, setConfirmPaid] = useStateA(false);
   const [waOpen, setWaOpen] = useStateA(false);
+  // Controlled internal note. Previously this was an uncontrolled defaultValue
+  // textarea with no save wiring, so anything CS typed vanished on reload.
+  const [note, setNote] = useStateA(t.note || '');
+  const [noteSaving, setNoteSaving] = useStateA(false);
 
   // Normalize Indonesian WA number: drop non-digits, replace leading 0/8 → 628
   const normalizeWa = (raw) => {
@@ -572,8 +596,12 @@ function CSDetail({ t, onOpen, onCopy, onMarkPaid, showToast }) {
 
       <div>
         <label className="text-xs uppercase font-semibold text-mute">Catatan CS</label>
-        <textarea defaultValue={t.note} placeholder="Tambahkan catatan internal…" className="field mt-1" rows="2"/>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Tambahkan catatan internal…" className="field mt-1" rows="2"/>
         <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button onClick={() => { if (onSaveNote) onSaveNote(t, note, setNoteSaving); }} disabled={noteSaving}
+            className="px-3 py-1.5 rounded-lg border border-line bg-white text-xs font-bold text-brand-600 hover:bg-brand-50 disabled:opacity-50 inline-flex items-center gap-1.5">
+            {noteSaving ? 'Menyimpan…' : 'Simpan catatan'}
+          </button>
           <Badge tone="outline">Sudah dihubungi WA</Badge>
           <Badge tone="outline">Menunggu transfer</Badge>
           <Badge tone="outline">Donasi berulang</Badge>

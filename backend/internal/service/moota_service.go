@@ -84,6 +84,11 @@ func (s *MootaService) HandleWebhook(mutations []MootaWebhookPayload) ([]string,
 				}
 				continue
 			}
+			// The transfer EXPLICITLY names an invoice (INV-…) that we couldn't settle
+			// (already paid, or not found). Treat the tag as authoritative: do NOT fall
+			// through to the amount-based fallback — that used to credit the OLDEST
+			// unpaid invoice with the same total, belonging to an unrelated donor.
+			continue
 		}
 
 		// Fallback: no (matching) invoice number in the description — reconcile by

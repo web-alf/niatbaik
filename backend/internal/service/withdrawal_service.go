@@ -30,10 +30,14 @@ func (s *WithdrawalService) CreateRequest(userID uuid.UUID, req *request.CreateW
 		return nil, errors.New("campaign not found or access denied")
 	}
 
-	// Withdrawable = total raised - (completed + queued withdrawals).
+	// Withdrawable = total raised - withdrawals still tied up. Completed ("Selesai")
+	// withdrawals are ALREADY deducted from campaign.TotalRaised in Approve(), so they
+	// must NOT be subtracted again here — that double-counted every past payout and
+	// progressively understated the available balance, eventually blocking legitimate
+	// withdrawals. Only pending/queued statuses still reserve funds against TotalRaised.
 	var totalWithdrawn int64
 	s.db.Model(&model.Withdrawal{}).
-		Where("campaign_id = ? AND status IN ?", req.CampaignID, []string{"Selesai", "Dalam Antrian", "Menunggu"}).
+		Where("campaign_id = ? AND status IN ?", req.CampaignID, []string{"Dalam Antrian", "Menunggu"}).
 		Select("COALESCE(SUM(amount), 0)").Scan(&totalWithdrawn)
 
 	availableBalance := campaign.TotalRaised - totalWithdrawn

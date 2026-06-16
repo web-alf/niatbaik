@@ -58,8 +58,18 @@ function SettingsView() {
       // Send ONLY the patch — backend merges field-by-field. Spreading the full
       // GET response sent nested objects/strings that broke c.Bind ("invalid request body").
       await api.updateSettings(patch);
-      setSettings(prev => ({ ...(prev || {}), ...patch }));
       dirtyRef.current = false; // saved → no longer dirty
+      // Refetch the FULL settings so server-computed fields stay in sync with what
+      // was just persisted. Critical for Payment: flip_configured / moota_configured
+      // are derived from the (masked, json:"-") secret keys, NOT included in the
+      // patch, so an optimistic-only merge left them stale (badge stayed "Nonaktif"
+      // right after a successful save — the "data hilang / seolah ga pernah input"
+      // symptom). Optimistic patch first so the UI feels instant, then authoritative.
+      setSettings(prev => ({ ...(prev || {}), ...patch }));
+      try {
+        const fresh = await api.settings();
+        if (fresh?.data) setSettings(fresh.data);
+      } catch { /* optimistic state is already correct enough */ }
       showToast('Pengaturan berhasil disimpan');
       return true;
     } catch (e) { showToast('Gagal menyimpan: ' + (e?.message || '')); return false; }
@@ -401,6 +411,35 @@ function PaymentPanel({ settings, onSave }) {
   const [mootaSignature, setMootaSignature] = useStateA(settings?.moota_signature_enabled ?? true);
   const [mootaEndpoint, setMootaEndpoint] = useStateA(settings?.moota_endpoint || '');
   const [mootaRange, setMootaRange] = useStateA(settings?.moota_date_range ?? 7);
+
+  // Re-hydrate the NON-secret fields whenever the settings prop updates (after a
+  // save refetch, a realtime auto-refresh, or re-entering the tab). WITHOUT this the
+  // panel's fields captured their initial value on mount and never tracked the saved
+  // server state — so a freshly-saved bank account / Flip mode / Moota endpoint
+  // appeared to vanish. Secret fields (flipSecret/mootaKey/…) are intentionally left
+  // blank (blank = keep stored secret; the "tersimpan" badge is driven by
+  // flip_configured/moota_configured, which re-derive on every render). Mirrors the
+  // re-hydration pattern in ThemesPanel/FormPanel.
+  useEffectA(() => {
+    const s = settings || {};
+    setUcMode(s.unique_code_mode || 'range');
+    if (s.unique_code_min != null) setUcMin(s.unique_code_min);
+    if (s.unique_code_max != null) setUcMax(s.unique_code_max);
+    if (s.unique_code_fixed != null) setUcFixed(s.unique_code_fixed);
+    if (s.admin_fee != null) setAdminFee(s.admin_fee);
+    setBankName(s.bank_name || '');
+    setBankNumber(s.bank_number || '');
+    setBankHolder(s.bank_account_name || '');
+    if (s.flip_enabled != null) setFlipEnabled(s.flip_enabled);
+    setFlipMode(s.flip_mode || 'sandbox');
+    setFlipCallback(s.flip_base_url || '');
+    if (s.flip_auto_redirect != null) setFlipRedirect(s.flip_auto_redirect);
+    setFlipFee(s.flip_charge_fee || 'merchant');
+    if (s.moota_enabled != null) setMootaEnabled(s.moota_enabled);
+    if (s.moota_signature_enabled != null) setMootaSignature(s.moota_signature_enabled);
+    setMootaEndpoint(s.moota_endpoint || '');
+    if (s.moota_date_range != null) setMootaRange(s.moota_date_range);
+  }, [settings]);
 
   const callbackHint = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/flip`;
   const mootaWebhook = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/moota`;

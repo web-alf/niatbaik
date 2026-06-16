@@ -85,10 +85,27 @@ function CampaignEditorForm({ campaign }) {
   })();
   const savedPixel = parseJSONObj(c?.pixel_config);
 
+  // Parse the campaign's saved form_fields_config ONCE, up here, so the Advanced → Form
+  // toggle can be seeded from it (previously it was hardcoded to 'Default', so after a
+  // save the toggle reverted to Default while the custom button labels / field toggles
+  // it controlled kept persisting — the exact "toggle balik ke default, settingan masih
+  // custom" QA complaint). The persisted JSON carries an explicit `_custom` flag so the
+  // toggle round-trips deterministically regardless of whether the labels equal defaults.
+  const parseFFC = (raw) => {
+    let o = {};
+    if (typeof raw === 'string' && raw.trim()) { try { o = JSON.parse(raw) || {}; } catch { o = {}; } }
+    else if (raw && typeof raw === 'object') { o = raw; }
+    return o;
+  };
+  const ffc = parseFFC(c?.form_fields_config);
+  const formCustomSaved = ffc._custom === true;
+
   // ---- advanced sections ----
   const [adv, setAdv] = useStateA({
     payment: savedPaymentRows.length ? 'Custom' : 'Default',
-    form: 'Default',
+    // Derived from the saved config's _custom flag (not hardcoded) so the toggle
+    // reflects what was persisted on re-edit.
+    form: formCustomSaved ? 'Custom' : 'Default',
     fundraising: 'Default',
     wa: c?.wa_notification ? 'Custom' : 'Default',
     followup: c?.followup_enabled ? 'Custom' : 'Default',
@@ -105,13 +122,6 @@ function CampaignEditorForm({ campaign }) {
   // Form custom panel state. Seed from the campaign's saved form_fields_config so
   // button labels + field toggles round-trip on re-edit instead of reverting to
   // the hardcoded defaults below (which was a second cause of "settings revert").
-  const parseFFC = (raw) => {
-    let o = {};
-    if (typeof raw === 'string' && raw.trim()) { try { o = JSON.parse(raw) || {}; } catch { o = {}; } }
-    else if (raw && typeof raw === 'object') { o = raw; }
-    return o;
-  };
-  const ffc = parseFFC(c?.form_fields_config);
   const [formCustom, setFormCustom] = useStateA({
     button1: ffc.button1 || 'Tunaikan Fidyah',
     button2: ffc.button2 || 'Tunaikan Fidyah Sekarang',
@@ -225,7 +235,7 @@ function CampaignEditorForm({ campaign }) {
     payload.followup_enabled = adv.followup === 'Custom';
     payload.popup_info = adv.popupInfo === 'Show';
     payload.wa_flying_button = adv.waFlying === 'Custom';
-    payload.form_fields_config = JSON.stringify({ anonim: formCustom.anonim, email: formCustom.email, comment: formCustom.comment, button1: formCustom.button1, button2: formCustom.button2 });
+    payload.form_fields_config = JSON.stringify({ _custom: adv.form === 'Custom', anonim: formCustom.anonim, email: formCustom.email, comment: formCustom.comment, button1: formCustom.button1, button2: formCustom.button2 });
     if (adv.payment === 'Custom') payload.payment_config = JSON.stringify(advCustom.paymentRows || []);
     // Meta Pixel — Custom sends per-campaign config (global OFF); Default leaves meta_pixel_id empty = inherit global.
     if (adv.metaPixel === 'Custom') {

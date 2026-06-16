@@ -56,7 +56,7 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 	}
 	active := campaign.Status == "Berjalan" || campaign.Status == "Running" || campaign.Status == "Published"
 	if !active {
-		return nil, fmt.Errorf("campaign is not active")
+		return nil, fmt.Errorf("campaign ini sedang tidak menerima donasi (status: %s)", campaign.Status)
 	}
 
 	// Validate donation limits (global + per-campaign).

@@ -152,6 +152,11 @@ function mapInvoice(inv) {
   const status = STATUS_MAP[rawStatus] || (inv.is_paid ? 'Paid' : 'Pending');
   return {
     id: inv.invoice_number || inv.id || '',
+    // Real DB UUID, kept separate from the display `id` (which prefers the human
+    // invoice_number like "INV-…"). Backend invoice note/status endpoints parse their
+    // path param as a UUID, so callers that mutate (addInvoiceNote, updateInvoiceStatus)
+    // MUST use this — sending `id` (the invoice_number) 400s on uuid.Parse.
+    uuid: inv.id || '',
     donor: inv.donor_name || inv.donor || '',
     // campaign may arrive as a nested object {id,title,...} — always coerce to a string title
     campaign: inv.campaign_title

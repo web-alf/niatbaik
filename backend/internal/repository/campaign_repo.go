@@ -46,6 +46,41 @@ func (r *CampaignRepo) FindAll(params request.PaginationParams) ([]model.Campaig
 	return campaigns, total, nil
 }
 
+// donatableStatuses is the single source of truth for which campaign statuses are both
+// publicly visible AND accept donations. It must stay in lockstep with the active-status
+// check in donation_service.CreateDonation. A campaign with any other status (Draft,
+// Pending, Menunggu, Selesai, Ditolak, …) is hidden from the public list so a donor can
+// never open a campaign whose donation would be rejected with a generic error.
+var donatableStatuses = []string{"Berjalan", "Running", "Published"}
+
+// FindAllLive returns only publicly-donatable campaigns (status IN donatableStatuses),
+// with correct total/pagination. Used by the public campaign list.
+func (r *CampaignRepo) FindAllLive(params request.PaginationParams) ([]model.Campaign, int64, error) {
+	var campaigns []model.Campaign
+	var total int64
+
+	q := r.db.Model(&model.Campaign{}).Preload("Category").Preload("User").
+		Where("status IN ?", donatableStatuses)
+
+	if params.CategoryID != uuid.Nil {
+		q = q.Where("category_id = ?", params.CategoryID)
+	}
+	if params.Search != "" {
+		q = q.Where("title ILIKE ?", "%"+params.Search+"%")
+	}
+
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (params.Page - 1) * params.Limit
+	if err := q.Order(pagination.SanitizeSort(params.Sort)).Offset(offset).Limit(params.Limit).Find(&campaigns).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return campaigns, total, nil
+}
+
 // FindAllLegacy uses pkg/pagination params (kept for admin handlers).
 func (r *CampaignRepo) FindAllLegacy(params pagination.PaginationParams, status, search string) ([]model.Campaign, int64, error) {
 	var campaigns []model.Campaign

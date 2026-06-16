@@ -26,8 +26,15 @@ func (h *WebhookHandler) HandleMoota(c echo.Context) error {
 	}
 
 	signature := c.Request().Header.Get("X-Moota-Signature")
-	if !h.mootaService.VerifySignature(body, signature) {
-		return c.JSON(http.StatusUnauthorized, response.ErrorResponse("Invalid signature"))
+	ok, reason := h.mootaService.VerifySignature(body, signature)
+	if !ok {
+		// Distinguish a server-side config gap (no secret saved yet — common during
+		// initial setup) from a real auth failure, so Moota's "Check URL" reports a
+		// diagnosable status instead of a generic 401.
+		if reason == "no webhook secret configured" {
+			return c.JSON(http.StatusServiceUnavailable, response.ErrorResponse("Moota webhook secret belum disimpan di Settings → Payment → Moota"))
+		}
+		return c.JSON(http.StatusUnauthorized, response.ErrorResponse("Invalid signature: "+reason))
 	}
 
 	var mutations []service.MootaWebhookPayload

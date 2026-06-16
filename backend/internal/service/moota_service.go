@@ -23,8 +23,14 @@ func NewMootaService(cfg *config.Config, paymentSvc *PaymentService, invoiceRepo
 	return &MootaService{cfg: cfg, paymentSvc: paymentSvc, invoiceRepo: invoiceRepo, settingRepo: settingRepo}
 }
 
+// getWebhookSecret returns the secret used to verify inbound Moota webhook signatures.
+// It is intentionally NOT gated on MootaEnabled: the inbound-signature secret is
+// independent of whether outbound Moota polling is turned on. Gating it (the old
+// behavior) made the webhook unverifiable during setup — the dashboard "Check URL"
+// always 401'd until Moota was fully enabled, a chicken-and-egg blocker. DB setting
+// wins; env MOOTA_WEBHOOK_SECRET is the fallback.
 func (s *MootaService) getWebhookSecret() string {
-	if setting, err := s.settingRepo.Get(); err == nil && setting.MootaEnabled && setting.MootaWebhookSecret != "" {
+	if setting, err := s.settingRepo.Get(); err == nil && setting.MootaWebhookSecret != "" {
 		return setting.MootaWebhookSecret
 	}
 	return s.cfg.MootaWebhookSecret
@@ -44,15 +50,27 @@ type MootaWebhookPayload struct {
 	Token       string  `json:"token"`
 }
 
-func (s *MootaService) VerifySignature(payload []byte, signature string) bool {
+// VerifySignature returns (ok, reason). reason is "" on success; otherwise a short
+// diagnostic so the handler can respond with a meaningful status instead of a blanket
+// 401 — which previously made "no secret configured yet" indistinguishable from "wrong
+// signature", so admins couldn't tell why Moota's Check URL failed during setup.
+func (s *MootaService) VerifySignature(payload []byte, signature string) (bool, string) {
 	secret := s.getWebhookSecret()
 	if secret == "" {
-		return false // Fail-closed: reject if not configured
+		// Fail-closed: no secret configured means we cannot verify — but surface it as a
+		// server-side config gap (503), not an auth failure, so it's diagnosable.
+		return false, "no webhook secret configured"
+	}
+	if signature == "" {
+		return false, "missing X-Moota-Signature header"
 	}
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(payload)
 	expected := hex.EncodeToString(mac.Sum(nil))
-	return hmac.Equal([]byte(expected), []byte(signature))
+	if hmac.Equal([]byte(expected), []byte(signature)) {
+		return true, ""
+	}
+	return false, "signature mismatch (secret/token differs from Settings → Payment → Moota)"
 }
 
 func (s *MootaService) HandleWebhook(mutations []MootaWebhookPayload) ([]string, error) {

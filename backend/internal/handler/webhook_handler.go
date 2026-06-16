@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
 	"github.com/anrdart/niatbaik-api/internal/service"
@@ -23,6 +24,18 @@ func (h *WebhookHandler) HandleMoota(c echo.Context) error {
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("Failed to read body"))
+	}
+
+	// Moota's dashboard "Check URL" sends an empty-body reachability ping (no
+	// signature, no mutation). Acknowledge it with 200 so the URL registers, but ONLY
+	// for an empty body — an empty body can never carry a real mutation, so this opens
+	// no forgery path. Any non-empty body still requires a valid HMAC signature below.
+	if len(strings.TrimSpace(string(body))) == 0 {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"success":   true,
+			"processed": []string{},
+			"note":      "reachability check ok — empty body, no mutation processed",
+		})
 	}
 
 	signature := c.Request().Header.Get("X-Moota-Signature")

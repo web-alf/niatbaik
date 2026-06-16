@@ -36,29 +36,34 @@ type Setting struct {
 
 	FundraiserCommissionPercent int `gorm:"default:0" json:"fundraiser_commission_percent"`
 
-	// Payment gateway — Moota (bank mutation)
-	MootaAPIKey        string `gorm:"size:255" json:"-"`
-	MootaWebhookSecret string `gorm:"size:255" json:"-"`
+	// Payment gateway — Moota (bank mutation). Credentials are TEXT, not varchar(255):
+	// Moota's API key is a long RS256 JWT (~700+ chars). A size:255 column overflowed
+	// on save → the whole settings UPDATE failed with SQLSTATE 22001 → moota_enabled +
+	// webhook secret never persisted → the toggle reverted to "Nonaktif" and the
+	// webhook had no secret to verify with. Gateway secrets have no business being
+	// length-capped, so all of them are TEXT.
+	MootaAPIKey        string `gorm:"type:text" json:"-"`
+	MootaWebhookSecret string `gorm:"type:text" json:"-"`
 	MootaEnabled       bool   `gorm:"default:false" json:"moota_enabled"`
 
 	// Payment gateway — Flip (payment + disbursement)
-	FlipSecretKey       string `gorm:"size:255" json:"-"`
-	FlipValidationToken string `gorm:"size:255" json:"-"`
+	FlipSecretKey       string `gorm:"type:text" json:"-"`
+	FlipValidationToken string `gorm:"type:text" json:"-"`
 	FlipBaseURL         string `gorm:"size:255" json:"flip_base_url"`
 	FlipEnabled         bool   `gorm:"default:false" json:"flip_enabled"`
 
 	// SMTP
 	SMTPHost     string `gorm:"size:255" json:"smtp_host"`
 	SMTPEmail    string `gorm:"size:255" json:"smtp_email"`
-	SMTPPassword string `gorm:"size:255" json:"-"`
+	SMTPPassword string `gorm:"type:text" json:"-"`
 	SMTPSSL      string `gorm:"size:10" json:"smtp_ssl"`
 	SMTPPort     int    `gorm:"default:587" json:"smtp_port"`
 	SMTPName     string `gorm:"size:255" json:"smtp_name"`
 
 	// WhatsApp
 	WhatsappProvider         string `gorm:"size:50" json:"whatsapp_provider"`
-	WhatsappToken            string `gorm:"size:255" json:"-"`
-	WhatsappTokenStarsender  string `gorm:"size:255" json:"-"`
+	WhatsappToken            string `gorm:"type:text" json:"-"`
+	WhatsappTokenStarsender  string `gorm:"type:text" json:"-"`
 
 	// Theme
 	PaymentProvider    string `gorm:"size:50" json:"payment_provider"`
@@ -83,7 +88,7 @@ type Setting struct {
 
 	// Messaging
 	WhatsappAdmin    string `gorm:"size:20" json:"whatsapp_admin"`
-	TelegramBotToken string `gorm:"size:255" json:"-"`
+	TelegramBotToken string `gorm:"type:text" json:"-"`
 	TelegramChatID   string `gorm:"size:100" json:"telegram_chat_id"`
 
 	// Donor greeting + CS contact rotator

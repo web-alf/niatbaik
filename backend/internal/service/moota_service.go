@@ -36,6 +36,36 @@ func (s *MootaService) getWebhookSecret() string {
 	return s.cfg.MootaWebhookSecret
 }
 
+// SignatureCheckEnabled reports whether inbound webhooks must carry a valid HMAC
+// signature. Mirrors the Settings → Payment → Moota "Signature Moota" toggle, which
+// until now was stored but never read — the handler always enforced the signature,
+// so the UI's "nonaktifkan jika bermasalah" escape hatch did nothing. Defaults to
+// true (fail-closed) on a read error.
+//
+// SECURITY: when an admin turns this OFF, the payment-confirming webhook is accepted
+// with NO authentication — only the secrecy of the endpoint URL guards it. It exists
+// purely as a setup-time escape hatch while Moota's signing scheme is being matched;
+// it must be turned back ON for normal operation.
+func (s *MootaService) SignatureCheckEnabled() bool {
+	if setting, err := s.settingRepo.Get(); err == nil {
+		return setting.MootaSignatureEnabled
+	}
+	return true
+}
+
+// ExpectedSignature returns the hex HMAC-SHA256 of payload under the configured
+// secret. Exposed so the handler can log our computed value next to the header Moota
+// actually sent, to confirm the signing scheme during setup. "" when no secret.
+func (s *MootaService) ExpectedSignature(payload []byte) string {
+	secret := s.getWebhookSecret()
+	if secret == "" {
+		return ""
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(payload)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
 // MootaWebhookPayload represents a single mutation from Moota webhook.
 type MootaWebhookPayload struct {
 	ID          int64   `json:"id"`
@@ -62,7 +92,7 @@ func (s *MootaService) VerifySignature(payload []byte, signature string) (bool, 
 		return false, "no webhook secret configured"
 	}
 	if signature == "" {
-		return false, "missing X-Moota-Signature header"
+		return false, "missing signature header (none of X-Moota-Signature / Signature / X-Signature present)"
 	}
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(payload)

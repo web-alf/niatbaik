@@ -5,10 +5,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"math"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/config"
 	"github.com/anrdart/niatbaik-api/internal/repository"
@@ -201,4 +206,63 @@ func (s *MootaService) HandleWebhook(mutations []MootaWebhookPayload) ([]string,
 		}
 	}
 	return processed, nil
+}
+
+// MootaBankResponse represents the banks array returned by Moota API /v2/bank
+type MootaBankResponse struct {
+	Data []struct {
+		BankID        string  `json:"bank_id"`
+		AccountName   string  `json:"name"`
+		AccountNumber string  `json:"account_number"`
+		BankType      string  `json:"bank_type"`
+		Balance       float64 `json:"balance"`
+		IsActive      bool    `json:"is_active"`
+	} `json:"data"`
+}
+
+// CheckBalance calls the Moota API to fetch the current balances of connected banks.
+func (s *MootaService) CheckBalance() (*MootaBankResponse, error) {
+	setting, err := s.settingRepo.Get()
+	if err != nil {
+		return nil, err
+	}
+	if !setting.MootaEnabled {
+		return nil, errors.New("moota is disabled")
+	}
+	apiKey := setting.MootaAPIKey
+	if apiKey == "" {
+		return nil, errors.New("moota api key is not configured")
+	}
+
+	endpoint := setting.MootaEndpoint
+	if endpoint == "" {
+		endpoint = "https://app.moota.co"
+	}
+	endpoint = strings.TrimRight(endpoint, "/")
+
+	req, err := http.NewRequest("GET", endpoint+"/api/v2/bank", nil)
+	if err != nil {
+		return nil, err
+	}
+	// Moota API v2 requires Bearer token
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("moota API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	var banks MootaBankResponse
+	if err := json.NewDecoder(resp.Body).Decode(&banks); err != nil {
+		return nil, err
+	}
+	return &banks, nil
 }

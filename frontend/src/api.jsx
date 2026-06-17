@@ -248,6 +248,7 @@ const api = {
   settings() { return this.get('/settings'); },
   updateSettings(data) { return this.put('/settings', data); },
   testEmail(to) { return this.post('/settings/test-email', { to }); },
+  mootaBalance() { return this.get('/settings/moota-balance'); },
 
   // Realtime long-poll: resolves when the server data revision advances past `since`
   // (or after the server's ~25s hold). Returns { revision, changed }.

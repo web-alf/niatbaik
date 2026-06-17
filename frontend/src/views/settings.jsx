@@ -453,6 +453,21 @@ function PaymentPanel({ settings, onSave }) {
   const [mootaSignature, setMootaSignature] = useStateA(settings?.moota_signature_enabled ?? true);
   const [mootaEndpoint, setMootaEndpoint] = useStateA(settings?.moota_endpoint || '');
   const [mootaRange, setMootaRange] = useStateA(settings?.moota_date_range ?? 7);
+  const [mootaBalances, setMootaBalances] = useStateA(null);
+  const [mootaBalLoading, setMootaBalLoading] = useStateA(false);
+
+  const fetchMootaBalance = async () => {
+    setMootaBalLoading(true);
+    try {
+      const res = await window.api.mootaBalance();
+      if (res?.data) setMootaBalances(res.data);
+      else setMootaBalances([]);
+    } catch (e) {
+      showToastSafe('Gagal cek saldo Moota. Pastikan API Key benar.');
+    } finally {
+      setMootaBalLoading(false);
+    }
+  };
 
   useEffectA(() => {
     const s = settings || {};
@@ -561,18 +576,18 @@ function PaymentPanel({ settings, onSave }) {
   };
 
   return (
-    <>
-      <div className="flex border-b border-line mb-6 overflow-x-auto no-scrollbar">
+    <Section title="Payment" sub="Silahkan diatur sesuai kebutuhan pembayaran anda.">
+      <div className="flex gap-2 mb-8 flex-wrap">
         {[{v:'general', l:'General'},{v:'flip', l:'Flip'},{v:'moota', l:'Moota'}].map((t) => (
           <button key={t.v} onClick={() => setPTab(t.v)}
-            className={`px-4 py-3 text-sm font-bold border-b-2 whitespace-nowrap transition-colors ${pTab===t.v ? 'border-brand-600 text-brand-700' : 'border-transparent text-mute hover:text-ink'}`}>
+            className={`px-6 py-2.5 text-sm font-semibold rounded-md transition-colors ${pTab===t.v ? 'bg-brand-600 text-white' : 'bg-transparent text-ink/70 hover:bg-bg2'}`}>
             {t.l}
           </button>
         ))}
       </div>
 
       {pTab === 'general' && (
-      <Section title="Payment" sub="Silahkan diatur sesuai kebutuhan pembayaran anda.">
+        <>
         <div className="space-y-8">
           {/* Unique Number */}
           <div>
@@ -653,14 +668,12 @@ function PaymentPanel({ settings, onSave }) {
 
         </div>
         <div className="flex mt-8"><SaveButton onClick={saveGeneral}>Update</SaveButton></div>
-      </Section>
+        </>
       )}
 
       {pTab === 'flip' && (
-      <Section title="Flip — Payment Gateway"
-        sub="Gateway otomatis (QRIS / VA / e-wallet). Saat aktif, donatur dibayar lewat Flip & otomatis terverifikasi via webhook."
-        actions={<Badge tone={flipEnabled ? 'ok' : 'slate'} dot={flipEnabled} size="sm">{flipEnabled ? 'Aktif' : 'Nonaktif'}</Badge>}>
-        <div className="space-y-6">
+        <>
+        <div className="space-y-8">
           <div className="flex items-center justify-between rounded-xl border border-line p-3">
             <div><div className="text-sm font-bold text-ink">Aktifkan Flip</div><div className="text-xs text-mute">Bagi yang belum memiliki akun Flip Business, bisa mendaftar melalui link berikut: <a href="https://flip.id/business" target="_blank" rel="noopener noreferrer" className="text-brand-600 font-semibold hover:underline">Daftar akun Flip Business sekarang</a></div></div>
             <Toggle value={flipEnabled} onChange={setFlipEnabled}/>
@@ -727,13 +740,11 @@ function PaymentPanel({ settings, onSave }) {
 
         </div>
         <div className="flex mt-8"><SaveButton onClick={saveFlip}>Update Flip</SaveButton></div>
-      </Section>
+        </>
       )}
 
       {pTab === 'moota' && (
-      <Section title="Moota — Sinkronisasi Saldo"
-        sub="Moota memantau mutasi rekening bank & menampung saldo di sistem (bukan payment gateway). Dipakai untuk rekonsiliasi transfer manual."
-        actions={<Badge tone={mootaEnabled ? 'ok' : 'slate'} dot={mootaEnabled} size="sm">{mootaEnabled ? 'Aktif' : 'Nonaktif'}</Badge>}>
+        <>
         <div className="space-y-6">
           <div>
             <div className="text-sm font-bold text-ink mb-1">Bagi yang belum memiliki akun Moota, bisa mendaftar melalui link berikut:</div>
@@ -768,16 +779,47 @@ function PaymentPanel({ settings, onSave }) {
             <label className="text-xs font-semibold text-ink block mb-1">Moota Date Range (hari)</label>
             <input type="number" min="1" max="90" className="field w-24" value={mootaRange} onChange={(e) => setMootaRange(e.target.value)}/>
           </div>
+
+          {/* Cek Saldo Moota */}
+          {mootaConfigured && (
+            <div className="bg-bg2 p-4 rounded-xl border border-line">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-sm font-bold text-ink">Saldo Rekening (Moota)</div>
+                  <div className="text-[11px] text-mute">Menampilkan saldo terkini dari bank yang terhubung di akun Moota Anda.</div>
+                </div>
+                <button type="button" onClick={fetchMootaBalance} disabled={mootaBalLoading} className="text-sm font-bold text-brand-600 border border-brand-200 bg-white px-4 py-2 rounded-lg hover:bg-brand-50 disabled:opacity-50">
+                  {mootaBalLoading ? 'Mengecek...' : 'Cek Saldo'}
+                </button>
+              </div>
+
+              {mootaBalances && mootaBalances.length > 0 && (
+                <div className="space-y-2">
+                  {mootaBalances.map(b => (
+                    <div key={b.bank_id} className="flex justify-between items-center bg-white p-3 rounded border border-line">
+                      <div>
+                        <div className="text-sm font-bold text-ink">{b.bank_type.toUpperCase()} <span className="text-xs font-normal text-mute ml-2">{b.account_number}</span></div>
+                        <div className="text-xs text-mute">{b.name}</div>
+                      </div>
+                      <div className="text-base font-bold text-emerald-600">
+                        {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(b.balance)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {mootaBalances && mootaBalances.length === 0 && (
+                <div className="text-sm text-mute italic text-center p-4 bg-white rounded border border-line">Belum ada bank yang terhubung di akun Moota Anda.</div>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex mt-8"><SaveButton onClick={saveMoota}>Update Moota</SaveButton></div>
-      </Section>
+        </>
       )}
-    </>
+    </Section>
   );
 }
-
-// Masked secret input: shows a "tersimpan" hint when a value already exists server
-// side (secrets are never sent back). Leaving it blank keeps the stored secret.
 function SecretInput({ label, value, onChange, configured, placeholder }) {
   const [show, setShow] = useStateA(false);
   return (

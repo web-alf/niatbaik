@@ -12,11 +12,12 @@ import (
 )
 
 type SettingHandler struct {
-	service *service.SettingService
+	service      *service.SettingService
+	mootaService *service.MootaService
 }
 
-func NewSettingHandler(svc *service.SettingService) *SettingHandler {
-	return &SettingHandler{service: svc}
+func NewSettingHandler(svc *service.SettingService, mootaService *service.MootaService) *SettingHandler {
+	return &SettingHandler{service: svc, mootaService: mootaService}
 }
 
 func (h *SettingHandler) Get(c echo.Context) error {
@@ -76,4 +77,12 @@ func (h *SettingHandler) Update(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "settings updated"))
+}
+
+func (h *SettingHandler) GetMootaBalance(c echo.Context) error {
+	res, err := h.mootaService.CheckBalance()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse(err.Error()))
+	}
+	return c.JSON(http.StatusOK, response.SuccessResponse(res.Data, "success"))
 }

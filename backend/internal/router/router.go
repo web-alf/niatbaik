@@ -64,7 +64,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	adminCampaignHandler := handler.NewAdminCampaignHandler(campaignService, campaignRepo)
 	userHandler := handler.NewUserHandler(userService, userRepo)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
-	settingHandler := handler.NewSettingHandler(settingService)
+	settingHandler := handler.NewSettingHandler(settingService, mootaService)
 	withdrawalHandler := handler.NewWithdrawalHandler(withdrawalService, withdrawalRepo)
 	verificationHandler := handler.NewVerificationHandler(verificationService, verificationRepo)
 	trashHandler := handler.NewTrashHandler(trashService)
@@ -178,6 +178,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	admin.GET("/settings", settingHandler.Get)
 	admin.PUT("/settings", settingHandler.Update)
 	admin.POST("/settings/test-email", settingHandler.TestEmail)
+	admin.GET("/settings/moota-balance", settingHandler.GetMootaBalance)
 
 	admin.GET("/admin/payment-methods", paymentMethodHandler.List)
 	admin.POST("/admin/payment-methods", paymentMethodHandler.Create)

@@ -617,35 +617,27 @@ function PaymentPanel({ settings, onSave }) {
           <div>
             <label className="text-sm font-bold text-ink mb-1 block">Payment Method</label>
             <div className="text-[11px] text-mute mb-3">Aktifkan sesuai kebutuhan agar tampil pada list metode pembayaran.</div>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {METHOD_TYPES.map(mt => (
-                <div key={mt.key} className="flex items-start gap-8 border-b border-line pb-4 last:border-0">
-                  <div className="w-32 pt-2">
-                    <div className="text-xs font-bold text-ink mb-2">{mt.defaultTitle.split('(')[0].trim()}</div>
+                <div key={mt.key} className="flex items-center gap-3 border border-line rounded-lg p-3 bg-white">
+                  <Icon name="plus" size={18} className="text-mute shrink-0"/>
+                  <div className="w-28 shrink-0">
+                    <div className="text-xs font-bold text-ink mb-1">{mt.defaultTitle.split('(')[0].trim()}</div>
                     <Toggle value={methodTypes[mt.key]?.active} onChange={(v) => setMethodTypes(prev => ({...prev, [mt.key]: {...prev[mt.key], active: v}}))} label={methodTypes[mt.key]?.active ? 'Active' : 'Not Active'}/>
                   </div>
-                  <div className="flex-1 max-w-md">
-                    <label className="text-[11px] text-mute block mb-1">Title</label>
-                    <input className="field" value={methodTypes[mt.key]?.title || ''} onChange={(e) => setMethodTypes(prev => ({...prev, [mt.key]: {...prev[mt.key], title: e.target.value}}))}/>
-                  </div>
+                  <input className="field flex-1" value={methodTypes[mt.key]?.title || ''} onChange={(e) => setMethodTypes(prev => ({...prev, [mt.key]: {...prev[mt.key], title: e.target.value}}))} placeholder="Title"/>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Fallback Single Bank Account */}
-          <div className="bg-bg2 p-4 rounded-xl border border-line">
-            <div className="text-sm font-bold text-ink mb-2">Fallback Transfer Manual (Moota)</div>
-            <div className="text-[11px] text-mute mb-3">Ditampilkan ke donatur saat Flip nonaktif (transfer manual + kode unik, direkonsiliasi Moota).</div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div><label className="text-[11px] text-mute">Nama Bank</label><input className="field mt-1" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="BCA"/></div>
-              <div><label className="text-[11px] text-mute">No. Rekening</label><input className="field mt-1 font-mono" value={bankNumber} onChange={(e) => setBankNumber(e.target.value)} placeholder="8901234567"/></div>
-              <div><label className="text-[11px] text-mute">Atas Nama</label><input className="field mt-1" value={bankHolder} onChange={(e) => setBankHolder(e.target.value)} placeholder="Yayasan Niat Baik"/></div>
+          {/* Biaya Admin */}
+          <div className="flex items-end gap-3">
+            <div>
+              <label className="text-[11px] text-mute block mb-1">Biaya Admin (Rp)</label>
+              <input type="number" min="0" className="field w-40" value={adminFee} onChange={(e) => setAdminFee(e.target.value)}/>
             </div>
-            <div className="mt-3 w-48">
-              <label className="text-[11px] text-mute">Biaya Admin (Rp)</label>
-              <input type="number" min="0" className="field mt-1" value={adminFee} onChange={(e) => setAdminFee(e.target.value)}/>
-            </div>
+            <div className="text-[11px] text-mute pb-2">Dipotong dari nominal yang masuk ke campaign.</div>
           </div>
 
           {/* Bank Account Multi-row CRUD */}
@@ -654,16 +646,17 @@ function PaymentPanel({ settings, onSave }) {
             <div className="space-y-3">
               {banks.map(b => (
                 <div key={b.id} className="flex items-center gap-2">
-                  <input className="field w-40" placeholder="Bank Name" value={b.bank_name} onChange={(e) => handleUpdateBank(b.id, 'bank_name', e.target.value)}/>
-                  <input className="field w-24" placeholder="Code" value={b.bank_type} onChange={(e) => handleUpdateBank(b.id, 'bank_type', e.target.value)}/>
-                  <input className="field flex-1" placeholder="Account Name" value={b.account_name} onChange={(e) => handleUpdateBank(b.id, 'account_name', e.target.value)}/>
-                  <input className="field w-40 font-mono" placeholder="Account No" value={b.bank_number} onChange={(e) => handleUpdateBank(b.id, 'bank_number', e.target.value)}/>
-                  <Select value={b.type} onChange={(v) => handleUpdateBank(b.id, 'type', v)} options={[{value:'va',label:'VA'},{value:'transfer',label:'Transfer'},{value:'qris',label:'Pilih Method v'}]} className="w-32"/>
-                  <button type="button" onClick={() => handleDeleteBank(b.id)} className="w-9 h-9 rounded bg-red-500 text-white flex items-center justify-center shrink-0 hover:bg-red-600"><Icon name="minus" size={16}/></button>
+                  <Select value={b.bank_name} onChange={(v) => handleUpdateBank(b.id, 'bank_name', v)} options={[{value:'',label:'Pilih Bank'},{value:'Bank BCA',label:'Bank BCA'},{value:'Bank BRI',label:'Bank BRI'},{value:'Bank BNI',label:'Bank BNI'},{value:'Bank Syariah Indonesia (BSI)',label:'Bank Syariah Indonesia (BSI)'},{value:'Bank CIMB Niaga',label:'Bank CIMB Niaga'},{value:'Bank Mandiri',label:'Bank Mandiri'},{value:'Bank Danamon',label:'Bank Danamon'},{value:'Bank Muamalat',label:'Bank Muamalat'},{value:'Bank Permata',label:'Bank Permata'},{value:'QRIS',label:'QRIS'}]} className="w-48 shrink-0"/>
+                  <input className="field w-24 shrink-0 text-center font-mono text-xs" placeholder="code" value={b.bank_type} onChange={(e) => handleUpdateBank(b.id, 'bank_type', e.target.value)}/>
+                  <input className="field flex-1" placeholder="Atas Nama" value={b.account_name} onChange={(e) => handleUpdateBank(b.id, 'account_name', e.target.value)}/>
+                  <input className="field w-44 shrink-0 font-mono" placeholder="No. Rekening" value={b.bank_number} onChange={(e) => handleUpdateBank(b.id, 'bank_number', e.target.value)}/>
+                  <Select value={b.type} onChange={(v) => handleUpdateBank(b.id, 'type', v)} options={[{value:'va',label:'VA'},{value:'transfer',label:'Transfer'}]} className="w-32 shrink-0"/>
+                  <button type="button" onClick={() => handleDeleteBank(b.id)} className="w-9 h-9 rounded bg-[#EF4444] text-white flex items-center justify-center shrink-0 hover:bg-red-600"><Icon name="minus" size={16}/></button>
                 </div>
               ))}
-              <button type="button" onClick={handleAddBank} className="text-sm font-bold text-brand-600 border border-brand-200 bg-brand-50 px-4 py-2 rounded-lg hover:bg-brand-100">+ Add Bank</button>
+              <button type="button" onClick={handleAddBank} className="text-sm font-bold text-brand-600 border border-brand-200 bg-white px-4 py-2 rounded-lg hover:bg-brand-50">+ Add Bank</button>
             </div>
+            <div className="text-[11px] text-mute mt-3">Baris dengan tipe <b>Transfer</b> dipakai sebagai rekening tujuan donasi manual (direkonsiliasi Moota) saat Flip nonaktif.</div>
           </div>
 
         </div>

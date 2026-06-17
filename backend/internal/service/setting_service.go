@@ -150,6 +150,8 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	set(&setting.BankName, req.BankName)
 	set(&setting.BankNumber, req.BankNumber)
 	set(&setting.BankAccountName, req.BankAccountName)
+	set(&setting.PaymentMethodTypes, req.PaymentMethodTypes)
+	set(&setting.FlipCodeConfig, req.FlipCodeConfig)
 
 	// SECRET fields keep "blank = keep existing" (masked-field pattern) so an
 	// accidental blank save never wipes live SMTP / gateway credentials.

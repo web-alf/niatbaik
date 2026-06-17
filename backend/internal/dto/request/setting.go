@@ -99,6 +99,10 @@ type UpdateSettingRequest struct {
 	FlipAutoRedirect      *bool   `json:"flip_auto_redirect"`
 	FlipChargeFee         *string `json:"flip_charge_fee" validate:"omitempty,oneof=merchant donatur"`
 
+	// Payment-method config (JSON blobs; nil=skip, ""=clear to legacy default)
+	PaymentMethodTypes *string `json:"payment_method_types" validate:"omitempty,max=8192"`
+	FlipCodeConfig     *string `json:"flip_code_config" validate:"omitempty,max=16384"`
+
 	// Unique number / Kode Unik
 	UniqueCodeMode  *string `json:"unique_code_mode" validate:"omitempty,oneof=none fixed range"`
 	UniqueCodeMin   *int    `json:"unique_code_min" validate:"omitempty,min=0,max=99999"`

@@ -376,12 +376,42 @@ function FormPanel({ settings, onSave }) {
   );
 }
 
+// Reference constants for DonasiAja taxonomy
+const METHOD_TYPES = [
+  { key: 'instant', defaultTitle: 'Pembayaran Instan (Cepat & Mudah)' },
+  { key: 'va', defaultTitle: 'Virtual Account (Verifikasi Otomatis)' },
+  { key: 'transfer', defaultTitle: 'Transfer Bank (Verifikasi Manual 1x24jam)' }
+];
+
+const FLIP_CHANNELS = {
+  instant: [
+    { key: 'qris', name: 'QRIS' },
+    { key: 'gopay', name: 'Gopay' },
+    { key: 'ovo', name: 'Ovo' },
+    { key: 'dana', name: 'Dana' },
+    { key: 'linkaja', name: 'Linkaja' },
+    { key: 'shopeepay', name: 'Shopeepay' },
+    { key: 'doku', name: 'Doku' }
+  ],
+  va: [
+    { key: 'bca', name: 'VA BCA' },
+    { key: 'mandiri', name: 'VA Mandiri' },
+    { key: 'bni', name: 'VA BNI' },
+    { key: 'bri', name: 'VA BRI' },
+    { key: 'bsi', name: 'VA BSI' },
+    { key: 'muamalat', name: 'VA Muamalat' },
+    { key: 'cimb', name: 'VA Cimb Niaga' },
+    { key: 'danamon', name: 'VA Danamon' },
+    { key: 'permata', name: 'VA Permata' }
+  ],
+  transfer: [
+    { key: 'flip', name: 'FLIP Transfer' }
+  ]
+};
+
 function PaymentPanel({ settings, onSave }) {
-  // Layout mirrors the reference Setting → Payment page: a general section (Kode
-  // Unik + Admin Fee + rekening manual), then Flip (automatic gateway), then Moota
-  // (bank-balance sync). No per-method CRUD — donors pay via Flip when enabled,
-  // else manual transfer to the single org account below.
   const { showToast: showToastSafe } = useApp();
+  const [pTab, setPTab] = useStateA('general');
   const flipConfigured = !!(settings?.flip_configured);
   const mootaConfigured = !!(settings?.moota_configured);
 
@@ -395,6 +425,14 @@ function PaymentPanel({ settings, onSave }) {
   const [bankNumber, setBankNumber] = useStateA(settings?.bank_number || '');
   const [bankHolder, setBankHolder] = useStateA(settings?.bank_account_name || '');
 
+  // Payment Method Types (Toggles + Title)
+  const defaultMethodTypes = METHOD_TYPES.reduce((acc, mt) => ({ ...acc, [mt.key]: { active: true, title: mt.defaultTitle } }), {});
+  const [methodTypes, setMethodTypes] = useStateA(parseArr(settings?.payment_method_types, defaultMethodTypes));
+
+  // Bank Account CRUD (from window.api.paymentMethods)
+  const [banks, setBanks] = useStateA([]);
+  const [banksLoading, setBanksLoading] = useStateA(true);
+
   // ---- Flip ----
   const [flipEnabled, setFlipEnabled] = useStateA(settings?.flip_enabled ?? false);
   const [flipMode, setFlipMode] = useStateA(settings?.flip_mode || 'sandbox');
@@ -404,6 +442,10 @@ function PaymentPanel({ settings, onSave }) {
   const [flipRedirect, setFlipRedirect] = useStateA(settings?.flip_auto_redirect ?? true);
   const [flipFee, setFlipFee] = useStateA(settings?.flip_charge_fee || 'merchant');
 
+  // Flip Code Matrix
+  const defaultFlipCodes = Object.values(FLIP_CHANNELS).flat().reduce((acc, ch) => ({ ...acc, [ch.key]: { enabled: true, code: ch.key } }), {});
+  const [flipCodes, setFlipCodes] = useStateA(parseArr(settings?.flip_code_config, defaultFlipCodes));
+
   // ---- Moota ----
   const [mootaEnabled, setMootaEnabled] = useStateA(settings?.moota_enabled ?? false);
   const [mootaKey, setMootaKey] = useStateA('');            // secret: blank = keep
@@ -412,14 +454,6 @@ function PaymentPanel({ settings, onSave }) {
   const [mootaEndpoint, setMootaEndpoint] = useStateA(settings?.moota_endpoint || '');
   const [mootaRange, setMootaRange] = useStateA(settings?.moota_date_range ?? 7);
 
-  // Re-hydrate the NON-secret fields whenever the settings prop updates (after a
-  // save refetch, a realtime auto-refresh, or re-entering the tab). WITHOUT this the
-  // panel's fields captured their initial value on mount and never tracked the saved
-  // server state — so a freshly-saved bank account / Flip mode / Moota endpoint
-  // appeared to vanish. Secret fields (flipSecret/mootaKey/…) are intentionally left
-  // blank (blank = keep stored secret; the "tersimpan" badge is driven by
-  // flip_configured/moota_configured, which re-derive on every render). Mirrors the
-  // re-hydration pattern in ThemesPanel/FormPanel.
   useEffectA(() => {
     const s = settings || {};
     setUcMode(s.unique_code_mode || 'range');
@@ -430,16 +464,28 @@ function PaymentPanel({ settings, onSave }) {
     setBankName(s.bank_name || '');
     setBankNumber(s.bank_number || '');
     setBankHolder(s.bank_account_name || '');
+    setMethodTypes(parseArr(s.payment_method_types, defaultMethodTypes));
+
     if (s.flip_enabled != null) setFlipEnabled(s.flip_enabled);
     setFlipMode(s.flip_mode || 'sandbox');
     setFlipCallback(s.flip_base_url || '');
     if (s.flip_auto_redirect != null) setFlipRedirect(s.flip_auto_redirect);
     setFlipFee(s.flip_charge_fee || 'merchant');
+    setFlipCodes(parseArr(s.flip_code_config, defaultFlipCodes));
+
     if (s.moota_enabled != null) setMootaEnabled(s.moota_enabled);
     if (s.moota_signature_enabled != null) setMootaSignature(s.moota_signature_enabled);
     setMootaEndpoint(s.moota_endpoint || '');
     if (s.moota_date_range != null) setMootaRange(s.moota_date_range);
   }, [settings]);
+
+  useEffectA(() => {
+    if (pTab === 'general' && banks.length === 0 && banksLoading) {
+      window.api.paymentMethods?.().then(res => {
+        if (res?.data) setBanks(res.data);
+      }).catch(console.error).finally(() => setBanksLoading(false));
+    }
+  }, [pTab]);
 
   const callbackHint = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/flip`;
   const mootaWebhook = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/moota`;
@@ -451,6 +497,7 @@ function PaymentPanel({ settings, onSave }) {
       bank_name: bankName.trim(),
       bank_number: bankNumber.replace(/[^0-9]/g, ''),
       bank_account_name: bankHolder.trim(),
+      payment_method_types: JSON.stringify(methodTypes)
     };
     if (ucMode === 'fixed') patch.unique_code_fixed = parseInt(String(ucFixed).replace(/\D/g, ''), 10) || 0;
     if (ucMode === 'range') {
@@ -468,6 +515,7 @@ function PaymentPanel({ settings, onSave }) {
       flip_base_url: flipCallback.trim(),
       flip_auto_redirect: flipRedirect,
       flip_charge_fee: flipFee,
+      flip_code_config: JSON.stringify(flipCodes)
     };
     if (flipSecret.trim()) patch.flip_secret_key = flipSecret.trim();
     if (flipToken.trim()) patch.flip_validation_token = flipToken.trim();
@@ -489,127 +537,241 @@ function PaymentPanel({ settings, onSave }) {
 
   const copy = (t) => { try { navigator.clipboard?.writeText(t); showToastSafe('Disalin'); } catch {} };
 
+  // Bank CRUD helpers
+  const handleAddBank = async () => {
+    try {
+      const res = await window.api.createPaymentMethod({ bank_name: '', bank_number: '', bank_type: 'va', account_name: '', type: 'va', category: 'bank_transfer', admin_fee: 0, active: true });
+      if (res?.data) setBanks([...banks, res.data]);
+    } catch (e) { showToastSafe('Gagal tambah bank'); }
+  };
+  const handleUpdateBank = async (id, field, value) => {
+    const arr = [...banks];
+    const idx = arr.findIndex(b => b.id === id);
+    if (idx === -1) return;
+    arr[idx] = { ...arr[idx], [field]: value };
+    setBanks(arr);
+    try { await window.api.updatePaymentMethod(id, arr[idx]); } catch (e) { showToastSafe('Gagal simpan bank'); }
+  };
+  const handleDeleteBank = async (id) => {
+    if (!confirm('Hapus bank ini?')) return;
+    try {
+      await window.api.deletePaymentMethod(id);
+      setBanks(banks.filter(b => b.id !== id));
+    } catch (e) { showToastSafe('Gagal hapus bank'); }
+  };
+
   return (
     <>
-      {/* ---------------- Umum ---------------- */}
-      <Section title="Pengaturan Umum" sub="Kode unik untuk transfer manual, biaya admin, dan rekening tujuan donasi (dipakai saat Flip nonaktif).">
-        <div className="space-y-4">
+      <div className="flex border-b border-line mb-6 overflow-x-auto no-scrollbar">
+        {[{v:'general', l:'General'},{v:'flip', l:'Flip'},{v:'moota', l:'Moota'}].map((t) => (
+          <button key={t.v} onClick={() => setPTab(t.v)}
+            className={`px-4 py-3 text-sm font-bold border-b-2 whitespace-nowrap transition-colors ${pTab===t.v ? 'border-brand-600 text-brand-700' : 'border-transparent text-mute hover:text-ink'}`}>
+            {t.l}
+          </button>
+        ))}
+      </div>
+
+      {pTab === 'general' && (
+      <Section title="Payment" sub="Silahkan diatur sesuai kebutuhan pembayaran anda.">
+        <div className="space-y-8">
+          {/* Unique Number */}
           <div>
-            <label className="text-xs font-semibold text-mute">Kode Unik (Unique Number)</label>
-            <div className="mt-1 grid grid-cols-3 gap-2">
-              {[{v:'none',l:'Nonaktif'},{v:'fixed',l:'Tetap (Fixed)'},{v:'range',l:'Rentang (Range)'}].map((o) => (
-                <button key={o.v} onClick={() => setUcMode(o.v)}
-                  className={`py-2 rounded-lg border text-xs font-bold ${ucMode===o.v ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line hover:bg-bg2'}`}>{o.l}</button>
+            <label className="text-sm font-bold text-ink mb-1 block">Unique Number / Kode Unik</label>
+            <div className="text-[11px] text-mute mb-3">Gunakan sesuai kebutuhan, pilih 'None' jika tidak ingin ada tambahan kode unik pada total.</div>
+            <div className="flex items-center gap-4 mb-3">
+              {[{v:'none',l:'None'},{v:'fixed',l:'Fixed'},{v:'range',l:'Range'}].map((o) => (
+                <label key={o.v} className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="ucMode" value={o.v} checked={ucMode === o.v} onChange={() => setUcMode(o.v)} className="w-4 h-4 text-brand-600 border-line focus:ring-brand-600"/>
+                  <span className="text-sm text-ink">{o.l}</span>
+                </label>
               ))}
             </div>
             {ucMode === 'fixed' && (
-              <div className="mt-2">
-                <label className="text-[11px] text-mute">Nilai tetap (contoh: 57)</label>
-                <input type="number" min="0" className="field mt-1 max-w-[160px]" value={ucFixed} onChange={(e) => setUcFixed(e.target.value)}/>
-              </div>
+              <input type="number" min="0" className="field max-w-[120px]" value={ucFixed} onChange={(e) => setUcFixed(e.target.value)}/>
             )}
             {ucMode === 'range' && (
-              <div className="mt-2 flex items-end gap-3">
-                <div><label className="text-[11px] text-mute">Min</label><input type="number" min="0" className="field mt-1 w-28" value={ucMin} onChange={(e) => setUcMin(e.target.value)}/></div>
-                <div><label className="text-[11px] text-mute">Max</label><input type="number" min="0" className="field mt-1 w-28" value={ucMax} onChange={(e) => setUcMax(e.target.value)}/></div>
+              <div className="flex items-center gap-2">
+                <input type="number" min="0" className="field w-24" value={ucMin} onChange={(e) => setUcMin(e.target.value)}/>
+                <span className="text-mute">:</span>
+                <input type="number" min="0" className="field w-24" value={ucMax} onChange={(e) => setUcMax(e.target.value)}/>
               </div>
             )}
-            <div className="text-[11px] text-mute mt-1">Ditambahkan ke nominal transfer manual agar tiap pembayaran nominal sama bisa dibedakan. Flip (gateway) tidak memakai kode unik.</div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-mute">Biaya Admin (Rp)</label>
-              <input type="number" min="0" className="field mt-1" value={adminFee} onChange={(e) => setAdminFee(e.target.value)}/>
-              <div className="text-[11px] text-mute mt-1">Dipotong dari nominal yang masuk ke campaign.</div>
+          {/* Payment Method Types */}
+          <div>
+            <label className="text-sm font-bold text-ink mb-1 block">Payment Method</label>
+            <div className="text-[11px] text-mute mb-3">Aktifkan sesuai kebutuhan agar tampil pada list metode pembayaran.</div>
+            <div className="space-y-4">
+              {METHOD_TYPES.map(mt => (
+                <div key={mt.key} className="flex items-start gap-8 border-b border-line pb-4 last:border-0">
+                  <div className="w-32 pt-2">
+                    <div className="text-xs font-bold text-ink mb-2">{mt.defaultTitle.split('(')[0].trim()}</div>
+                    <Toggle value={methodTypes[mt.key]?.active} onChange={(v) => setMethodTypes(prev => ({...prev, [mt.key]: {...prev[mt.key], active: v}}))} label={methodTypes[mt.key]?.active ? 'Active' : 'Not Active'}/>
+                  </div>
+                  <div className="flex-1 max-w-md">
+                    <label className="text-[11px] text-mute block mb-1">Title</label>
+                    <input className="field" value={methodTypes[mt.key]?.title || ''} onChange={(e) => setMethodTypes(prev => ({...prev, [mt.key]: {...prev[mt.key], title: e.target.value}}))}/>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          <div className="rounded-xl border border-line p-4">
-            <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Rekening Tujuan (Transfer Manual)</div>
+          {/* Fallback Single Bank Account */}
+          <div className="bg-bg2 p-4 rounded-xl border border-line">
+            <div className="text-sm font-bold text-ink mb-2">Fallback Transfer Manual (Moota)</div>
+            <div className="text-[11px] text-mute mb-3">Ditampilkan ke donatur saat Flip nonaktif (transfer manual + kode unik, direkonsiliasi Moota).</div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div><label className="text-[11px] text-mute">Nama Bank</label><input className="field mt-1" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="BCA"/></div>
               <div><label className="text-[11px] text-mute">No. Rekening</label><input className="field mt-1 font-mono" value={bankNumber} onChange={(e) => setBankNumber(e.target.value)} placeholder="8901234567"/></div>
               <div><label className="text-[11px] text-mute">Atas Nama</label><input className="field mt-1" value={bankHolder} onChange={(e) => setBankHolder(e.target.value)} placeholder="Yayasan Niat Baik"/></div>
             </div>
-            <div className="text-[11px] text-mute mt-2">Ditampilkan ke donatur saat Flip nonaktif (transfer manual + kode unik, direkonsiliasi Moota).</div>
+            <div className="mt-3 w-48">
+              <label className="text-[11px] text-mute">Biaya Admin (Rp)</label>
+              <input type="number" min="0" className="field mt-1" value={adminFee} onChange={(e) => setAdminFee(e.target.value)}/>
+            </div>
           </div>
-        </div>
-        <div className="flex justify-end mt-4"><SaveButton onClick={saveGeneral}>Simpan Umum</SaveButton></div>
-      </Section>
 
-      {/* ---------------- Flip ---------------- */}
+          {/* Bank Account Multi-row CRUD */}
+          <div>
+            <label className="text-sm font-bold text-ink mb-3 block">Bank Account</label>
+            <div className="space-y-3">
+              {banks.map(b => (
+                <div key={b.id} className="flex items-center gap-2">
+                  <input className="field w-40" placeholder="Bank Name" value={b.bank_name} onChange={(e) => handleUpdateBank(b.id, 'bank_name', e.target.value)}/>
+                  <input className="field w-24" placeholder="Code" value={b.bank_type} onChange={(e) => handleUpdateBank(b.id, 'bank_type', e.target.value)}/>
+                  <input className="field flex-1" placeholder="Account Name" value={b.account_name} onChange={(e) => handleUpdateBank(b.id, 'account_name', e.target.value)}/>
+                  <input className="field w-40 font-mono" placeholder="Account No" value={b.bank_number} onChange={(e) => handleUpdateBank(b.id, 'bank_number', e.target.value)}/>
+                  <Select value={b.type} onChange={(v) => handleUpdateBank(b.id, 'type', v)} options={[{value:'va',label:'VA'},{value:'transfer',label:'Transfer'},{value:'qris',label:'Pilih Method v'}]} className="w-32"/>
+                  <button type="button" onClick={() => handleDeleteBank(b.id)} className="w-9 h-9 rounded bg-red-500 text-white flex items-center justify-center shrink-0 hover:bg-red-600"><Icon name="minus" size={16}/></button>
+                </div>
+              ))}
+              <button type="button" onClick={handleAddBank} className="text-sm font-bold text-brand-600 border border-brand-200 bg-brand-50 px-4 py-2 rounded-lg hover:bg-brand-100">+ Add Bank</button>
+            </div>
+          </div>
+
+        </div>
+        <div className="flex mt-8"><SaveButton onClick={saveGeneral}>Update</SaveButton></div>
+      </Section>
+      )}
+
+      {pTab === 'flip' && (
       <Section title="Flip — Payment Gateway"
         sub="Gateway otomatis (QRIS / VA / e-wallet). Saat aktif, donatur dibayar lewat Flip & otomatis terverifikasi via webhook."
         actions={<Badge tone={flipEnabled ? 'ok' : 'slate'} dot={flipEnabled} size="sm">{flipEnabled ? 'Aktif' : 'Nonaktif'}</Badge>}>
-        <div className="space-y-3">
+        <div className="space-y-6">
           <div className="flex items-center justify-between rounded-xl border border-line p-3">
-            <div><div className="text-sm font-bold text-ink">Aktifkan Flip</div><div className="text-xs text-mute">Belum punya akun? <a href="https://flip.id/business" target="_blank" rel="noopener noreferrer" className="text-brand-600 font-semibold hover:underline">Daftar Flip Business</a></div></div>
+            <div><div className="text-sm font-bold text-ink">Aktifkan Flip</div><div className="text-xs text-mute">Bagi yang belum memiliki akun Flip Business, bisa mendaftar melalui link berikut: <a href="https://flip.id/business" target="_blank" rel="noopener noreferrer" className="text-brand-600 font-semibold hover:underline">Daftar akun Flip Business sekarang</a></div></div>
             <Toggle value={flipEnabled} onChange={setFlipEnabled}/>
           </div>
           <div>
             <label className="text-xs font-semibold text-mute">Mode</label>
-            <div className="mt-1 grid grid-cols-2 gap-2 max-w-xs">
+            <div className="text-[11px] text-mute mb-2">Gunakan mode Sandbox (Development) untuk uji coba test dan LIVE jika sistem sudah berjalan.</div>
+            <div className="flex items-center gap-4">
               {[{v:'sandbox',l:'Sandbox'},{v:'production',l:'LIVE (Production)'}].map((o) => (
                 <button key={o.v} onClick={() => setFlipMode(o.v)}
-                  className={`py-2 rounded-lg border text-xs font-bold ${flipMode===o.v ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line hover:bg-bg2'}`}>{o.l}</button>
+                  className={`px-8 py-2.5 rounded-lg border text-sm font-bold transition-colors ${flipMode===o.v ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:bg-bg2'}`}>{o.l}</button>
               ))}
             </div>
           </div>
-          <SecretInput label="Flip API Secret Key" value={flipSecret} onChange={setFlipSecret} configured={flipConfigured} placeholder="Secret key dari dashboard Flip"/>
-          <SecretInput label="Flip Validation Token" value={flipToken} onChange={setFlipToken} configured={flipConfigured} placeholder="Validation token (untuk verifikasi webhook)"/>
+          <SecretInput label={`Flip API Secret Key ${flipMode==='sandbox'?' - Sandbox':' - Production'}`} value={flipSecret} onChange={setFlipSecret} configured={flipConfigured} placeholder="API Key"/>
+          <SecretInput label={`Flip Validation Token ${flipMode==='sandbox'?' - Sandbox':' - Production'}`} value={flipToken} onChange={setFlipToken} configured={flipConfigured} placeholder="Private Key"/>
           <div>
-            <label className="text-xs font-semibold text-mute">URL Callback (set di dashboard Flip)</label>
+            <label className="text-xs font-semibold text-mute flex items-center gap-2">URL Callback {flipMode==='sandbox'?' - Sandbox':' - Production'} <span className="text-[10px] text-mute font-normal">(set di dashboard Flip)</span></label>
             <div className="mt-1 flex items-center gap-2 rounded-lg border border-line bg-bg2 px-3 py-2">
               <span className="flex-1 min-w-0 truncate text-xs font-mono text-mute">{callbackHint}</span>
               <button type="button" onClick={() => copy(callbackHint)} className="text-xs font-bold text-brand-600 hover:underline shrink-0">Salin</button>
             </div>
             <input className="field mt-2" value={flipCallback} onChange={(e) => setFlipCallback(e.target.value)} placeholder="Override base URL Flip (opsional — kosongkan untuk otomatis dari Mode)"/>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="flex items-center justify-between rounded-xl border border-line p-3">
-              <div className="text-sm font-semibold text-ink">Auto Redirect</div>
-              <Toggle value={flipRedirect} onChange={setFlipRedirect}/>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border border-line rounded-xl p-4">
+            <div>
+              <div className="flex items-center gap-4 mb-1">
+                <span className="text-sm font-bold text-ink">Auto Redirect</span>
+                <Toggle value={flipRedirect} onChange={setFlipRedirect}/>
+              </div>
+              <div className="text-[11px] text-mute">Settingan ini hanya berlaku untuk metode Instant dan Transfer Flip.</div>
             </div>
             <div>
-              <label className="text-xs font-semibold text-mute">Biaya (Charge Fee)</label>
-              <Select value={flipFee} onChange={setFlipFee} options={[{value:'merchant',label:'Ditanggung Merchant'},{value:'donatur',label:'Ditanggung Donatur'}]} className="mt-1"/>
+              <label className="text-[11px] font-semibold text-mute block mb-1">Biaya (Charge Fee)</label>
+              <Select value={flipFee} onChange={setFlipFee} options={[{value:'merchant',label:'Ditanggung Merchant'},{value:'donatur',label:'Ditanggung Donatur'}]}/>
+              <div className="text-[11px] text-mute mt-1">Biaya admin transaksi dapat dibebankan kepada Donatur atau ditanggung oleh Merchant (Setelah setting jangan lupa hubungi CS Flip jika ingin dibebankan ke Donatur).</div>
             </div>
           </div>
-        </div>
-        <div className="flex justify-end mt-4"><SaveButton onClick={saveFlip}>Simpan Flip</SaveButton></div>
-      </Section>
 
-      {/* ---------------- Moota ---------------- */}
+          {/* Flip Code Matrix */}
+          <div>
+            <div className="text-sm font-bold text-ink mb-1">Flip Code</div>
+            <div className="text-[11px] text-mute mb-4">Perhatikan pada bagian 'code' dan gunakan pada saat mensetting payment dengan Flip for Business.</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {Object.entries(FLIP_CHANNELS).map(([typeKey, channels]) => (
+                <div key={typeKey}>
+                  <div className="text-xs font-bold text-mute uppercase tracking-wider mb-3">{typeKey === 'va' ? 'Virtual Account' : typeKey}</div>
+                  <div className="space-y-3">
+                    {channels.map(ch => (
+                      <div key={ch.key} className="flex items-center gap-3">
+                        <input type="checkbox" checked={flipCodes[ch.key]?.enabled} onChange={(e) => setFlipCodes(prev => ({...prev, [ch.key]: {...prev[ch.key], enabled: e.target.checked}}))} className="w-4 h-4 rounded text-brand-600 border-line focus:ring-brand-600"/>
+                        <span className="text-sm text-ink w-24">{ch.name}</span>
+                        <div className="flex-1 flex items-center bg-bg2 rounded border border-line px-2 py-1">
+                          <span className="text-[10px] text-mute w-8">Code:</span>
+                          <input className="bg-transparent border-0 p-0 text-xs font-mono text-ink w-full focus:ring-0" value={flipCodes[ch.key]?.code || ch.key} onChange={(e) => setFlipCodes(prev => ({...prev, [ch.key]: {...prev[ch.key], code: e.target.value}}))}/>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+        <div className="flex mt-8"><SaveButton onClick={saveFlip}>Update Flip</SaveButton></div>
+      </Section>
+      )}
+
+      {pTab === 'moota' && (
       <Section title="Moota — Sinkronisasi Saldo"
         sub="Moota memantau mutasi rekening bank & menampung saldo di sistem (bukan payment gateway). Dipakai untuk rekonsiliasi transfer manual."
         actions={<Badge tone={mootaEnabled ? 'ok' : 'slate'} dot={mootaEnabled} size="sm">{mootaEnabled ? 'Aktif' : 'Nonaktif'}</Badge>}>
-        <div className="space-y-3">
+        <div className="space-y-6">
+          <div>
+            <div className="text-sm font-bold text-ink mb-1">Bagi yang belum memiliki akun Moota, bisa mendaftar melalui link berikut:</div>
+            <a href="https://moota.co" target="_blank" rel="noopener noreferrer" className="text-brand-600 font-semibold text-sm hover:underline">Daftar akun Moota sekarang</a>
+          </div>
           <div className="flex items-center justify-between rounded-xl border border-line p-3">
-            <div><div className="text-sm font-bold text-ink">Aktifkan Moota</div><div className="text-xs text-mute">Belum punya akun? <a href="https://moota.co" target="_blank" rel="noopener noreferrer" className="text-brand-600 font-semibold hover:underline">Daftar Moota</a></div></div>
+            <div><div className="text-sm font-bold text-ink">Aktifkan Moota</div></div>
             <Toggle value={mootaEnabled} onChange={setMootaEnabled}/>
           </div>
-          <SecretInput label="Moota API Key" value={mootaKey} onChange={setMootaKey} configured={mootaConfigured} placeholder="API key dari dashboard Moota"/>
-          <SecretInput label="Moota Secret Token (webhook)" value={mootaSecret} onChange={setMootaSecret} configured={mootaConfigured} placeholder="Secret token untuk verifikasi signature webhook"/>
-          <div className="flex items-center justify-between rounded-xl border border-line p-3">
-            <div><div className="text-sm font-semibold text-ink">Signature Moota</div><div className="text-xs text-mute">Verifikasi keaslian webhook. Nonaktifkan hanya jika bermasalah.</div></div>
-            <Toggle value={mootaSignature} onChange={setMootaSignature}/>
-          </div>
           <div>
-            <label className="text-xs font-semibold text-mute">URL Webhook (set di dashboard Moota)</label>
-            <div className="mt-1 flex items-center gap-2 rounded-lg border border-line bg-bg2 px-3 py-2">
-              <span className="flex-1 min-w-0 truncate text-xs font-mono text-mute">{mootaWebhook}</span>
-              <button type="button" onClick={() => copy(mootaWebhook)} className="text-xs font-bold text-brand-600 hover:underline shrink-0">Salin</button>
+            <div className="flex items-center gap-4 mb-1">
+              <span className="text-sm font-bold text-ink">Signature Moota</span>
+              <Toggle value={mootaSignature} onChange={setMootaSignature} label={mootaSignature ? 'Active' : 'Not Active'}/>
             </div>
-            <input className="field mt-2" value={mootaEndpoint} onChange={(e) => setMootaEndpoint(e.target.value)} placeholder="Endpoint Moota (opsional)"/>
+            <div className="text-[11px] text-mute">Default aktif untuk Security, Non-aktifkan jika website anda mengalami kendala dengan pembuatan Signature Moota.</div>
           </div>
           <div>
-            <label className="text-xs font-semibold text-mute">Rentang Tanggal Cek (hari)</label>
-            <input type="number" min="1" max="90" className="field mt-1 w-28" value={mootaRange} onChange={(e) => setMootaRange(e.target.value)}/>
+            <label className="text-xs font-semibold text-ink mb-1 block">URL Endpoint (set di dashboard Moota)</label>
+            <div className="flex items-center gap-2 rounded-lg border border-line bg-bg2 px-3 py-2 max-w-md">
+              <span className="flex-1 min-w-0 truncate text-xs font-mono text-mute">{mootaWebhook}</span>
+              <button type="button" onClick={() => copy(mootaWebhook)} className="text-xs font-bold text-brand-600 hover:underline shrink-0">Copy</button>
+            </div>
+            <input className="field mt-2 max-w-md" value={mootaEndpoint} onChange={(e) => setMootaEndpoint(e.target.value)} placeholder="Endpoint Moota (opsional)"/>
+          </div>
+          <div className="max-w-md">
+            <SecretInput label="Moota Secret Token (webhook)" value={mootaSecret} onChange={setMootaSecret} configured={mootaConfigured}/>
+          </div>
+          <div className="max-w-md">
+            <SecretInput label="Moota API Key (opsional)" value={mootaKey} onChange={setMootaKey} configured={mootaConfigured} placeholder="API key dari dashboard Moota"/>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-ink block mb-1">Moota Date Range (hari)</label>
+            <input type="number" min="1" max="90" className="field w-24" value={mootaRange} onChange={(e) => setMootaRange(e.target.value)}/>
           </div>
         </div>
-        <div className="flex justify-end mt-4"><SaveButton onClick={saveMoota}>Simpan Moota</SaveButton></div>
+        <div className="flex mt-8"><SaveButton onClick={saveMoota}>Update Moota</SaveButton></div>
       </Section>
+      )}
     </>
   );
 }

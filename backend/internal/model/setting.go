@@ -115,6 +115,16 @@ type Setting struct {
 	FlipAutoRedirect      bool   `gorm:"default:true" json:"flip_auto_redirect"`
 	FlipChargeFee         string `gorm:"size:20;default:'merchant'" json:"flip_charge_fee"`
 
+	// Payment-method config (mirrors the reference Setting → Payment page).
+	// PaymentMethodTypes: which donor-facing method TYPES are active + their titles,
+	//   JSON {"instant":{"active":bool,"title":string},"va":{...},"transfer":{...}}.
+	// FlipCodeConfig: per-Flip-channel enable + gateway code,
+	//   JSON {"qris":{"enabled":bool,"code":"qris"},"gopay":{...},"bca":{...},...}.
+	// Both drive ListPaymentMethods (public donor list) so the admin's toggles
+	// actually change what donors can pick — not cosmetic. Empty = legacy default.
+	PaymentMethodTypes string `gorm:"type:text" json:"payment_method_types"`
+	FlipCodeConfig     string `gorm:"type:text" json:"flip_code_config"`
+
 	// Unique number / Kode Unik — appended to manual-transfer totals so two transfers
 	// of the same nominal can be told apart. Mode: none|fixed|range.
 	UniqueCodeMode  string `gorm:"size:10;default:'range'" json:"unique_code_mode"`

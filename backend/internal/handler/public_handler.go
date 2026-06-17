@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
@@ -157,6 +158,9 @@ func (h *PublicHandler) GetPublicSettings(c echo.Context) error {
 		"bank_number":       settings.BankNumber,
 		"bank_account_name": settings.BankAccountName,
 		"flip_enabled":      settings.FlipEnabled,
+		// Method-type titles/active flags so the public form can label groups the way
+		// the admin configured (non-secret config; flip_code_config stays admin-only).
+		"payment_method_types": settings.PaymentMethodTypes,
 	}
 	return c.JSON(http.StatusOK, response.SuccessResponse(publicSettings, "success"))
 }
@@ -184,32 +188,28 @@ func (h *PublicHandler) ListPaymentMethods(c echo.Context) error {
 	items := make([]map[string]interface{}, 0, 12)
 
 	if flipGateway {
-		// QRIS first (most common), then VA banks, then e-wallets — matches the grouping
-		// the public form already renders. Stable string ids (not DB UUIDs): the backend
-		// records payment_method by label anyway when the id isn't a real payment_method.
-		channels := []struct {
-			id, name, typ, category string
-		}{
-			{"flip-qris", "QRIS", "qris", "qris"},
-			{"flip-va-bca", "BCA", "va", "bank_transfer"},
-			{"flip-va-mandiri", "Mandiri", "va", "bank_transfer"},
-			{"flip-va-bni", "BNI", "va", "bank_transfer"},
-			{"flip-va-bri", "BRI", "va", "bank_transfer"},
-			{"flip-ewallet-gopay", "GoPay", "ewallet", "ewallet"},
-			{"flip-ewallet-ovo", "OVO", "ewallet", "ewallet"},
-			{"flip-ewallet-dana", "Dana", "ewallet", "ewallet"},
-			{"flip-ewallet-shopeepay", "ShopeePay", "ewallet", "ewallet"},
-		}
-		for _, ch := range channels {
+		// Donor-facing Flip channels are built from the admin's Flip Code matrix
+		// (settings.FlipCodeConfig: per-channel enabled + gateway code) AND filtered by
+		// the active method TYPES (settings.PaymentMethodTypes). This makes the admin's
+		// toggles actually change what donors see, instead of a fixed hardcoded list.
+		// Empty/unparseable config falls back to "everything enabled" (legacy behavior).
+		for _, ch := range flipChannelCatalog {
+			if !methodTypeActive(settings.PaymentMethodTypes, ch.methodType) {
+				continue
+			}
+			enabled, code := flipChannelState(settings.FlipCodeConfig, ch.key)
+			if !enabled {
+				continue
+			}
 			items = append(items, map[string]interface{}{
-				"id":           ch.id,
+				"id":           "flip-" + ch.key,
 				"bank_name":    ch.name,
 				"bank_number":  "",
 				"bank_type":    ch.typ,
 				"account_name": "",
 				"type":         ch.typ,
 				"category":     ch.category,
-				"code":         "",
+				"code":         code,
 				"admin_fee":    settings.AdminFee,
 				"image":        "",
 			})
@@ -290,4 +290,87 @@ func (h *PublicHandler) GetPublicStats(c echo.Context) error {
 
 func (h *PublicHandler) HealthCheck(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// ---------------------------------------------------------------------------
+// Flip channel catalog + config helpers
+// ---------------------------------------------------------------------------
+
+// flipChannel describes one Flip gateway channel. The catalog mirrors the
+// reference DonasiAja Flip Code matrix — Instant / VA / Transfer columns.
+type flipChannel struct {
+	key        string // stable key used in FlipCodeConfig JSON + as id suffix
+	name       string // human label shown to donor
+	typ        string // qris | va | ewallet
+	category   string // qris | bank_transfer | ewallet
+	methodType string // instant | va | transfer — maps to PaymentMethodTypes toggle
+}
+
+// flipChannelCatalog is the canonical list, ordered the way the public form renders.
+var flipChannelCatalog = []flipChannel{
+	// Instant
+	{"qris", "QRIS", "qris", "qris", "instant"},
+	{"gopay", "GoPay", "ewallet", "ewallet", "instant"},
+	{"ovo", "OVO", "ewallet", "ewallet", "instant"},
+	{"dana", "Dana", "ewallet", "ewallet", "instant"},
+	{"linkaja", "LinkAja", "ewallet", "ewallet", "instant"},
+	{"shopeepay", "ShopeePay", "ewallet", "ewallet", "instant"},
+	{"doku", "Doku", "ewallet", "ewallet", "instant"},
+	// Virtual Account
+	{"bca", "BCA", "va", "bank_transfer", "va"},
+	{"mandiri", "Mandiri", "va", "bank_transfer", "va"},
+	{"bni", "BNI", "va", "bank_transfer", "va"},
+	{"bri", "BRI", "va", "bank_transfer", "va"},
+	{"bsi", "BSI", "va", "bank_transfer", "va"},
+	{"muamalat", "Muamalat", "va", "bank_transfer", "va"},
+	{"cimb", "CIMB Niaga", "va", "bank_transfer", "va"},
+	{"danamon", "Danamon", "va", "bank_transfer", "va"},
+	{"permata", "Permata", "va", "bank_transfer", "va"},
+	// Transfer
+	{"flip", "FLIP Transfer", "va", "bank_transfer", "transfer"},
+}
+
+// methodTypeActive checks whether a method-type toggle (instant/va/transfer) is
+// active in the PaymentMethodTypes JSON config. Empty/unparseable config means
+// "all active" (legacy default).
+func methodTypeActive(cfgJSON, methodType string) bool {
+	if cfgJSON == "" {
+		return true // legacy: all types active
+	}
+	var cfg map[string]struct {
+		Active bool `json:"active"`
+	}
+	if err := json.Unmarshal([]byte(cfgJSON), &cfg); err != nil {
+		return true // parse error → legacy fallback
+	}
+	entry, ok := cfg[methodType]
+	if !ok {
+		return true // unknown type → allow by default
+	}
+	return entry.Active
+}
+
+// flipChannelState returns (enabled, code) for a single channel from the
+// FlipCodeConfig JSON. Empty/unparseable config → (true, key) — legacy default
+// where every channel is enabled with its catalog key as the code.
+func flipChannelState(cfgJSON, key string) (bool, string) {
+	if cfgJSON == "" {
+		return true, key
+	}
+	var cfg map[string]struct {
+		Enabled bool   `json:"enabled"`
+		Code    string `json:"code"`
+	}
+	if err := json.Unmarshal([]byte(cfgJSON), &cfg); err != nil {
+		return true, key
+	}
+	entry, ok := cfg[key]
+	if !ok {
+		return true, key // channel not in config → enabled with default code
+	}
+	code := entry.Code
+	if code == "" {
+		code = key
+	}
+	return entry.Enabled, code
 }

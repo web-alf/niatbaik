@@ -24,6 +24,8 @@ type InvoiceResponse struct {
 	CSNote        string     `json:"cs_note"`
 	QRUrl         string     `json:"qr_url"`
 	PayCode       string     `json:"pay_code"`
+	TypePayment    string    `json:"type_payment"`
+	URLAlternative string    `json:"url_alternative"`
 	UTMSource     string     `json:"utm_source"`
 	UTMMedium     string     `json:"utm_medium"`
 	UTMCampaign   string     `json:"utm_campaign"`
@@ -73,6 +75,8 @@ func ToInvoiceResponse(inv *model.Invoice) InvoiceResponse {
 		CSNote:        inv.CSNote,
 		QRUrl:         inv.QrURL,
 		PayCode:       inv.PayCode,
+		TypePayment:    inv.TypePayment,
+		URLAlternative: inv.URLAlternative,
 		UTMSource:     inv.UTMSource,
 		UTMMedium:     inv.UTMMedium,
 		UTMCampaign:   inv.UTMCampaign,

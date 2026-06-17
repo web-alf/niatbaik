@@ -1205,8 +1205,19 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
 
   const pmObj = typeof paymentMethod === 'object' ? paymentMethod : null;
   const pmType = (pmObj?.type || pmObj?.category || (typeof paymentMethod === 'string' ? paymentMethod : '')).toLowerCase();
-  const isQRIS = pmType.includes('qris') || !!invoice.qr_url;
+
+  // Flip gateway invoice: backend sets type_payment="Flip" and puts Flip's hosted
+  // payment_url in qr_url (link_url in url_alternative). The donor must be sent to
+  // that page — it is NOT a scannable QRIS image. Fallback: treat an http(s) qr_url
+  // as a Flip link even if type_payment is absent (older API responses).
+  const flipUrl = invoice.qr_url || invoice.url_alternative || '';
+  const isFlip = (invoice.type_payment || '').toLowerCase() === 'flip' || /^https?:\/\//i.test(flipUrl);
+
+  // QRIS only when we have a real QR (not a Flip redirect URL).
+  const isQRIS = !isFlip && (pmType.includes('qris') || (!!invoice.qr_url && !/^https?:\/\//i.test(invoice.qr_url)));
   const isPaid = invoice.is_paid || /paid|berhasil|lunas|success/i.test(status);
+
+  const autoRedirect = !!(typeof window !== 'undefined' && window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.flip_auto_redirect);
 
   // Manual-transfer destination. Flip (gateway) returns a pay_code; otherwise the
   // donor transfers to the single org account configured in Settings → Payment
@@ -1225,6 +1236,16 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
       try { new window.QRCode(qrRef.current, { text: qrPayload, width: 200, height: 200 }); } catch {}
     }
   }, [isQRIS, invoice.qr_url, invoice.pay_code, invoice.invoice_number]);
+
+  // Flip auto-redirect: when the admin enabled "Auto Redirect" and this is a Flip
+  // invoice that's not yet paid, send the donor straight to Flip's payment page.
+  // The manual "Lanjutkan ke Pembayaran" button stays as a fallback if the redirect
+  // is blocked (popup blockers don't affect same-tab location changes).
+  useEffect(() => {
+    if (isFlip && autoRedirect && flipUrl && !isPaid) {
+      try { window.location.href = flipUrl; } catch {}
+    }
+  }, [isFlip, autoRedirect, flipUrl, isPaid]);
 
   // Poll status every 12s until paid, but cap at ~12 min (60 attempts). Without a
   // cap, an invoice that never settles (e.g. a stuck webhook) polls forever with
@@ -1284,7 +1305,26 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
       </div>
 
       {/* QRIS */}
-      {isQRIS ? (
+      {isFlip ? (
+        <div className="mt-5 flex flex-col items-center text-center">
+          <div className="text-xs font-bold uppercase tracking-wider text-mute mb-3">Pembayaran via Flip</div>
+          <div className="w-full rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-800 leading-relaxed">
+            {autoRedirect
+              ? 'Anda akan dialihkan ke halaman pembayaran Flip. Jika tidak otomatis, tekan tombol di bawah.'
+              : 'Lanjutkan ke halaman pembayaran Flip (QRIS / Virtual Account / e-wallet) untuk menyelesaikan donasi.'}
+          </div>
+          {flipUrl ? (
+            <a href={flipUrl} target="_blank" rel="noopener noreferrer"
+               className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-brand-600 text-white hover:bg-brand-700 transition-colors">
+              <Icon name="arrowR" size={16}/> Lanjutkan ke Pembayaran
+            </a>
+          ) : (
+            <div className="mt-4 w-full rounded-xl border border-line p-3 text-xs text-mute">
+              Menyiapkan halaman pembayaran… Jika tidak muncul, tekan <b>Cek Status Pembayaran</b> atau hubungi CS.
+            </div>
+          )}
+        </div>
+      ) : isQRIS ? (
         <div className="mt-5 flex flex-col items-center">
           <div className="text-xs font-bold uppercase tracking-wider text-mute mb-3">Scan QRIS untuk membayar</div>
           {invoice.qr_url ? (

@@ -214,6 +214,10 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 			// Flip call failed at runtime — degrade to a manual transfer so the invoice
 			// stays payable. Add a unique code now (it wasn't added above because we
 			// expected the gateway to disambiguate) so manual reconciliation can match it.
+			// Log the reason: a silent degrade hid a sandbox base-URL bug (every CreateBill
+			// 404'd) that stranded donors on an unpayable manual invoice when the unique
+			// code / bank account weren't configured.
+			log.Printf("[donation] Flip CreateBill failed for %s, degrading to manual transfer: %v", invoice.InvoiceNumber, flipErr)
 			invoice.Total = invoice.Subtotal + uniqueCodeFromSettings(settingsForPay)
 			invoice.TypePayment = "Transfer Manual"
 			if err := s.invoiceRepo.Update(&invoice); err != nil {

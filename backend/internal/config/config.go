@@ -67,7 +67,9 @@ func Load() *Config {
 
 		FlipSecretKey:       getEnv("FLIP_SECRET_KEY", ""),
 		FlipValidationToken: getEnv("FLIP_VALIDATION_TOKEN", ""),
-		FlipBaseURL:         getEnv("FLIP_BASE_URL", "https://bigflip.id/api/v3"),
+		// Host-only (no /v2 or /v3): flip_service appends the version per endpoint.
+		// A legacy value with a version segment is normalized by flipBaseHost anyway.
+		FlipBaseURL:         getEnv("FLIP_BASE_URL", "https://bigflip.id/api"),
 
 		CORSOrigins: getEnv("CORS_ORIGINS", "http://localhost:3000"),
 

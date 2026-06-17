@@ -27,12 +27,17 @@ func NewFlipService(cfg *config.Config, paymentSvc *PaymentService, invoiceRepo 
 	return &FlipService{cfg: cfg, paymentSvc: paymentSvc, invoiceRepo: invoiceRepo, settingRepo: settingRepo}
 }
 
-// Flip API base URLs. Production is bigflip.id; the sandbox (Big Flip "test")
-// environment is bigflip.id/big_sandbox_api. getCredentials picks the right base
-// from the admin's Flip Mode setting when an explicit base URL isn't configured.
+// Flip API base hosts (NO version segment). Production is bigflip.id/api; the
+// sandbox (Big Flip "test") environment is bigflip.id/big_sandbox_api.
+// getCredentials picks the host from the admin's Flip Mode setting when an
+// explicit base URL isn't configured. The API VERSION is appended per-endpoint
+// in apiRequest, because Flip versions endpoints inconsistently: Accept Payment
+// (pwf/bill) lives at /v2 in BOTH sandbox and prod (the sandbox has no /v3/pwf/bill
+// — it 404s), while Disbursement is at /v3. Hardcoding one version for all
+// endpoints made every sandbox CreateBill 404 and silently fall back to manual.
 const (
-	flipProdBaseURL    = "https://bigflip.id/api/v3"
-	flipSandboxBaseURL = "https://bigflip.id/big_sandbox_api/v3"
+	flipProdHost    = "https://bigflip.id/api"
+	flipSandboxHost = "https://bigflip.id/big_sandbox_api"
 )
 
 func (s *FlipService) getCredentials() (secretKey, validationToken, baseURL string) {
@@ -42,9 +47,9 @@ func (s *FlipService) getCredentials() (secretKey, validationToken, baseURL stri
 			// Derive from Flip Mode (sandbox/production) so the admin only toggles a
 			// mode instead of pasting the right API host.
 			if strings.EqualFold(strings.TrimSpace(setting.FlipMode), "sandbox") {
-				base = flipSandboxBaseURL
+				base = flipSandboxHost
 			} else {
-				base = flipProdBaseURL
+				base = flipProdHost
 			}
 		}
 		return setting.FlipSecretKey, setting.FlipValidationToken, base
@@ -100,10 +105,31 @@ type FlipDisbursementResponse struct {
 	CreatedAt     string `json:"created_at"`
 }
 
+// flipBaseHost normalizes a Flip base URL to a host-only form: it strips a
+// trailing slash and a trailing /v2 or /v3 version segment. This lets apiRequest
+// append the correct version per endpoint regardless of whether the configured
+// base (from getCredentials or an admin override) still carries a legacy version
+// segment. Examples:
+//
+//	https://bigflip.id/big_sandbox_api/v3 -> https://bigflip.id/big_sandbox_api
+//	https://bigflip.id/api/v3/            -> https://bigflip.id/api
+//	https://bigflip.id/api                -> https://bigflip.id/api
+func flipBaseHost(base string) string {
+	base = strings.TrimRight(strings.TrimSpace(base), "/")
+	if strings.HasSuffix(base, "/v2") || strings.HasSuffix(base, "/v3") {
+		base = base[:len(base)-3]
+	}
+	return strings.TrimRight(base, "/")
+}
+
+// apiRequest performs an authenticated Flip API call. path MUST include the API
+// version segment (e.g. "/v2/pwf/bill", "/v3/disbursement") because Flip versions
+// endpoints inconsistently — the base from getCredentials is host-only.
 func (s *FlipService) apiRequest(method, path string, data url.Values) ([]byte, error) {
 	secretKey, _, baseURL := s.getCredentials()
+	baseURL = flipBaseHost(baseURL)
 	if baseURL == "" {
-		baseURL = "https://bigflip.id/api/v3"
+		baseURL = flipProdHost
 	}
 	var body io.Reader
 	if data != nil {
@@ -154,7 +180,8 @@ func (s *FlipService) CreateBill(invoice *model.Invoice, redirectURL string) (*F
 		"sender_email":            {invoice.DonorEmail},
 	}
 
-	respBody, err := s.apiRequest("POST", "/pwf/bill", data)
+	// Accept Payment lives at /v2 in both sandbox and prod (sandbox has no /v3/pwf/bill).
+	respBody, err := s.apiRequest("POST", "/v2/pwf/bill", data)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +259,7 @@ func (s *FlipService) CreateDisbursement(req FlipDisbursementRequest) (*FlipDisb
 		"remark":         {req.Remark},
 	}
 
-	respBody, err := s.apiRequest("POST", "/disbursement", data)
+	respBody, err := s.apiRequest("POST", "/v3/disbursement", data)
 	if err != nil {
 		return nil, err
 	}

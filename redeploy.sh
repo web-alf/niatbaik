@@ -18,18 +18,24 @@ set -e
 #  Postgres is left running (data + volume untouched).
 #
 #  Usage:
-#    ./redeploy.sh                 # prod, branch main
-#    ./redeploy.sh main            # explicit branch
+#    ./redeploy.sh                 # auto-detect branch aktif (dev/main), lalu deploy
+#    ./redeploy.sh main            # paksa branch tertentu
 #    NB_GIT_REMOTE=https://github.com/web-alf/niatbaik.git ./redeploy.sh
 # ============================================================
 
-BRANCH="${1:-main}"
+cd "$(dirname "$0")"
+
+# Branch: argumen pertama, atau branch yang sedang aktif, atau fallback main.
+# Ini bikin script aman dijalankan baik di checkout dev maupun main tanpa
+# salah-pull ke branch lain.
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)"
+BRANCH="${1:-$CURRENT_BRANCH}"
+[ "$BRANCH" = "HEAD" ] && BRANCH="main"
 COMPOSE_FILE="docker-compose.prod.yml"
 ENV_FILE=".env.production"
 NB_GIT_REMOTE="${NB_GIT_REMOTE:-}"
 
 DC="docker compose -f $COMPOSE_FILE"
-cd "$(dirname "$0")"
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 log()  { echo -e "${GREEN}>> $1${NC}"; }
@@ -112,9 +118,22 @@ else
     log "/uploads/ routed to API (content-type: ${CT:-n/a})."
 fi
 
+# ---- 7. Verify the new frontend bundle actually shipped ----
+# The JS bundle is cached "immutable" for a year by Cloudflare, so even after a
+# successful rebuild the browser may serve the OLD file until the cache is purged.
+# Check the freshly-built bundle inside the container so we know the BUILD is current,
+# then remind the operator to purge the CDN.
+log "Verifying new frontend bundle inside container..."
+if docker exec niatbaik-frontend-1 sh -c 'grep -ql "manual_banks" /app/public/app.min.js 2>/dev/null'; then
+    log "New bundle present in frontend container."
+    warn "PENTING: bundle di-cache CDN 1 tahun (immutable). PURGE cache Cloudflare untuk app.min.js + app.css, atau hard-refresh (Ctrl+Shift+R)."
+else
+    warn "Bundle baru TIDAK terdeteksi di container — build mungkin gagal atau branch salah. Cek: $DC logs --tail=50 frontend"
+fi
+
 echo ""
 echo "============================================"
-log "Redeploy selesai!"
+log "Redeploy selesai! (branch: $BRANCH @ $(git rev-parse --short HEAD))"
 echo "============================================"
 $DC ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || $DC ps
 echo ""

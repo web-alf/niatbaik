@@ -124,6 +124,11 @@ type Setting struct {
 	// actually change what donors can pick — not cosmetic. Empty = legacy default.
 	PaymentMethodTypes string `gorm:"type:text" json:"payment_method_types"`
 	FlipCodeConfig     string `gorm:"type:text" json:"flip_code_config"`
+	// ManualBanks: JSON array of bank labels the admin chose to surface to donors for
+	// manual transfer (Flip off). Each label becomes one donor-facing option pointing at
+	// the single org account (BankName/BankNumber/BankAccountName). Empty = legacy single
+	// entry. Drives ListPaymentMethods just like the two fields above.
+	ManualBanks string `gorm:"type:text" json:"manual_banks"`
 
 	// Unique number / Kode Unik — appended to manual-transfer totals so two transfers
 	// of the same nominal can be told apart. Mode: none|fixed|range.

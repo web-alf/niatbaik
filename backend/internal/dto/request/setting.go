@@ -102,6 +102,7 @@ type UpdateSettingRequest struct {
 	// Payment-method config (JSON blobs; nil=skip, ""=clear to legacy default)
 	PaymentMethodTypes *string `json:"payment_method_types" validate:"omitempty,max=8192"`
 	FlipCodeConfig     *string `json:"flip_code_config" validate:"omitempty,max=16384"`
+	ManualBanks        *string `json:"manual_banks" validate:"omitempty,max=8192"`
 
 	// Unique number / Kode Unik
 	UniqueCodeMode  *string `json:"unique_code_mode" validate:"omitempty,oneof=none fixed range"`

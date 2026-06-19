@@ -409,6 +409,13 @@ const FLIP_CHANNELS = {
   ]
 };
 
+// Bank labels the admin can toggle for manual-transfer display (General tab). All
+// checked banks share the single org account (BankName/BankNumber/BankAccountName).
+const MANUAL_BANK_OPTIONS = [
+  'Bank BCA', 'Bank BRI', 'Bank BNI', 'Bank Syariah Indonesia (BSI)',
+  'Bank CIMB Niaga', 'Bank Mandiri', 'Bank Danamon', 'Bank Muamalat', 'Bank Permata'
+];
+
 function PaymentPanel({ settings, onSave }) {
   const { showToast: showToastSafe } = useApp();
   const [pTab, setPTab] = useStateA('general');
@@ -429,9 +436,8 @@ function PaymentPanel({ settings, onSave }) {
   const defaultMethodTypes = METHOD_TYPES.reduce((acc, mt) => ({ ...acc, [mt.key]: { active: true, title: mt.defaultTitle } }), {});
   const [methodTypes, setMethodTypes] = useStateA(parseArr(settings?.payment_method_types, defaultMethodTypes));
 
-  // Bank Account CRUD (from window.api.paymentMethods)
-  const [banks, setBanks] = useStateA([]);
-  const [banksLoading, setBanksLoading] = useStateA(true);
+  // Bank Account — checkbox list of bank labels to show donors (manual transfer).
+  const [manualBanks, setManualBanks] = useStateA(parseArr(settings?.manual_banks, []));
 
   // ---- Flip ----
   const [flipEnabled, setFlipEnabled] = useStateA(settings?.flip_enabled ?? false);
@@ -480,6 +486,7 @@ function PaymentPanel({ settings, onSave }) {
     setBankNumber(s.bank_number || '');
     setBankHolder(s.bank_account_name || '');
     setMethodTypes(parseArr(s.payment_method_types, defaultMethodTypes));
+    setManualBanks(parseArr(s.manual_banks, []));
 
     if (s.flip_enabled != null) setFlipEnabled(s.flip_enabled);
     setFlipMode(s.flip_mode || 'sandbox');
@@ -494,14 +501,6 @@ function PaymentPanel({ settings, onSave }) {
     if (s.moota_date_range != null) setMootaRange(s.moota_date_range);
   }, [settings]);
 
-  useEffectA(() => {
-    if (pTab === 'general' && banks.length === 0 && banksLoading) {
-      window.api.paymentMethods?.().then(res => {
-        if (res?.data) setBanks(res.data);
-      }).catch(console.error).finally(() => setBanksLoading(false));
-    }
-  }, [pTab]);
-
   const callbackHint = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/flip`;
   const mootaWebhook = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/moota`;
 
@@ -512,7 +511,8 @@ function PaymentPanel({ settings, onSave }) {
       bank_name: bankName.trim(),
       bank_number: bankNumber.replace(/[^0-9]/g, ''),
       bank_account_name: bankHolder.trim(),
-      payment_method_types: JSON.stringify(methodTypes)
+      payment_method_types: JSON.stringify(methodTypes),
+      manual_banks: JSON.stringify(manualBanks)
     };
     if (ucMode === 'fixed') patch.unique_code_fixed = parseInt(String(ucFixed).replace(/\D/g, ''), 10) || 0;
     if (ucMode === 'range') {
@@ -551,29 +551,6 @@ function PaymentPanel({ settings, onSave }) {
   };
 
   const copy = (t) => { try { navigator.clipboard?.writeText(t); showToastSafe('Disalin'); } catch {} };
-
-  // Bank CRUD helpers
-  const handleAddBank = async () => {
-    try {
-      const res = await window.api.createPaymentMethod({ bank_name: '', bank_number: '', bank_type: 'va', account_name: '', type: 'va', category: 'bank_transfer', admin_fee: 0, active: true });
-      if (res?.data) setBanks([...banks, res.data]);
-    } catch (e) { showToastSafe('Gagal tambah bank'); }
-  };
-  const handleUpdateBank = async (id, field, value) => {
-    const arr = [...banks];
-    const idx = arr.findIndex(b => b.id === id);
-    if (idx === -1) return;
-    arr[idx] = { ...arr[idx], [field]: value };
-    setBanks(arr);
-    try { await window.api.updatePaymentMethod(id, arr[idx]); } catch (e) { showToastSafe('Gagal simpan bank'); }
-  };
-  const handleDeleteBank = async (id) => {
-    if (!confirm('Hapus bank ini?')) return;
-    try {
-      await window.api.deletePaymentMethod(id);
-      setBanks(banks.filter(b => b.id !== id));
-    } catch (e) { showToastSafe('Gagal hapus bank'); }
-  };
 
   return (
     <Section title="Payment" sub="Silahkan diatur sesuai kebutuhan pembayaran anda.">
@@ -640,23 +617,38 @@ function PaymentPanel({ settings, onSave }) {
             <div className="text-[11px] text-mute pb-2">Dipotong dari nominal yang masuk ke campaign.</div>
           </div>
 
-          {/* Bank Account Multi-row CRUD */}
+          {/* Bank Account — shared destination account + checkbox list of banks to show */}
           <div>
-            <label className="text-sm font-bold text-ink mb-3 block">Bank Account</label>
-            <div className="space-y-3">
-              {banks.map(b => (
-                <div key={b.id} className="flex items-center gap-2">
-                  <Select value={b.bank_name} onChange={(v) => handleUpdateBank(b.id, 'bank_name', v)} options={[{value:'',label:'Pilih Bank'},{value:'Bank BCA',label:'Bank BCA'},{value:'Bank BRI',label:'Bank BRI'},{value:'Bank BNI',label:'Bank BNI'},{value:'Bank Syariah Indonesia (BSI)',label:'Bank Syariah Indonesia (BSI)'},{value:'Bank CIMB Niaga',label:'Bank CIMB Niaga'},{value:'Bank Mandiri',label:'Bank Mandiri'},{value:'Bank Danamon',label:'Bank Danamon'},{value:'Bank Muamalat',label:'Bank Muamalat'},{value:'Bank Permata',label:'Bank Permata'},{value:'QRIS',label:'QRIS'}]} className="w-48 shrink-0"/>
-                  <input className="field w-24 shrink-0 text-center font-mono text-xs" placeholder="code" value={b.bank_type} onChange={(e) => handleUpdateBank(b.id, 'bank_type', e.target.value)}/>
-                  <input className="field flex-1" placeholder="Atas Nama" value={b.account_name} onChange={(e) => handleUpdateBank(b.id, 'account_name', e.target.value)}/>
-                  <input className="field w-44 shrink-0 font-mono" placeholder="No. Rekening" value={b.bank_number} onChange={(e) => handleUpdateBank(b.id, 'bank_number', e.target.value)}/>
-                  <Select value={b.type} onChange={(v) => handleUpdateBank(b.id, 'type', v)} options={[{value:'va',label:'VA'},{value:'transfer',label:'Transfer'}]} className="w-32 shrink-0"/>
-                  <button type="button" onClick={() => handleDeleteBank(b.id)} className="w-9 h-9 rounded bg-[#EF4444] text-white flex items-center justify-center shrink-0 hover:bg-red-600"><Icon name="minus" size={16}/></button>
-                </div>
-              ))}
-              <button type="button" onClick={handleAddBank} className="text-sm font-bold text-brand-600 border border-brand-200 bg-white px-4 py-2 rounded-lg hover:bg-brand-50">+ Add Bank</button>
+            <label className="text-sm font-bold text-ink mb-1 block">Bank Account</label>
+            <div className="text-[11px] text-mute mb-3">Centang bank yang ingin ditampilkan ke donatur. Semua opsi memakai rekening tujuan di bawah.</div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 p-3 rounded-lg border border-line bg-white">
+              <div>
+                <label className="text-[11px] text-mute block mb-1">Bank Tujuan</label>
+                <Select value={bankName} onChange={setBankName} options={[{value:'',label:'Pilih Bank'},...MANUAL_BANK_OPTIONS.map(b => ({value:b,label:b}))]}/>
+              </div>
+              <div>
+                <label className="text-[11px] text-mute block mb-1">No. Rekening</label>
+                <input className="field font-mono" value={bankNumber} onChange={(e) => setBankNumber(e.target.value)} placeholder="No. Rekening"/>
+              </div>
+              <div>
+                <label className="text-[11px] text-mute block mb-1">Atas Nama</label>
+                <input className="field" value={bankHolder} onChange={(e) => setBankHolder(e.target.value)} placeholder="Atas Nama"/>
+              </div>
             </div>
-            <div className="text-[11px] text-mute mt-3">Baris dengan tipe <b>Transfer</b> dipakai sebagai rekening tujuan donasi manual (direkonsiliasi Moota) saat Flip nonaktif.</div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {MANUAL_BANK_OPTIONS.map(b => {
+                const on = manualBanks.includes(b);
+                return (
+                  <label key={b} className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer ${on ? 'border-brand-600 bg-brand-50' : 'border-line bg-white'}`}>
+                    <input type="checkbox" checked={on} onChange={() => setManualBanks(prev => prev.includes(b) ? prev.filter(x => x !== b) : [...prev, b])} className="w-4 h-4 rounded text-brand-600 border-line focus:ring-brand-600"/>
+                    <span className="text-sm text-ink">{b}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="text-[11px] text-mute mt-3">Rekening tujuan di atas dipakai untuk semua bank tercentang (transfer manual, direkonsiliasi Moota) saat Flip nonaktif.</div>
           </div>
 
         </div>

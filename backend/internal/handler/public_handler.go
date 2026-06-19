@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
@@ -214,21 +216,29 @@ func (h *PublicHandler) ListPaymentMethods(c echo.Context) error {
 				"image":        "",
 			})
 		}
-	} else if settings != nil && settings.BankName != "" {
-		// Manual transfer to the org's account. This is what donors must actually pay to
-		// when the gateway is off, so surface the real account the admin configured.
-		items = append(items, map[string]interface{}{
-			"id":           "manual-bank",
-			"bank_name":    settings.BankName,
-			"bank_number":  settings.BankNumber,
-			"bank_type":    "va",
-			"account_name": settings.BankAccountName,
-			"type":         "va",
-			"category":     "bank_transfer",
-			"code":         "",
-			"admin_fee":    settings.AdminFee,
-			"image":        "",
-		})
+	} else if settings != nil {
+		// Manual transfer to the org's account (gateway off). If the admin picked
+		// specific bank labels (ManualBanks), surface one option per label — each
+		// pointing at the single org account the admin configured. Empty config falls
+		// back to the legacy single BankName entry.
+		labels := manualBankList(settings.ManualBanks)
+		if len(labels) == 0 && settings.BankName != "" {
+			labels = []string{settings.BankName}
+		}
+		for i, label := range labels {
+			items = append(items, map[string]interface{}{
+				"id":           fmt.Sprintf("manual-bank-%d", i),
+				"bank_name":    label,
+				"bank_number":  settings.BankNumber,
+				"bank_type":    "va",
+				"account_name": settings.BankAccountName,
+				"type":         "va",
+				"category":     "bank_transfer",
+				"code":         "",
+				"admin_fee":    settings.AdminFee,
+				"image":        "",
+			})
+		}
 	}
 
 	// Merge any admin-managed rows from the payment_methods table (manual/API additions),
@@ -373,4 +383,23 @@ func flipChannelState(cfgJSON, key string) (bool, string) {
 		code = key
 	}
 	return entry.Enabled, code
+}
+
+// manualBankList parses the ManualBanks JSON config (a flat array of bank-label
+// strings, e.g. ["Bank BCA","Bank BNI"]). Empty/unparseable → nil (legacy fallback).
+func manualBankList(cfgJSON string) []string {
+	if cfgJSON == "" {
+		return nil
+	}
+	var labels []string
+	if err := json.Unmarshal([]byte(cfgJSON), &labels); err != nil {
+		return nil
+	}
+	out := labels[:0]
+	for _, l := range labels {
+		if s := strings.TrimSpace(l); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }

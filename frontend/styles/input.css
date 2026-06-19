@@ -58,7 +58,7 @@ html.dark .bg-slate-100 { background-color: #1E2A47 !important; }
 
 /* Text */
 html.dark .text-ink { color: #E2E8F0 !important; }
-html.dark .text-ink\/80, html.dark .text-ink\/85, html.dark .text-ink\/90 { color: rgba(226,232,240,.85) !important; }
+html.dark .text-ink\/70, html.dark .text-ink\/80, html.dark .text-ink\/85, html.dark .text-ink\/90 { color: rgba(226,232,240,.85) !important; }
 html.dark .text-mute { color: #94A3B8 !important; }
 html.dark .text-slate-700 { color: #CBD5E1 !important; }
 html.dark .text-slate-600 { color: #94A3B8 !important; }

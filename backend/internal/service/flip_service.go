@@ -17,14 +17,15 @@ import (
 )
 
 type FlipService struct {
-	cfg         *config.Config
-	paymentSvc  *PaymentService
-	invoiceRepo *repository.InvoiceRepo
-	settingRepo *repository.SettingRepo
+	cfg          *config.Config
+	paymentSvc   *PaymentService
+	invoiceRepo  *repository.InvoiceRepo
+	settingRepo  *repository.SettingRepo
+	processedRepo *repository.ProcessedWebhookRepo
 }
 
-func NewFlipService(cfg *config.Config, paymentSvc *PaymentService, invoiceRepo *repository.InvoiceRepo, settingRepo *repository.SettingRepo) *FlipService {
-	return &FlipService{cfg: cfg, paymentSvc: paymentSvc, invoiceRepo: invoiceRepo, settingRepo: settingRepo}
+func NewFlipService(cfg *config.Config, paymentSvc *PaymentService, invoiceRepo *repository.InvoiceRepo, settingRepo *repository.SettingRepo, processedRepo *repository.ProcessedWebhookRepo) *FlipService {
+	return &FlipService{cfg: cfg, paymentSvc: paymentSvc, invoiceRepo: invoiceRepo, settingRepo: settingRepo, processedRepo: processedRepo}
 }
 
 // Flip API base hosts (NO version segment). Production is bigflip.id/api; the
@@ -234,6 +235,17 @@ func (s *FlipService) HandleWebhook(payload FlipWebhookPayload) error {
 		return errors.New("no invoice number in bill title")
 	}
 
+	// Replay guard: if Flip's validation token leaks, a captured SUCCESSFUL payload could
+	// be replayed. Dedup on Flip's event id before settling. The per-invoice IsPaid guard
+	// in ProcessPayment already blocks double-credit of the SAME invoice, but recording the
+	// event id makes the intent explicit and covers the amount path symmetrically with Moota.
+	if s.processedRepo != nil && payload.ID != 0 {
+		extID := fmt.Sprintf("%d", payload.ID)
+		if seen, derr := s.processedRepo.AlreadyProcessed("flip", extID); derr == nil && seen {
+			return nil // already handled — replay/duplicate
+		}
+	}
+
 	inv, err := s.invoiceRepo.FindUnpaidByInvoiceNumber(invoiceNumber)
 	if err != nil {
 		return fmt.Errorf("invoice not found: %w", err)
@@ -248,7 +260,13 @@ func (s *FlipService) HandleWebhook(payload FlipWebhookPayload) error {
 		return fmt.Errorf("flip amount mismatch for %s: received %d, expected %d", invoiceNumber, payload.Amount, inv.Total)
 	}
 
-	return s.paymentSvc.ProcessPayment(inv)
+	if err := s.paymentSvc.ProcessPayment(inv); err != nil {
+		return err
+	}
+	if s.processedRepo != nil && payload.ID != 0 {
+		_, _ = s.processedRepo.MarkProcessed("flip", fmt.Sprintf("%d", payload.ID), inv.InvoiceNumber)
+	}
+	return nil
 }
 
 func (s *FlipService) CreateDisbursement(req FlipDisbursementRequest) (*FlipDisbursementResponse, error) {

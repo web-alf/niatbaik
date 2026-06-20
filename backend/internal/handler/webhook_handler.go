@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -11,6 +12,16 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/service"
 	"github.com/labstack/echo/v4"
 )
+
+// isSensitiveHeader reports whether a header may carry the webhook signature or an
+// auth credential, so the diagnostic logger redacts its value instead of leaking it.
+func isSensitiveHeader(name string) bool {
+	switch strings.ToLower(name) {
+	case "x-moota-signature", "signature", "x-signature", "authorization", "cookie", "x-api-key", "apikey":
+		return true
+	}
+	return false
+}
 
 // mootaSignatureHeaders lists the header names a Moota webhook might carry its HMAC
 // signature in. Moota's public docs describe an older `apikey` query + Basic-auth
@@ -142,7 +153,15 @@ func logMootaInbound(c echo.Context, body []byte, expectedHMAC string) {
 		b.WriteString("  hdr ")
 		b.WriteString(name)
 		b.WriteString(": ")
-		b.WriteString(strings.Join(vals, ","))
+		// Redact secret-bearing headers. Logging the raw signature/auth value handed an
+		// attacker with log access valid replay material; we only need to know the header
+		// is PRESENT and its length to debug the signing scheme, not its contents.
+		if isSensitiveHeader(name) {
+			joined := strings.Join(vals, ",")
+			b.WriteString(fmt.Sprintf("<redacted, len=%d>", len(joined)))
+		} else {
+			b.WriteString(strings.Join(vals, ","))
+		}
 		b.WriteString("\n")
 	}
 	b.WriteString("  query: ")

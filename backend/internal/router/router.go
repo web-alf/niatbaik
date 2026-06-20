@@ -33,13 +33,14 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	dataStudioRepo := repository.NewDataStudioRepo(db)
 	revokedTokenRepo := repository.NewRevokedTokenRepo(db)
 	paymentStatusRepo := repository.NewPaymentStatusRepo(db)
+	processedWebhookRepo := repository.NewProcessedWebhookRepo(db)
 
 	// Initialize services
 	authService := service.NewAuthService(db, cfg, revokedTokenRepo)
 	paymentService := service.NewPaymentService(db, invoiceRepo, campaignRepo, settingRepo, fundraiserRepo, commissionRepo)
-	mootaService := service.NewMootaService(cfg, paymentService, invoiceRepo, settingRepo)
-	flipService := service.NewFlipService(cfg, paymentService, invoiceRepo, settingRepo)
-	donationService := service.NewDonationService(db, cfg, invoiceRepo, campaignRepo, donationRepo, settingRepo, paymentMethodRepo, flipService)
+	mootaService := service.NewMootaService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
+	flipService := service.NewFlipService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
+	donationService := service.NewDonationService(db, cfg, invoiceRepo, campaignRepo, donationRepo, settingRepo, paymentMethodRepo, flipService, paymentService)
 	dashboardService := service.NewDashboardService(statsRepo)
 	campaignService := service.NewCampaignService(campaignRepo, categoryRepo)
 	userService := service.NewUserService(userRepo, settingRepo)
@@ -57,7 +58,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
-	publicHandler := handler.NewPublicHandler(campaignRepo, categoryRepo, settingRepo, invoiceRepo, donationRepo, paymentMethodRepo)
+	publicHandler := handler.NewPublicHandler(campaignRepo, categoryRepo, settingRepo, invoiceRepo, donationRepo, paymentMethodRepo, cfg)
 	donationHandler := handler.NewDonationHandler(donationService)
 	webhookHandler := handler.NewWebhookHandler(mootaService, flipService)
 	dashboardHandler := handler.NewDashboardHandler(dashboardService)
@@ -102,6 +103,13 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	api.POST("/donations", donationHandler.CreateDonation)
 	api.GET("/donations/:invoice", donationHandler.GetPaymentStatus)
 
+	// Sandbox-only: simulate a successful payment so testers can advance QRIS / VA /
+	// manual invoices to a paid state (Flip has a hosted link; the others don't). Mounted
+	// ONLY in non-production — never expose a way to mark donations paid without real money.
+	if !cfg.IsProduction() {
+		api.POST("/donations/:invoice/simulate-payment", donationHandler.SimulatePayment)
+	}
+
 	// Webhooks (no auth, no CSRF)
 	api.POST("/webhooks/moota", webhookHandler.HandleMoota)
 	api.POST("/webhooks/flip", webhookHandler.HandleFlip)
@@ -113,7 +121,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	auth := api.Group("/auth")
 	auth.POST("/login", authHandler.Login, authLimiter)
 	auth.POST("/register", authHandler.Register, authLimiter)
-	auth.POST("/refresh", authHandler.RefreshToken)
+	auth.POST("/refresh", authHandler.RefreshToken, authLimiter)
 	auth.POST("/forgot-password", authHandler.ForgotPassword, authLimiter)
 	auth.POST("/reset-password", authHandler.ResetPassword, authLimiter)
 

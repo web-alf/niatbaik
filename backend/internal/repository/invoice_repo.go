@@ -66,6 +66,20 @@ func (r *InvoiceRepo) FindUnpaidByAmountForUpdate(amount int64) (*model.Invoice,
 	return &invoice, nil
 }
 
+// CountUnpaidByAmount counts how many unpaid, in-grace invoices share an exact total.
+// The amount-only Moota fallback must REFUSE to auto-settle when this is > 1: with two
+// same-total invoices (e.g. two donors who both gave Rp100.000) the finder would credit
+// the OLDEST one — the wrong donor's invoice. The caller queues the ambiguous transfer
+// for manual review instead of silently misattributing it.
+func (r *InvoiceRepo) CountUnpaidByAmount(amount int64) (int64, error) {
+	var count int64
+	grace := time.Now().Add(-7 * 24 * time.Hour)
+	err := r.db.Model(&model.Invoice{}).
+		Where("total = ? AND is_paid = ? AND expired_at >= ?", amount, false, grace).
+		Count(&count).Error
+	return count, err
+}
+
 func (r *InvoiceRepo) FindAll(params request.PaginationParams) ([]model.Invoice, int64, error) {
 	var invoices []model.Invoice
 	var total int64

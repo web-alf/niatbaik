@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/anrdart/niatbaik-api/internal/config"
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
 	"github.com/anrdart/niatbaik-api/internal/repository"
@@ -20,6 +21,7 @@ type PublicHandler struct {
 	invoiceRepo       *repository.InvoiceRepo
 	donationRepo      *repository.DonationRepo
 	paymentMethodRepo *repository.PaymentMethodRepo
+	cfg               *config.Config
 }
 
 func NewPublicHandler(
@@ -29,6 +31,7 @@ func NewPublicHandler(
 	invoiceRepo *repository.InvoiceRepo,
 	donationRepo *repository.DonationRepo,
 	paymentMethodRepo *repository.PaymentMethodRepo,
+	cfg *config.Config,
 ) *PublicHandler {
 	return &PublicHandler{
 		campaignRepo:      campaignRepo,
@@ -37,6 +40,7 @@ func NewPublicHandler(
 		invoiceRepo:       invoiceRepo,
 		donationRepo:      donationRepo,
 		paymentMethodRepo: paymentMethodRepo,
+		cfg:               cfg,
 	}
 }
 
@@ -160,9 +164,14 @@ func (h *PublicHandler) GetPublicSettings(c echo.Context) error {
 		"bank_number":       settings.BankNumber,
 		"bank_account_name": settings.BankAccountName,
 		"flip_enabled":      settings.FlipEnabled,
+		"flip_auto_redirect": settings.FlipAutoRedirect,
 		// Method-type titles/active flags so the public form can label groups the way
 		// the admin configured (non-secret config; flip_code_config stays admin-only).
 		"payment_method_types": settings.PaymentMethodTypes,
+		// Sandbox flag: true when NOT running in production. The donor confirmation page
+		// uses this to show a "Simulasikan Pembayaran (Sandbox)" button for testers, which
+		// hits the non-production-only simulate-payment endpoint. Never true in prod.
+		"sandbox_mode": !h.cfg.IsProduction(),
 	}
 	return c.JSON(http.StatusOK, response.SuccessResponse(publicSettings, "success"))
 }

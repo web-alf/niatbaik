@@ -25,41 +25,53 @@ func NewWithdrawalService(db *gorm.DB, withdrawalRepo *repository.WithdrawalRepo
 // CreateRequest lets a verified campaign owner request a payout, validating
 // ownership and that the requested amount does not exceed withdrawable balance.
 func (s *WithdrawalService) CreateRequest(userID uuid.UUID, req *request.CreateWithdrawalRequest) (*model.Withdrawal, error) {
-	var campaign model.Campaign
-	if err := s.db.First(&campaign, "id = ? AND user_id = ?", req.CampaignID, userID).Error; err != nil {
-		return nil, errors.New("campaign not found or access denied")
-	}
+	var created model.Withdrawal
+	// Wrap the whole check-and-create in a transaction and lock the campaign row, so
+	// two concurrent requests can't each read the same stale "available balance" and
+	// both pass the check (TOCTOU) — which would queue payouts summing to more than
+	// was raised. The lock serializes them; the second sees the first's reserved funds.
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		var campaign model.Campaign
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&campaign, "id = ? AND user_id = ?", req.CampaignID, userID).Error; err != nil {
+			return errors.New("campaign not found or access denied")
+		}
 
-	// Withdrawable = total raised - withdrawals still tied up. Completed ("Selesai")
-	// withdrawals are ALREADY deducted from campaign.TotalRaised in Approve(), so they
-	// must NOT be subtracted again here — that double-counted every past payout and
-	// progressively understated the available balance, eventually blocking legitimate
-	// withdrawals. Only pending/queued statuses still reserve funds against TotalRaised.
-	var totalWithdrawn int64
-	s.db.Model(&model.Withdrawal{}).
-		Where("campaign_id = ? AND status IN ?", req.CampaignID, []string{"Dalam Antrian", "Menunggu"}).
-		Select("COALESCE(SUM(amount), 0)").Scan(&totalWithdrawn)
+		// Withdrawable = total raised - withdrawals still tied up. Completed ("Selesai")
+		// withdrawals are ALREADY deducted from campaign.TotalRaised in Approve(), so they
+		// must NOT be subtracted again here — that double-counted every past payout and
+		// progressively understated the available balance, eventually blocking legitimate
+		// withdrawals. Only pending/queued statuses still reserve funds against TotalRaised.
+		var totalWithdrawn int64
+		tx.Model(&model.Withdrawal{}).
+			Where("campaign_id = ? AND status IN ?", req.CampaignID, []string{"Dalam Antrian", "Menunggu"}).
+			Select("COALESCE(SUM(amount), 0)").Scan(&totalWithdrawn)
 
-	availableBalance := campaign.TotalRaised - totalWithdrawn
-	if req.Amount > availableBalance {
-		return nil, fmt.Errorf("dana tidak mencukupi, sisa saldo yang dapat ditarik: Rp %d", availableBalance)
-	}
+		availableBalance := campaign.TotalRaised - totalWithdrawn
+		if req.Amount <= 0 {
+			return errors.New("nominal penarikan harus lebih dari nol")
+		}
+		if req.Amount > availableBalance {
+			return fmt.Errorf("dana tidak mencukupi, sisa saldo yang dapat ditarik: Rp %d", availableBalance)
+		}
 
-	now := time.Now()
-	w := model.Withdrawal{
-		UserID:      userID,
-		CampaignID:  &req.CampaignID,
-		BankType:    req.BankType,
-		BankNumber:  req.BankNumber,
-		BankName:    req.BankName,
-		Amount:      req.Amount,
-		Status:      "Dalam Antrian",
-		RequestedAt: &now,
-	}
-	if err := s.db.Create(&w).Error; err != nil {
+		now := time.Now()
+		created = model.Withdrawal{
+			UserID:      userID,
+			CampaignID:  &req.CampaignID,
+			BankType:    req.BankType,
+			BankNumber:  req.BankNumber,
+			BankName:    req.BankName,
+			Amount:      req.Amount,
+			Status:      "Dalam Antrian",
+			RequestedAt: &now,
+		}
+		return tx.Create(&created).Error
+	})
+	if err != nil {
 		return nil, err
 	}
-	return &w, nil
+	return &created, nil
 }
 
 // Approve completes a withdrawal: locks campaign + settings, verifies balance,
@@ -95,6 +107,13 @@ func (s *WithdrawalService) Approve(id uuid.UUID) error {
 		var settings model.Setting
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&settings).Error; err != nil {
 			return err
+		}
+		// Guard the foundation balance the same way the campaign balance is guarded
+		// above: never let an approval drive TotalMoney negative (e.g. if a payout was
+		// queued against a since-corrected balance). Without this the org's running
+		// global balance could silently go negative and poison every later report.
+		if settings.TotalMoney < w.Amount {
+			return errors.New("saldo yayasan tidak mencukupi untuk pencairan ini")
 		}
 		settings.TotalMoney -= w.Amount
 		if err := tx.Save(&settings).Error; err != nil {

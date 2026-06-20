@@ -160,7 +160,7 @@ function Hero({ onNav }) {
           </h1>
           <p className="mt-5 text-lg text-mute max-w-xl leading-relaxed">
             Donasi terverifikasi untuk kemanusiaan, kesehatan, pendidikan, dan wakaf.
-            Transparan, mudah, dan dipercaya <b className="text-ink">182.000+ donatur</b> Indonesia.
+            Transparan, mudah, dan dipercaya{(window.TOTAL_DONORS > 0) ? <> oleh <b className="text-ink">{fmtNum(window.TOTAL_DONORS)}+ donatur</b></> : ''} di Indonesia.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -176,7 +176,7 @@ function Hero({ onNav }) {
             {[
               { v: fmtIDRShort(window.TOTAL_RAISED || 0), l:'Donasi tersalurkan' },
               { v: fmtNum(window.TOTAL_DONORS || 0) + '+', l:'Donatur bersama' },
-              { v:'4,9★',   l:'Trust rating' },
+              { v: fmtNum(window.ACTIVE_CAMPAIGNS || 0), l:'Campaign aktif' },
             ].map((s, i) => (
               <div key={i} className="bg-white/80 backdrop-blur border border-line rounded-xl p-3">
                 <div className="text-xl lg:text-2xl font-extrabold text-brand-600 leading-none">{s.v}</div>
@@ -202,9 +202,13 @@ function Hero({ onNav }) {
 function HeroCard({ c, onNav }) {
   const [amount, setAmount] = useState(100_000);
   const presets = [50_000, 100_000, 250_000];
+  // Only show URGENT when the campaign is genuinely near its end (real daysLeft), with
+  // the real remaining-days count — not a hardcoded "6 hari lagi" that lied on every card.
+  const daysLeft = Number(c?.daysLeft) || 0;
+  const isUrgent = daysLeft > 0 && daysLeft <= 10;
   return (
     <div className="relative float-in">
-      <div className="absolute -top-3 -left-3 bg-rose-500 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-pop rotate-[-6deg] z-10">URGENT · 6 hari lagi</div>
+      {isUrgent && <div className="absolute -top-3 -left-3 bg-rose-500 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-pop rotate-[-6deg] z-10">URGENT · {daysLeft} hari lagi</div>}
       <div className="rounded-3xl bg-white border border-line shadow-pop overflow-hidden">
         <div className="relative aspect-[16/10]" style={thumbStyle(c)}>
           {!hasThumbImage(c) && <div className="absolute inset-0 flex items-center justify-center text-white/85"><Icon name={c.icon} size={120} strokeWidth={1}/></div>}
@@ -247,7 +251,7 @@ function HeroCard({ c, onNav }) {
                 </button>
               ))}
             </div>
-            <PrimaryBtn size="lg" className="w-full mt-3" onClick={() => onNav('campaign', c)}>
+            <PrimaryBtn size="lg" className="w-full mt-3" onClick={() => onNav('campaign', { ...c, _seedAmount: amount })}>
               <Icon name="heart" size={18}/> Donasi {fmtIDR(amount)}
             </PrimaryBtn>
             <div className="mt-2 text-center text-[11px] text-mute">
@@ -281,11 +285,13 @@ function TrustStrip() {
 
 // -------- Stats --------
 function StatsSection() {
+  // Real platform stats from /stats (window globals set in data.jsx). No more hardcoded
+  // "Rp 1,84 M+ / 412 / 34 Provinsi" literals that contradicted the actual numbers.
   const stats = [
-    { icon:'wallet',    v:'Rp 1,84 M+', l:'Donasi tersalurkan' },
+    { icon:'wallet',    v:fmtIDRShort(window.TOTAL_RAISED || 0), l:'Donasi tersalurkan' },
     { icon:'users',     v:fmtNum(window.TOTAL_DONORS || 0), l:'Donatur bersama' },
-    { icon:'megaphone', v:'412',        l:'Campaign aktif' },
-    { icon:'pin',       v:'34 Provinsi',l:'Jangkauan program' },
+    { icon:'megaphone', v:fmtNum(window.ACTIVE_CAMPAIGNS || 0), l:'Campaign aktif' },
+    { icon:'check',     v:fmtNum(window.TOTAL_CAMPAIGNS || 0), l:'Total campaign' },
   ];
   return (
     <section className="py-12 lg:py-16 bg-white">
@@ -431,12 +437,12 @@ function TestimonialsSection() {
         <div className="grid lg:grid-cols-2 gap-10 items-start">
           <div>
             <div className="text-xs font-bold uppercase tracking-widest text-sky2-100">Apa kata donatur</div>
-            <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold tracking-tight">Bergabung bersama 182.000+ donatur Indonesia</h2>
+            <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold tracking-tight">{(window.TOTAL_DONORS > 0) ? `Bergabung bersama ${fmtNum(window.TOTAL_DONORS)}+ donatur Indonesia` : 'Bergabung bersama para donatur Indonesia'}</h2>
             <p className="mt-3 text-white/85">Cerita nyata dari donatur yang mempercayakan niat baiknya melalui NIATBAIK.ORG.</p>
             <div className="mt-6 grid grid-cols-3 gap-3 max-w-md">
-              <div><div className="text-2xl font-extrabold">4.9★</div><div className="text-xs text-white/75">Trust rating</div></div>
-              <div><div className="text-2xl font-extrabold">98%</div><div className="text-xs text-white/75">Donatur puas</div></div>
-              <div><div className="text-2xl font-extrabold">412</div><div className="text-xs text-white/75">Mitra fundraiser</div></div>
+              <div><div className="text-2xl font-extrabold">{fmtNum(window.TOTAL_DONORS || 0)}</div><div className="text-xs text-white/75">Donatur</div></div>
+              <div><div className="text-2xl font-extrabold">{fmtIDRShort(window.TOTAL_RAISED || 0)}</div><div className="text-xs text-white/75">Tersalurkan</div></div>
+              <div><div className="text-2xl font-extrabold">{fmtNum(window.ACTIVE_CAMPAIGNS || 0)}</div><div className="text-xs text-white/75">Campaign aktif</div></div>
             </div>
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
@@ -515,59 +521,61 @@ function FinalCTA({ onNav }) {
 
 // -------- Footer --------
 function Footer() {
+  // Real contact link from configured CS/admin WhatsApp (same source the donation flow
+  // uses). Footer link targets that don't have a real destination yet are rendered as
+  // plain non-clickable text instead of deceptive href="#" dead links — on a donation
+  // site, a "Kebijakan privasi" link that goes nowhere erodes trust (and is a legal gap).
+  const cs = pickCsContact();
+  const waNum = normalizeWa((cs && cs.phone) || (window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.whatsapp_admin) || '');
+  const kontakHref = waNum ? `https://wa.me/${waNum}` : '';
+
+  // Render an anchor when an in-page section exists, else dim plain text ("coming soon").
+  const FLink = ({ href, children }) => href
+    ? <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noopener noreferrer" className="hover:text-white cursor-pointer">{children}</a>
+    : <span className="text-white/45" title="Segera hadir">{children}</span>;
+
   return (
     <footer className="bg-ink text-white pt-14 pb-8">
       <div className="max-w-7xl mx-auto px-4 lg:px-6 grid grid-cols-2 lg:grid-cols-5 gap-8">
         <div className="col-span-2">
           <div className="flex items-center gap-2"><img src="/assets/logo-niatbaik.png" alt="" className="h-7 invert brightness-200"/></div>
           <p className="mt-3 text-sm text-white/70 max-w-sm leading-relaxed">Platform donasi & crowdfunding terpercaya. Salurkan zakat, sedekah, wakaf, dan donasi kemanusiaan dengan mudah.</p>
-          <div className="mt-4 flex gap-2">
-            {[
-              { n:'Instagram', icon:'camera' },
-              { n:'TikTok',    icon:'play' },
-              { n:'Facebook',  icon:'users' },
-              { n:'YouTube',   icon:'play' },
-            ].map((s) => (
-              <a key={s.n} href="#" onClick={(e) => e.preventDefault()} title={s.n}
-                className="h-9 w-9 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center">
-                <Icon name={s.icon} size={16}/>
-              </a>
-            ))}
-          </div>
+          {kontakHref && (
+            <a href={kontakHref} target="_blank" rel="noopener noreferrer"
+              className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white">
+              <Icon name="wa" size={16}/> Hubungi kami via WhatsApp
+            </a>
+          )}
         </div>
         <div>
           <div className="font-bold mb-3">Platform</div>
           <ul className="space-y-2 text-sm text-white/75">
-            <li><a href="#campaigns" className="hover:text-white cursor-pointer">Donasi</a></li>
-            <li><a href="#campaigns" className="hover:text-white cursor-pointer">Buat Campaign</a></li>
-            <li><a href="#how" className="hover:text-white cursor-pointer">Fundraiser</a></li>
-            <li><a href="#testi" className="hover:text-white cursor-pointer">Laporan transparansi</a></li>
+            <li><FLink href="#campaigns">Donasi</FLink></li>
+            <li><FLink href="#how">Fundraiser</FLink></li>
+            <li><FLink href="#testi">Laporan transparansi</FLink></li>
           </ul>
         </div>
         <div>
           <div className="font-bold mb-3">Tentang</div>
           <ul className="space-y-2 text-sm text-white/75">
-            <li><a href="#" className="hover:text-white cursor-pointer">Profil Yayasan</a></li>
-            <li><a href="#" className="hover:text-white cursor-pointer">Tim</a></li>
-            <li><a href="#" className="hover:text-white cursor-pointer">Karir</a></li>
-            <li><a href="#" className="hover:text-white cursor-pointer">Pers & media</a></li>
+            <li><FLink>Profil Yayasan</FLink></li>
+            <li><FLink>Pers & media</FLink></li>
           </ul>
         </div>
         <div>
           <div className="font-bold mb-3">Bantuan</div>
           <ul className="space-y-2 text-sm text-white/75">
-            <li><a href="#faq" className="hover:text-white cursor-pointer">FAQ</a></li>
-            <li><a href="#" className="hover:text-white cursor-pointer">Kontak</a></li>
-            <li><a href="#" className="hover:text-white cursor-pointer">Syarat & ketentuan</a></li>
-            <li><a href="#" className="hover:text-white cursor-pointer">Kebijakan privasi</a></li>
+            <li><FLink href="#faq">FAQ</FLink></li>
+            <li><FLink href={kontakHref}>Kontak</FLink></li>
+            <li><FLink>Syarat & ketentuan</FLink></li>
+            <li><FLink>Kebijakan privasi</FLink></li>
           </ul>
         </div>
       </div>
       <div className="max-w-7xl mx-auto px-4 lg:px-6 mt-10 pt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs text-white/55">
-        <div>© 2026 Yayasan NIATBAIK. Berizin Kemensos RI · Audit publik bulanan.</div>
+        <div>© 2026 Yayasan NIATBAIK.</div>
         <div className="flex gap-3">
-          <span className="inline-flex items-center gap-1.5"><Icon name="shield" size={14}/> SSL Secure</span>
-          <span className="inline-flex items-center gap-1.5"><Icon name="check" size={14}/> ISO 27001</span>
+          <span className="inline-flex items-center gap-1.5"><Icon name="shield" size={14}/> Koneksi terenkripsi (SSL)</span>
         </div>
       </div>
     </footer>
@@ -665,9 +673,13 @@ function getNominalPresets(c) {
 const PAYMENT_FALLBACK = ['QRIS','BCA','Mandiri','BNI','GoPay','OVO','Dana','ShopeePay'];
 
 function CampaignPage({ c: listItem, onNav }) {
-  const [view, setView] = useState('content'); // 'content' | 'form'
+  // A donor who picked a nominal on the hero card lands here with _seedAmount set —
+  // honor it (and jump straight to the form) instead of resetting to the default, so the
+  // amount they chose isn't silently dropped.
+  const seededAmount = Number(listItem && listItem._seedAmount) || 0;
+  const [view, setView] = useState(seededAmount > 0 ? 'form' : 'content'); // 'content' | 'form'
   const [tab, setTab] = useState('story');
-  const [amount, setAmount] = useState(100_000);
+  const [amount, setAmount] = useState(seededAmount > 0 ? seededAmount : 100_000);
 
   const [paymentMethod, setPaymentMethod] = useState('QRIS');
   const [anon, setAnon] = useState(false);
@@ -675,6 +687,10 @@ function CampaignPage({ c: listItem, onNav }) {
   const [paid, setPaid] = useState(false);
   const [invoice, setInvoice] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  // Field-level validation errors keyed by field name ('wa'|'name'|'email'|'amount'|
+  // 'form'). Rendered inline under each field instead of blocking alert() dialogs,
+  // which on a payment page read as broken/scammy and hide which field is wrong.
+  const [errors, setErrors] = useState({});
   // Track mount so a deferred setSubmitting (idempotency retry hold) doesn't fire on
   // an unmounted component if the donor navigates away during the 5s window.
   const mountedRef = useRef(true);
@@ -753,18 +769,26 @@ function CampaignPage({ c: listItem, onNav }) {
   const handleSubmit = async () => {
     // Client-side validation mirrors the server rules so the donor gets immediate,
     // Indonesian feedback (the flowchart's "Form valid? Tidak → Pesan error" path)
-    // instead of a round-trip + generic error.
+    // instead of a round-trip + generic error. Errors render INLINE under each field
+    // (not blocking alert() dialogs) so the donor sees exactly what to fix.
+    const errs = {};
     const wa = (donor.wa || '').trim();
     const digits = wa.replace(/[^0-9]/g, '');
-    if (!wa) { alert('No. WhatsApp wajib diisi'); return; }
-    if (digits.length < 8 || digits.length > 15) { alert('No. WhatsApp tidak valid (8–15 digit)'); return; }
+    if (!wa) errs.wa = 'No. WhatsApp wajib diisi';
+    else if (digits.length < 8 || digits.length > 15) errs.wa = 'No. WhatsApp tidak valid (8–15 digit)';
     if (!anon) {
       const nm = (donor.name || '').trim();
-      if (nm && nm.length < 2) { alert('Nama minimal 2 karakter'); return; }
+      if (nm && nm.length < 2) errs.name = 'Nama minimal 2 karakter';
     }
-    if (donor.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(donor.email.trim())) { alert('Format email tidak valid'); return; }
-    if (!amount || amount < 10000) { alert('Minimal donasi Rp 10.000'); return; }
-    if (amount > 1000000000) { alert('Nominal donasi maksimal Rp 1.000.000.000'); return; }
+    if (donor.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(donor.email.trim())) errs.email = 'Format email tidak valid';
+    if (!amount || amount < 10000) errs.amount = 'Minimal donasi Rp 10.000';
+    else if (amount > 1000000000) errs.amount = 'Nominal donasi maksimal Rp 1.000.000.000';
+
+    if (Object.keys(errs).length) {
+      setErrors(errs);
+      return;
+    }
+    setErrors({});
 
     setSubmitting(true);
     try {
@@ -783,18 +807,19 @@ function CampaignPage({ c: listItem, onNav }) {
         referral_code: referralCode || undefined,
       });
       if (res?.data) { setSubmitting(false); setInvoice(res.data); return; } // view swaps to confirmation
-      alert(res?.message || 'Gagal membuat donasi');
+      setErrors({ form: res?.message || 'Gagal membuat donasi' });
     } catch (e) {
       const msg = e?.message || 'Periksa koneksi';
       // Duplicate-donation guard (server idempotency, 60s window): hold the button
       // disabled a few seconds so an impatient donor on a slow connection can't fire
       // a second request that escapes the window and creates a duplicate invoice.
       if (/serupa baru saja|terlalu banyak|duplicate/i.test(msg)) {
-        alert(msg + '\n\nMohon tunggu beberapa detik sebelum mencoba lagi.');
+        setErrors({ form: msg + ' — mohon tunggu beberapa detik sebelum mencoba lagi.' });
         setTimeout(() => { if (mountedRef.current) setSubmitting(false); }, 5000);
         return;
       }
-      alert('Gagal: ' + msg);
+      // Surface the backend's UNPAYABLE rejection (no payable method configured) clearly.
+      setErrors({ form: 'Gagal: ' + msg });
     }
     setSubmitting(false);
   };
@@ -885,7 +910,7 @@ function CampaignPage({ c: listItem, onNav }) {
                   <div className="mt-4 pt-4 border-t border-line flex items-center justify-around text-[10px] font-bold text-mute">
                     <span className="inline-flex items-center gap-1"><Icon name="shield" size={12} className="text-emerald-600"/>SSL Aman</span>
                     <span className="inline-flex items-center gap-1"><Icon name="check"  size={12} className="text-emerald-600"/>Terverifikasi</span>
-                    <span className="inline-flex items-center gap-1"><Icon name="star"   size={12} className="text-amber-500"/>4.9★ Trust</span>
+                    <span className="inline-flex items-center gap-1"><Icon name="heart"  size={12} className="text-rose-500"/>Donasi Aman</span>
                   </div>
                 </div>
 
@@ -907,6 +932,7 @@ function CampaignPage({ c: listItem, onNav }) {
                 anon={anon} setAnon={setAnon}
                 paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod}
                 submitting={submitting}
+                errors={errors} setErrors={setErrors}
                 onBack={() => setView('content')}
                 onSubmit={handleSubmit}
               />
@@ -937,7 +963,7 @@ function NominalSelect({ c, presets, amount, setAmount }) {
       <label className="text-xs font-bold text-mute">Atau masukkan nominal lain</label>
       <div className="mt-1 flex items-center rounded-xl border-2 border-line bg-white focus-within:border-brand-600">
         <span className="pl-3 text-mute font-bold">Rp</span>
-        <input type="number" value={amount} onChange={(e) => setAmount(+e.target.value)} className="flex-1 px-2 py-3 outline-none font-bold text-ink bg-transparent"/>
+        <input type="number" min="0" step="1000" inputMode="numeric" value={amount} onChange={(e) => setAmount(Math.max(0, Math.floor(+e.target.value || 0)))} className="flex-1 px-2 py-3 outline-none font-bold text-ink bg-transparent"/>
       </div>
     </div>
   );
@@ -948,7 +974,7 @@ function NominalSelect({ c, presets, amount, setAmount }) {
         <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Masukkan nominal donasi</div>
         <div className="flex items-center rounded-2xl border-2 border-line bg-white focus-within:border-brand-600">
           <span className="pl-4 text-mute font-extrabold text-xl">Rp</span>
-          <input type="number" value={amount} onChange={(e) => setAmount(+e.target.value)} placeholder="0"
+          <input type="number" min="0" step="1000" inputMode="numeric" value={amount} onChange={(e) => setAmount(Math.max(0, Math.floor(+e.target.value || 0)))} placeholder="0"
             className="flex-1 px-3 py-4 outline-none font-extrabold text-ink text-2xl bg-transparent"/>
         </div>
         <div className="mt-2 text-xs text-mute">Minimal donasi Rp 10.000. Tidak ada batas maksimum.</div>
@@ -1062,7 +1088,8 @@ function NominalSelect({ c, presets, amount, setAmount }) {
 }
 
 // -------- Donation form (form view, before invoice) --------
-function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, setAnon, paymentMethod, setPaymentMethod, submitting, onBack, onSubmit }) {
+function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, setAnon, paymentMethod, setPaymentMethod, submitting, errors = {}, setErrors, onBack, onSubmit }) {
+  const clearErr = (k) => { if (setErrors && errors[k]) setErrors({ ...errors, [k]: undefined }); };
   // Per-campaign payment override: the editor's Advanced → Payment "Custom" rows are
   // persisted in campaign.payment_config (shape {bank, account, holder, method}). When
   // present, the donor sees THIS campaign's configured methods instead of the global
@@ -1114,6 +1141,17 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
     return false;
   };
 
+  // Pre-submit fee disclosure. The donor must see the FULL amount they'll be billed
+  // BEFORE committing — previously the +admin fee / unique code only appeared on the
+  // confirmation page, after submit, which reads as a bait-and-switch. admin_fee comes
+  // from the chosen method; the manual unique code is added server-side (Flip off) and
+  // can't be known exactly here, so we disclose it as a small "up to" note rather than a
+  // precise figure to avoid showing a wrong total.
+  const adminFee = (typeof paymentMethod === 'object' && paymentMethod && Number(paymentMethod.admin_fee)) || 0;
+  const flipOn = !!(window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.flip_enabled);
+  const subtotalNum = Number(amount) || 0;
+  const totalNum = subtotalNum + adminFee;
+
   return (
     <div className="rounded-2xl bg-white border border-line shadow-card p-5 lg:p-6">
       <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm font-semibold text-mute hover:text-ink mb-4">
@@ -1137,9 +1175,20 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
         {/* Identitas */}
         <div className="pt-4 border-t border-line space-y-3">
           <div className="text-xs font-bold uppercase tracking-wider text-mute">Identitas donatur</div>
-          <input className="field" placeholder="Nama (cth: Hamba Allah)" value={donor.name} onChange={(e) => setDonor({...donor, name:e.target.value})} disabled={anon}/>
-          <input className="field" placeholder="No. WhatsApp · cth 08123… (wajib)" value={donor.wa} onChange={(e) => setDonor({...donor, wa:e.target.value})}/>
-          <input className="field" placeholder="Email" value={donor.email} onChange={(e) => setDonor({...donor, email:e.target.value})}/>
+          <div>
+            <input className={`field ${errors.name ? 'border-rose-400' : ''}`} placeholder="Nama (cth: Hamba Allah)" value={donor.name} onChange={(e) => { setDonor({...donor, name:e.target.value}); clearErr('name'); }} disabled={anon}/>
+            {errors.name && <div className="mt-1 text-xs text-rose-600">{errors.name}</div>}
+          </div>
+          <div>
+            <input className={`field ${errors.wa ? 'border-rose-400' : ''}`} placeholder="No. WhatsApp · cth 08123… (wajib)" value={donor.wa} onChange={(e) => { setDonor({...donor, wa:e.target.value}); clearErr('wa'); }}/>
+            {errors.wa
+              ? <div className="mt-1 text-xs text-rose-600">{errors.wa}</div>
+              : <div className="mt-1 text-[11px] text-mute">Untuk kirim bukti &amp; verifikasi donasi; tidak ditampilkan publik.</div>}
+          </div>
+          <div>
+            <input className={`field ${errors.email ? 'border-rose-400' : ''}`} placeholder="Email (opsional)" value={donor.email} onChange={(e) => { setDonor({...donor, email:e.target.value}); clearErr('email'); }}/>
+            {errors.email && <div className="mt-1 text-xs text-rose-600">{errors.email}</div>}
+          </div>
           <label className="flex items-center gap-2 text-sm text-ink/80">
             <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded border-line"/>
             Donasi sebagai anonim (Hamba Allah)
@@ -1179,6 +1228,28 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
           )}
         </div>
 
+        {/* Fee disclosure — show the donor exactly what they'll pay BEFORE submitting. */}
+        <div className="pt-4 border-t border-line">
+          <div className="rounded-xl bg-bg2 p-4 text-sm space-y-1.5">
+            <div className="flex justify-between"><span className="text-mute">Subtotal donasi</span><b className="text-ink">{fmtIDR(subtotalNum)}</b></div>
+            {adminFee > 0 && <div className="flex justify-between"><span className="text-mute">Biaya admin</span><b className="text-ink">{fmtIDR(adminFee)}</b></div>}
+            <div className="flex justify-between pt-1.5 border-t border-line"><span className="font-bold text-ink">Total pembayaran</span><b className="text-brand-600 text-lg">{fmtIDR(totalNum)}</b></div>
+            {!flipOn && (
+              <div className="text-[11px] text-mute pt-1 leading-relaxed">
+                Untuk transfer manual, sistem menambahkan <b>kode unik</b> (beberapa rupiah) ke total agar pembayaran terverifikasi otomatis. Nominal final ditampilkan di halaman berikutnya.
+              </div>
+            )}
+          </div>
+          {errors.amount && <div className="mt-2 text-xs text-rose-600">{errors.amount}</div>}
+        </div>
+
+        {/* Submit-level error (API failure / UNPAYABLE rejection). */}
+        {errors.form && (
+          <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-sm text-rose-700 leading-relaxed">
+            {errors.form}
+          </div>
+        )}
+
         {/* Submit */}
         <PrimaryBtn size="lg" className="w-full" onClick={onSubmit} disabled={submitting}>
           <Icon name="heart" size={16}/> {submitting ? 'Memproses…' : submitLabel}
@@ -1192,12 +1263,19 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
 }
 
 // -------- Invoice confirmation (after createDonation) --------
-function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
-  const [status, setStatus] = useState(invoice.status || 'Menunggu Pembayaran');
+function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, onReset }) {
+  const [invoice, setInvoiceState] = useState(invoiceProp);
+  const [status, setStatus] = useState(invoiceProp.status || 'Menunggu Pembayaran');
   const [checking, setChecking] = useState(false);
   const [copied, setCopied] = useState('');
   const [pollTimedOut, setPollTimedOut] = useState(false);
-  const qrRef = useRef();
+  const [simulating, setSimulating] = useState(false);
+  const [now, setNow] = useState(Date.now());
+
+  // Sandbox flag from public settings: true only in non-production. Gates the tester
+  // "Simulasikan Pembayaran" button, which advances QRIS/VA/manual invoices (no hosted
+  // link to follow) to a paid state via the non-production-only backend endpoint.
+  const sandboxMode = !!(window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.sandbox_mode);
 
   const total = invoice.amount ?? invoice.total ?? amount ?? 0;
   const subtotal = invoice.subtotal ?? total;
@@ -1227,15 +1305,35 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
   const accountName = pmObj?.account_name || invoice.account_name || ps.bank_account_name || 'Yayasan Niat Baik';
   const bankName = pmObj?.bank_name || invoice.payment_method || ps.bank_name || (typeof paymentMethod === 'string' ? paymentMethod : 'Transfer Bank');
 
-  // Generate QR client-side if no qr_url provided.
-  useEffect(() => {
-    if (!isQRIS || invoice.qr_url) return;
-    if (window.QRCode && qrRef.current) {
-      qrRef.current.innerHTML = '';
-      const qrPayload = invoice.pay_code || `${bankName}|${invoice.invoice_number}|${total}`;
-      try { new window.QRCode(qrRef.current, { text: qrPayload, width: 200, height: 200 }); } catch {}
-    }
-  }, [isQRIS, invoice.qr_url, invoice.pay_code, invoice.invoice_number]);
+  // A manual/VA invoice with NO payable destination (no Flip link, no QR, no account
+  // number) is the UNPAYABLE dead-end. The backend now rejects creating these, but guard
+  // the display too so any legacy/edge invoice surfaces a clear error + CS path instead of
+  // a passive "we'll contact you" that looks intentional.
+  const noPayableDestination = !isFlip && !isQRIS && !bankNumber;
+
+  // Expiry countdown for time-sensitive manual transfers. expired_at comes from the
+  // invoice; show remaining time and turn urgent under 1h so a donor doesn't pay late
+  // into an expired invoice (orphan payment / unique-code mismatch).
+  const expiresAt = invoice.expired_at ? new Date(invoice.expired_at).getTime() : 0;
+  const msLeft = expiresAt ? expiresAt - now : 0;
+  const isExpired = expiresAt > 0 && msLeft <= 0;
+  const fmtCountdown = (ms) => {
+    if (ms <= 0) return '0 detik';
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    if (h > 0) return `${h} jam ${m} menit`;
+    if (m > 0) return `${m} menit ${sec} detik`;
+    return `${sec} detik`;
+  };
+
+  // QRIS image source: a real gateway QR (qr_url) or an admin-uploaded static QRIS
+  // image (pmObj.image). We do NOT synthesize a client-side QR from a pipe-delimited
+  // string anymore — that produced a scannable-looking code that is NOT a valid EMVCo
+  // QRIS payload, so no banking app could pay it (it just errored). When there's no real
+  // QR we fall back to manual-transfer instructions instead of a fake QR.
+  const qrisImage = invoice.qr_url
+    ? invoice.qr_url
+    : (pmObj && pmObj.image ? (window.mediaUrl ? window.mediaUrl(pmObj.image) : pmObj.image) : '');
 
   // Flip auto-redirect: when the admin enabled "Auto Redirect" and this is a Flip
   // invoice that's not yet paid, send the donor straight to Flip's payment page.
@@ -1265,6 +1363,7 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
         const res = await window.api.paymentStatus(invoice.invoice_number);
         if (res?.data) {
           setStatus(res.data.status || status);
+          setInvoiceState((prev) => ({ ...prev, ...res.data }));
           if (res.data.is_paid) clearInterval(id);
         }
       } catch {}
@@ -1272,30 +1371,103 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
     return () => clearInterval(id);
   }, [invoice.invoice_number, isPaid, pollTimedOut]);
 
+  // Tick once a second to drive the expiry countdown (only while unpaid + not expired).
+  useEffect(() => {
+    if (isPaid) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [isPaid]);
+
   const checkNow = async () => {
     setChecking(true);
     setPollTimedOut(false); // a manual check re-arms the automatic poller below
     try {
       const res = await window.api.paymentStatus(invoice.invoice_number);
-      if (res?.data) setStatus(res.data.status || status);
+      if (res?.data) { setStatus(res.data.status || status); setInvoiceState((prev) => ({ ...prev, ...res.data })); }
     } catch {}
     setChecking(false);
+  };
+
+  // Sandbox-only: ask the backend to settle this invoice without a real transfer.
+  const simulatePay = async () => {
+    setSimulating(true);
+    try {
+      const res = await window.api.simulatePayment(invoice.invoice_number);
+      if (res?.data) { setStatus(res.data.status || 'Terbayar'); setInvoiceState((prev) => ({ ...prev, ...res.data, is_paid: true })); }
+    } catch (e) {
+      setStatus('Gagal simulasi: ' + (e?.message || 'error'));
+    }
+    setSimulating(false);
   };
 
   const copy = (text, key) => {
     try { navigator.clipboard.writeText(String(text)); setCopied(key); setTimeout(() => setCopied(''), 1500); } catch {}
   };
 
+  // ---- Success terminal state: once paid, replace ALL pay instructions with a clear
+  // "done" screen so a donor who just paid isn't still staring at QR / VA / transfer
+  // steps wondering whether it worked.
+  if (isPaid) {
+    return (
+      <div className="rounded-2xl bg-white border border-line shadow-card p-5 lg:p-6 text-center">
+        <div className="mx-auto h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center">
+          <Icon name="check" size={36} className="text-emerald-600"/>
+        </div>
+        <div className="mt-4 font-extrabold text-2xl text-ink">Terima kasih! 🙏</div>
+        <div className="mt-1 text-sm text-mute">Donasi Anda sudah kami terima.</div>
+        <div className="mt-5 rounded-xl bg-bg2 p-4 text-sm space-y-1.5 text-left">
+          <div className="flex justify-between"><span className="text-mute">No. Invoice</span><b className="font-mono text-ink">{invoice.invoice_number}</b></div>
+          <div className="flex justify-between"><span className="text-mute">Nominal donasi</span><b className="text-ink">{fmtIDR(subtotal)}</b></div>
+          <div className="flex justify-between pt-1.5 border-t border-line"><span className="font-bold text-ink">Status</span><b className="text-emerald-600">Pembayaran Diterima</b></div>
+        </div>
+        <div className="mt-4 text-[12px] text-mute leading-relaxed">
+          Bukti donasi &amp; ucapan terima kasih akan dikirim ke WhatsApp{invoice.donor_email ? ' & email' : ''} Anda.
+        </div>
+        <button onClick={onReset} className="mt-5 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-brand-600 text-white hover:bg-brand-700">
+          Kembali ke campaign
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-2xl bg-white border border-line shadow-card p-5 lg:p-6">
       <div className="text-center">
         <div className="font-extrabold text-2xl text-ink">Selesaikan Pembayaran</div>
         <div className="mt-1 text-sm text-mute">No. Invoice <span className="font-mono font-bold text-ink">{invoice.invoice_number}</span></div>
-        <div className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-          <span className={`h-2 w-2 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}/>
-          {isPaid ? 'Pembayaran Diterima' : (status || 'Menunggu Pembayaran')}
+        <div className={`mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${isExpired ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>
+          <span className={`h-2 w-2 rounded-full ${isExpired ? 'bg-rose-500' : 'bg-amber-500 animate-pulse'}`}/>
+          {isExpired ? 'Kadaluarsa' : (status || 'Menunggu Pembayaran')}
         </div>
+        {/* Expiry countdown — time-sensitive manual transfers. */}
+        {expiresAt > 0 && !isExpired && (
+          <div className={`mt-2 text-xs font-semibold ${msLeft < 3600000 ? 'text-rose-600' : 'text-mute'}`}>
+            Selesaikan dalam <b>{fmtCountdown(msLeft)}</b>
+          </div>
+        )}
       </div>
+
+      {/* Sandbox tester banner + simulate button. Only visible in non-production. */}
+      {sandboxMode && (
+        <div className="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 p-3">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Mode Sandbox</div>
+          <div className="mt-1 text-xs text-amber-800 leading-relaxed">
+            Untuk pengujian: tandai invoice ini sebagai <b>terbayar</b> tanpa transfer nyata (semua metode — QRIS, VA, transfer manual).
+          </div>
+          <button onClick={simulatePay} disabled={simulating}
+            className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-60">
+            <Icon name="check" size={16}/> {simulating ? 'Menyimulasikan…' : 'Simulasikan Pembayaran (Sandbox)'}
+          </button>
+        </div>
+      )}
+
+      {/* UNPAYABLE dead-end: no payable destination at all. Explicit error + CS, not a
+          passive "we'll contact you" that looks intentional. */}
+      {noPayableDestination && (
+        <div className="mt-5 rounded-xl bg-rose-50 border border-rose-200 p-4 text-sm text-rose-700 leading-relaxed">
+          <b>Metode pembayaran belum tersedia.</b> Mohon maaf, saat ini belum ada tujuan pembayaran yang aktif untuk invoice ini. Donasi Anda <b>belum</b> terproses — silakan hubungi CS via WhatsApp di bawah agar kami bantu menyelesaikan.
+        </div>
+      )}
 
       {/* Amount breakdown */}
       <div className="mt-5 rounded-xl bg-bg2 p-4 text-sm space-y-1.5">
@@ -1305,7 +1477,7 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
       </div>
 
       {/* QRIS */}
-      {isFlip ? (
+      {noPayableDestination ? null : isFlip ? (
         <div className="mt-5 flex flex-col items-center text-center">
           <div className="text-xs font-bold uppercase tracking-wider text-mute mb-3">Pembayaran via Flip</div>
           <div className="w-full rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-800 leading-relaxed">
@@ -1324,18 +1496,12 @@ function InvoiceConfirmation({ c, invoice, amount, paymentMethod, onReset }) {
             </div>
           )}
         </div>
-      ) : isQRIS ? (
+      ) : isQRIS && qrisImage ? (
         <div className="mt-5 flex flex-col items-center">
           <div className="text-xs font-bold uppercase tracking-wider text-mute mb-3">Scan QRIS untuk membayar</div>
-          {invoice.qr_url ? (
-            <img src={invoice.qr_url} alt="QRIS" className="w-52 h-52 rounded-xl border border-line"/>
-          ) : (pmObj && pmObj.image) ? (
-            /* Admin-uploaded static QRIS image from Setting → Payment. */
-            <img src={window.mediaUrl ? window.mediaUrl(pmObj.image) : pmObj.image} alt="QRIS" className="w-52 h-52 rounded-xl border border-line object-contain bg-white" onError={(e)=>{e.target.style.display='none';}}/>
-          ) : (
-            <div ref={qrRef} className="p-3 rounded-xl border border-line bg-white"/>
-          )}
-          <div className="mt-2 text-xs text-mute">Gunakan aplikasi e-wallet / m-banking apa pun</div>
+          <img src={qrisImage} alt="QRIS" className="w-52 h-52 rounded-xl border border-line object-contain bg-white" onError={(e)=>{e.target.style.display='none';}}/>
+          {/* Static admin QRIS isn't amount-bound, so the donor must key the exact total. */}
+          <div className="mt-2 text-xs text-mute text-center">Masukkan nominal <b className="text-ink">{fmtIDR(total)}</b> (tepat) saat scan. Gunakan e-wallet / m-banking apa pun.</div>
         </div>
       ) : (
         /* Bank VA / transfer */

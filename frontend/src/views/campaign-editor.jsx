@@ -1,5 +1,42 @@
 // Full-page Campaign editor (Create / Edit). Matches the spec from the attached doc.
 const EVENT_OPTS = ['', 'PageView','ViewContent','InitiateCheckout','AddPaymentInfo','Lead','Purchase','CompleteDonation'];
+
+// pad → yyyy-MM-dd for <input type="date">.
+function fmtDateInput(d) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// deriveEndDate computes the campaign's end date for the date picker from whatever the
+// backend provides: a remaining-days count (days_left), or duration_days from posted_at,
+// or a raw deadline/end_date if a future schema adds one. Empty when nothing is known.
+function deriveEndDate(c) {
+  if (!c) return '';
+  if (c.deadline || c.end_date) {
+    const d = new Date(c.deadline || c.end_date);
+    if (!isNaN(d)) return fmtDateInput(d);
+  }
+  if (typeof c.days_left === 'number' && c.days_left > 0) {
+    const d = new Date();
+    d.setDate(d.getDate() + c.days_left);
+    return fmtDateInput(d);
+  }
+  if (typeof c.duration_days === 'number' && c.duration_days > 0) {
+    const base = c.posted_at ? new Date(c.posted_at) : new Date();
+    if (!isNaN(base)) { base.setDate(base.getDate() + c.duration_days); return fmtDateInput(base); }
+  }
+  return '';
+}
+
+// daysFromToday returns whole days from now until the given yyyy-MM-dd (rounded up,
+// min 0). Used to convert the date picker back into the backend's duration_days.
+function daysFromToday(dateStr) {
+  const target = new Date(dateStr + 'T23:59:59');
+  if (isNaN(target)) return 0;
+  const ms = target.getTime() - Date.now();
+  return ms <= 0 ? 0 : Math.ceil(ms / 86400000);
+}
+
 // Inner form. Receives the campaign to edit as a prop (the FULL record when
 // editing — see CampaignEditorView wrapper) so every field round-trips. All seed
 // state below is derived from `c` on mount; the wrapper remounts this via `key` so
@@ -34,7 +71,12 @@ function CampaignEditorForm({ campaign }) {
   const [title, setTitle] = useStateA(c?.title || '');
   const [content, setContent] = useStateA(c?.description || c?.short_description || '');
   const [target, setTarget] = useStateA(c?.target || 0);
-  const [endDate, setEndDate] = useStateA('2026-08-31');
+  // Campaign expiry is stored backend-side as duration_days (PostedAt + N days), not a
+  // date. Seed the date picker from the remaining/total duration so an edit shows the
+  // real end date instead of a hardcoded literal, and send it back as duration_days on
+  // save (previously endDate was collected but NEVER added to the payload → silently
+  // discarded every edit).
+  const [endDate, setEndDate] = useStateA(deriveEndDate(c) || '');
   const [location, setLocation] = useStateA(c?.location_name || '');
   const [gmaps, setGmaps] = useStateA(c?.location_gmaps || '');
   const [category, setCategory] = useStateA(c?.category || 'Uncategorized');
@@ -193,6 +235,12 @@ function CampaignEditorForm({ campaign }) {
     };
     // Optional fields — only include if has value
     if (target > 0) payload.target = Number(target);
+    // Convert the chosen end date → duration_days (backend's expiry model). Compute days
+    // from today so the campaign runs until the selected date. Guard against a past date.
+    if (endDate) {
+      const days = daysFromToday(endDate);
+      if (days > 0) payload.duration_days = days;
+    }
     if (location.trim()) payload.location_name = location.trim();
     if (gmaps.trim()) payload.location_gmaps = gmaps.trim();
     // thumb may be a CSS gradient or an uploaded image URL — route to the right field.

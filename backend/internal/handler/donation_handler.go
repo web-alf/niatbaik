@@ -38,6 +38,22 @@ func (h *DonationHandler) CreateDonation(c echo.Context) error {
 	))
 }
 
+// SimulatePayment settles an invoice without a real transfer — a sandbox/test-only
+// "continue to paid" action for methods (QRIS / VA / manual) that otherwise have no way
+// to advance during testing. The service hard-rejects this in production; the route is
+// also only mounted in non-production (see router).
+func (h *DonationHandler) SimulatePayment(c echo.Context) error {
+	invoiceNumber := c.Param("invoice")
+	invoice, err := h.donationService.SimulatePayment(invoiceNumber)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))
+	}
+	return c.JSON(http.StatusOK, response.SuccessResponse(
+		response.ToPaymentStatusResponse(invoice),
+		"Pembayaran disimulasikan (sandbox)",
+	))
+}
+
 func (h *DonationHandler) GetPaymentStatus(c echo.Context) error {
 	invoiceNumber := c.Param("invoice")
 	invoice, err := h.donationService.GetPaymentStatus(invoiceNumber)

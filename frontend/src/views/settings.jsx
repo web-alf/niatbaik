@@ -419,6 +419,22 @@ const MANUAL_BANK_OPTIONS = [
 function PaymentPanel({ settings, onSave }) {
   const { showToast: showToastSafe } = useApp();
   const [pTab, setPTab] = useStateA('general');
+
+  // Per-sub-tab unsaved-changes guard. The parent SettingsView tracks a single global
+  // dirty flag, but General/Flip/Moota are sub-tabs sharing one panel with SEPARATE save
+  // buttons — saving Flip would clear the global flag and make unsaved General edits look
+  // saved (then silently lost). Track dirtiness per sub-tab here and confirm before
+  // switching away from a sub-tab with pending edits. markPDirty fires from an
+  // onChangeCapture on each sub-tab's container, so every input is covered at one point.
+  const pDirtyRef = useRefA({});
+  const markPDirty = () => { pDirtyRef.current[pTab] = true; };
+  const clearPDirty = (tab) => { pDirtyRef.current[tab] = false; };
+  const switchPTab = (next) => {
+    if (next === pTab) return;
+    if (pDirtyRef.current[pTab] && !confirm('Ada perubahan yang belum disimpan di sub-tab ini. Pindah dan buang perubahan?')) return;
+    pDirtyRef.current[pTab] = false;
+    setPTab(next);
+  };
   const flipConfigured = !!(settings?.flip_configured);
   const mootaConfigured = !!(settings?.moota_configured);
 
@@ -520,7 +536,15 @@ function PaymentPanel({ settings, onSave }) {
       patch.unique_code_max = parseInt(String(ucMax).replace(/\D/g, ''), 10) || 999;
       if (patch.unique_code_min > patch.unique_code_max) { showToastSafe('Min kode unik tidak boleh lebih besar dari Max'); return; }
     }
-    return onSave(patch);
+    return onSave(patch).then((ok) => {
+      if (ok) clearPDirty('general');
+      // Warn (don't block — the admin may configure Flip on the next tab) if this leaves
+      // no payable path at all, so the UNPAYABLE state can't slip out silently.
+      if (ok && !flipEffective && !(patch.bank_number && patch.bank_name)) {
+        showToastSafe('⚠ Belum ada metode bayar aktif — aktifkan Flip atau isi rekening bank, agar donasi bisa diproses.');
+      }
+      return ok;
+    });
   };
 
   const saveFlip = () => {
@@ -535,7 +559,11 @@ function PaymentPanel({ settings, onSave }) {
     if (flipSecret.trim()) patch.flip_secret_key = flipSecret.trim();
     if (flipToken.trim()) patch.flip_validation_token = flipToken.trim();
     if (flipEnabled && !flipConfigured && !flipSecret.trim()) { showToastSafe('Isi Flip API Secret Key untuk mengaktifkan Flip'); return; }
-    return onSave(patch).then((ok) => { if (ok) { setFlipSecret(''); setFlipToken(''); } return ok; });
+    // Turning Flip OFF with no manual bank configured leaves donors no way to pay.
+    if (!flipEnabled && !manualPath) {
+      showToastSafe('⚠ Flip dimatikan & belum ada rekening manual — donasi tidak bisa diproses. Isi rekening bank di tab General.');
+    }
+    return onSave(patch).then((ok) => { if (ok) { setFlipSecret(''); setFlipToken(''); clearPDirty('flip'); } return ok; });
   };
 
   const saveMoota = () => {
@@ -547,16 +575,32 @@ function PaymentPanel({ settings, onSave }) {
     };
     if (mootaKey.trim()) patch.moota_api_key = mootaKey.trim();
     if (mootaSecret.trim()) patch.moota_webhook_secret = mootaSecret.trim();
-    return onSave(patch).then((ok) => { if (ok) { setMootaKey(''); setMootaSecret(''); } return ok; });
+    return onSave(patch).then((ok) => { if (ok) { setMootaKey(''); setMootaSecret(''); clearPDirty('moota'); } return ok; });
   };
 
   const copy = (t) => { try { navigator.clipboard?.writeText(t); showToastSafe('Disalin'); } catch {} };
 
+  // Is there ANY payable path? Flip (effectively enabled: toggle on AND either already
+  // configured or a secret is being entered now) OR a manual bank account (number +
+  // name). With neither, donors see no way to pay → donations are UNPAYABLE. This drives
+  // a persistent warning banner and blocks the two saves that could create the dead state.
+  const flipEffective = flipEnabled && (flipConfigured || !!flipSecret.trim());
+  const manualPath = !!(bankNumber.replace(/[^0-9]/g, '') && bankName.trim());
+  const noPayablePath = !flipEffective && !manualPath;
+
   return (
     <Section title="Payment" sub="Silahkan diatur sesuai kebutuhan pembayaran anda.">
+      {/* UNPAYABLE-config warning — persistent across all sub-tabs. The known prod bug:
+          Flip off (or unconfigured) AND no manual bank → donations cannot be completed. */}
+      {noPayablePath && (
+        <div className="mb-6 rounded-xl bg-rose-50 border border-rose-200 p-4 text-sm text-rose-700 leading-relaxed">
+          <b>⚠ Tidak ada metode pembayaran aktif.</b> Donasi tidak bisa diproses: aktifkan Flip
+          (isi kredensial) <b>atau</b> isi rekening bank manual (No. Rekening + Nama Bank di tab General).
+        </div>
+      )}
       <div className="flex gap-2 mb-8 flex-wrap">
         {[{v:'general', l:'General'},{v:'flip', l:'Flip'},{v:'moota', l:'Moota'}].map((t) => (
-          <button key={t.v} onClick={() => setPTab(t.v)}
+          <button key={t.v} onClick={() => switchPTab(t.v)}
             className={`px-6 py-2.5 text-sm font-semibold rounded-md transition-colors ${pTab===t.v ? 'bg-brand-600 text-white' : 'bg-transparent text-ink/70 hover:bg-bg2'}`}>
             {t.l}
           </button>
@@ -564,7 +608,7 @@ function PaymentPanel({ settings, onSave }) {
       </div>
 
       {pTab === 'general' && (
-        <>
+        <div onChangeCapture={markPDirty}>
         <div className="space-y-8">
           {/* Unique Number */}
           <div>
@@ -653,11 +697,11 @@ function PaymentPanel({ settings, onSave }) {
 
         </div>
         <div className="flex mt-8"><SaveButton onClick={saveGeneral}>Update</SaveButton></div>
-        </>
+        </div>
       )}
 
       {pTab === 'flip' && (
-        <>
+        <div onChangeCapture={markPDirty}>
         <div className="space-y-8">
           <div className="flex items-center justify-between rounded-xl border border-line p-3">
             <div><div className="text-sm font-bold text-ink">Aktifkan Flip</div><div className="text-xs text-mute">Bagi yang belum memiliki akun Flip Business, bisa mendaftar melalui link berikut: <a href="https://flip.id/business" target="_blank" rel="noopener noreferrer" className="text-brand-600 font-semibold hover:underline">Daftar akun Flip Business sekarang</a></div></div>
@@ -725,11 +769,11 @@ function PaymentPanel({ settings, onSave }) {
 
         </div>
         <div className="flex mt-8"><SaveButton onClick={saveFlip}>Update Flip</SaveButton></div>
-        </>
+        </div>
       )}
 
       {pTab === 'moota' && (
-        <>
+        <div onChangeCapture={markPDirty}>
         <div className="space-y-6">
           <div>
             <div className="text-sm font-bold text-ink mb-1">Bagi yang belum memiliki akun Moota, bisa mendaftar melalui link berikut:</div>
@@ -800,7 +844,7 @@ function PaymentPanel({ settings, onSave }) {
           )}
         </div>
         <div className="flex mt-8"><SaveButton onClick={saveMoota}>Update Moota</SaveButton></div>
-        </>
+        </div>
       )}
     </Section>
   );

@@ -31,7 +31,15 @@ func JWTMiddleware(secret string, revokedRepo *repository.RevokedTokenRepo) echo
 			}
 
 			if revokedRepo != nil && claims.ID != "" {
-				if revoked, _ := revokedRepo.IsRevoked(claims.ID); revoked {
+				// Fail CLOSED: a DB error here must reject the request, not wave the token
+				// through. Swallowing the error (the old `revoked, _ :=`) meant a transient
+				// DB hiccup or connection-pool exhaustion silently accepted logged-out /
+				// revoked tokens — a security control that failed open.
+				revoked, err := revokedRepo.IsRevoked(claims.ID)
+				if err != nil {
+					return c.JSON(http.StatusUnauthorized, map[string]string{"message": "unable to verify token state"})
+				}
+				if revoked {
 					return c.JSON(http.StatusUnauthorized, map[string]string{"message": "token has been revoked"})
 				}
 			}

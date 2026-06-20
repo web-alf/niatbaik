@@ -25,6 +25,7 @@ type DonationService struct {
 	settingRepo       *repository.SettingRepo
 	paymentMethodRepo *repository.PaymentMethodRepo
 	flipService       *FlipService
+	paymentSvc        *PaymentService
 }
 
 func NewDonationService(
@@ -36,6 +37,7 @@ func NewDonationService(
 	settingRepo *repository.SettingRepo,
 	paymentMethodRepo *repository.PaymentMethodRepo,
 	flipService *FlipService,
+	paymentSvc *PaymentService,
 ) *DonationService {
 	return &DonationService{
 		db:                db,
@@ -46,6 +48,7 @@ func NewDonationService(
 		settingRepo:       settingRepo,
 		paymentMethodRepo: paymentMethodRepo,
 		flipService:       flipService,
+		paymentSvc:        paymentSvc,
 	}
 }
 
@@ -212,11 +215,23 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 			}
 		} else {
 			// Flip call failed at runtime — degrade to a manual transfer so the invoice
-			// stays payable. Add a unique code now (it wasn't added above because we
-			// expected the gateway to disambiguate) so manual reconciliation can match it.
-			// Log the reason: a silent degrade hid a sandbox base-URL bug (every CreateBill
-			// 404'd) that stranded donors on an unpayable manual invoice when the unique
-			// code / bank account weren't configured.
+			// stays payable. But ONLY if a manual bank account is actually configured: a
+			// fallback with no bank number, no QR, and (when unique=none) no reconciliation
+			// key is an UNPAYABLE dead invoice — the exact prod bug where donors saw a
+			// "transfer manual" page with nowhere to transfer. Fail loudly + clean up
+			// instead of persisting a dead invoice and silently losing the donation.
+			if !hasManualPath(settingsForPay) {
+				log.Printf("[donation] Flip CreateBill failed for %s AND no manual bank configured — rejecting (no payable path): %v", invoice.InvoiceNumber, flipErr)
+				if delErr := s.db.Where("invoice_id = ?", invoice.ID).Delete(&model.Donation{}).Error; delErr != nil {
+					log.Printf("[donation] cleanup: failed to delete donation for dead invoice %s: %v", invoice.InvoiceNumber, delErr)
+				}
+				if delErr := s.db.Delete(&model.Invoice{}, "id = ?", invoice.ID).Error; delErr != nil {
+					log.Printf("[donation] cleanup: failed to delete dead invoice %s: %v", invoice.InvoiceNumber, delErr)
+				}
+				return nil, fmt.Errorf("pembayaran sedang tidak tersedia: gateway gagal dan rekening transfer manual belum dikonfigurasi. Mohon hubungi admin")
+			}
+			// Add a unique code now (it wasn't added above because we expected the gateway
+			// to disambiguate) so manual reconciliation can match it.
 			log.Printf("[donation] Flip CreateBill failed for %s, degrading to manual transfer: %v", invoice.InvoiceNumber, flipErr)
 			invoice.Total = invoice.Subtotal + uniqueCodeFromSettings(settingsForPay)
 			invoice.TypePayment = "Transfer Manual"
@@ -225,7 +240,18 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 			}
 		}
 	} else {
-		// Flip disabled — manual bank transfer. Unique code already appended above.
+		// Flip disabled — manual bank transfer. Guard the same way: with no bank account
+		// configured there is no destination to transfer to, so the donation is unpayable.
+		if !hasManualPath(settingsForPay) {
+			log.Printf("[donation] Flip disabled AND no manual bank configured for %s — rejecting (no payable path)", invoice.InvoiceNumber)
+			if delErr := s.db.Where("invoice_id = ?", invoice.ID).Delete(&model.Donation{}).Error; delErr != nil {
+				log.Printf("[donation] cleanup: failed to delete donation for dead invoice %s: %v", invoice.InvoiceNumber, delErr)
+			}
+			if delErr := s.db.Delete(&model.Invoice{}, "id = ?", invoice.ID).Error; delErr != nil {
+				log.Printf("[donation] cleanup: failed to delete dead invoice %s: %v", invoice.InvoiceNumber, delErr)
+			}
+			return nil, fmt.Errorf("pembayaran sedang tidak tersedia: belum ada metode pembayaran yang aktif. Mohon hubungi admin")
+		}
 		invoice.TypePayment = "Transfer Manual"
 		if err := s.invoiceRepo.Update(&invoice); err != nil {
 			log.Printf("[donation] failed to persist manual transfer type for %s: %v", invoice.InvoiceNumber, err)
@@ -238,6 +264,45 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 
 func (s *DonationService) GetPaymentStatus(invoiceNumber string) (*model.Invoice, error) {
 	return s.invoiceRepo.FindByInvoiceNumber(invoiceNumber)
+}
+
+// SimulatePayment settles an invoice WITHOUT a real gateway/bank transfer, for testers
+// trying the donation flow in a non-production environment. It is the missing "continue"
+// action for QRIS / VA / manual methods, which (unlike Flip's hosted link) have no way to
+// advance to a paid state during testing.
+//
+// SECURITY: hard-gated to non-production. In production this is a no-op error — it must
+// NEVER be possible to mark a donation paid without real money. The route is also only
+// registered when AppEnv != production (defense in depth), but we re-check here so the
+// service can't be misused even if the route guard regresses.
+func (s *DonationService) SimulatePayment(invoiceNumber string) (*model.Invoice, error) {
+	if s.cfg != nil && s.cfg.IsProduction() {
+		return nil, fmt.Errorf("simulasi pembayaran dinonaktifkan di production")
+	}
+	inv, err := s.invoiceRepo.FindUnpaidByInvoiceNumber(invoiceNumber)
+	if err != nil || inv == nil {
+		// Either not found or already paid — for a sandbox tester both are non-fatal.
+		existing, ferr := s.invoiceRepo.FindByInvoiceNumber(invoiceNumber)
+		if ferr == nil && existing != nil && existing.IsPaid {
+			return existing, nil // already settled; idempotent success
+		}
+		return nil, fmt.Errorf("invoice tidak ditemukan atau sudah dibayar")
+	}
+	if err := s.paymentSvc.ProcessPayment(inv); err != nil {
+		return nil, err
+	}
+	return s.invoiceRepo.FindByInvoiceNumber(invoiceNumber)
+}
+
+// hasManualPath reports whether a manual bank-transfer destination is actually
+// configured (a bank account number + name). This is the fallback payment path when
+// Flip is off or fails; without it the donor has nowhere to send money, so a donation
+// that would land here must be rejected rather than persisted as a dead invoice.
+func hasManualPath(s *model.Setting) bool {
+	if s == nil {
+		return false
+	}
+	return strings.TrimSpace(s.BankNumber) != "" && strings.TrimSpace(s.BankName) != ""
 }
 
 // uniqueCodeFromSettings derives the manual-transfer unique code from the admin's

@@ -109,6 +109,10 @@ const SANITIZE_RAW_KEYS = new Set([
   'form_fields_config', 'opt_nominal', 'cs_contacts', 'nominal_presets',
   'social_proof_config', 'notification_config', 'fundraising_config',
   'event_tracking_config', 'pixel_config', 'payment_config',
+  // Payment JSON config blobs added in the Settings → Payment churn. They're parsed
+  // (never rendered as HTML) so they must be preserved byte-for-byte; <>-escaping them
+  // would corrupt the JSON and break the backend's JSON.parse / unmarshal.
+  'manual_banks', 'payment_method_types', 'flip_code_config', 'looker_reports',
 ]);
 
 function sanitizeBody(obj) {
@@ -208,6 +212,9 @@ const api = {
   // Donations
   createDonation(data) { return this.post('/donations', data); },
   paymentStatus(invoice) { return this.get('/donations/' + invoice); },
+  // Sandbox-only: ask the backend to settle this invoice without a real transfer. The
+  // route only exists in non-production; in prod this 404s (button is hidden anyway).
+  simulatePayment(invoice) { return this.post('/donations/' + invoice + '/simulate-payment', {}); },
 
   // Dashboard
   dashboardStats() { return this.get('/dashboard/stats'); },

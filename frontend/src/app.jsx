@@ -754,9 +754,17 @@ function App() {
     trash:             window.TrashView,
   };
 
+  // Role requirements for routes NOT in the nav menus (reachable via setView, e.g. the
+  // campaign editor opened from the Campaigns list). Without this, campaign-editor had no
+  // navEntry → the role guard below was skipped → any logged-in role (incl. Advertiser)
+  // got the full edit UI. Mirror Campaigns' edit-capable roles: Admin + CS only.
+  const OFF_NAV_ROLES = {
+    'campaign-editor': ['Admin', 'CS'],
+  };
   const navEntry = [...NAV, ...SECONDARY_NAV].find(n => n.key === route);
+  const requiredRoles = navEntry?.roles || OFF_NAV_ROLES[route];
   let Cur = dataReady ? (Views[route] || window.DashboardView || Placeholder) : DashboardSkeleton;
-  if (dataReady && navEntry?.roles && !navEntry.roles.includes(role)) Cur = AccessDenied;
+  if (dataReady && requiredRoles && !requiredRoles.includes(role)) Cur = AccessDenied;
 
   return (
     <AppCtx.Provider value={ctx}>

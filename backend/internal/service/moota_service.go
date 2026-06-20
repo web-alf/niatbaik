@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"regexp"
@@ -65,14 +66,15 @@ func (f *flexFloat) UnmarshalJSON(b []byte) error {
 }
 
 type MootaService struct {
-	cfg         *config.Config
-	paymentSvc  *PaymentService
-	invoiceRepo *repository.InvoiceRepo
-	settingRepo *repository.SettingRepo
+	cfg          *config.Config
+	paymentSvc   *PaymentService
+	invoiceRepo  *repository.InvoiceRepo
+	settingRepo  *repository.SettingRepo
+	processedRepo *repository.ProcessedWebhookRepo
 }
 
-func NewMootaService(cfg *config.Config, paymentSvc *PaymentService, invoiceRepo *repository.InvoiceRepo, settingRepo *repository.SettingRepo) *MootaService {
-	return &MootaService{cfg: cfg, paymentSvc: paymentSvc, invoiceRepo: invoiceRepo, settingRepo: settingRepo}
+func NewMootaService(cfg *config.Config, paymentSvc *PaymentService, invoiceRepo *repository.InvoiceRepo, settingRepo *repository.SettingRepo, processedRepo *repository.ProcessedWebhookRepo) *MootaService {
+	return &MootaService{cfg: cfg, paymentSvc: paymentSvc, invoiceRepo: invoiceRepo, settingRepo: settingRepo, processedRepo: processedRepo}
 }
 
 // getWebhookSecret returns the secret used to verify inbound Moota webhook signatures.
@@ -99,6 +101,14 @@ func (s *MootaService) getWebhookSecret() string {
 // purely as a setup-time escape hatch while Moota's signing scheme is being matched;
 // it must be turned back ON for normal operation.
 func (s *MootaService) SignatureCheckEnabled() bool {
+	// In production the signature check can NEVER be disabled: the "Signature Moota"
+	// toggle is a setup-time escape hatch only. An admin (or a corrupted setting)
+	// leaving it off in prod would expose an unauthenticated, payment-confirming
+	// webhook — anyone learning the URL could forge "paid" mutations, inflate campaign
+	// balances, and trigger fraudulent referral commissions. Force-on in prod.
+	if s.cfg != nil && s.cfg.IsProduction() {
+		return true
+	}
 	if setting, err := s.settingRepo.Get(); err == nil {
 		return setting.MootaSignatureEnabled
 	}
@@ -161,11 +171,42 @@ func (s *MootaService) VerifySignature(payload []byte, signature string) (bool, 
 
 func (s *MootaService) HandleWebhook(mutations []MootaWebhookPayload) ([]string, error) {
 	var processed []string
+	var settleErrs []string
 	invoiceRegex := regexp.MustCompile(`INV-[A-Z0-9]+`)
+
+	// Whether unique-code disambiguation is OFF. When it is, two different donors can
+	// transfer the same round amount and the amount-only fallback can't tell them apart,
+	// so we refuse to auto-settle an untagged transfer (require the INV- tag instead).
+	uniqueDisabled := false
+	if setting, err := s.settingRepo.Get(); err == nil && setting != nil {
+		uniqueDisabled = strings.EqualFold(strings.TrimSpace(setting.UniqueCodeMode), "none")
+	}
 
 	for _, m := range mutations {
 		if m.Type != "CR" || m.Amount <= 0 {
 			continue
+		}
+
+		// Replay/duplicate guard: Moota signs only the body (no nonce/timestamp), so a
+		// captured valid delivery can be replayed. Dedup on Moota's own mutation id. We
+		// only check-existing here (read), and RECORD the id after a SUCCESSFUL settle
+		// below — so a settlement that errored isn't marked done, letting Moota's retry
+		// reprocess it, while a replay of an already-settled mutation is skipped.
+		externalID := strings.TrimSpace(string(m.ID))
+		if externalID == "" {
+			externalID = strings.TrimSpace(string(m.MutationID))
+		}
+		if s.processedRepo != nil && externalID != "" {
+			if seen, err := s.processedRepo.AlreadyProcessed("moota", externalID); err == nil && seen {
+				continue // already handled — replay/duplicate
+			}
+		}
+		// recordDedup marks this mutation handled AFTER a successful settle, so a failed
+		// settlement stays un-recorded and Moota's retry can reprocess it.
+		recordDedup := func(invNo string) {
+			if s.processedRepo != nil && externalID != "" {
+				_, _ = s.processedRepo.MarkProcessed("moota", externalID, invNo)
+			}
 		}
 
 		// Bank mutations are whole rupiah; round (not truncate) so a float like
@@ -185,6 +226,9 @@ func (s *MootaService) HandleWebhook(mutations []MootaWebhookPayload) ([]string,
 				}
 				if err = s.paymentSvc.ProcessPayment(inv); err == nil {
 					processed = append(processed, inv.InvoiceNumber)
+					recordDedup(inv.InvoiceNumber)
+				} else {
+					settleErrs = append(settleErrs, fmt.Sprintf("%s: %v", inv.InvoiceNumber, err))
 				}
 				continue
 			}
@@ -195,15 +239,36 @@ func (s *MootaService) HandleWebhook(mutations []MootaWebhookPayload) ([]string,
 			continue
 		}
 
-		// Fallback: no (matching) invoice number in the description — reconcile by
-		// exact total. The query matches total = amount, so the amount is verified
-		// by construction here.
+		// Fallback: no invoice number in the description — reconcile by exact total.
+		// When unique codes are disabled, the amount alone can't disambiguate donors, so
+		// refuse the untagged transfer rather than risk crediting the wrong invoice.
+		if uniqueDisabled {
+			log.Printf("[moota-webhook] untagged transfer of %d skipped: unique_code_mode=none, cannot disambiguate; needs manual review", amount)
+			continue
+		}
+		// Guard against ambiguity: if more than one unpaid invoice shares this total, the
+		// finder would settle the OLDEST — possibly the wrong donor's. Queue for manual
+		// review instead of guessing.
+		if n, err := s.invoiceRepo.CountUnpaidByAmount(amount); err == nil && n > 1 {
+			log.Printf("[moota-webhook] ambiguous transfer of %d skipped: %d unpaid invoices share this total; needs manual review", amount, n)
+			continue
+		}
 		inv, err := s.invoiceRepo.FindUnpaidByAmountForUpdate(amount)
 		if err == nil && inv != nil {
 			if err = s.paymentSvc.ProcessPayment(inv); err == nil {
 				processed = append(processed, inv.InvoiceNumber)
+				recordDedup(inv.InvoiceNumber)
+			} else {
+				settleErrs = append(settleErrs, fmt.Sprintf("%s: %v", inv.InvoiceNumber, err))
 			}
 		}
+	}
+
+	// Surface settlement failures so the handler returns non-2xx and Moota retries the
+	// delivery — a swallowed ProcessPayment error used to 200-ack a transfer that never
+	// credited, permanently losing it. Dedup above makes the retry safe (no double credit).
+	if len(settleErrs) > 0 {
+		return processed, fmt.Errorf("moota settlement errors: %s", strings.Join(settleErrs, "; "))
 	}
 	return processed, nil
 }

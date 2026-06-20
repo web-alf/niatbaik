@@ -212,6 +212,7 @@ async function loadApiData() {
       window.TOTAL_RAISED     = statsRes.data.total_raised     ?? 0;
       window.TOTAL_DONORS     = statsRes.data.total_donors     ?? 0;
       window.ACTIVE_CAMPAIGNS = statsRes.data.active_campaigns ?? 0;
+      window.TOTAL_CAMPAIGNS  = statsRes.data.total_campaigns  ?? 0;
     }
     if (campaignsRes?.data && Array.isArray(campaignsRes.data)) {
       window.CAMPAIGNS = campaignsRes.data.map(mapCampaign);

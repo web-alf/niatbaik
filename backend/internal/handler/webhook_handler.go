@@ -120,7 +120,15 @@ func (h *WebhookHandler) HandleFlip(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("Missing data field"))
 	}
 
-	token := c.Request().Header.Get("X-Flip-Validation")
+	// Flip sends the validation token as a FORM FIELD named "token" in the same
+	// application/x-www-form-urlencoded body as "data" — NOT as a header. Reading only
+	// the X-Flip-Validation header meant the token was always empty, so every real
+	// callback 401'd and payment status never auto-updated to "Terbayar". Prefer the
+	// form field; fall back to the header for manual/legacy callers.
+	token := c.FormValue("token")
+	if token == "" {
+		token = c.Request().Header.Get("X-Flip-Validation")
+	}
 	if !h.flipService.VerifyWebhookToken(token) {
 		return c.JSON(http.StatusUnauthorized, response.ErrorResponse("Invalid token"))
 	}

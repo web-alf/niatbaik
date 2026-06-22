@@ -540,7 +540,7 @@ function PaymentPanel({ settings, onSave }) {
       if (ok) clearPDirty('general');
       // Warn (don't block — the admin may configure Flip on the next tab) if this leaves
       // no payable path at all, so the UNPAYABLE state can't slip out silently.
-      if (ok && !flipEffective && !(patch.bank_number && patch.bank_name)) {
+      if (ok && !flipEffective && !patch.bank_number) {
         showToastSafe('⚠ Belum ada metode bayar aktif — aktifkan Flip atau isi rekening bank, agar donasi bisa diproses.');
       }
       return ok;
@@ -585,7 +585,10 @@ function PaymentPanel({ settings, onSave }) {
   // name). With neither, donors see no way to pay → donations are UNPAYABLE. This drives
   // a persistent warning banner and blocks the two saves that could create the dead state.
   const flipEffective = flipEnabled && (flipConfigured || !!flipSecret.trim());
-  const manualPath = !!(bankNumber.replace(/[^0-9]/g, '') && bankName.trim());
+  // Payable manual path = an account NUMBER to transfer to. Bank label/holder are
+  // display-only (frontend has fallbacks), so don't require them — matches backend
+  // hasManualPath. Requiring bankName here falsely flagged a valid number-only config.
+  const manualPath = !!bankNumber.replace(/[^0-9]/g, '');
   const noPayablePath = !flipEffective && !manualPath;
 
   return (

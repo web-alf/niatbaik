@@ -295,14 +295,18 @@ func (s *DonationService) SimulatePayment(invoiceNumber string) (*model.Invoice,
 }
 
 // hasManualPath reports whether a manual bank-transfer destination is actually
-// configured (a bank account number + name). This is the fallback payment path when
-// Flip is off or fails; without it the donor has nowhere to send money, so a donation
-// that would land here must be rejected rather than persisted as a dead invoice.
+// configured. The ONLY thing a donor strictly needs to pay is the account NUMBER to
+// transfer to — the bank label (BankName) and holder (BankAccountName) are display-only
+// and both have safe frontend fallbacks ("Transfer Bank" / "Yayasan Niat Baik"). The
+// donor confirmation page itself gates the manual-transfer view on bank_number alone, so
+// requiring BankName here would (and did) wrongly reject a perfectly payable config where
+// the admin filled the account number but left the bank-label field blank. Match the
+// frontend: a non-empty account number means the donation IS payable via Moota reconcile.
 func hasManualPath(s *model.Setting) bool {
 	if s == nil {
 		return false
 	}
-	return strings.TrimSpace(s.BankNumber) != "" && strings.TrimSpace(s.BankName) != ""
+	return strings.TrimSpace(s.BankNumber) != ""
 }
 
 // uniqueCodeFromSettings derives the manual-transfer unique code from the admin's

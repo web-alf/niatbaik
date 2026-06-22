@@ -168,6 +168,20 @@ func (s *FlipService) apiRequest(method, path string, data url.Values) ([]byte, 
 func (s *FlipService) CreateBill(invoice *model.Invoice, redirectURL string) (*FlipBillResponse, error) {
 	expiry := invoice.ExpiredAt.Format("2006-01-02 15:04")
 
+	// Flip's Accept-Payment API REQUIRES sender_email (returns 422 VALIDATION_ERROR
+	// "Param sender_email is required" otherwise). The donation form often has the email
+	// field disabled, so DonorEmail is blank — which 422'd EVERY Flip bill. Fall back to a
+	// deterministic no-reply address derived from the invoice so the bill always validates;
+	// it's only used by Flip to email a receipt (the donor pays on Flip's hosted page).
+	senderEmail := strings.TrimSpace(invoice.DonorEmail)
+	if senderEmail == "" {
+		senderEmail = "noreply+" + strings.ToLower(invoice.InvoiceNumber) + "@niatbaik.org"
+	}
+	senderName := strings.TrimSpace(invoice.DonorName)
+	if senderName == "" {
+		senderName = "Donatur"
+	}
+
 	data := url.Values{
 		"title":                   {fmt.Sprintf("Donasi %s", invoice.InvoiceNumber)},
 		"amount":                  {fmt.Sprintf("%d", invoice.Total)},
@@ -177,8 +191,8 @@ func (s *FlipService) CreateBill(invoice *model.Invoice, redirectURL string) (*F
 		"is_address_required":     {"0"},
 		"is_phone_number_required": {"0"},
 		"step":                    {"2"},
-		"sender_name":             {invoice.DonorName},
-		"sender_email":            {invoice.DonorEmail},
+		"sender_name":             {senderName},
+		"sender_email":            {senderEmail},
 	}
 
 	// Accept Payment lives at /v2 in both sandbox and prod (sandbox has no /v3/pwf/bill).

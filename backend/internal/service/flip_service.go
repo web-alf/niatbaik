@@ -206,9 +206,22 @@ func (s *FlipService) CreateBill(invoice *model.Invoice, redirectURL string) (*F
 		return nil, err
 	}
 
+	// Flip's create-bill response carries the donor-facing page in `link_url` (e.g.
+	// "flip.id/pwf-sandbox/$slug/#..."), and only returns `payment_url` in some
+	// flows/environments. The sandbox omits `payment_url` entirely, so requiring it
+	// wrongly rejected a perfectly valid ACTIVE bill (link_id + link_url present) and
+	// stranded every donation as UNPAYABLE. Accept either; prefer payment_url, fall back
+	// to link_url, and normalize a scheme-less link to https so the donor redirect works.
+	if bill.PaymentURL == "" {
+		bill.PaymentURL = bill.LinkURL
+	}
+	if bill.PaymentURL != "" && !strings.HasPrefix(bill.PaymentURL, "http://") && !strings.HasPrefix(bill.PaymentURL, "https://") {
+		bill.PaymentURL = "https://" + bill.PaymentURL
+	}
+
 	// Flip returns 2xx even for logical errors (bad credentials, malformed request) with
 	// a body that unmarshals cleanly into a zero-value bill. Treat an unusable bill
-	// (no link id / payment URL) as a failure so CreateDonation falls back to manual
+	// (no link id / no URL at all) as a failure so CreateDonation falls back to manual
 	// transfer instead of persisting PayCode="0" + empty QR and stranding the donor on a
 	// broken payment page.
 	if bill.LinkID == 0 || bill.PaymentURL == "" {

@@ -672,6 +672,18 @@ function getNominalPresets(c) {
 
 const PAYMENT_FALLBACK = ['QRIS','BCA','Mandiri','BNI','GoPay','OVO','Dana','ShopeePay'];
 
+// Effective minimum donation for a campaign. Driven by config, not a hardcoded 10.000:
+// the per-campaign min_donation wins when set, else the global min_donation_global, else
+// a 10.000 default. Lets admins lower the floor (e.g. Rp 1 for production smoke-tests)
+// without a code change, and keeps the frontend in lockstep with the backend's two checks.
+function effectiveMin(c) {
+  const campMin = Number(c && c.min_donation) || 0;
+  if (campMin > 0) return campMin;
+  const globalMin = Number(window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.min_donation_global) || 0;
+  if (globalMin > 0) return globalMin;
+  return 10000;
+}
+
 function CampaignPage({ c: listItem, onNav }) {
   // A donor who picked a nominal on the hero card lands here with _seedAmount set —
   // honor it (and jump straight to the form) instead of resetting to the default, so the
@@ -744,7 +756,14 @@ function CampaignPage({ c: listItem, onNav }) {
     return num ? `https://wa.me/${num}?text=${text}` : '#';
   }, [c && c.title]);
 
-  const presets = useMemo(() => getNominalPresets(c), [c]);
+  const presets = useMemo(() => {
+    const base = getNominalPresets(c);
+    // When the admin has lowered the floor to a testing value (≤ Rp 1), surface a Rp 1
+    // quick-pick so prod smoke-tests don't need manual typing. Self-gating: normal
+    // campaigns keep a real floor, so live donors never see the Rp 1 chip.
+    if (effectiveMin(c) <= 1 && !base.includes(1)) return [1, ...base];
+    return base;
+  }, [c]);
   // Prefer the campaign's own paid-donor list from the detail endpoint; fall back
   // to the global recent-transactions feed only when detail hasn't loaded.
   const detailDonors = (detail && Array.isArray(detail.donors)) ? detail.donors : null;
@@ -781,7 +800,8 @@ function CampaignPage({ c: listItem, onNav }) {
       if (nm && nm.length < 2) errs.name = 'Nama minimal 2 karakter';
     }
     if (donor.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(donor.email.trim())) errs.email = 'Format email tidak valid';
-    if (!amount || amount < 10000) errs.amount = 'Minimal donasi Rp 10.000';
+    const minAmt = effectiveMin(c);
+    if (!amount || amount < minAmt) errs.amount = `Minimal donasi ${fmtIDR(minAmt)}`;
     else if (amount > 1000000000) errs.amount = 'Nominal donasi maksimal Rp 1.000.000.000';
 
     if (Object.keys(errs).length) {
@@ -958,6 +978,7 @@ function CampaignPage({ c: listItem, onNav }) {
 // Card | List | Typing | Package | Package2 | Qurban (from c.form_style)
 function NominalSelect({ c, presets, amount, setAmount }) {
   const style = (c && c.form_style) || 'Card';
+  const minHint = `Minimal donasi ${fmtIDR(effectiveMin(c))}. Tidak ada batas maksimum.`;
   const customInput = (
     <div className="mt-3">
       <label className="text-xs font-bold text-mute">Atau masukkan nominal lain</label>
@@ -977,7 +998,7 @@ function NominalSelect({ c, presets, amount, setAmount }) {
           <input type="number" min="0" step="1000" inputMode="numeric" value={amount} onChange={(e) => setAmount(Math.max(0, Math.floor(+e.target.value || 0)))} placeholder="0"
             className="flex-1 px-3 py-4 outline-none font-extrabold text-ink text-2xl bg-transparent"/>
         </div>
-        <div className="mt-2 text-xs text-mute">Minimal donasi Rp 10.000. Tidak ada batas maksimum.</div>
+        <div className="mt-2 text-xs text-mute">{minHint}</div>
       </div>
     );
   }

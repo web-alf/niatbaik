@@ -88,6 +88,10 @@ type UpdateSettingRequest struct {
 	GA4MeasurementID      *string `json:"ga4_measurement_id"`
 	TiktokPixelID         *string `json:"tiktok_pixel_id"`
 	TiktokEAPIEnabled     *bool   `json:"tiktok_eapi_enabled"`
+	MetaCAPIToken       *string `json:"meta_capi_token"`
+	MetaTestEventCode   *string `json:"meta_test_event_code"`
+	TiktokAccessToken   *string `json:"tiktok_access_token"`
+	TiktokTestEventCode *string `json:"tiktok_test_event_code"`
 	LookerStudioEmbed     *string `json:"looker_studio_embed" validate:"omitempty,max=65536"`
 	EventTrackingConfig   *string `json:"event_tracking_config" validate:"omitempty,max=65536"`
 

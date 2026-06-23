@@ -227,6 +227,18 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	if req.TiktokEAPIEnabled != nil {
 		setting.TiktokEAPIEnabled = *req.TiktokEAPIEnabled
 	}
+	if req.MetaCAPIToken != nil {
+		setting.MetaCAPIToken = *req.MetaCAPIToken
+	}
+	if req.MetaTestEventCode != nil {
+		setting.MetaTestEventCode = *req.MetaTestEventCode
+	}
+	if req.TiktokAccessToken != nil {
+		setting.TiktokAccessToken = *req.TiktokAccessToken
+	}
+	if req.TiktokTestEventCode != nil {
+		setting.TiktokTestEventCode = *req.TiktokTestEventCode
+	}
 	if req.MootaSignatureEnabled != nil {
 		setting.MootaSignatureEnabled = *req.MootaSignatureEnabled
 	}

@@ -107,6 +107,13 @@ type Setting struct {
 	LookerStudioEmbed     string `gorm:"type:text" json:"looker_studio_embed"`
 	EventTrackingConfig   string `gorm:"type:text" json:"event_tracking_config"` // JSON
 
+	// Server-side conversion credentials (CAPI / EAPI). Tokens are TEXT + json:"-"
+	// (never echoed on GET) — same secret pattern as Moota/Flip gateway keys above.
+	MetaCAPIToken       string `gorm:"type:text" json:"-"`
+	MetaTestEventCode   string `gorm:"size:100" json:"meta_test_event_code"`
+	TiktokAccessToken   string `gorm:"type:text" json:"-"`
+	TiktokTestEventCode string `gorm:"size:100" json:"tiktok_test_event_code"`
+
 	// Moota / Flip detail
 	MootaEndpoint         string `gorm:"size:255" json:"moota_endpoint"`
 	MootaSignatureEnabled bool   `gorm:"default:true" json:"moota_signature_enabled"`

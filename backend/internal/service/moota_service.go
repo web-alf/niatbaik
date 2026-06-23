@@ -322,7 +322,19 @@ func (s *MootaService) CheckBalance() (*MootaBankResponse, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("moota API error %d: %s", resp.StatusCode, string(body))
+		// Translate the common failure codes into actionable Indonesian guidance instead
+		// of a raw "moota API error 401: {...}" dump, so an admin sees WHAT to fix (the
+		// API token) and WHERE (app.moota.co → Apps & API), not an opaque status line.
+		switch resp.StatusCode {
+		case http.StatusUnauthorized, http.StatusForbidden:
+			return nil, fmt.Errorf("API Key Moota ditolak (HTTP %d). Token salah/kedaluwarsa — buat ulang Personal Access Token di app.moota.co → menu Apps & API, lalu tempel di Settings → Payment → Moota → API Key", resp.StatusCode)
+		case http.StatusNotFound:
+			return nil, fmt.Errorf("endpoint Moota tidak ditemukan (HTTP 404). Periksa Endpoint Moota di Settings (default app.moota.co)")
+		case http.StatusTooManyRequests:
+			return nil, fmt.Errorf("terlalu banyak permintaan ke Moota (HTTP 429). Coba lagi beberapa saat")
+		default:
+			return nil, fmt.Errorf("Moota API gagal (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		}
 	}
 
 	var banks MootaBankResponse

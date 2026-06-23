@@ -14,6 +14,7 @@ const NAV = [
   { key: 'inbox',         label: 'CS Inbox',       icon: 'inbox',     roles: ['Admin', 'CS'], badge: 12 },
   { key: 'fundraiser',    label: 'Fundraiser',     icon: 'handshake', roles: ['Admin', 'CS'] },
   { key: 'members',       label: 'Members / User', icon: 'users',     roles: ['Admin'] },
+  { key: 'gateways',      label: 'Payment Gateways', icon: 'creditcard', roles: ['Admin'] },
   { key: 'notifications', label: 'Notification',   icon: 'bell',      roles: ['Admin', 'CS', 'Advertiser'], badge: 4 },
   { key: 'trash',         label: 'Trash',          icon: 'trash',     roles: ['Admin'] }
 ];
@@ -748,6 +749,7 @@ function App() {
     inbox:             window.CSInboxView,
     fundraiser:        window.FundraiserView,
     members:           window.MembersView,
+    gateways:          window.GatewaysView,
     profile:           window.ProfileView,
     settings:          window.SettingsView,
     notifications:     window.NotificationsView,

@@ -478,14 +478,20 @@ function PaymentPanel({ settings, onSave }) {
   const [mootaBalances, setMootaBalances] = useStateA(null);
   const [mootaBalLoading, setMootaBalLoading] = useStateA(false);
 
+  const [mootaBalErr, setMootaBalErr] = useStateA('');
   const fetchMootaBalance = async () => {
     setMootaBalLoading(true);
+    setMootaBalErr('');
     try {
       const res = await window.api.mootaBalance();
-      if (res?.data) setMootaBalances(res.data);
-      else setMootaBalances([]);
+      if (res?.data) { setMootaBalances(res.data); setMootaBalErr(''); }
+      else { setMootaBalances([]); setMootaBalErr('Tidak ada saldo yang dikembalikan. Periksa koneksi atau API Key Moota.'); }
     } catch (e) {
-      showToastSafe('Gagal cek saldo Moota. Pastikan API Key benar.');
+      // Surface the backend's actionable message (e.g. "API Key Moota ditolak (401) —
+      // buat ulang token di app.moota.co → Apps & API") instead of a generic line.
+      const msg = (e && e.message) ? e.message : 'Gagal cek saldo Moota. Pastikan API Key benar.';
+      setMootaBalErr(msg);
+      showToastSafe(msg);
     } finally {
       setMootaBalLoading(false);
     }
@@ -825,6 +831,11 @@ function PaymentPanel({ settings, onSave }) {
                 </button>
               </div>
 
+              {mootaBalErr && (
+                <div className="mb-3 rounded-lg bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 leading-relaxed">
+                  {mootaBalErr}
+                </div>
+              )}
               {mootaBalances && mootaBalances.length > 0 && (
                 <div className="space-y-2">
                   {mootaBalances.map(b => (

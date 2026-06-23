@@ -689,11 +689,26 @@ function CampaignPage({ c: listItem, onNav }) {
   // honor it (and jump straight to the form) instead of resetting to the default, so the
   // amount they chose isn't silently dropped.
   const seededAmount = Number(listItem && listItem._seedAmount) || 0;
-  const [view, setView] = useState(seededAmount > 0 ? 'form' : 'content'); // 'content' | 'form'
+  const [view, setViewRaw] = useState(seededAmount > 0 ? 'form' : 'content'); // 'content' | 'form'
+  // Wrap setView to fire the InitiateCheckout pixel event when the donor opens the
+  // donation form — the one transition that matters for the funnel.
+  const setView = (v) => {
+    if (v === 'form' && view !== 'form' && window.NBTracking) {
+      try { window.NBTracking.track('InitiateCheckout', { content_name: c.title, value: amount || 0, currency: 'IDR' }); } catch {}
+    }
+    setViewRaw(v);
+  };
   const [tab, setTab] = useState('story');
   const [amount, setAmount] = useState(seededAmount > 0 ? seededAmount : 100_000);
 
-  const [paymentMethod, setPaymentMethod] = useState('QRIS');
+  const [paymentMethod, setPaymentMethodRaw] = useState('QRIS');
+  // Wrap setPaymentMethod to fire AddPaymentInfo once the donor picks how they'll pay.
+  const setPaymentMethod = (m) => {
+    setPaymentMethodRaw(m);
+    if (window.NBTracking) {
+      try { window.NBTracking.track('AddPaymentInfo', { content_name: c.title, value: amount, currency: 'IDR' }); } catch {}
+    }
+  };
   const [anon, setAnon] = useState(false);
   const [donor, setDonor] = useState({ name:'', wa:'', email:'', message:'' });
   const [paid, setPaid] = useState(false);
@@ -734,6 +749,10 @@ function CampaignPage({ c: listItem, onNav }) {
             category: d.category || listItem.category,
             icon: d.icon || listItem.icon,
           });
+          // ViewContent funnel event: a donor landed on a campaign detail page.
+          if (window.NBTracking) {
+            try { window.NBTracking.track('ViewContent', { content_name: d.title || listItem.title, content_ids: [listItem.id], value: d.target_amount || 0, currency: 'IDR' }); } catch {}
+          }
         }
       } catch { /* keep list item as fallback */ }
     })();
@@ -825,6 +844,9 @@ function CampaignPage({ c: listItem, onNav }) {
         // the exact method on the invoice (admin dashboard + correct confirmation info).
         payment_method_id: (typeof paymentMethod === 'object' && paymentMethod) ? paymentMethod.id : undefined,
         referral_code: referralCode || undefined,
+        // Attribution: merge captured UTM (source/medium/campaign/content/term/id) so the
+        // invoice carries ad-source attribution feeding the Data Studio + Advertiser views.
+        ...(window.NBTracking ? window.NBTracking.getUTM() : {}),
       });
       if (res?.data) { setSubmitting(false); setInvoice(res.data); return; } // view swaps to confirmation
       setErrors({ form: res?.message || 'Gagal membuat donasi' });

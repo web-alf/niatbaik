@@ -222,6 +222,15 @@ async function loadApiData() {
     if (pubSettingsRes?.data) {
       window.PUBLIC_SETTINGS = pubSettingsRes.data;
       if (pubSettingsRes.data.primary_color) applyThemeColor(pubSettingsRes.data.primary_color);
+      // Ads tracking: capture UTM from the landing URL (survives navigation to the
+      // invoice page) and inject pixel base scripts from the configured IDs. Both are
+      // safe no-ops when no pixels are configured.
+      try {
+        if (window.NBTracking) {
+          window.NBTracking.captureUTM();
+          window.NBTracking.initPixels(pubSettingsRes.data);
+        }
+      } catch { /* tracking must never break data load */ }
     }
     if (pubPayRes?.data && Array.isArray(pubPayRes.data)) window.PAYMENT_METHODS_PUBLIC = pubPayRes.data;
     if (payStatusRes?.data && Array.isArray(payStatusRes.data)) window.PAYMENT_STATUSES = payStatusRes.data;

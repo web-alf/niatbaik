@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/config"
@@ -16,8 +18,11 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/repository"
 )
 
-// metaCAPIURL is overridable in tests; defaults to the real Meta Graph endpoint.
-var metaCAPIURL = "https://graph.facebook.com/v18.0"
+// metaCAPIURL / tiktokEAPIURL are overridable in tests; default to the real endpoints.
+var (
+	metaCAPIURL    = "https://graph.facebook.com/v18.0"
+	tiktokEAPIURL  = "https://business.tiktok.com/open_api/v1.3"
+)
 
 // dispatchLogger is the subset of TrackingRepo the dispatch methods need. Defined as
 // an interface so unit tests inject a fake without a DB.
@@ -173,4 +178,117 @@ func extractRemoteEventID(body []byte) string {
 		return id
 	}
 	return ""
+}
+
+// sendTiktokEAPI posts a CompletePayment event to the TikTok Events API for the given
+// paid invoice. No-op unless EAPI enabled and pixel id + access token set. PII hashed.
+func (s *TrackingService) sendTiktokEAPI(settings *model.Setting, inv *model.Invoice) {
+	if settings == nil || !settings.TiktokEAPIEnabled || settings.TiktokPixelID == "" || settings.TiktokAccessToken == "" {
+		return
+	}
+	if s.repo == nil {
+		return
+	}
+
+	user := map[string]interface{}{}
+	if inv.DonorEmail != "" {
+		user["email"] = map[string]string{"sha256": sha256Hex(inv.DonorEmail)}
+	}
+	if phone := normalizePhoneE164(inv.DonorPhone); phone != "" {
+		user["phone"] = map[string]string{"sha256": sha256Hex(phone)}
+	}
+
+	payload := map[string]interface{}{
+		"event_code": "complete_payment",
+		"event":      "CompletePayment",
+		"event_time": time.Now().Unix(),
+		"event_id":   dedupEventID(inv.InvoiceNumber),
+		"user":       user,
+		"properties": map[string]interface{}{
+			"currency": "IDR",
+			"value":    float64(inv.Total) / 100.0,
+		},
+	}
+	if settings.TiktokTestEventCode != "" {
+		payload["test_event_code"] = settings.TiktokTestEventCode
+	}
+
+	body, _ := json.Marshal(payload)
+	url := fmt.Sprintf("%s/event/track/", tiktokEAPIURL)
+
+	lg := &model.TrackingDispatchLog{
+		Platform:  "tiktok",
+		EventName: "CompletePayment",
+		EventID:   dedupEventID(inv.InvoiceNumber),
+		InvoiceID: &inv.ID,
+	}
+	// TikTok wants the token in an Authorization header, not the URL.
+	s.httpPostWithHeader(url, body, "Access-Token", settings.TiktokAccessToken, lg)
+}
+
+// httpPostWithHeader is like httpPost but adds one extra header (TikTok token).
+func (s *TrackingService) httpPostWithHeader(url string, body []byte, hdrKey, hdrVal string, lg *model.TrackingDispatchLog) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		lg.Success, lg.ErrorMessage = false, "build request: "+err.Error()
+		s.repo.LogDispatch(lg)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(hdrKey, hdrVal)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		lg.Success, lg.ErrorMessage = false, "http: "+err.Error()
+		s.repo.LogDispatch(lg)
+		return
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+
+	lg.HTTPStatus = resp.StatusCode
+	lg.Success = resp.StatusCode >= 200 && resp.StatusCode < 300
+	if !lg.Success {
+		lg.ErrorMessage = string(respBody)
+	} else {
+		lg.RemoteEventID = extractRemoteEventID(respBody)
+	}
+	s.repo.LogDispatch(lg)
+}
+
+// SendConversions is the single entry point fired after an invoice is paid. It reads
+// settings once, then dispatches to each enabled+configured platform concurrently in a
+// goroutine. Panics inside a platform goroutine are recovered so one platform's crash
+// never affects the other or the caller. MUST NOT return an error — tracking is
+// fire-and-forget relative to payment confirmation.
+func (s *TrackingService) SendConversions(inv *model.Invoice) {
+	if inv == nil {
+		return
+	}
+	settings, err := s.settingRepo.Get()
+	if err != nil || settings == nil {
+		return
+	}
+
+	var wg sync.WaitGroup
+	run := func(name string, fn func()) {
+		defer wg.Done()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[tracking] %s dispatch panic recovered: %v", name, r)
+			}
+		}()
+		fn()
+	}
+
+	if settings.MetaCAPIEnabled && settings.MetaPixelID != "" && settings.MetaCAPIToken != "" {
+		wg.Add(1)
+		go run("meta", func() { s.sendMetaCAPI(settings, inv) })
+	}
+	if settings.TiktokEAPIEnabled && settings.TiktokPixelID != "" && settings.TiktokAccessToken != "" {
+		wg.Add(1)
+		go run("tiktok", func() { s.sendTiktokEAPI(settings, inv) })
+	}
+	wg.Wait()
 }

@@ -175,6 +175,75 @@ func TestSendMetaCAPI_HTTPError(t *testing.T) {
 	}
 }
 
+// --- TikTok EAPI dispatch tests ---
+
+// makeTiktokServer returns a test server recording the body, responding with status.
+func makeTiktokServer(t *testing.T, status int) (*httptest.Server, *string, *sync.Mutex) {
+	var mu sync.Mutex
+	body := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		buf := make([]byte, 0)
+		tmp := make([]byte, 4096)
+		for {
+			n, err := r.Body.Read(tmp)
+			if n > 0 {
+				buf = append(buf, tmp[:n]...)
+			}
+			if err != nil {
+				break
+			}
+		}
+		mu.Lock()
+		body = string(buf)
+		mu.Unlock()
+		// TikTok returns 200 with code 0 on success; event_id in body.
+		w.WriteHeader(status)
+		w.Write([]byte(`{"code":0,"message":"OK","event_id":"tt_evt_1"}`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &body, &mu
+}
+
+// originalTiktokEAPIURL saves the production TikTok endpoint for restore.
+var originalTiktokEAPIURL = tiktokEAPIURL
+
+func TestSendTiktokEAPI_GatedOff(t *testing.T) {
+	svc := &TrackingService{}
+	s := &model.Setting{TiktokEAPIEnabled: false, TiktokPixelID: "px", TiktokAccessToken: "tok"}
+	svc.sendTiktokEAPI(s, &model.Invoice{InvoiceNumber: "INV-1"})
+	s.TiktokEAPIEnabled = true
+	s.TiktokAccessToken = ""
+	svc.sendTiktokEAPI(s, &model.Invoice{InvoiceNumber: "INV-1"})
+}
+
+func TestSendTiktokEAPI_Success(t *testing.T) {
+	srv, bodyPtr, mu := makeTiktokServer(t, http.StatusOK)
+	defer func() { tiktokEAPIURL = originalTiktokEAPIURL }()
+	tiktokEAPIURL = srv.URL
+
+	repo := newMockTrackingRepo()
+	svc := &TrackingService{repo: repo}
+	s := &model.Setting{TiktokEAPIEnabled: true, TiktokPixelID: "PIXEL123", TiktokAccessToken: "tok"}
+	inv := &model.Invoice{
+		InvoiceNumber: "INV-TT", DonorEmail: "donor@example.com",
+		DonorPhone: "081234567890", Total: 100000,
+	}
+	svc.sendTiktokEAPI(s, inv)
+
+	if len(repo.created) != 1 || !repo.created[0].Success || repo.created[0].Platform != "tiktok" {
+		t.Fatalf("unexpected logs: %+v", repo.created)
+	}
+	if repo.created[0].RemoteEventID != "tt_evt_1" {
+		t.Errorf("remote event id = %q, want tt_evt_1", repo.created[0].RemoteEventID)
+	}
+	mu.Lock()
+	b := *bodyPtr
+	mu.Unlock()
+	if strings.Contains(b, "donor@example.com") || strings.Contains(b, "081234567890") {
+		t.Error("plaintext PII leaked into TikTok request body")
+	}
+}
+
 // --- test doubles ---
 
 // metaCAPIURL is declared in tracking_service.go; tests override it to point at a

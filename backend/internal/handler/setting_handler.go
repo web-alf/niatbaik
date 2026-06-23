@@ -29,14 +29,18 @@ func (h *SettingHandler) Get(c echo.Context) error {
 	// Include gateway status (keys are json:"-" so we add status manually)
 	type SettingWithGateway struct {
 		*model.Setting
-		MootaConfigured bool `json:"moota_configured"`
-		FlipConfigured  bool `json:"flip_configured"`
+		MootaConfigured      bool `json:"moota_configured"`
+		FlipConfigured       bool `json:"flip_configured"`
+		MetaCAPITokenSet     bool `json:"meta_capi_token_set"`
+		TiktokAccessTokenSet bool `json:"tiktok_access_token_set"`
 	}
 
 	resp := SettingWithGateway{
-		Setting:         setting,
-		MootaConfigured: setting.MootaAPIKey != "",
-		FlipConfigured:  setting.FlipSecretKey != "",
+		Setting:              setting,
+		MootaConfigured:      setting.MootaAPIKey != "",
+		FlipConfigured:       setting.FlipSecretKey != "",
+		MetaCAPITokenSet:     setting.MetaCAPIToken != "",
+		TiktokAccessTokenSet: setting.TiktokAccessToken != "",
 	}
 
 	return c.JSON(http.StatusOK, response.SuccessResponse(resp, "success"))

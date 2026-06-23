@@ -152,7 +152,11 @@ func (h *PublicHandler) GetPublicSettings(c echo.Context) error {
 		"google_ads_conversion_id": settings.GoogleAdsConversionID,
 		"ga4_measurement_id":     settings.GA4MeasurementID,
 		"tiktok_pixel_id":        settings.TiktokPixelID,
-		"event_tracking_config":  settings.EventTrackingConfig,
+			"event_tracking_config":  settings.EventTrackingConfig,
+			// Server-side token presence (not values) so the admin form can show
+			// "tersimpan" without leaking the secret.
+			"meta_capi_token_set":     settings.MetaCAPIToken != "",
+			"tiktok_access_token_set": settings.TiktokAccessToken != "",
 		// Contact + donor greeting / CS rotator
 		"whatsapp_admin":  settings.WhatsappAdmin,
 		"donor_greeting":  settings.DonorGreeting,

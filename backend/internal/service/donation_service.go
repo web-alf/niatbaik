@@ -167,9 +167,12 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 				ReferredBy:        referredBy,
 				PaymentMethodID:   paymentMethodID,
 				PaymentMethodName: paymentMethodName,
-				UTMSource:         req.UTMSource,
-				UTMMedium:         req.UTMMedium,
-				UTMCampaign:       req.UTMCampaign,
+					UTMSource:         req.UTMSource,
+					UTMMedium:         req.UTMMedium,
+					UTMCampaign:       req.UTMCampaign,
+					UTMContent:        req.UTMContent,
+					UTMTerm:           req.UTMTerm,
+					UTMID:             req.UTMID,
 			}
 			lastErr = tx.Create(&invoice).Error
 			if lastErr == nil {

@@ -93,7 +93,7 @@ function Sidebar({ open, onClose }) {
             ))}
           </nav>
 
-          <div className="mt-6 rounded-xl bg-gradient-to-br from-brand-600 to-sky2-400 text-white p-4">
+          <div className="mt-6 rounded-xl bg-brand-600 text-white p-4">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-90">
               <Icon name="sparkle" size={14}/> Tips
             </div>

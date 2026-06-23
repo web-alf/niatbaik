@@ -400,7 +400,7 @@ function CampaignEditorForm({ campaign }) {
                   <AdvRadio label="Payment" value={adv.payment} options={['Default','Custom']} onChange={(v) => setAdv({...adv, payment:v})}/>
                   {adv.payment === 'Custom' && (
                     <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-3">
-                      <div className="grid grid-cols-[1fr_1fr_1fr_120px_auto] gap-2 text-[11px] font-bold text-mute uppercase px-0.5">
+                      <div className="hidden sm:grid grid-cols-[1fr_1fr_1fr_120px_auto] gap-2 text-[11px] font-bold text-mute uppercase px-0.5">
                         <div>Nama Bank</div><div>No. Rekening</div><div>Atas Nama</div><div>Method</div><div/>
                       </div>
                       {payMethods.length === 0 && (
@@ -409,7 +409,7 @@ function CampaignEditorForm({ campaign }) {
                         </div>
                       )}
                       {(advCustom.paymentRows || []).map((row, i) => (
-                        <div key={i} className="grid grid-cols-[1fr_1fr_1fr_120px_auto] gap-2 items-center">
+                        <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_120px_auto] gap-2 items-center">
                           {/* Bank name is chosen from the methods configured in Setting → Payment.
                               Selecting one auto-fills the account number, holder, and method. */}
                           <select value={row.bank}

@@ -78,7 +78,7 @@ function ForgotPasswordPage() {
           </div>
         )}
         <button type="submit" disabled={loading}
-          className="w-full inline-flex items-center justify-center gap-2 font-extrabold rounded-xl text-white bg-gradient-to-r from-brand-600 to-sky2-500 hover:from-brand-700 hover:to-sky2-500 shadow-card transition-all text-base px-5 py-3 disabled:opacity-60">
+          className="w-full inline-flex items-center justify-center gap-2 font-extrabold rounded-xl text-white bg-brand-600 hover:bg-brand-700 shadow-card transition-all text-base px-5 py-3 disabled:opacity-60">
           {loading ? 'Mengirim…' : 'Kirim Tautan Reset'}
         </button>
       </form>
@@ -155,7 +155,7 @@ function ResetPasswordPage() {
           <Icon name="check" size={16}/> Berhasil! Password Anda telah diperbarui.
         </div>
         <button onClick={gotoLogin}
-          className="mt-4 w-full inline-flex items-center justify-center gap-2 font-extrabold rounded-xl text-white bg-gradient-to-r from-brand-600 to-sky2-500 hover:from-brand-700 hover:to-sky2-500 shadow-card transition-all text-base px-5 py-3">
+          className="mt-4 w-full inline-flex items-center justify-center gap-2 font-extrabold rounded-xl text-white bg-brand-600 hover:bg-brand-700 shadow-card transition-all text-base px-5 py-3">
           Masuk Sekarang
         </button>
       </AuthShell>
@@ -190,7 +190,7 @@ function ResetPasswordPage() {
           </div>
         )}
         <button type="submit" disabled={loading}
-          className="w-full inline-flex items-center justify-center gap-2 font-extrabold rounded-xl text-white bg-gradient-to-r from-brand-600 to-sky2-500 hover:from-brand-700 hover:to-sky2-500 shadow-card transition-all text-base px-5 py-3 disabled:opacity-60">
+          className="w-full inline-flex items-center justify-center gap-2 font-extrabold rounded-xl text-white bg-brand-600 hover:bg-brand-700 shadow-card transition-all text-base px-5 py-3 disabled:opacity-60">
           {loading ? 'Menyimpan…' : 'Simpan Password Baru'}
         </button>
       </form>

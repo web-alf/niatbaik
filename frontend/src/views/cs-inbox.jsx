@@ -127,7 +127,7 @@ function CSInboxView() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* List */}
-        <Card className="lg:col-span-1 p-0 overflow-hidden flex flex-col max-h-[70vh]">
+        <Card className="lg:col-span-1 p-0 overflow-hidden flex flex-col max-h-[45vh] lg:max-h-[70vh]">
           <div className="p-4 border-b border-line space-y-2 shrink-0">
             <SearchInput placeholder="Cari donatur / invoice / WA…" value={search} onChange={setSearch}/>
             <div className="inline-flex p-1 bg-bg2 rounded-lg border border-line w-full">

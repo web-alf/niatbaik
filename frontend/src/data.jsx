@@ -23,17 +23,11 @@ const fmtPct = (n) => (n * 100).toFixed(1) + '%';
 /* ------------------------------------------------------------------ */
 
 function placeholderImg(seed, label) {
-  const hues = [
-    ['#2E4191', '#38B6FF'], ['#2563eb', '#22d3ee'], ['#0e7490', '#38B6FF'],
-    ['#1e40af', '#60a5fa'], ['#0369a1', '#7dd3fc'], ['#1e3a8a', '#38bdf8'],
-  ];
-  const [a, b] = hues[seed % hues.length];
+  const solids = ['#2E4191', '#2563eb', '#0e7490', '#1e40af', '#0369a1', '#1e3a8a'];
+  const fill = solids[seed % solids.length];
   return `data:image/svg+xml;utf8,` + encodeURIComponent(
     `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500'>
-      <defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
-        <stop offset='0' stop-color='${a}'/><stop offset='1' stop-color='${b}'/>
-      </linearGradient></defs>
-      <rect width='800' height='500' fill='url(#g)'/>
+      <rect width='800' height='500' fill='${fill}'/>
       <g transform='translate(400 250)' fill='rgba(255,255,255,0.9)' text-anchor='middle' font-family='system-ui'>
         <text font-size='28' font-weight='700'>${label || 'DONASI'}</text>
       </g>
@@ -125,7 +119,7 @@ function campaignBgStyle(c) {
   }
   const t = c && c.thumb;
   if (typeof t === 'string' && t.startsWith('linear')) return { background: t };
-  return { background: 'linear-gradient(135deg,#2E4191,#38B6FF)' };
+  return { background: '#2E4191' };
 }
 window.campaignBgStyle = campaignBgStyle;
 
@@ -193,7 +187,7 @@ function applyThemeColor(color) {
   try {
     let el = document.getElementById('nb-theme-vars');
     if (!el) { el = document.createElement('style'); el.id = 'nb-theme-vars'; document.head.appendChild(el); }
-    el.textContent = `.text-brand-600{color:${color} !important}.bg-brand-600{background-color:${color} !important}.border-brand-600{border-color:${color} !important}.from-brand-600{--tw-gradient-from:${color} !important}.ring-brand-600{--tw-ring-color:${color} !important}.hover\\:bg-brand-700:hover{background-color:${color} !important}`;
+    el.textContent = `.text-brand-600{color:${color} !important}.bg-brand-600{background-color:${color} !important}.border-brand-600{border-color:${color} !important}.ring-brand-600{--tw-ring-color:${color} !important}.hover\\:bg-brand-700:hover{background-color:${color} !important}`;
   } catch {}
 }
 window.applyThemeColor = applyThemeColor;

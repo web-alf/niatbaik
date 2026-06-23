@@ -52,15 +52,15 @@ function FundraiserView() {
             { value:'pending', label:'Komisi Pending', count: fundraisers.filter(f => f.status==='pending').length },
             { value:'paid',    label:'Komisi Paid',    count: fundraisers.filter(f => f.status==='paid').length },
           ]}/>
-          <div className="ml-auto flex items-center gap-2">
-            <SearchInput placeholder="Cari nama fundraiser…" className="w-64" value={search} onChange={setSearch}/>
+          <div className="ml-auto w-full sm:w-auto flex flex-wrap items-center gap-2">
+            <SearchInput placeholder="Cari nama fundraiser…" className="w-full sm:w-64" value={search} onChange={setSearch}/>
             <Select value="all" onChange={()=>{}} icon="filter" options={[{value:'all', label:'Semua campaign'}, {value:'aira', label:'Bantuan Aira'}, {value:'air', label:'Sumur Bersih'}]}/>
           </div>
         </div>
       </Card>
 
       <Card className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[760px] text-sm">
           <thead>
             <tr className="text-left text-xs uppercase tracking-wider text-mute border-b border-line bg-bg2/60">
               <th className="px-5 py-3 font-semibold">Fundraiser</th>

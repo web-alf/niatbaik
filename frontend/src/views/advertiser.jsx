@@ -201,7 +201,7 @@ function AdvertiserView() {
             <span className="h-2.5 w-2.5 rounded-full bg-rose-400"/><span className="h-2.5 w-2.5 rounded-full bg-amber-400"/><span className="h-2.5 w-2.5 rounded-full bg-emerald-400"/>
             <div className="ml-2 flex-1 h-5 rounded-md bg-bg2 text-[10px] font-mono text-mute flex items-center px-2">niatbaik.org</div>
           </div>
-          <iframe src="public.html" className="w-full h-[480px] block" title="Landing preview"/>
+          <iframe src="public.html" className="w-full h-[60vh] sm:h-[480px] block" title="Landing preview"/>
         </div>
       </Card>
     </div>

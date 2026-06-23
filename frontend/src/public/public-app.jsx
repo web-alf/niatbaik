@@ -2,7 +2,7 @@
 const { useState, useEffect, useRef, useMemo } = React;
 const { fmtIDR, fmtIDRShort, fmtNum } = window.NB;
 const getCampaigns = () => (window.CAMPAIGNS && window.CAMPAIGNS.length) ? window.CAMPAIGNS : [];
-const getFirstCampaign = () => getCampaigns()[0] || { id:'', title:'', category:'', target:1, raised:0, donors:0, daysLeft:0, thumb:'linear-gradient(135deg,#2E4191,#38B6FF)', icon:'heart' };
+const getFirstCampaign = () => getCampaigns()[0] || { id:'', title:'', category:'', target:1, raised:0, donors:0, daysLeft:0, thumb:'', icon:'heart' };
 const getSocialProof = () => window.socialProofLines && window.socialProofLines.length ? window.socialProofLines : [];
 
 // Parse a campaign's form_fields_config JSON (button labels etc.) safely.
@@ -53,14 +53,14 @@ const thumbStyle = (c) => {
   }
   const t = camp.thumb;
   if (typeof t === 'string' && t.startsWith('linear')) return { background: t };
-  return { background: 'linear-gradient(135deg,#2E4191,#38B6FF)' };
+  return { background: '#2E4191' };
 };
 
 // -------- Helpers --------
 const PrimaryBtn = ({ children, size='md', className='', ...rest }) => {
   const sizes = { sm:'text-sm px-4 py-2', md:'text-base px-5 py-3', lg:'text-lg px-7 py-4', xl:'text-lg px-8 py-4.5' };
   return (
-    <button {...rest} className={`inline-flex items-center justify-center gap-2 font-bold rounded-xl text-white bg-gradient-to-r from-brand-600 to-sky2-500 hover:from-brand-700 hover:to-sky2-500 shadow-glow transition-all ${sizes[size]} ${className}`}>
+    <button {...rest} className={`inline-flex items-center justify-center gap-2 font-bold rounded-xl text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition-all ${sizes[size]} ${className}`}>
       {children}
     </button>
   );
@@ -70,7 +70,7 @@ const Progress = ({ value, max, className='h-2' }) => {
   const pct = Math.min(100, (value / max) * 100);
   return (
     <div className={`relative w-full ${className} bg-slate-100 rounded-full overflow-hidden`}>
-      <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-brand-600 to-sky2-400 rounded-full" style={{ width: pct + '%' }}/>
+      <div className="absolute inset-y-0 left-0 bg-brand-600 rounded-full" style={{ width: pct + '%' }}/>
     </div>
   );
 };
@@ -143,9 +143,7 @@ function Navbar({ onNav }) {
 // -------- Hero --------
 function Hero({ onNav }) {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-brand-50 via-white to-sky2-50">
-      <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-sky2-100 opacity-60 blur-3xl"/>
-      <div className="absolute top-40 -left-32 h-72 w-72 rounded-full bg-brand-100 opacity-50 blur-3xl"/>
+    <section className="relative overflow-hidden bg-bg2 border-b border-line">
 
       <div className="max-w-7xl mx-auto px-4 lg:px-6 py-12 lg:py-20 grid lg:grid-cols-2 gap-10 items-center relative">
         <div>
@@ -156,7 +154,7 @@ function Hero({ onNav }) {
           </div>
 
           <h1 className="mt-5 text-4xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-ink">
-            Salurkan <span className="bg-gradient-to-r from-brand-600 to-sky2-500 bg-clip-text text-transparent">Niat Baik</span> Anda, wujudkan kebaikan nyata.
+            Salurkan <span className="text-brand-600">Niat Baik</span> Anda, wujudkan kebaikan nyata.
           </h1>
           <p className="mt-5 text-lg text-mute max-w-xl leading-relaxed">
             Donasi terverifikasi untuk kemanusiaan, kesehatan, pendidikan, dan wakaf.
@@ -212,7 +210,7 @@ function HeroCard({ c, onNav }) {
       <div className="rounded-3xl bg-white border border-line shadow-pop overflow-hidden">
         <div className="relative aspect-[16/10]" style={thumbStyle(c)}>
           {!hasThumbImage(c) && <div className="absolute inset-0 flex items-center justify-center text-white/85"><Icon name={c.icon} size={120} strokeWidth={1}/></div>}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-transparent"/>
+          <div className="absolute inset-0 bg-black/30"/>
           <div className="absolute top-3 left-3 flex gap-2">
             <span className="px-2 py-0.5 rounded-md bg-white/95 text-[11px] font-bold text-ink">{c.category}</span>
             <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-[11px] font-bold text-white inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse"/>LIVE</span>
@@ -298,7 +296,7 @@ function StatsSection() {
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {stats.map((s, i) => (
-            <div key={i} className="rounded-2xl bg-gradient-to-br from-brand-600 to-sky2-500 p-5 text-white">
+            <div key={i} className="rounded-2xl bg-brand-600 p-5 text-white">
               <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center mb-3"><Icon name={s.icon} size={20}/></div>
               <div className="text-2xl lg:text-3xl font-extrabold">{s.v}</div>
               <div className="text-sm text-white/85 mt-1">{s.l}</div>
@@ -361,7 +359,7 @@ function PublicCampaignCard({ c, onNav }) {
     <div onClick={() => onNav('campaign', c)} className="group cursor-pointer rounded-2xl bg-white border border-line shadow-card hover:shadow-pop transition-all hover:-translate-y-1 overflow-hidden">
       <div className="relative aspect-[16/10]" style={thumbStyle(c)}>
         {!hasThumbImage(c) && <div className="absolute inset-0 flex items-center justify-center text-white/85"><Icon name={c.icon} size={70} strokeWidth={1.2}/></div>}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"/>
+        <div className="absolute inset-0 bg-black/30"/>
         <div className="absolute top-3 left-3 flex gap-1.5">
           <span className="px-2 py-0.5 rounded-md bg-white/95 text-[11px] font-bold text-ink">{c.category}</span>
           {c.daysLeft <= 10 && <span className="px-2 py-0.5 rounded-md bg-rose-500 text-[11px] font-bold text-white">URGENT</span>}
@@ -407,7 +405,7 @@ function HowToSection() {
           {steps.map((s, i) => (
             <div key={i} className="relative">
               <div className="rounded-2xl bg-white border border-line p-6 hover:border-brand-200 hover:shadow-card transition-all h-full">
-                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-brand-600 to-sky2-500 text-white flex items-center justify-center"><Icon name={s.icon} size={22}/></div>
+                <div className="h-12 w-12 rounded-xl bg-brand-600 text-white flex items-center justify-center"><Icon name={s.icon} size={22}/></div>
                 <div className="mt-4 text-xs font-bold text-mute">LANGKAH {s.n}</div>
                 <div className="font-extrabold text-ink text-lg mt-0.5">{s.t}</div>
                 <div className="mt-1.5 text-sm text-mute leading-relaxed">{s.d}</div>
@@ -430,9 +428,7 @@ function TestimonialsSection() {
     { n:'Andini, Surabaya',    r:'⭐⭐⭐⭐⭐', t:'Saya jadi fundraiser di NIATBAIK. Mudah dipakai, dan komisi bisa saya donasikan lagi. Berkah!', tone:'#F59E0B' },
   ];
   return (
-    <section id="testi" className="py-14 lg:py-20 bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 text-white relative overflow-hidden">
-      <div className="absolute -top-32 -right-24 h-80 w-80 rounded-full bg-sky2-400/30 blur-3xl"/>
-      <div className="absolute -bottom-24 -left-32 h-80 w-80 rounded-full bg-brand-400/30 blur-3xl"/>
+    <section id="testi" className="py-14 lg:py-20 bg-brand-700 text-white relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 lg:px-6 relative">
         <div className="grid lg:grid-cols-2 gap-10 items-start">
           <div>
@@ -502,8 +498,7 @@ function FinalCTA({ onNav }) {
   return (
     <section className="py-14 lg:py-20 bg-bg2">
       <div className="max-w-5xl mx-auto px-4 lg:px-6">
-        <div className="relative rounded-3xl bg-gradient-to-br from-brand-600 to-sky2-500 p-8 lg:p-12 text-white overflow-hidden">
-          <div className="absolute -top-16 -right-16 h-64 w-64 rounded-full bg-white/10 blur-3xl"/>
+        <div className="relative rounded-3xl bg-brand-600 p-8 lg:p-12 text-white overflow-hidden">
           <div className="relative grid lg:grid-cols-3 gap-6 items-center">
             <div className="lg:col-span-2">
               <h3 className="text-3xl lg:text-4xl font-extrabold leading-tight">Setiap niat baik, sekecil apapun, berdampak besar.</h3>
@@ -884,7 +879,7 @@ function CampaignPage({ c: listItem, onNav }) {
             <div className="lg:col-span-3">
               <div className="relative aspect-[16/9] rounded-2xl overflow-hidden" style={thumbStyle(c)}>
                 {!hasThumbImage(c) && <div className="absolute inset-0 flex items-center justify-center text-white/85"><Icon name={c.icon} size={140} strokeWidth={1}/></div>}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/0 to-transparent"/>
+                <div className="absolute inset-0 bg-black/30"/>
                 <div className="absolute top-4 left-4 flex gap-2">
                   <span className="px-2.5 py-1 rounded-md bg-white/95 text-[11px] font-bold text-ink">{c.category}</span>
                   <span className="px-2.5 py-1 rounded-md bg-emerald-600 text-[11px] font-bold text-white inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse"/>LIVE</span>
@@ -1096,7 +1091,7 @@ function NominalSelect({ c, presets, amount, setAmount }) {
           {presets.map((p) => (
             <div key={p}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${amount===p ? 'border-brand-600 bg-brand-50' : 'border-line bg-white'}`}>
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-brand-600 to-sky2-500 text-white flex items-center justify-center shrink-0"><Icon name="heart" size={18}/></div>
+              <div className="h-10 w-10 rounded-xl bg-brand-600 text-white flex items-center justify-center shrink-0"><Icon name="heart" size={18}/></div>
               <div className="min-w-0 flex-1">
                 <div className="font-bold text-ink leading-tight">Patungan Qurban</div>
                 <div className="text-sm font-extrabold text-brand-600">{fmtIDR(p)}</div>

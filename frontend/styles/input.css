@@ -122,13 +122,6 @@ html.dark pre.bg-ink { background-color: #060B17 !important; }
 /* Modal backdrop */
 html.dark .bg-ink\/30, html.dark .bg-ink\/40 { background-color: rgba(0,0,0,.7) !important; }
 
-/* Gradient stops (public hero etc.) */
-html.dark .from-brand-50 { --tw-gradient-from: rgba(46,65,145,.18) !important; }
-html.dark .from-white { --tw-gradient-from: #131C2E !important; }
-html.dark .via-white { --tw-gradient-stops: var(--tw-gradient-from), #0B1220, var(--tw-gradient-to) !important; }
-html.dark .to-sky2-50 { --tw-gradient-to: rgba(56,182,255,.15) !important; }
-html.dark .to-white { --tw-gradient-to: #131C2E !important; }
-
 /* Dark surface helpers */
 html.dark .surface { background: #0f172a; border-color: #1f2a44; color: #e2e8f0; }
 html.dark .surface-2 { background: #111a2e; border-color: #1f2a44; }

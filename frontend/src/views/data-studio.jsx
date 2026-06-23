@@ -268,7 +268,7 @@ function DSOverview({ daily, sources, campaigns, data }) {
       <div className="col-span-12 lg:col-span-7">
         <DSCard title="Channel Performance" subtitle="Last 30 days · sorted by Revenue">
           <div className="overflow-x-auto -mx-4">
-            <table className="w-full text-xs">
+            <table className="w-full min-w-[560px] text-xs">
               <thead>
                 <tr className="text-left text-[10px] uppercase tracking-wider text-mute border-b border-line">
                   <th className="px-4 py-2 font-bold">Source / Medium</th>
@@ -325,7 +325,7 @@ function DSOverview({ daily, sources, campaigns, data }) {
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-bold text-ink line-clamp-1">{c.title}</div>
                     <div className="mt-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full bg-gradient-to-r from-[#1A73E8] to-[#0F9D58]" style={{ width: Math.min(100, pct) + '%' }}/>
+                      <div className="h-full rounded-full bg-[#1A73E8]" style={{ width: Math.min(100, pct) + '%' }}/>
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -628,7 +628,7 @@ function DSTiktok({ data }) {
               { n:'wakaf-testimonial',       cvr:3.1, v:412_120 },
             ].map((r, i) => (
               <div key={i} className="flex items-center gap-2.5">
-                <div className="h-10 w-7 rounded bg-gradient-to-br from-[#FF0050] to-[#00F2EA] shrink-0"/>
+                <div className="h-10 w-7 rounded bg-[#FF0050] shrink-0"/>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold text-ink truncate">{r.n}</div>
                   <div className="text-[10px] text-mute">{fmtNum(r.v)} views</div>

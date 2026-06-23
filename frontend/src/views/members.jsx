@@ -108,12 +108,12 @@ function MembersView() {
             { value:'Cs',           label:'CS',         count: members.filter(m=>m.role==='Cs').length },
             { value:'Advertiser',   label:'Advertiser', count: members.filter(m=>m.role==='Advertiser').length },
           ]}/>
-          <div className="ml-auto"><SearchInput placeholder="Cari nama / email…" value={q} onChange={setQ} className="w-64"/></div>
+          <div className="ml-auto w-full sm:w-auto"><SearchInput placeholder="Cari nama / email…" value={q} onChange={setQ} className="w-full sm:w-64"/></div>
         </div>
       </Card>
 
-      <Card className="overflow-hidden">
-        <table className="w-full text-sm">
+      <Card className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="text-left text-xs uppercase tracking-wider text-mute border-b border-line bg-bg2/60">
               <th className="px-5 py-3 font-semibold">User</th>

@@ -112,7 +112,7 @@ const RoleBadge = ({ role }) => {
 const Progress = ({ value, max, height = 'h-2', showLabel = false, tone = 'brand' }) => {
   const pct = Math.min(100, (value / max) * 100);
   const toneCls = tone === 'brand'
-    ? 'bg-gradient-to-r from-brand-600 to-sky2-400'
+    ? 'bg-brand-600'
     : tone === 'ok' ? 'bg-emerald-500'
     : 'bg-slate-400';
   return (
@@ -504,7 +504,7 @@ const BarChart = ({ data: rawData, height = 160, accent='brand', labels }) => {
                 {fmtIDRShort(v)}
               </div>
               <div
-                className={'w-full rounded-t-md transition-all group-hover:opacity-80 ' + (accent === 'brand' ? 'bg-gradient-to-t from-brand-600 to-sky2-400' : 'bg-brand-600')}
+                className={'w-full rounded-t-md transition-all group-hover:opacity-80 bg-brand-600'}
                 style={{ height: h }}/>
             </div>
           );
@@ -592,7 +592,7 @@ const CampaignThumb = ({ c, className = '' }) => (
         <Icon name={c.icon || 'heart'} size={56} strokeWidth={1.2}/>
       </div>
     )}
-    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"/>
+    <div className="absolute inset-0 bg-black/30"/>
     <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
       <Badge tone="outline" size="sm" className="bg-white/90 backdrop-blur">
         {c.category}
@@ -822,7 +822,7 @@ const Toggle = ({ value, onChange, label, sub }) => (
 const SourcePill = ({ source }) => {
   const map = {
     facebook:  { label:'Meta Ads',  bg:'bg-[#1877F2]', tx:'text-white' },
-    instagram: { label:'Instagram', bg:'bg-gradient-to-br from-pink-500 via-rose-500 to-amber-400', tx:'text-white' },
+    instagram: { label:'Instagram', bg:'bg-[#E1306C]', tx:'text-white' },
     google:    { label:'Google',    bg:'bg-white border border-line', tx:'text-ink' },
     tiktok:    { label:'TikTok',    bg:'bg-black', tx:'text-white' },
     '(direct)':{ label:'Direct',    bg:'bg-slate-100', tx:'text-slate-700' },

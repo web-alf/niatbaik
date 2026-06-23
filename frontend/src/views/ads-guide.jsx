@@ -16,7 +16,7 @@ function AdsGuideModal({ open, onClose }) {
   return (
     <Modal open={open} onClose={onClose} size="xl"
       title={<span className="flex items-center gap-2">
-        <span className="h-7 w-7 rounded-md bg-gradient-to-br from-brand-600 to-sky2-400 text-white flex items-center justify-center"><Icon name="sparkle" size={14}/></span>
+        <span className="h-7 w-7 rounded-md bg-brand-600 text-white flex items-center justify-center"><Icon name="sparkle" size={14}/></span>
         Panduan Platform Iklan & Organik
       </span>}
       footer={<>
@@ -63,8 +63,7 @@ function AdsGuideModal({ open, onClose }) {
 // =========================================================
 function GuideHero({ color, title, sub, kpi }) {
   return (
-    <div className="rounded-2xl p-5 text-white relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${color} 0%, ${color}dd 100%)` }}>
-      <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/15 blur-2xl"/>
+    <div className="rounded-2xl p-5 text-white relative overflow-hidden" style={{ background: color }}>
       <div className="relative">
         <div className="text-[10px] font-bold uppercase tracking-widest opacity-90">Panduan Platform</div>
         <h2 className="mt-1 text-2xl font-extrabold">{title}</h2>

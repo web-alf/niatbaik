@@ -108,19 +108,19 @@ function AnalyticsView() {
 
       {/* Campaign performance table */}
       <Card className="p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
           <div>
             <div className="font-bold text-ink">Campaign Performance</div>
             <div className="text-xs text-mute mt-0.5">Diurutkan berdasarkan donasi 30 hari terakhir</div>
           </div>
-          <div className="flex items-center gap-2">
-            <SearchInput placeholder="Filter campaign…" className="w-56"/>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <SearchInput placeholder="Filter campaign…" className="w-full sm:w-56"/>
             <Btn variant="outline" tone="ink" size="sm" icon="download">Export</Btn>
           </div>
         </div>
 
         <div className="overflow-x-auto -mx-5">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-mute border-y border-line bg-bg2/60">
                 <th className="px-5 py-2.5 font-semibold">Campaign</th>
@@ -151,7 +151,7 @@ function AnalyticsView() {
                   <tr key={c.id} className="border-b border-line last:border-0 hover:bg-bg2/60">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-8 w-8 rounded-md shrink-0 overflow-hidden bg-bg2" style={window.campaignBgStyle ? window.campaignBgStyle(c) : {background: c.thumb || 'linear-gradient(135deg,#2E4191,#38B6FF)'}}/>
+                        <div className="h-8 w-8 rounded-md shrink-0 overflow-hidden bg-bg2" style={window.campaignBgStyle ? window.campaignBgStyle(c) : {background: c.thumb || '#2E4191'}}/>
                         <div className="font-semibold text-ink line-clamp-1 max-w-[280px]">{c.title}</div>
                       </div>
                     </td>

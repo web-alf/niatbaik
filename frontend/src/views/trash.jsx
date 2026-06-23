@@ -110,8 +110,8 @@ function TrashView() {
             { value: 'user', label: 'Users', count: typeCounts.user },
             { value: 'transaction', label: 'Transaksi', count: typeCounts.transaction },
           ]}/>
-          <div className="ml-auto flex items-center gap-2">
-            <SearchInput placeholder="Cari di trash…" value={q} onChange={setQ} className="w-64"/>
+          <div className="ml-auto w-full sm:w-auto flex flex-wrap items-center gap-2">
+            <SearchInput placeholder="Cari di trash…" value={q} onChange={setQ} className="w-full sm:w-64"/>
             <Select value={sort} onChange={setSort} options={[{ value: 'recent', label: 'Terbaru' }, { value: 'expire', label: 'Mendekati expired' }]}/>
           </div>
         </div>

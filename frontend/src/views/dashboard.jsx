@@ -225,8 +225,8 @@ function DashboardView() {
             </div>
           </div>
           {tw.txnShowToolbar && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <SearchInput placeholder="Cari invoice / donatur…" className="w-64" value={txnQuery} onChange={setTxnQuery}/>
+            <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
+              <SearchInput placeholder="Cari invoice / donatur…" className="w-full sm:w-64" value={txnQuery} onChange={setTxnQuery}/>
               <Select value={txnStatusFilter} onChange={setTxnStatusFilter} icon="filter" options={[{value:'all',label:'Semua status'},{value:'Paid',label:'Paid'},{value:'Pending',label:'Pending'},{value:'Failed',label:'Failed'}]}/>
               {tw.txnShowMethodFilter && (
                 <Select value={txnMethodFilter} onChange={setTxnMethodFilter} icon="creditcard" options={[

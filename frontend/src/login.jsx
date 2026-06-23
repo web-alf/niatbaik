@@ -88,10 +88,7 @@ function LoginPage({ onLogin }) {
     <div className="min-h-screen flex flex-col lg:flex-row bg-white dark:bg-slate-950">
 
       {/* ====== LEFT: Branding panel ====== */}
-      <div className="lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 text-white p-8 lg:p-12 flex flex-col">
-        {/* Decorative blurs */}
-        <div className="absolute -top-32 -right-24 h-96 w-96 rounded-full bg-sky2-400/30 blur-3xl"/>
-        <div className="absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-brand-400/30 blur-3xl"/>
+      <div className="lg:w-1/2 relative overflow-hidden bg-brand-700 text-white p-8 lg:p-12 flex flex-col">
 
         {/* Logo */}
         <div className="relative">
@@ -201,7 +198,7 @@ function LoginPage({ onLogin }) {
               </label>
 
               <button type="submit" disabled={loading}
-                className="w-full inline-flex items-center justify-center gap-2 font-extrabold rounded-xl text-white bg-gradient-to-r from-brand-600 to-sky2-500 hover:from-brand-700 hover:to-sky2-500 shadow-card transition-all text-base px-5 py-3 disabled:opacity-60">
+                className="w-full inline-flex items-center justify-center gap-2 font-extrabold rounded-xl text-white bg-brand-600 hover:bg-brand-700 shadow-card transition-all text-base px-5 py-3 disabled:opacity-60">
                 {loading ? (
                   <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/></svg> Memproses...</>
                 ) : (

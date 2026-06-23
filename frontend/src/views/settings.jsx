@@ -167,7 +167,7 @@ function ThemesPanel({ settings, onSave }) {
       // Override tailwind brand utility usages by injecting a style tag
       let el = document.getElementById('nb-theme-vars');
       if (!el) { el = document.createElement('style'); el.id = 'nb-theme-vars'; document.head.appendChild(el); }
-      el.textContent = `.text-brand-600{color:${c} !important}.bg-brand-600{background-color:${c} !important}.border-brand-600{border-color:${c} !important}.from-brand-600{--tw-gradient-from:${c} !important}.hover\\:bg-brand-700:hover{background-color:${c} !important}`;
+      el.textContent = `.text-brand-600{color:${c} !important}.bg-brand-600{background-color:${c} !important}.border-brand-600{border-color:${c} !important}.hover\\:bg-brand-700:hover{background-color:${c} !important}`;
     } catch {}
   };
   useEffectA(() => { if (settings?.primary_color) applyTheme(settings.primary_color); }, [settings]);
@@ -899,7 +899,7 @@ function TrackingPanel({ settings, onSave }) {
     { name:'Google Analytics 4',    status:'not', icon:'chart',  color:'bg-amber-500' },
     { name:'TikTok Pixel',          status:'not', icon:'pixel',  color:'bg-black' },
     { name:'TikTok Events API',     status:'not', icon:'shield', color:'bg-black' },
-    { name:'Looker Studio (Data Studio)', status:'not', icon:'chart', color:'bg-gradient-to-br from-[#4285F4] via-[#0F9D58] to-[#F4B400]' },
+    { name:'Looker Studio (Data Studio)', status:'not', icon:'chart', color:'bg-[#4285F4]' },
   ];
   const events = ['PageView','ViewContent','InitiateCheckout','AddPaymentInfo','Lead','CompleteDonation','Purchase'];
   // Real verification of pixel events happens in each platform's official debug tool
@@ -1082,7 +1082,7 @@ function TrackingPanel({ settings, onSave }) {
         <div className="space-y-3">
           {(Array.isArray(lookerReports)?lookerReports:[]).map((r, i) => (
             <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-line">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-[#4285F4] via-[#0F9D58] to-[#F4B400] text-white flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 rounded-lg bg-[#4285F4] text-white flex items-center justify-center shrink-0">
                 <Icon name="chart" size={18}/>
               </div>
               <div className="flex-1 min-w-0">

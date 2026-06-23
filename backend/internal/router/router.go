@@ -34,10 +34,12 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	revokedTokenRepo := repository.NewRevokedTokenRepo(db)
 	paymentStatusRepo := repository.NewPaymentStatusRepo(db)
 	processedWebhookRepo := repository.NewProcessedWebhookRepo(db)
+	trackingRepo := repository.NewTrackingRepo(db)
+	trackingService := service.NewTrackingService(trackingRepo, settingRepo, cfg)
 
 	// Initialize services
 	authService := service.NewAuthService(db, cfg, revokedTokenRepo)
-	paymentService := service.NewPaymentService(db, invoiceRepo, campaignRepo, settingRepo, fundraiserRepo, commissionRepo)
+	paymentService := service.NewPaymentService(db, invoiceRepo, campaignRepo, settingRepo, fundraiserRepo, commissionRepo, trackingService)
 	mootaService := service.NewMootaService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
 	flipService := service.NewFlipService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
 	donationService := service.NewDonationService(db, cfg, invoiceRepo, campaignRepo, donationRepo, settingRepo, paymentMethodRepo, flipService, paymentService)

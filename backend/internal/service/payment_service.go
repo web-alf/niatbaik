@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/model"
@@ -17,6 +18,7 @@ type PaymentService struct {
 	settingRepo    *repository.SettingRepo
 	fundraiserRepo *repository.FundraiserRepo
 	commissionRepo *repository.CommissionRepo
+	trackingSvc    *TrackingService
 }
 
 func NewPaymentService(
@@ -26,6 +28,7 @@ func NewPaymentService(
 	settingRepo *repository.SettingRepo,
 	fundraiserRepo *repository.FundraiserRepo,
 	commissionRepo *repository.CommissionRepo,
+	trackingSvc *TrackingService,
 ) *PaymentService {
 	return &PaymentService{
 		db:             db,
@@ -34,11 +37,12 @@ func NewPaymentService(
 		settingRepo:    settingRepo,
 		fundraiserRepo: fundraiserRepo,
 		commissionRepo: commissionRepo,
+		trackingSvc:    trackingSvc,
 	}
 }
 
 func (s *PaymentService) ProcessPayment(invoice *model.Invoice) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
 
 		// Idempotency guard: re-load invoice under lock and bail if already paid.
@@ -180,4 +184,25 @@ func (s *PaymentService) ProcessPayment(invoice *model.Invoice) error {
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// Transaction committed = invoice is genuinely paid. Fire server-side conversion
+	// events in a goroutine so a slow/down Meta/TikTok never blocks payment confirmation.
+	// Snapshot the invoice value (the caller's pointer may be reused later). Anonymous
+	// donations still fire — value/currency + event_id are enough for attribution, and
+	// their PII fields are simply empty in the hashed user_data (valid for Meta/TikTok).
+	if s.trackingSvc != nil {
+		snap := *invoice
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[tracking] SendConversions panic: %v", r)
+				}
+			}()
+			s.trackingSvc.SendConversions(&snap)
+		}()
+	}
+	return nil
 }

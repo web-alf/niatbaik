@@ -45,6 +45,7 @@ func Migrate(db *gorm.DB) error {
 		&model.Donation{},
 		&model.AdCost{},
 		&model.PixelEvent{},
+		&model.TrackingDispatchLog{},
 		&model.RevokedToken{},
 		&model.PaymentStatus{},
 		&model.ProcessedWebhook{},

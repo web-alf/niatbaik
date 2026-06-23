@@ -80,6 +80,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	paymentMethodHandler := handler.NewPaymentMethodHandler(paymentMethodService)
 	paymentStatusHandler := handler.NewPaymentStatusHandler(paymentStatusRepo)
 	dataStudioHandler := handler.NewDataStudioHandler(dataStudioService)
+	trackingHandler := handler.NewTrackingHandler(settingRepo, trackingRepo)
 
 	// Realtime change notifier: a global revision is bumped after every successful
 	// mutating request (RevisionBumper), and long-poll clients block on /events until
@@ -189,6 +190,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	admin.PUT("/settings", settingHandler.Update)
 	admin.POST("/settings/test-email", settingHandler.TestEmail)
 	admin.GET("/settings/moota-balance", settingHandler.GetMootaBalance)
+	admin.GET("/admin/tracking/status", trackingHandler.GetStatus)
 
 	admin.GET("/admin/payment-methods", paymentMethodHandler.List)
 	admin.POST("/admin/payment-methods", paymentMethodHandler.Create)

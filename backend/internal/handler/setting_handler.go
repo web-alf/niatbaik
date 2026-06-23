@@ -84,5 +84,5 @@ func (h *SettingHandler) GetMootaBalance(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse(err.Error()))
 	}
-	return c.JSON(http.StatusOK, response.SuccessResponse(res.Data, "success"))
+	return c.JSON(http.StatusOK, response.SuccessResponse(res, "success"))
 }

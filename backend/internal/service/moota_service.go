@@ -273,20 +273,69 @@ func (s *MootaService) HandleWebhook(mutations []MootaWebhookPayload) ([]string,
 	return processed, nil
 }
 
-// MootaBankResponse represents the banks array returned by Moota API /v2/bank
-type MootaBankResponse struct {
-	Data []struct {
-		BankID        string  `json:"bank_id"`
-		AccountName   string  `json:"name"`
-		AccountNumber string  `json:"account_number"`
-		BankType      string  `json:"bank_type"`
-		Balance       float64 `json:"balance"`
-		IsActive      bool    `json:"is_active"`
-	} `json:"data"`
+// MootaBankResponse represents the banks array returned by Moota API /v2/bank.
+//
+// Moota types `balance` as a STRING ("0.00"), so a plain float64 fails json.Unmarshal
+// with `cannot unmarshal string into ... balance of type float64` and 500s the whole
+// "Cek Saldo". flexFloat (defined above for the webhook) accepts both number and numeric
+// string. The account-holder name comes as `atas_nama` (fallback `username`/`name`), and
+// there is no `bank_id` in v2 — use the row `id`. Captured raw fields:
+//   {"id":..,"username":"..","atas_nama":"..","account_number":"111111",
+//    "bank_type":"vaSandbox","balance":"0.00", ...}
+type MootaBankRow struct {
+	ID            flexString `json:"id"`
+	BankID        flexString `json:"bank_id"`
+	AccountName   string     `json:"name"`
+	AtasNama      string     `json:"atas_nama"`
+	Username      string     `json:"username"`
+	AccountNumber flexString `json:"account_number"`
+	BankType      string     `json:"bank_type"`
+	Balance       flexFloat  `json:"balance"`
 }
 
-// CheckBalance calls the Moota API to fetch the current balances of connected banks.
-func (s *MootaService) CheckBalance() (*MootaBankResponse, error) {
+type MootaBankResponse struct {
+	Data []MootaBankRow `json:"data"`
+}
+
+// MootaBankOut is the normalized, frontend-facing bank row (stable field names + numeric
+// balance) so the admin UI doesn't have to know Moota's raw quirks.
+type MootaBankOut struct {
+	BankID        string  `json:"bank_id"`
+	Name          string  `json:"name"`
+	AccountNumber string  `json:"account_number"`
+	BankType      string  `json:"bank_type"`
+	Balance       float64 `json:"balance"`
+}
+
+// normalize maps a raw Moota row to the stable output shape, picking the best available
+// name and a non-empty id.
+func (r MootaBankRow) normalize() MootaBankOut {
+	name := r.AtasNama
+	if name == "" {
+		name = r.Username
+	}
+	if name == "" {
+		name = r.AccountName
+	}
+	id := string(r.BankID)
+	if id == "" {
+		id = string(r.ID)
+	}
+	if id == "" {
+		id = string(r.AccountNumber)
+	}
+	return MootaBankOut{
+		BankID:        id,
+		Name:          name,
+		AccountNumber: string(r.AccountNumber),
+		BankType:      r.BankType,
+		Balance:       float64(r.Balance),
+	}
+}
+
+// CheckBalance calls the Moota API to fetch the current balances of connected banks,
+// returning normalized rows (stable field names + numeric balance).
+func (s *MootaService) CheckBalance() ([]MootaBankOut, error) {
 	setting, err := s.settingRepo.Get()
 	if err != nil {
 		return nil, err
@@ -346,5 +395,9 @@ func (s *MootaService) CheckBalance() (*MootaBankResponse, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&banks); err != nil {
 		return nil, err
 	}
-	return &banks, nil
+	out := make([]MootaBankOut, 0, len(banks.Data))
+	for _, row := range banks.Data {
+		out = append(out, row.normalize())
+	}
+	return out, nil
 }

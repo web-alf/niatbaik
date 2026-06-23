@@ -4,6 +4,15 @@ function AdvertiserView() {
   const campaigns = window.CAMPAIGNS || [];
   const ov = window.ANALYTICS_OVERVIEW || {};
   const [costInputs, setCostInputs] = useStateA({ meta: 0, google: 0, tiktok: 0 });
+  // Per-platform pixel/connection status from the backend (config + last dispatch log),
+  // replacing the hardcoded "Active/Error" mock badges. Empty until fetched.
+  const [trackingStatus, setTrackingStatus] = useStateA(null);
+  useEffectA(() => {
+    if (!window.api?.trackingStatus) return;
+    window.api.trackingStatus()
+      .then((res) => setTrackingStatus(res?.data?.platforms || []))
+      .catch(() => setTrackingStatus([]));
+  }, []);
 
   return (
     <div className="space-y-5">
@@ -104,42 +113,49 @@ function AdvertiserView() {
             <Btn size="sm" variant="ghost" tone="ink" iconRight="arrowR">Settings</Btn>
           </div>
           <div className="space-y-2">
-            {[
-              { n:'Meta Pixel · CAPI', s:'Active', tone:'ok' },
-              { n:'Google Tag Manager', s:'Active', tone:'ok' },
-              { n:'GA4', s:'Active', tone:'ok' },
-              { n:'Google Ads Conversion', s:'Not Connected', tone:'slate' },
-              { n:'TikTok Pixel', s:'Error', tone:'bad' },
-            ].map((p) => (
-              <div key={p.n} className="flex items-center gap-3 p-2.5 rounded-lg border border-line">
-                <div className={`h-8 w-8 rounded-md flex items-center justify-center ${p.tone==='ok' ? 'bg-emerald-50 text-emerald-600' : p.tone==='bad' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-500'}`}><Icon name="pixel" size={14}/></div>
-                <div className="flex-1 font-semibold text-ink text-sm">{p.n}</div>
-                <Badge tone={p.tone} dot={p.tone!=='slate'}>{p.s}</Badge>
-              </div>
-            ))}
+            {(trackingStatus || []).length === 0 && (
+              <div className="text-xs text-mute p-3">Memuat status pixel…</div>
+            )}
+            {(trackingStatus || []).map((p) => {
+              const tone = p.status === 'active' ? 'ok' : p.status === 'error' ? 'bad' : p.status === 'configured' ? 'warn' : 'slate';
+              const label = p.status === 'active' ? 'Active' : p.status === 'error' ? 'Error' : p.status === 'configured' ? 'Configured' : 'Not Connected';
+              const nameMap = { meta: 'Meta Pixel · CAPI', google: 'Google Ads · GA4', tiktok: 'TikTok Pixel · EAPI' };
+              return (
+                <div key={p.platform} className="flex items-center gap-3 p-2.5 rounded-lg border border-line">
+                  <div className={`h-8 w-8 rounded-md flex items-center justify-center ${tone==='ok' ? 'bg-emerald-50 text-emerald-600' : tone==='bad' ? 'bg-rose-50 text-rose-600' : tone==='warn' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'}`}><Icon name="pixel" size={14}/></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-ink text-sm">{nameMap[p.platform] || p.platform}</div>
+                    {p.status === 'error' && p.last_event && p.last_event.error && (
+                      <div className="text-[10px] text-rose-600 truncate" title={p.last_event.error}>
+                        HTTP {p.last_event.http_status || '?'} · {String(p.last_event.error).slice(0, 60)}
+                      </div>
+                    )}
+                  </div>
+                  <Badge tone={tone} dot={p.status !== 'not_connected'}>{label}</Badge>
+                </div>
+              );
+            })}
           </div>
         </Card>
 
         <Card className="p-5">
           <div className="flex items-center justify-between mb-3">
             <div className="font-bold text-ink">Conversion Events (24 jam)</div>
-            <Badge tone="ok" dot>Real-time</Badge>
+            <Badge tone="ok" dot>Server-side</Badge>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {[
-              { n:'PageView', v:12340, color:'#2E4191' },
-              { n:'ViewContent', v:8120, color:'#38B6FF' },
-              { n:'InitiateCheckout', v:3420, color:'#F59E0B' },
-              { n:'AddPaymentInfo', v:2104, color:'#DC2626' },
-              { n:'Lead', v:1810, color:'#16A34A' },
-              { n:'CompleteDonation', v:842, color:'#7C3AED' },
-              { n:'Purchase', v:824, color:'#16A34A' },
-            ].map((e) => (
-              <div key={e.n} className="p-3 rounded-lg bg-bg2 border border-line">
-                <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{background:e.color}}/><div className="text-xs text-mute">{e.n}</div></div>
-                <div className="mt-1 text-xl font-bold text-ink">{fmtNum(e.v)}</div>
-              </div>
-            ))}
+            {(trackingStatus || []).map((p) => {
+              const colorMap = { meta: '#1877F2', google: '#34A853', tiktok: '#000000' };
+              return (
+                <div key={p.platform} className="p-3 rounded-lg bg-bg2 border border-line">
+                  <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full" style={{background: colorMap[p.platform] || '#94A3B8'}}/><div className="text-xs text-mute capitalize">{p.platform}</div></div>
+                  <div className="mt-1 text-xl font-bold text-ink">{fmtNum(p.recent_count_24h || 0)}</div>
+                </div>
+              );
+            })}
+            {(trackingStatus || []).length === 0 && (
+              <div className="col-span-2 text-xs text-mute p-3 text-center">Belum ada event conversion tercatat.</div>
+            )}
           </div>
         </Card>
       </div>

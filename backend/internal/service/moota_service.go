@@ -326,8 +326,13 @@ func (s *MootaService) CheckBalance() (*MootaBankResponse, error) {
 		// of a raw "moota API error 401: {...}" dump, so an admin sees WHAT to fix (the
 		// API token) and WHERE (app.moota.co → Apps & API), not an opaque status line.
 		switch resp.StatusCode {
-		case http.StatusUnauthorized, http.StatusForbidden:
-			return nil, fmt.Errorf("API Key Moota ditolak (HTTP %d). Token salah/kedaluwarsa — buat ulang Personal Access Token di app.moota.co → menu Apps & API, lalu tempel di Settings → Payment → Moota → API Key", resp.StatusCode)
+		case http.StatusForbidden:
+			// 403 from Moota v2 is almost always "Invalid scope(s) provided." — the token
+			// was created with granular scopes (bank_read/mutation_read) which the v2 API
+			// rejects; it needs the catch-all "API" scope. Tell the admin exactly that.
+			return nil, fmt.Errorf("API Key Moota ditolak: scope tidak sesuai (HTTP 403). Buat ulang Personal Access Token di app.moota.co → Apps & API dengan scope \"API\" (Dapat menggunakan semua API) — scope Bank_read/Mutation_read tidak diterima API v2. Lalu tempel di Settings → Payment → Moota → API Key")
+		case http.StatusUnauthorized:
+			return nil, fmt.Errorf("API Key Moota ditolak (HTTP 401). Token salah/kedaluwarsa — buat ulang Personal Access Token di app.moota.co → Apps & API (scope \"API\"), lalu tempel di Settings → Payment → Moota → API Key")
 		case http.StatusNotFound:
 			return nil, fmt.Errorf("endpoint Moota tidak ditemukan (HTTP 404). Periksa Endpoint Moota di Settings (default app.moota.co)")
 		case http.StatusTooManyRequests:

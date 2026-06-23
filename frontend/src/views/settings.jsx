@@ -885,6 +885,10 @@ function SecretInput({ label, value, onChange, configured, placeholder }) {
 function TrackingPanel({ settings, onSave }) {
   const { showToast } = useApp();
   const [pixelIds, setPixelIds] = useStateA({});
+  // Server-side token presence flags (read-only booleans from backend; token values
+  // are secret and never echoed back). Drives the "Tersimpan" badge on credential inputs.
+  const [tokenSet, setTokenSet] = useStateA({});
+  const [showToken, setShowToken] = useStateA({});
   // No demo IDs — each input is driven by real saved state (pixelIds, loaded from
   // settings below). Status starts neutral until a real ID is entered.
   const pixels = [
@@ -934,6 +938,10 @@ function TrackingPanel({ settings, onSave }) {
       'Google Analytics 4': settings.ga4_measurement_id || '',
       'TikTok Pixel': settings.tiktok_pixel_id || '',
       'Looker Studio (Data Studio)': settings.looker_studio_embed || '',
+    });
+    setTokenSet({
+      meta: !!settings.meta_capi_token_set,
+      tiktok: !!settings.tiktok_access_token_set,
     });
   }, [settings]);
 
@@ -995,6 +1003,40 @@ function TrackingPanel({ settings, onSave }) {
             </div>
           ))}
         </div>
+        {/* Server-side conversion credentials (CAPI / EAPI) — secrets, never echoed back.
+            Empty input = keep existing token (backend maps only non-nil pointer fields). */}
+        <div className="mt-5 pt-4 border-t border-line">
+          <div className="text-sm font-bold text-ink mb-1">Server-side Conversion Credentials</div>
+          <div className="text-xs text-mute mb-3">Token rahasia untuk Meta CAPI & TikTok Events API. Disimpan terenkripsi di server; kosongkan jika tidak ingin mengganti token yang sudah ada.</div>
+          {[
+            { tokenKey:'meta_capi_token', testKey:'meta_test_event_code', label:'Meta CAPI Access Token', placeholder:'EAAG…', saved: tokenSet.meta },
+            { tokenKey:'tiktok_access_token', testKey:'tiktok_test_event_code', label:'TikTok Events API Token', placeholder:'tt…', saved: tokenSet.tiktok },
+          ].map((c) => (
+            <div key={c.tokenKey} className="mb-3">
+              <label className="text-xs font-semibold text-mute flex items-center gap-1.5">
+                {c.label}
+                {c.saved && <Badge tone="ok" size="sm" dot>Tersimpan</Badge>}
+              </label>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  type={showToken[c.tokenKey] ? 'text' : 'password'}
+                  className="field flex-1 font-mono text-xs"
+                  placeholder={c.saved ? '•••••• (kosongkan jika tidak diganti)' : c.placeholder}
+                  onChange={(e) => setPixelIds(prev => ({ ...prev, [c.tokenKey]: e.target.value }))}
+                />
+                <button type="button" className="text-xs font-semibold text-brand-600 hover:underline whitespace-nowrap" onClick={() => setShowToken(prev => ({ ...prev, [c.tokenKey]: !prev[c.tokenKey] }))}>
+                  {showToken[c.tokenKey] ? 'Sembunyikan' : 'Lihat'}
+                </button>
+              </div>
+              <input
+                type="text"
+                className="field mt-2 font-mono text-xs"
+                placeholder={`${c.label} — Test Event Code (sandbox)`}
+                onChange={(e) => setPixelIds(prev => ({ ...prev, [c.testKey]: e.target.value }))}
+              />
+            </div>
+          ))}
+        </div>
         {/* Global Meta Pixel — CAPI + per-page event mapping (campaigns inherit on Default) */}
         <div className="mt-5 pt-4 border-t border-line">
           <div className="flex items-center justify-between">
@@ -1019,11 +1061,17 @@ function TrackingPanel({ settings, onSave }) {
           <SaveButton onClick={() => onSave({
             meta_pixel_id: pixelIds['Meta Pixel'] || '',
             meta_capi_enabled: capiEnabled,
+            // Credential secrets: send only when the admin typed a value; undefined keeps
+            // the existing stored token (backend maps non-nil pointer fields only).
+            meta_capi_token: pixelIds.meta_capi_token || undefined,
+            meta_test_event_code: pixelIds.meta_test_event_code || undefined,
             event_tracking_config: JSON.stringify(metaEvents),
             gtm_id: pixelIds['Google Tag Manager'] || '',
             google_ads_conversion_id: pixelIds['Google Ads Conversion'] || '',
             ga4_measurement_id: pixelIds['Google Analytics 4'] || '',
             tiktok_pixel_id: pixelIds['TikTok Pixel'] || '',
+            tiktok_access_token: pixelIds.tiktok_access_token || undefined,
+            tiktok_test_event_code: pixelIds.tiktok_test_event_code || undefined,
             looker_studio_embed: pixelIds['Looker Studio (Data Studio)'] || '',
           })}>Simpan Semua Tracking</SaveButton>
         </div>

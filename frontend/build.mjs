@@ -16,6 +16,7 @@ const outDir = join(root, 'public');
 
 const FILES = [
   'api.jsx','data.jsx','icons.jsx','components.jsx',
+  'lib/tracking.jsx',
   'views/dashboard.jsx','views/campaigns.jsx','views/campaign-editor.jsx','views/analytics.jsx',
   'views/advertiser.jsx','views/data-studio.jsx','views/cs-inbox.jsx','views/fundraiser.jsx',
   'views/members.jsx','views/gateways.jsx','views/profile.jsx','views/settings.jsx',

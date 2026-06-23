@@ -292,6 +292,9 @@ const api = {
   dataStudioFunnel()   { return this.get('/datastudio/funnel'); },
   dataStudioGeo()      { return this.get('/datastudio/geo'); },
 
+  // Tracking status — per-platform pixel/connection health (config + last dispatch).
+  trackingStatus()     { return this.get('/admin/tracking/status'); },
+
   // Payment methods (admin)
   paymentMethods()              { return this.get('/admin/payment-methods'); },
   createPaymentMethod(data)     { return this.post('/admin/payment-methods', data); },

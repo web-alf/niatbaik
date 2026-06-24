@@ -113,7 +113,7 @@ const SANITIZE_RAW_KEYS = new Set([
   // (never rendered as HTML) so they must be preserved byte-for-byte; <>-escaping them
   // would corrupt the JSON and break the backend's JSON.parse / unmarshal.
   'manual_banks', 'payment_method_types', 'flip_code_config', 'looker_reports',
-  'payment_channel_gateways',
+  'payment_channel_gateways', 'form_items_config',
 ]);
 
 function sanitizeBody(obj) {

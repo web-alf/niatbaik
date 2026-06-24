@@ -49,6 +49,11 @@ type Campaign struct {
 	MaxDonation      int64   `gorm:"default:0" json:"max_donation"`
 	PaymentConfig    string  `gorm:"type:text" json:"payment_config"` // JSON: per-campaign custom payment rows
 	PixelConfig      string  `gorm:"type:text" json:"pixel_config"`   // JSON: Meta CAPI token, test event, event map
+	// FormItemsConfig holds the custom-form item list / calculator for the campaign's
+	// form_style/form_type: {kind:"qurban|package2|zfitrah|zakat_calc", items:[...], calc:{...}}.
+	// Drives the editor's "+ Add Qurban/Package/Zakat" builders and the public item picker.
+	// Empty = legacy nominal-preset behavior. Opaque JSON (like payment_config/pixel_config).
+	FormItemsConfig  string  `gorm:"type:text" json:"form_items_config"`
 
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`

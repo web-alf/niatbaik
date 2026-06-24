@@ -82,6 +82,7 @@ func (s *CampaignService) Create(req *request.CreateCampaignRequest, userID uuid
 		FormFieldsConfig: req.FormFieldsConfig,
 		PaymentConfig:    req.PaymentConfig,
 		PixelConfig:      req.PixelConfig,
+		FormItemsConfig:  req.FormItemsConfig,
 	}
 
 	if req.Target != nil {
@@ -197,6 +198,9 @@ func (s *CampaignService) Update(id uuid.UUID, req *request.UpdateCampaignReques
 	}
 	if req.PixelConfig != "" {
 		c.PixelConfig = req.PixelConfig
+	}
+	if req.FormItemsConfig != "" {
+		c.FormItemsConfig = req.FormItemsConfig
 	}
 	if req.WANotification != nil {
 		c.WANotification = *req.WANotification

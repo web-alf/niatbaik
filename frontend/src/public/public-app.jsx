@@ -991,11 +991,138 @@ function CampaignPage({ c: listItem, onNav }) {
   );
 }
 
+// parseFormItemsConfig safely parses campaign.form_items_config into {kind, items, calc}.
+// Empty/invalid → empty so the donor form falls back to plain nominal presets.
+function parseFormItemsConfig(raw) {
+  let o = {};
+  if (raw && typeof raw === 'object') o = raw;
+  else if (typeof raw === 'string' && raw.trim()) { try { o = JSON.parse(raw) || {}; } catch { o = {}; } }
+  return {
+    kind: o.kind || '',
+    items: Array.isArray(o.items) ? o.items : [],
+    calc: (o.calc && typeof o.calc === 'object') ? o.calc : {},
+  };
+}
+
+// itemImg resolves a stored item image filename to a display URL (mediaUrl, dev-aware).
+function itemImg(image) {
+  if (!image) return '';
+  const path = String(image).startsWith('/uploads/') || /^https?:\/\//.test(image) ? image : '/uploads/' + image;
+  return window.mediaUrl ? window.mediaUrl(path) : path;
+}
+
+// ItemSelect renders the donor-facing item picker for qurban / package2 / zfitrah. Each
+// card shows image + name + price (+ qurban subtitle). Selecting sets the donation amount
+// to the item's price.
+function ItemSelect({ c, kind, items, amount, setAmount, customInput }) {
+  const heading = kind === 'qurban' ? 'Pilih hewan qurban' : kind === 'zfitrah' ? 'Pilih paket zakat fitrah' : 'Pilih paket donasi';
+  return (
+    <div>
+      <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">{heading}</div>
+      <div className="space-y-2.5">
+        {items.map((it) => {
+          const price = Number(it.price) || 0;
+          const selected = amount === price && price > 0;
+          const img = itemImg(it.image);
+          const sub = kind === 'qurban'
+            ? [it.animal_type, it.share && it.share !== '1' ? `Patungan ${it.share}` : (it.share === '1' ? 'Full' : ''), it.weight].filter(Boolean).join(' · ')
+            : (it.desc || '');
+          return (
+            <button key={it.id || it.name} onClick={() => setAmount(price)}
+              className={`w-full flex items-center gap-3 p-2.5 rounded-2xl border-2 text-left transition-all ${selected ? 'border-brand-600 bg-brand-50 shadow-card' : 'border-line bg-white hover:border-brand-200'}`}>
+              <div className="shrink-0 h-16 w-16 rounded-xl overflow-hidden bg-bg2 flex items-center justify-center">
+                {img ? <img src={img} alt="" className="h-full w-full object-cover" onError={(e)=>{e.target.style.display='none';}}/> : <Icon name="heart" size={22} className="text-brand-300"/>}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-ink leading-tight truncate">{it.name || 'Paket'}</div>
+                {sub && <div className="text-[11px] text-mute truncate">{sub}</div>}
+                <div className="text-sm font-extrabold text-brand-600 mt-0.5">{fmtIDR(price)}</div>
+              </div>
+              <span className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-extrabold border-2 ${selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-brand-200 text-brand-600'}`}>
+                {selected ? 'Dipilih ✓' : 'Pilih'}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {customInput}
+    </div>
+  );
+}
+
+// ZakatCalc renders the donor zakat calculator (Maal/Profesi/Emas/Pertanian). The donor
+// enters their base (harta / gram emas / hasil panen kg); the computed zakat becomes the
+// donation amount.
+function ZakatCalc({ calc, amount, setAmount }) {
+  const [base, setBase] = useState(0);
+  const type = calc.type || 'maal';
+  const rate = Number(calc.rate) || 2.5;
+
+  let computed = 0, label = '', placeholder = '';
+  if (type === 'emas') {
+    label = 'Berat emas (gram)';
+    placeholder = 'cth 100';
+    computed = Math.round((Number(base) || 0) * (Number(calc.gold_price_per_gram) || 0) * 0.025);
+  } else if (type === 'pertanian') {
+    label = 'Hasil panen (kg)';
+    placeholder = 'cth 1000';
+    const pct = calc.agri_irrigation === 'mandiri' ? 0.05 : 0.10;
+    const kg = Number(base) || 0;
+    const nisab = Number(calc.agri_nisab_kg) || 520;
+    computed = kg >= nisab ? Math.round(kg * (Number(calc.agri_price_per_kg) || 0) * pct) : 0;
+  } else {
+    label = type === 'profesi' ? 'Penghasilan (Rp)' : 'Total harta (Rp)';
+    placeholder = 'cth 50.000.000';
+    computed = Math.round((Number(base) || 0) * (rate / 100));
+  }
+
+  useEffect(() => { setAmount(computed > 0 ? computed : 0); /* eslint-disable-next-line */ }, [computed]);
+
+  const typeLabel = { maal:'Zakat Maal', profesi:'Zakat Penghasilan', emas:'Zakat Emas', pertanian:'Zakat Pertanian' }[type] || 'Zakat';
+  return (
+    <div>
+      <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">{typeLabel}</div>
+      <div className="rounded-2xl border-2 border-line bg-white p-4 space-y-3">
+        <div>
+          <label className="text-xs font-bold text-mute">{label}</label>
+          <div className="mt-1 flex items-center rounded-xl border-2 border-line bg-white focus-within:border-brand-600">
+            {type !== 'emas' && type !== 'pertanian' && <span className="pl-3 text-mute font-bold">Rp</span>}
+            <input type="number" min="0" inputMode="numeric" value={base} onChange={(e) => setBase(Math.max(0, Math.floor(+e.target.value || 0)))} placeholder={placeholder}
+              className="flex-1 px-3 py-3 outline-none font-bold text-ink bg-transparent"/>
+          </div>
+        </div>
+        <div className="flex items-center justify-between pt-2 border-t border-line">
+          <span className="text-sm font-bold text-ink">Zakat yang ditunaikan</span>
+          <span className="text-lg font-extrabold text-brand-600">{fmtIDR(computed)}</span>
+        </div>
+        {type === 'pertanian' && (
+          <div className="text-[11px] text-mute leading-relaxed">
+            Nisab {Number(calc.agri_nisab_kg) || 520} kg · rate {calc.agri_irrigation === 'mandiri' ? '5% (mandiri)' : '10% (tadah hujan)'}. Zakat wajib bila hasil ≥ nisab.
+          </div>
+        )}
+        {(type === 'maal' || type === 'profesi') && <div className="text-[11px] text-mute">Rate {rate}% dari nilai harta/penghasilan.</div>}
+        {type === 'emas' && <div className="text-[11px] text-mute">Harga emas Rp {fmtNum(Number(calc.gold_price_per_gram)||0)}/gram × 2.5%.</div>}
+      </div>
+    </div>
+  );
+}
+
 // -------- Nominal selector: 6 form_style variants --------
 // Card | List | Typing | Package | Package2 | Qurban (from c.form_style)
 function NominalSelect({ c, presets, amount, setAmount }) {
   const style = (c && c.form_style) || 'Card';
   const minHint = `Minimal donasi ${fmtIDR(effectiveMin(c))}. Tidak ada batas maksimum.`;
+
+  // Custom-form items / calculator (form_items_config). When configured, these REPLACE the
+  // plain nominal presets with a real item picker / zakat calculator. Falls back to the
+  // preset rendering below when empty/invalid, so existing campaigns are unaffected.
+  const fic = parseFormItemsConfig(c && c.form_items_config);
+  if (fic.kind === 'zakat_calc') {
+    return <ZakatCalc calc={fic.calc} amount={amount} setAmount={setAmount}/>;
+  }
+  if (fic.items.length > 0 && (fic.kind === 'qurban' || fic.kind === 'package2' || fic.kind === 'zfitrah')) {
+    return <ItemSelect c={c} kind={fic.kind} items={fic.items} amount={amount} setAmount={setAmount} customInput={null}/>;
+  }
   const customInput = (
     <div className="mt-3">
       <label className="text-xs font-bold text-mute">Atau masukkan nominal lain</label>

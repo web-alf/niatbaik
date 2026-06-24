@@ -34,6 +34,7 @@ type CreateCampaignRequest struct {
 	FormFieldsConfig string     `json:"form_fields_config" validate:"omitempty,max=10000"`
 	PaymentConfig    string     `json:"payment_config" validate:"omitempty,max=20000"`
 	PixelConfig      string     `json:"pixel_config" validate:"omitempty,max=20000"`
+	FormItemsConfig  string     `json:"form_items_config" validate:"omitempty,max=20000"`
 }
 
 type UpdateCampaignRequest struct {
@@ -69,4 +70,5 @@ type UpdateCampaignRequest struct {
 	FormFieldsConfig string     `json:"form_fields_config" validate:"omitempty,max=10000"`
 	PaymentConfig    string     `json:"payment_config" validate:"omitempty,max=20000"`
 	PixelConfig      string     `json:"pixel_config" validate:"omitempty,max=20000"`
+	FormItemsConfig  string     `json:"form_items_config" validate:"omitempty,max=20000"`
 }

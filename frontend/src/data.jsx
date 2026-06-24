@@ -86,6 +86,7 @@ function mapCampaign(c) {
     form_fields_config: c.form_fields_config || '',
     payment_config: c.payment_config || '',
     pixel_config: c.pixel_config || '',
+    form_items_config: c.form_items_config || '',
     button_color: c.button_color || '',
     min_donation: c.min_donation || 0,
     max_donation: c.max_donation || 0,

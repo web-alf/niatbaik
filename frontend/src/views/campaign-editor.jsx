@@ -187,6 +187,34 @@ function CampaignEditorForm({ campaign }) {
   const [minDonasi, setMinDonasi] = useStateA(c?.min_donation || '');
   const [maxDonasi, setMaxDonasi] = useStateA(c?.max_donation || 0);
 
+  // ---- Custom-form items (Qurban / Package 2 / Zakat Fitrah) + Zakat calculator ----
+  // Stored as one JSON envelope in campaign.form_items_config:
+  //   {kind:"qurban|package2|zfitrah|zakat_calc", items:[...], calc:{...}}
+  const parseItemsConfig = (raw) => {
+    let o = {};
+    if (raw && typeof raw === 'object') o = raw;
+    else if (typeof raw === 'string' && raw.trim()) { try { o = JSON.parse(raw) || {}; } catch { o = {}; } }
+    return {
+      kind: o.kind || '',
+      items: Array.isArray(o.items) ? o.items : [],
+      calc: (o.calc && typeof o.calc === 'object') ? o.calc : {},
+    };
+  };
+  const seededItems = parseItemsConfig(c?.form_items_config);
+  const rand4 = () => Math.random().toString(36).slice(2, 6);
+  const [formItems, setFormItems] = useStateA(seededItems.items);
+  // Zakat sub-mode: 'fitrah' (item list) | 'calc' (Maal/Pertanian calculator). Seed from the
+  // saved kind so an edit reopens on the right zakat builder.
+  const [zakatKind, setZakatKind] = useStateA(seededItems.kind === 'zakat_calc' ? 'calc' : 'fitrah');
+  const [zakatCalc, setZakatCalc] = useStateA({
+    type: seededItems.calc.type || 'maal',
+    rate: seededItems.calc.rate ?? 2.5,
+    gold_price_per_gram: seededItems.calc.gold_price_per_gram ?? 0,
+    agri_irrigation: seededItems.calc.agri_irrigation || 'tadah-hujan',
+    agri_nisab_kg: seededItems.calc.agri_nisab_kg ?? 520,
+    agri_price_per_kg: seededItems.calc.agri_price_per_kg ?? 0,
+  });
+
   const [advCustom, setAdvCustom] = useStateA({
     fundraiserPct: '10', fundraiserEnabled: true,
     waNumber: '', waTemplate: '',
@@ -285,6 +313,24 @@ function CampaignEditorForm({ campaign }) {
     payload.wa_flying_button = adv.waFlying === 'Custom';
     payload.form_fields_config = JSON.stringify({ _custom: adv.form === 'Custom', anonim: formCustom.anonim, email: formCustom.email, comment: formCustom.comment, button1: formCustom.button1, button2: formCustom.button2 });
     if (adv.payment === 'Custom') payload.payment_config = JSON.stringify(advCustom.paymentRows || []);
+    // Custom-form items/calculator → form_items_config. kind is derived from the chosen
+    // form style / zakat sub-mode so the public renderer knows which picker to show. Always
+    // send (even empty) so clearing items on edit persists instead of keeping stale data.
+    {
+      const itemsKind = formMode === 'Zakat'
+        ? (zakatKind === 'calc' ? 'zakat_calc' : 'zfitrah')
+        : (formStyle === 'Qurban' ? 'qurban' : formStyle === 'Package2' ? 'package2' : '');
+      if (itemsKind === 'zakat_calc') {
+        payload.form_items_config = JSON.stringify({ kind: 'zakat_calc', items: [], calc: zakatCalc });
+      } else if (itemsKind) {
+        const cleanItems = (formItems || [])
+          .filter(it => (it.name || '').trim() || Number(it.price) > 0)
+          .map(it => ({ ...it, price: Math.max(0, Math.floor(Number(it.price) || 0)) }));
+        payload.form_items_config = JSON.stringify({ kind: itemsKind, items: cleanItems, calc: {} });
+      } else {
+        payload.form_items_config = ''; // not an item-based form → clear
+      }
+    }
     // Meta Pixel — Custom sends per-campaign config (global OFF); Default leaves meta_pixel_id empty = inherit global.
     if (adv.metaPixel === 'Custom') {
       payload.meta_pixel_id = advCustom.metaPixelId;
@@ -474,27 +520,39 @@ function CampaignEditorForm({ campaign }) {
                         </div>
                       </div>
 
-                      {formStyle === 'Qurban' && (
+                      {formStyle === 'Qurban' && formMode !== 'Zakat' && (
                         <div className="pt-5 border-t border-line">
                           <div className="font-bold text-ink">Qurban</div>
-                          <div className="text-xs text-mute mt-1">Jika anda memilih form type Qurban, silahkan tambahkan qurban anda.</div>
-                          <button className="mt-3 px-3 py-2 rounded-lg border border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50">+ Add Qurban</button>
+                          <div className="text-xs text-mute mt-1">Tambahkan hewan qurban. Donatur memilih kartu hewan, harga jadi nominal donasi.</div>
+                          <ItemBuilder kind="qurban" items={formItems} setItems={setFormItems} rand4={rand4}/>
                         </div>
                       )}
 
-                      {formStyle === 'Package2' && (
+                      {formStyle === 'Package2' && formMode !== 'Zakat' && (
                         <div className="pt-5 border-t border-line">
                           <div className="font-bold text-ink">Package 2</div>
-                          <div className="text-xs text-mute mt-1">Jika anda memilih form type Package 2, silahkan tambahkan paket anda.</div>
-                          <button className="mt-3 px-3 py-2 rounded-lg border border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50">+ Add Package</button>
+                          <div className="text-xs text-mute mt-1">Tambahkan paket donasi (gambar, nama, harga, deskripsi).</div>
+                          <ItemBuilder kind="package2" items={formItems} setItems={setFormItems} rand4={rand4}/>
                         </div>
                       )}
 
                       {formMode === 'Zakat' && (
                         <div className="pt-5 border-t border-line">
-                          <div className="font-bold text-ink">Zakat Fitrah</div>
-                          <div className="text-xs text-mute mt-1">Silahkan tambahkan paket zakat fitrah anda.</div>
-                          <button className="mt-3 px-3 py-2 rounded-lg border border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50">+ Add</button>
+                          <div className="font-bold text-ink mb-2">Zakat</div>
+                          <div className="inline-flex p-1 bg-white rounded-lg border border-line mb-3">
+                            {[{v:'fitrah',l:'Zakat Fitrah (paket)'},{v:'calc',l:'Maal / Pertanian (kalkulator)'}].map(o => (
+                              <button key={o.v} onClick={() => setZakatKind(o.v)}
+                                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${zakatKind===o.v ? 'bg-brand-600 text-white shadow-sm' : 'text-mute hover:text-ink'}`}>{o.l}</button>
+                            ))}
+                          </div>
+                          {zakatKind === 'fitrah' ? (
+                            <>
+                              <div className="text-xs text-mute mb-1">Tambahkan paket zakat fitrah (jenis beras, harga/jiwa).</div>
+                              <ItemBuilder kind="zfitrah" items={formItems} setItems={setFormItems} rand4={rand4}/>
+                            </>
+                          ) : (
+                            <ZakatCalcBuilder calc={zakatCalc} setCalc={setZakatCalc}/>
+                          )}
                         </div>
                       )}
 
@@ -1183,6 +1241,138 @@ const ListIcon = ({ ordered }) => (
     <rect x="6" y="10" width="9" height="1.5" rx="0.5"/>
   </svg>
 );
+
+// Per-kind field schema for the custom-form item builder. Shared with the public
+// renderer's expectations (public-app.jsx ItemSelect reads the same keys).
+const QURBAN_ANIMALS = ['Kambing', 'Domba', 'Sapi', 'Kerbau', 'Unta'];
+const QURBAN_SHARES = [
+  { v: '1', l: '1 (Full)' }, { v: '1/7', l: '1/7' }, { v: '1/9', l: '1/9' }, { v: '1/10', l: '1/10' },
+];
+
+// ItemBuilder: a generic list-of-items editor for the qurban / package2 / zfitrah form
+// kinds. Each row has image + name + price, plus kind-specific fields. Mirrors the
+// payment-row map+edit+delete pattern. Items persist via form_items_config in handleSave.
+function ItemBuilder({ kind, items, setItems, rand4 }) {
+  const upd = (id, patch) => setItems(items.map(it => it.id === id ? { ...it, ...patch } : it));
+  const del = (id) => setItems(items.filter(it => it.id !== id));
+  const add = () => setItems([...(items || []), {
+    id: rand4(), name: '', price: 0, image: '',
+    ...(kind === 'qurban' ? { animal_type: 'Kambing', share: '1', weight: '' } : { desc: '' }),
+  }]);
+
+  const uploadFor = async (id, file) => {
+    if (!file) return;
+    try {
+      const res = await window.api.uploadImage(file);
+      const url = res?.data?.url || res?.url;
+      if (url) {
+        // Store the bare filename (portable across envs), like the campaign thumbnail.
+        const clean = String(url).split(/[?#]/)[0];
+        upd(id, { image: clean.substring(clean.lastIndexOf('/') + 1) });
+      }
+    } catch { /* ignore — admin can retry */ }
+  };
+
+  return (
+    <div className="mt-3 space-y-3">
+      {(items || []).map((it) => {
+        const imgSrc = it.image ? (window.mediaUrl ? window.mediaUrl('/uploads/' + it.image) : '/uploads/' + it.image) : '';
+        return (
+          <div key={it.id} className="rounded-xl border border-line bg-white p-3">
+            <div className="flex gap-3">
+              <label className="shrink-0 h-16 w-16 rounded-lg border border-dashed border-line bg-bg2 flex items-center justify-center cursor-pointer overflow-hidden">
+                {imgSrc ? <img src={imgSrc} alt="" className="h-full w-full object-cover"/> : <Icon name="image" size={18} className="text-mute"/>}
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => { uploadFor(it.id, e.target.files?.[0]); e.target.value=''; }}/>
+              </label>
+              <div className="flex-1 grid grid-cols-2 gap-2">
+                <input value={it.name} onChange={(e) => upd(it.id, { name: e.target.value })} className="field bg-white col-span-2" placeholder={kind === 'zfitrah' ? 'Nama / Jenis Beras' : 'Nama / Judul'}/>
+                <div className="flex items-center field bg-white"><span className="text-mute text-xs mr-1">Rp</span>
+                  <input type="number" min="0" value={it.price} onChange={(e) => upd(it.id, { price: Math.max(0, Math.floor(+e.target.value || 0)) })} className="bg-transparent border-0 p-0 w-full focus:ring-0" placeholder="Harga"/>
+                </div>
+                {kind === 'qurban' ? (
+                  <select value={it.animal_type} onChange={(e) => upd(it.id, { animal_type: e.target.value })} className="field bg-white">
+                    {QURBAN_ANIMALS.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                ) : (
+                  <input value={it.desc || ''} onChange={(e) => upd(it.id, { desc: e.target.value })} className="field bg-white" placeholder="Deskripsi"/>
+                )}
+                {kind === 'qurban' && (
+                  <>
+                    <select value={it.share} onChange={(e) => upd(it.id, { share: e.target.value })} className="field bg-white">
+                      {QURBAN_SHARES.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}
+                    </select>
+                    <input value={it.weight || ''} onChange={(e) => upd(it.id, { weight: e.target.value })} className="field bg-white" placeholder="Bobot (cth 25-30kg)"/>
+                  </>
+                )}
+              </div>
+              <button onClick={() => del(it.id)} className="shrink-0 h-9 w-9 rounded-md text-mute hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center self-start"><Icon name="trash" size={14}/></button>
+            </div>
+          </div>
+        );
+      })}
+      <button onClick={add} className="px-3 py-2 rounded-lg border border-dashed border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50">
+        + {kind === 'qurban' ? 'Add Qurban' : kind === 'package2' ? 'Add Package' : 'Add Paket Zakat'}
+      </button>
+    </div>
+  );
+}
+
+// ZakatCalcBuilder: admin configures the zakat calculator (Maal/Profesi/Emas/Pertanian).
+// The donor enters their amount/weight on the public page; the rate/nisab here drive the
+// computed zakat. Stored under form_items_config.calc.
+function ZakatCalcBuilder({ calc, setCalc }) {
+  const set = (patch) => setCalc({ ...calc, ...patch });
+  return (
+    <div className="mt-1 rounded-xl border border-line bg-white p-3 space-y-3">
+      <div>
+        <label className="text-xs font-semibold text-mute">Jenis Zakat</label>
+        <select value={calc.type} onChange={(e) => set({ type: e.target.value })} className="field bg-white mt-1">
+          <option value="maal">Maal (Harta)</option>
+          <option value="profesi">Penghasilan / Profesi</option>
+          <option value="emas">Emas</option>
+          <option value="pertanian">Pertanian</option>
+        </select>
+      </div>
+      {(calc.type === 'maal' || calc.type === 'profesi') && (
+        <div>
+          <label className="text-xs font-semibold text-mute">Rate (%)</label>
+          <input type="number" step="0.1" value={calc.rate} onChange={(e) => set({ rate: +e.target.value || 0 })} className="field bg-white mt-1" placeholder="2.5"/>
+          <div className="text-[11px] text-mute mt-1">Zakat = nominal harta/penghasilan × rate. Default 2.5%.</div>
+        </div>
+      )}
+      {calc.type === 'emas' && (
+        <div>
+          <label className="text-xs font-semibold text-mute">Harga Emas per gram (Rp)</label>
+          <input type="number" min="0" value={calc.gold_price_per_gram} onChange={(e) => set({ gold_price_per_gram: Math.max(0, Math.floor(+e.target.value || 0)) })} className="field bg-white mt-1" placeholder="cth 1.100.000"/>
+          <div className="text-[11px] text-mute mt-1">Donatur isi gram emas; zakat = gram × harga × 2.5%.</div>
+        </div>
+      )}
+      {calc.type === 'pertanian' && (
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-xs font-semibold text-mute">Pengairan</label>
+            <select value={calc.agri_irrigation} onChange={(e) => set({ agri_irrigation: e.target.value })} className="field bg-white mt-1">
+              <option value="mandiri">Mandiri (5%)</option>
+              <option value="tadah-hujan">Tadah Hujan (10%)</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Nisab (Kg)</label>
+            <select value={calc.agri_nisab_kg} onChange={(e) => set({ agri_nisab_kg: +e.target.value })} className="field bg-white mt-1">
+              <option value="520">520 kg (Beras)</option>
+              <option value="653">653 kg (Gabah Kering)</option>
+            </select>
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs font-semibold text-mute">Harga per Kg (Rp)</label>
+            <input type="number" min="0" value={calc.agri_price_per_kg} onChange={(e) => set({ agri_price_per_kg: Math.max(0, Math.floor(+e.target.value || 0)) })} className="field bg-white mt-1" placeholder="cth 12.000"/>
+          </div>
+          <div className="col-span-2 text-[11px] text-mute">Donatur isi hasil panen (kg); zakat = kg × harga/kg × rate (jika ≥ nisab).</div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function FieldToggle({ label, value, onChange }) {
   return (

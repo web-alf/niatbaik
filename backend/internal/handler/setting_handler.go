@@ -90,3 +90,13 @@ func (h *SettingHandler) GetMootaBalance(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, response.SuccessResponse(res, "success"))
 }
+
+// GetMootaGatewayAccounts lists the admin's Moota accounts so they can pick which
+// bank_account_id (bank_id) the payment-gateway create-transaction charges to.
+func (h *SettingHandler) GetMootaGatewayAccounts(c echo.Context) error {
+	res, err := h.mootaService.ListGatewayAccounts()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse(err.Error()))
+	}
+	return c.JSON(http.StatusOK, response.SuccessResponse(res, "success"))
+}

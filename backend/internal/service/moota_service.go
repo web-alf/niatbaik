@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/config"
+	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/internal/repository"
 )
 
@@ -400,4 +401,188 @@ func (s *MootaService) CheckBalance() ([]MootaBankOut, error) {
 		out = append(out, row.normalize())
 	}
 	return out, nil
+}
+
+// mootaBaseURL returns the configured Moota host (default app.moota.co), trailing slash
+// trimmed. Shared by CheckBalance/ListGatewayAccounts/CreatePayment.
+func (s *MootaService) mootaBaseURL(setting *model.Setting) string {
+	endpoint := ""
+	if setting != nil {
+		endpoint = setting.MootaEndpoint
+	}
+	if endpoint == "" {
+		endpoint = "https://app.moota.co"
+	}
+	return strings.TrimRight(endpoint, "/")
+}
+
+// ListGatewayAccounts fetches the Moota accounts (GET /api/v2/accounts/index) so the
+// admin can pick which bank_account_id the payment-gateway charges to. Reuses the same
+// normalized shape as CheckBalance (bank_id is the value to store in MootaGatewayAccountID).
+func (s *MootaService) ListGatewayAccounts() ([]MootaBankOut, error) {
+	setting, err := s.settingRepo.Get()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := setting.MootaAPIKey
+	if apiKey == "" {
+		return nil, errors.New("API Key Moota belum diisi di Settings → Payment → Moota")
+	}
+
+	req, err := http.NewRequest("GET", s.mootaBaseURL(setting)+"/api/v2/accounts/index", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode == http.StatusForbidden {
+			return nil, fmt.Errorf("API Key Moota ditolak: scope tidak sesuai (HTTP 403). Token harus dibuat dengan scope \"API\" di app.moota.co → Apps & API")
+		}
+		return nil, fmt.Errorf("Moota accounts API gagal (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var banks MootaBankResponse
+	if err := json.NewDecoder(resp.Body).Decode(&banks); err != nil {
+		return nil, err
+	}
+	out := make([]MootaBankOut, 0, len(banks.Data))
+	for _, row := range banks.Data {
+		out = append(out, row.normalize())
+	}
+	return out, nil
+}
+
+// ----------------------------------------------------------------------------
+// Moota as an OUTBOUND payment gateway (Winpay-backed VA/QRIS)
+// ----------------------------------------------------------------------------
+
+// mootaCustomer / mootaItem / mootaCreateTxnRequest model the create-transaction body.
+type mootaCustomer struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+	Phone string `json:"phone"`
+}
+type mootaItem struct {
+	Name  string `json:"name"`
+	Qty   int    `json:"qty"`
+	Price int64  `json:"price"`
+}
+type mootaCreateTxnRequest struct {
+	OrderID          string         `json:"order_id"`
+	BankAccountID    string         `json:"bank_account_id"`
+	Total            int64          `json:"total"`
+	Description      string         `json:"description"`
+	Customers        mootaCustomer  `json:"customers"`
+	Items            []mootaItem    `json:"items"`
+	RedirectURL      string         `json:"redirect_url"`
+	ExpiredInMinutes int            `json:"expired_in_minutes"`
+}
+
+// MootaTxnResponse is the create-transaction response. Numeric fields use flex types
+// because Moota returns numbers and numeric strings interchangeably (see flexFloat).
+// Shape verified against the live sandbox (account lA6j3NpAzwp, 2026-06-23).
+type MootaTxnResponse struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+	Data    struct {
+		OrderID       string     `json:"order_id"`
+		TrxID         flexString `json:"trx_id"`
+		PaymentURL    string     `json:"payment_url"`
+		AccountNumber flexString `json:"account_number"`
+		Total         flexFloat  `json:"total"`
+		UniqueCode    flexFloat  `json:"unique_code"`
+		VANumber      string     `json:"va_number"`
+		QrURL         string     `json:"qr_url"`
+		ExpiredAt     string     `json:"expired_at"`
+	} `json:"data"`
+}
+
+// CreatePayment creates a hosted Moota payment-gateway transaction for the invoice,
+// mirroring FlipService.CreateBill: it returns a draft whose payment_url the donor is
+// redirected to (Moota shows VA/QRIS on its own page). Settlement still arrives on the
+// SAME inbound credit webhook HandleWebhook already parses (matched by the INV- tag in
+// the order_id/description + unique-code amount). Returns an error (so CreateDonation can
+// fall back to manual transfer) when the gateway isn't configured or the draft is unusable.
+func (s *MootaService) CreatePayment(invoice *model.Invoice, redirectURL string) (*MootaTxnResponse, error) {
+	setting, err := s.settingRepo.Get()
+	if err != nil {
+		return nil, err
+	}
+	apiKey := setting.MootaAPIKey
+	if apiKey == "" {
+		return nil, errors.New("moota api key is not configured")
+	}
+	accountID := strings.TrimSpace(setting.MootaGatewayAccountID)
+	if accountID == "" {
+		return nil, errors.New("moota gateway account (bank_account_id) belum dipilih di Settings → Payment → Moota")
+	}
+
+	email := strings.TrimSpace(invoice.DonorEmail)
+	if email == "" {
+		email = "noreply+" + strings.ToLower(invoice.InvoiceNumber) + "@niatbaik.org"
+	}
+	name := strings.TrimSpace(invoice.DonorName)
+	if name == "" {
+		name = "Donatur"
+	}
+	expMin := int(time.Until(invoice.ExpiredAt).Minutes())
+	if expMin < 5 {
+		expMin = 1440 // default 24h if expiry is unset/past
+	}
+
+	body := mootaCreateTxnRequest{
+		OrderID:       invoice.InvoiceNumber,
+		BankAccountID: accountID,
+		Total:         invoice.Total,
+		Description:   "Donasi " + invoice.InvoiceNumber,
+		Customers:     mootaCustomer{Name: name, Email: email, Phone: invoice.DonorPhone},
+		Items:         []mootaItem{{Name: "Donasi " + invoice.InvoiceNumber, Qty: 1, Price: invoice.Total}},
+		RedirectURL:   redirectURL,
+		// Moota appends its own unique_code to disambiguate, but keep an expiry too.
+		ExpiredInMinutes: expMin,
+	}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", s.mootaBaseURL(setting)+"/api/v2/create-transaction", strings.NewReader(string(payload)))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 20 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("moota create-transaction error %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+
+	var txn MootaTxnResponse
+	if err := json.Unmarshal(respBody, &txn); err != nil {
+		return nil, err
+	}
+	// Treat a draft with no trx id / no payment url as a failure so the donation falls
+	// back to manual transfer instead of stranding the donor on a dead page (same guard
+	// philosophy as FlipService.CreateBill).
+	if strings.TrimSpace(string(txn.Data.TrxID)) == "" || strings.TrimSpace(txn.Data.PaymentURL) == "" {
+		return nil, fmt.Errorf("moota returned an unusable transaction (no trx_id/payment_url): %s", strings.TrimSpace(string(respBody)))
+	}
+	return &txn, nil
 }

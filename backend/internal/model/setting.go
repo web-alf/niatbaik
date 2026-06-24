@@ -137,6 +137,19 @@ type Setting struct {
 	// entry. Drives ListPaymentMethods just like the two fields above.
 	ManualBanks string `gorm:"type:text" json:"manual_banks"`
 
+	// PaymentChannelGateways maps each payment channel key (qris, bca, mandiri, …, the
+	// flipChannelCatalog keys + "manual") to the gateway that should settle it:
+	// JSON {"qris":"moota","bca":"flip","mandiri":"manual"}. gateway ∈ {flip,moota,manual}.
+	// Empty = legacy default (resolveChannelGateway): VA→flip, QRIS→moota, transfer→manual.
+	// This is what turns the single global FlipEnabled router into per-channel routing.
+	PaymentChannelGateways string `gorm:"type:text" json:"payment_channel_gateways"`
+
+	// Moota as an OUTBOUND payment gateway (Winpay-backed: VA/QRIS), distinct from the
+	// inbound webhook/balance use gated by MootaEnabled. MootaGatewayAccountID is the
+	// bank_id (from GET /api/v2/accounts/index) the create-transaction call charges to.
+	MootaGatewayEnabled   bool   `gorm:"default:false" json:"moota_gateway_enabled"`
+	MootaGatewayAccountID string `gorm:"size:100" json:"moota_gateway_account_id"`
+
 	// Unique number / Kode Unik — appended to manual-transfer totals so two transfers
 	// of the same nominal can be told apart. Mode: none|fixed|range.
 	UniqueCodeMode  string `gorm:"size:10;default:'range'" json:"unique_code_mode"`

@@ -107,6 +107,11 @@ type UpdateSettingRequest struct {
 	PaymentMethodTypes *string `json:"payment_method_types" validate:"omitempty,max=8192"`
 	FlipCodeConfig     *string `json:"flip_code_config" validate:"omitempty,max=16384"`
 	ManualBanks        *string `json:"manual_banks" validate:"omitempty,max=8192"`
+	// Per-channel gateway routing map (JSON {channelKey: flip|moota|manual}) + Moota
+	// outbound-gateway config. nil=skip, ""=clear to legacy default.
+	PaymentChannelGateways *string `json:"payment_channel_gateways" validate:"omitempty,max=8192"`
+	MootaGatewayEnabled    *bool   `json:"moota_gateway_enabled"`
+	MootaGatewayAccountID  *string `json:"moota_gateway_account_id" validate:"omitempty,max=100"`
 
 	// Unique number / Kode Unik
 	UniqueCodeMode  *string `json:"unique_code_mode" validate:"omitempty,oneof=none fixed range"`

@@ -2,6 +2,7 @@ package service
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/big"
@@ -25,6 +26,7 @@ type DonationService struct {
 	settingRepo       *repository.SettingRepo
 	paymentMethodRepo *repository.PaymentMethodRepo
 	flipService       *FlipService
+	mootaService      *MootaService
 	paymentSvc        *PaymentService
 }
 
@@ -37,6 +39,7 @@ func NewDonationService(
 	settingRepo *repository.SettingRepo,
 	paymentMethodRepo *repository.PaymentMethodRepo,
 	flipService *FlipService,
+	mootaService *MootaService,
 	paymentSvc *PaymentService,
 ) *DonationService {
 	return &DonationService{
@@ -48,6 +51,7 @@ func NewDonationService(
 		settingRepo:       settingRepo,
 		paymentMethodRepo: paymentMethodRepo,
 		flipService:       flipService,
+		mootaService:      mootaService,
 		paymentSvc:        paymentSvc,
 	}
 }
@@ -108,30 +112,41 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 		}
 	}
 
-	// Resolve the chosen payment method. The frontend sends payment_method_id (UUID
-	// from /payment-methods/public); fall back to the legacy free-text label. We
-	// record the method on the invoice so the admin dashboard and the donor's
-	// confirmation page show the real method (bank name / type), and so the right
-	// gateway routing is chosen.
+	settingsForPay, _ := s.settingRepo.Get()
+
+	// Resolve the chosen payment method + which GATEWAY settles it. The frontend sends
+	// payment_method_id which is either a real payment_methods UUID OR a synthetic id
+	// ("flip-qris", "moota-bca", "manual-bank-0"). The synthetic ids fail uuid.Parse, so
+	// we ALSO derive the channel key from the prefix and resolve its gateway SERVER-SIDE —
+	// the client never dictates routing. The gateway decides the settlement path below.
 	var chosenMethod *model.PaymentMethod
-	if req.PaymentMethodID != "" && s.paymentMethodRepo != nil {
-		if pmID, err := uuid.Parse(strings.TrimSpace(req.PaymentMethodID)); err == nil {
+	channelKey := ""
+	clientGatewayHint := ""
+	rawID := strings.TrimSpace(req.PaymentMethodID)
+	if rawID != "" {
+		if pmID, err := uuid.Parse(rawID); err == nil && s.paymentMethodRepo != nil {
 			if pm, err := s.paymentMethodRepo.FindByID(pmID); err == nil {
 				chosenMethod = pm
 			}
+		} else {
+			// Synthetic id: "<gateway>-<channelKey>" or "manual-bank-<i>".
+			clientGatewayHint, channelKey = parseSyntheticMethodID(rawID)
 		}
 	}
 
-	// Payment model: Flip is the automatic gateway. When Flip is enabled, every
-	// method (QRIS / VA / e-wallet) is settled instantly through Flip and needs NO
-	// unique code — the gateway disambiguates each payment itself. Only when Flip is
-	// disabled do we fall back to manual bank transfer, where a 1-999 unique code is
-	// appended so Moota/manual reconciliation can tell two same-amount transfers apart.
-	settingsForPay, _ := s.settingRepo.Get()
-	isGateway := settingsForPay != nil && settingsForPay.FlipEnabled && s.flipService != nil // Flip-auto
+	// gateway ∈ {flip, moota, manual}. Resolved from the admin's per-channel routing map
+	// (settings.PaymentChannelGateways) with a legacy default; a gateway whose creds are
+	// unconfigured falls through to manual. clientGatewayHint is only a tiebreaker for the
+	// channel key prefix, never authoritative.
+	gateway := s.resolveGateway(settingsForPay, channelKey, clientGatewayHint)
 
+	// Unique code is only added by US for the manual-transfer path (so the credit webhook
+	// can disambiguate same-amount transfers). Flip disambiguates on its own side. Moota
+	// gateway ALSO adds its OWN unique_code on its hosted page — adding ours too would
+	// double-count and break the webhook amount-match — so for Moota we keep Total =
+	// Subtotal here and correct it to Moota's returned total after CreatePayment.
 	var uniqueCode int64 = 0
-	if !isGateway {
+	if gateway == "manual" {
 		uniqueCode = uniqueCodeFromSettings(settingsForPay)
 	}
 	totalAmount := req.Amount + uniqueCode
@@ -202,11 +217,14 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 		return nil, txErr
 	}
 
-	// When Flip is the active gateway, create the hosted bill so the donor is sent to
-	// Flip's payment page (QRIS/VA/e-wallet, settled via webhook). The redirect host
-	// is configurable (FRONTEND_BASE_URL) instead of hardcoded to production.
-	if isGateway {
-		redirectURL := fmt.Sprintf("%s/donations/%s", s.cfg.FrontendBaseURL, invoice.InvoiceNumber)
+	redirectURL := fmt.Sprintf("%s/donations/%s", s.cfg.FrontendBaseURL, invoice.InvoiceNumber)
+
+	// Route to the resolved gateway. flip/moota create a hosted page (donor redirected);
+	// manual shows the org bank account. Any gateway failure degrades to manual transfer
+	// IF a bank account is configured, else the donation is rejected + cleaned up (never
+	// persist a dead, unpayable invoice).
+	switch gateway {
+	case "flip":
 		bill, flipErr := s.flipService.CreateBill(&invoice, redirectURL)
 		if flipErr == nil && bill != nil {
 			invoice.PayCode = fmt.Sprintf("%d", bill.LinkID)
@@ -216,43 +234,40 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 			if err := s.invoiceRepo.Update(&invoice); err != nil {
 				log.Printf("[donation] failed to persist Flip bill details for %s: %v", invoice.InvoiceNumber, err)
 			}
-		} else {
-			// Flip call failed at runtime — degrade to a manual transfer so the invoice
-			// stays payable. But ONLY if a manual bank account is actually configured: a
-			// fallback with no bank number, no QR, and (when unique=none) no reconciliation
-			// key is an UNPAYABLE dead invoice — the exact prod bug where donors saw a
-			// "transfer manual" page with nowhere to transfer. Fail loudly + clean up
-			// instead of persisting a dead invoice and silently losing the donation.
-			if !hasManualPath(settingsForPay) {
-				log.Printf("[donation] Flip CreateBill failed for %s AND no manual bank configured — rejecting (no payable path): %v", invoice.InvoiceNumber, flipErr)
-				if delErr := s.db.Where("invoice_id = ?", invoice.ID).Delete(&model.Donation{}).Error; delErr != nil {
-					log.Printf("[donation] cleanup: failed to delete donation for dead invoice %s: %v", invoice.InvoiceNumber, delErr)
-				}
-				if delErr := s.db.Delete(&model.Invoice{}, "id = ?", invoice.ID).Error; delErr != nil {
-					log.Printf("[donation] cleanup: failed to delete dead invoice %s: %v", invoice.InvoiceNumber, delErr)
-				}
-				return nil, fmt.Errorf("pembayaran sedang tidak tersedia: gateway gagal dan rekening transfer manual belum dikonfigurasi. Mohon hubungi admin")
-			}
-			// Add a unique code now (it wasn't added above because we expected the gateway
-			// to disambiguate) so manual reconciliation can match it.
-			log.Printf("[donation] Flip CreateBill failed for %s, degrading to manual transfer: %v", invoice.InvoiceNumber, flipErr)
-			invoice.Total = invoice.Subtotal + uniqueCodeFromSettings(settingsForPay)
-			invoice.TypePayment = "Transfer Manual"
-			if err := s.invoiceRepo.Update(&invoice); err != nil {
-				log.Printf("[donation] failed to persist manual fallback for %s: %v", invoice.InvoiceNumber, err)
-			}
+		} else if errMsg := s.degradeToManual(&invoice, settingsForPay, "Flip CreateBill", flipErr); errMsg != "" {
+			return nil, fmt.Errorf("%s", errMsg)
 		}
-	} else {
-		// Flip disabled — manual bank transfer. Guard the same way: with no bank account
-		// configured there is no destination to transfer to, so the donation is unpayable.
+
+	case "moota":
+		if s.mootaService == nil {
+			if errMsg := s.degradeToManual(&invoice, settingsForPay, "Moota gateway unavailable", fmt.Errorf("mootaService nil")); errMsg != "" {
+				return nil, fmt.Errorf("%s", errMsg)
+			}
+			break
+		}
+		txn, mootaErr := s.mootaService.CreatePayment(&invoice, redirectURL)
+		if mootaErr == nil && txn != nil {
+			invoice.PayCode = string(txn.Data.TrxID)
+			invoice.QrURL = txn.Data.PaymentURL
+			invoice.URLAlternative = txn.Data.PaymentURL
+			invoice.TypePayment = "Moota"
+			// Moota appends its OWN unique_code to disambiguate; adopt Moota's authoritative
+			// total so the inbound credit-webhook amount-match settles against the exact sum
+			// the donor is actually charged (we deliberately did NOT add our own code above).
+			if mt := int64(txn.Data.Total); mt > 0 {
+				invoice.Total = mt
+			}
+			if err := s.invoiceRepo.Update(&invoice); err != nil {
+				log.Printf("[donation] failed to persist Moota txn details for %s: %v", invoice.InvoiceNumber, err)
+			}
+		} else if errMsg := s.degradeToManual(&invoice, settingsForPay, "Moota CreatePayment", mootaErr); errMsg != "" {
+			return nil, fmt.Errorf("%s", errMsg)
+		}
+
+	default: // "manual"
 		if !hasManualPath(settingsForPay) {
-			log.Printf("[donation] Flip disabled AND no manual bank configured for %s — rejecting (no payable path)", invoice.InvoiceNumber)
-			if delErr := s.db.Where("invoice_id = ?", invoice.ID).Delete(&model.Donation{}).Error; delErr != nil {
-				log.Printf("[donation] cleanup: failed to delete donation for dead invoice %s: %v", invoice.InvoiceNumber, delErr)
-			}
-			if delErr := s.db.Delete(&model.Invoice{}, "id = ?", invoice.ID).Error; delErr != nil {
-				log.Printf("[donation] cleanup: failed to delete dead invoice %s: %v", invoice.InvoiceNumber, delErr)
-			}
+			log.Printf("[donation] manual route AND no manual bank configured for %s — rejecting (no payable path)", invoice.InvoiceNumber)
+			s.cleanupDeadInvoice(&invoice)
 			return nil, fmt.Errorf("pembayaran sedang tidak tersedia: belum ada metode pembayaran yang aktif. Mohon hubungi admin")
 		}
 		invoice.TypePayment = "Transfer Manual"
@@ -263,6 +278,40 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 
 	invoice.Campaign = *campaign
 	return &invoice, nil
+}
+
+// degradeToManual handles a gateway runtime failure: if a manual bank account exists, it
+// rewrites the invoice to a manual transfer (adding the unique code the gateway path
+// skipped) and returns "". Otherwise it deletes the dead invoice+donation and returns a
+// donor-facing error message (caller returns it). Centralizes the UNPAYABLE guard so
+// every gateway branch behaves identically.
+func (s *DonationService) degradeToManual(invoice *model.Invoice, settings *model.Setting, what string, cause error) string {
+	if !hasManualPath(settings) {
+		log.Printf("[donation] %s failed for %s AND no manual bank configured — rejecting (no payable path): %v", what, invoice.InvoiceNumber, cause)
+		s.cleanupDeadInvoice(invoice)
+		return "pembayaran sedang tidak tersedia: gateway gagal dan rekening transfer manual belum dikonfigurasi. Mohon hubungi admin"
+	}
+	log.Printf("[donation] %s failed for %s, degrading to manual transfer: %v", what, invoice.InvoiceNumber, cause)
+	// The gateway path didn't add a unique code; add it now so manual reconciliation matches.
+	invoice.Total = invoice.Subtotal + uniqueCodeFromSettings(settings)
+	invoice.TypePayment = "Transfer Manual"
+	invoice.PayCode = ""
+	invoice.QrURL = ""
+	if err := s.invoiceRepo.Update(invoice); err != nil {
+		log.Printf("[donation] failed to persist manual fallback for %s: %v", invoice.InvoiceNumber, err)
+	}
+	return ""
+}
+
+// cleanupDeadInvoice removes an invoice + its donation that turned out to be unpayable,
+// so a failed-to-route donation never lingers as a stuck "Menunggu Pembayaran" row.
+func (s *DonationService) cleanupDeadInvoice(invoice *model.Invoice) {
+	if delErr := s.db.Where("invoice_id = ?", invoice.ID).Delete(&model.Donation{}).Error; delErr != nil {
+		log.Printf("[donation] cleanup: failed to delete donation for dead invoice %s: %v", invoice.InvoiceNumber, delErr)
+	}
+	if delErr := s.db.Delete(&model.Invoice{}, "id = ?", invoice.ID).Error; delErr != nil {
+		log.Printf("[donation] cleanup: failed to delete dead invoice %s: %v", invoice.InvoiceNumber, delErr)
+	}
 }
 
 func (s *DonationService) GetPaymentStatus(invoiceNumber string) (*model.Invoice, error) {
@@ -310,6 +359,114 @@ func hasManualPath(s *model.Setting) bool {
 		return false
 	}
 	return strings.TrimSpace(s.BankNumber) != ""
+}
+
+// channelDefaultGateway is the legacy/unconfigured routing default per channel key,
+// honoring the Flip VA-only agreement out of the box: VA channels → flip, QRIS → moota,
+// e-wallet → moota (hidden until Moota e-wallet GA via the public list), transfer → manual.
+// Mirrors flipChannelCatalog keys in public_handler.go.
+var channelDefaultGateway = map[string]string{
+	// Virtual Account → Flip
+	"bca": "flip", "mandiri": "flip", "bni": "flip", "bri": "flip", "bsi": "flip",
+	"muamalat": "flip", "cimb": "flip", "danamon": "flip", "permata": "flip",
+	// QRIS + e-wallet → Moota
+	"qris": "moota", "gopay": "moota", "ovo": "moota", "dana": "moota",
+	"linkaja": "moota", "shopeepay": "moota", "doku": "moota",
+	// Bank transfer → Manual
+	"flip": "manual", "manual": "manual",
+}
+
+// parseSyntheticMethodID splits a donor-facing synthetic payment-method id into a
+// (gatewayHint, channelKey). Forms: "flip-qris" → ("flip","qris"); "moota-bca" →
+// ("moota","bca"); "manual-bank-0" → ("manual","manual"); anything else → ("","").
+func parseSyntheticMethodID(id string) (gatewayHint, channelKey string) {
+	id = strings.ToLower(strings.TrimSpace(id))
+	switch {
+	case strings.HasPrefix(id, "manual-bank-") || id == "manual":
+		return "manual", "manual"
+	case strings.HasPrefix(id, "flip-"):
+		return "flip", strings.TrimPrefix(id, "flip-")
+	case strings.HasPrefix(id, "moota-"):
+		return "moota", strings.TrimPrefix(id, "moota-")
+	}
+	return "", ""
+}
+
+// resolveGateway is the DonationService entry point: it delegates to the pure
+// ResolveChannelGateway and additionally downgrades when the corresponding service isn't
+// wired (defensive — both are constructed in the router). clientGatewayHint is used only
+// when no channel key was derivable (e.g. a real payment_methods UUID).
+func (s *DonationService) resolveGateway(settings *model.Setting, channelKey, clientGatewayHint string) string {
+	gw := ResolveChannelGateway(settings, channelKey, clientGatewayHint)
+	if gw == "flip" && s.flipService == nil {
+		return "manual"
+	}
+	if gw == "moota" && s.mootaService == nil {
+		return "manual"
+	}
+	return gw
+}
+
+// ResolveChannelGateway decides which gateway settles a channel, SERVER-SIDE, from
+// settings alone (pure — shared by the donation router and the public method list). Order:
+//  1. the admin's per-channel map (settings.PaymentChannelGateways) for channelKey;
+//  2. else the legacy default map (channelDefaultGateway);
+//  3. else fall back to today's global behavior (FlipEnabled → flip, else manual).
+// Then it DOWNGRADES to "manual" when the resolved gateway's credentials aren't configured
+// (Flip secret / Moota gateway account), so the donation never routes to a dead gateway.
+// clientGatewayHint is a weak tiebreaker used only when channelKey is empty; never trusted
+// over the admin map.
+func ResolveChannelGateway(settings *model.Setting, channelKey, clientGatewayHint string) string {
+	gw := ""
+	if settings != nil && channelKey != "" {
+		gw = lookupChannelGateway(settings.PaymentChannelGateways, channelKey)
+	}
+	if gw == "" && channelKey != "" {
+		gw = channelDefaultGateway[channelKey]
+	}
+	if gw == "" {
+		switch clientGatewayHint {
+		case "flip", "moota", "manual":
+			gw = clientGatewayHint
+		default:
+			if settings != nil && settings.FlipEnabled {
+				gw = "flip"
+			} else {
+				gw = "manual"
+			}
+		}
+	}
+
+	// Downgrade to a credentialed gateway.
+	switch gw {
+	case "flip":
+		if settings == nil || !settings.FlipEnabled || settings.FlipSecretKey == "" {
+			return "manual"
+		}
+	case "moota":
+		if settings == nil || !settings.MootaGatewayEnabled ||
+			settings.MootaAPIKey == "" || strings.TrimSpace(settings.MootaGatewayAccountID) == "" {
+			return "manual"
+		}
+	}
+	return gw
+}
+
+// lookupChannelGateway parses the PaymentChannelGateways JSON ({channelKey: gateway}) and
+// returns the gateway for key, or "" if absent/unparseable.
+func lookupChannelGateway(cfgJSON, key string) string {
+	if strings.TrimSpace(cfgJSON) == "" {
+		return ""
+	}
+	var m map[string]string
+	if err := json.Unmarshal([]byte(cfgJSON), &m); err != nil {
+		return ""
+	}
+	g := strings.ToLower(strings.TrimSpace(m[key]))
+	if g == "flip" || g == "moota" || g == "manual" {
+		return g
+	}
+	return ""
 }
 
 // uniqueCodeFromSettings derives the manual-transfer unique code from the admin's

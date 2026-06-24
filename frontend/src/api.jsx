@@ -113,6 +113,7 @@ const SANITIZE_RAW_KEYS = new Set([
   // (never rendered as HTML) so they must be preserved byte-for-byte; <>-escaping them
   // would corrupt the JSON and break the backend's JSON.parse / unmarshal.
   'manual_banks', 'payment_method_types', 'flip_code_config', 'looker_reports',
+  'payment_channel_gateways',
 ]);
 
 function sanitizeBody(obj) {
@@ -256,6 +257,7 @@ const api = {
   updateSettings(data) { return this.put('/settings', data); },
   testEmail(to) { return this.post('/settings/test-email', { to }); },
   mootaBalance() { return this.get('/settings/moota-balance'); },
+  mootaAccounts() { return this.get('/settings/moota-accounts'); },
 
   // Realtime long-poll: resolves when the server data revision advances past `since`
   // (or after the server's ~25s hold). Returns { revision, changed }.

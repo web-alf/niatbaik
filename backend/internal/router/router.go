@@ -42,7 +42,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	paymentService := service.NewPaymentService(db, invoiceRepo, campaignRepo, settingRepo, fundraiserRepo, commissionRepo, trackingService)
 	mootaService := service.NewMootaService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
 	flipService := service.NewFlipService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
-	donationService := service.NewDonationService(db, cfg, invoiceRepo, campaignRepo, donationRepo, settingRepo, paymentMethodRepo, flipService, paymentService)
+	donationService := service.NewDonationService(db, cfg, invoiceRepo, campaignRepo, donationRepo, settingRepo, paymentMethodRepo, flipService, mootaService, paymentService)
 	dashboardService := service.NewDashboardService(statsRepo)
 	campaignService := service.NewCampaignService(campaignRepo, categoryRepo)
 	userService := service.NewUserService(userRepo, settingRepo)
@@ -190,6 +190,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	admin.PUT("/settings", settingHandler.Update)
 	admin.POST("/settings/test-email", settingHandler.TestEmail)
 	admin.GET("/settings/moota-balance", settingHandler.GetMootaBalance)
+	admin.GET("/settings/moota-accounts", settingHandler.GetMootaGatewayAccounts)
 	admin.GET("/admin/tracking/status", trackingHandler.GetStatus)
 
 	admin.GET("/admin/payment-methods", paymentMethodHandler.List)

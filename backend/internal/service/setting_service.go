@@ -153,6 +153,8 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	set(&setting.PaymentMethodTypes, req.PaymentMethodTypes)
 	set(&setting.FlipCodeConfig, req.FlipCodeConfig)
 	set(&setting.ManualBanks, req.ManualBanks)
+	set(&setting.PaymentChannelGateways, req.PaymentChannelGateways)
+	set(&setting.MootaGatewayAccountID, req.MootaGatewayAccountID)
 
 	// SECRET fields keep "blank = keep existing" (masked-field pattern) so an
 	// accidental blank save never wipes live SMTP / gateway credentials.
@@ -193,6 +195,9 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	}
 	if req.FlipEnabled != nil {
 		setting.FlipEnabled = *req.FlipEnabled
+	}
+	if req.MootaGatewayEnabled != nil {
+		setting.MootaGatewayEnabled = *req.MootaGatewayEnabled
 	}
 	if req.BorderRadius != nil {
 		setting.BorderRadius = *req.BorderRadius

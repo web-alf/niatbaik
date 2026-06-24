@@ -162,9 +162,11 @@ function GatewaysView() {
           </div>
 
           <div className="px-5 py-3">
-            <GwRow label="Status" value={s.moota_enabled ? 'Diaktifkan' : 'Dimatikan'} good={!!s.moota_enabled}/>
+            <GwRow label="Status (mutasi/saldo)" value={s.moota_enabled ? 'Diaktifkan' : 'Dimatikan'} good={!!s.moota_enabled}/>
             <GwRow label="API Key" value={s.moota_configured ? 'Terpasang ✓' : 'Belum diisi'} good={!!s.moota_configured}/>
             <GwRow label="Verifikasi Signature" value={s.moota_signature_enabled ? 'ON (aman)' : 'OFF'} good={!!s.moota_signature_enabled}/>
+            <GwRow label="Payment Gateway (VA/QRIS)" value={s.moota_gateway_enabled ? 'Aktif' : 'Nonaktif'} good={!!s.moota_gateway_enabled}/>
+            <GwRow label="Akun Gateway" value={s.moota_gateway_account_id ? 'Dipilih ✓' : 'Belum dipilih'} good={!!s.moota_gateway_account_id}/>
             <GwRow label="Endpoint" value={s.moota_endpoint || 'app.moota.co (default)'}/>
           </div>
 

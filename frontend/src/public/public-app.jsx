@@ -1186,7 +1186,13 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
   // can't be known exactly here, so we disclose it as a small "up to" note rather than a
   // precise figure to avoid showing a wrong total.
   const adminFee = (typeof paymentMethod === 'object' && paymentMethod && Number(paymentMethod.admin_fee)) || 0;
-  const flipOn = !!(window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.flip_enabled);
+  // The unique-code note applies whenever the chosen method does NOT settle via Flip
+  // (Flip disambiguates on its own; Moota-gateway + manual transfer rely on the unique
+  // code). Read the per-item gateway from the chosen method; fall back to the global
+  // flip_enabled flag for the legacy string-method path.
+  const chosenGateway = (typeof paymentMethod === 'object' && paymentMethod && paymentMethod.gateway) || '';
+  const settlesViaFlip = chosenGateway ? chosenGateway === 'flip'
+    : !!(window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.flip_enabled);
   const subtotalNum = Number(amount) || 0;
   const totalNum = subtotalNum + adminFee;
 
@@ -1272,9 +1278,9 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
             <div className="flex justify-between"><span className="text-mute">Subtotal donasi</span><b className="text-ink">{fmtIDR(subtotalNum)}</b></div>
             {adminFee > 0 && <div className="flex justify-between"><span className="text-mute">Biaya admin</span><b className="text-ink">{fmtIDR(adminFee)}</b></div>}
             <div className="flex justify-between pt-1.5 border-t border-line"><span className="font-bold text-ink">Total pembayaran</span><b className="text-brand-600 text-lg">{fmtIDR(totalNum)}</b></div>
-            {!flipOn && (
+            {!settlesViaFlip && (
               <div className="text-[11px] text-mute pt-1 leading-relaxed">
-                Untuk transfer manual, sistem menambahkan <b>kode unik</b> (beberapa rupiah) ke total agar pembayaran terverifikasi otomatis. Nominal final ditampilkan di halaman berikutnya.
+                Sistem menambahkan <b>kode unik</b> (beberapa rupiah) ke total agar pembayaran terverifikasi otomatis. Nominal final ditampilkan di halaman berikutnya.
               </div>
             )}
           </div>
@@ -1322,15 +1328,21 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
   const pmObj = typeof paymentMethod === 'object' ? paymentMethod : null;
   const pmType = (pmObj?.type || pmObj?.category || (typeof paymentMethod === 'string' ? paymentMethod : '')).toLowerCase();
 
-  // Flip gateway invoice: backend sets type_payment="Flip" and puts Flip's hosted
-  // payment_url in qr_url (link_url in url_alternative). The donor must be sent to
-  // that page — it is NOT a scannable QRIS image. Fallback: treat an http(s) qr_url
-  // as a Flip link even if type_payment is absent (older API responses).
-  const flipUrl = invoice.qr_url || invoice.url_alternative || '';
-  const isFlip = (invoice.type_payment || '').toLowerCase() === 'flip' || /^https?:\/\//i.test(flipUrl);
+  // Hosted-gateway invoice: backend sets type_payment="Flip" or "Moota" and puts the
+  // gateway's hosted payment_url in qr_url (Flip also fills url_alternative). The donor is
+  // redirected there — it is NOT a scannable QRIS image. Fallback: treat any http(s) qr_url
+  // as a gateway link even if type_payment is absent (older API responses). Both gateways
+  // share the same redirect UX; only the label differs.
+  const typePay = (invoice.type_payment || '').toLowerCase();
+  const gatewayUrl = invoice.qr_url || invoice.url_alternative || '';
+  const isMoota = typePay === 'moota';
+  const isFlip = typePay === 'flip' || (!isMoota && /^https?:\/\//i.test(gatewayUrl));
+  const isHostedGateway = isFlip || isMoota || /^https?:\/\//i.test(gatewayUrl);
+  const flipUrl = gatewayUrl; // kept name for the redirect effect below
+  const gatewayLabel = isMoota ? 'Moota' : 'Flip';
 
-  // QRIS only when we have a real QR (not a Flip redirect URL).
-  const isQRIS = !isFlip && (pmType.includes('qris') || (!!invoice.qr_url && !/^https?:\/\//i.test(invoice.qr_url)));
+  // QRIS only when we have a real QR (not a hosted gateway redirect URL).
+  const isQRIS = !isHostedGateway && (pmType.includes('qris') || (!!invoice.qr_url && !/^https?:\/\//i.test(invoice.qr_url)));
   const isPaid = invoice.is_paid || /paid|berhasil|lunas|success/i.test(status);
 
   const autoRedirect = !!(typeof window !== 'undefined' && window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.flip_auto_redirect);
@@ -1347,7 +1359,7 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
   // number) is the UNPAYABLE dead-end. The backend now rejects creating these, but guard
   // the display too so any legacy/edge invoice surfaces a clear error + CS path instead of
   // a passive "we'll contact you" that looks intentional.
-  const noPayableDestination = !isFlip && !isQRIS && !bankNumber;
+  const noPayableDestination = !isHostedGateway && !isQRIS && !bankNumber;
 
   // Expiry countdown for time-sensitive manual transfers. expired_at comes from the
   // invoice; show remaining time and turn urgent under 1h so a donor doesn't pay late
@@ -1378,10 +1390,10 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
   // The manual "Lanjutkan ke Pembayaran" button stays as a fallback if the redirect
   // is blocked (popup blockers don't affect same-tab location changes).
   useEffect(() => {
-    if (isFlip && autoRedirect && flipUrl && !isPaid) {
+    if (isHostedGateway && autoRedirect && flipUrl && !isPaid) {
       try { window.location.href = flipUrl; } catch {}
     }
-  }, [isFlip, autoRedirect, flipUrl, isPaid]);
+  }, [isHostedGateway, autoRedirect, flipUrl, isPaid]);
 
   // Poll status every 12s until paid, but cap at ~12 min (60 attempts). Without a
   // cap, an invoice that never settles (e.g. a stuck webhook) polls forever with
@@ -1515,13 +1527,13 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
       </div>
 
       {/* QRIS */}
-      {noPayableDestination ? null : isFlip ? (
+      {noPayableDestination ? null : isHostedGateway ? (
         <div className="mt-5 flex flex-col items-center text-center">
-          <div className="text-xs font-bold uppercase tracking-wider text-mute mb-3">Pembayaran via Flip</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-mute mb-3">Pembayaran via {gatewayLabel}</div>
           <div className="w-full rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-800 leading-relaxed">
             {autoRedirect
-              ? 'Anda akan dialihkan ke halaman pembayaran Flip. Jika tidak otomatis, tekan tombol di bawah.'
-              : 'Lanjutkan ke halaman pembayaran Flip (QRIS / Virtual Account / e-wallet) untuk menyelesaikan donasi.'}
+              ? `Anda akan dialihkan ke halaman pembayaran ${gatewayLabel}. Jika tidak otomatis, tekan tombol di bawah.`
+              : `Lanjutkan ke halaman pembayaran ${gatewayLabel} (QRIS / Virtual Account / e-wallet) untuk menyelesaikan donasi.`}
           </div>
           {flipUrl ? (
             <a href={flipUrl} target="_blank" rel="noopener noreferrer"
@@ -1566,6 +1578,18 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
           <div className="flex items-center justify-between rounded-xl border border-line p-3">
             <div><div className="text-[11px] text-mute">Total Transfer</div><div className="font-extrabold text-brand-600 text-lg">{fmtIDR(total)}</div></div>
             <button onClick={() => copy(total, 'total')} className="text-xs font-bold text-brand-600 hover:underline">{copied==='total' ? 'Tersalin ✓' : 'Salin'}</button>
+          </div>
+          {/* Berita/note transfer = the invoice number. This is the most RELIABLE way for
+              Moota to auto-match the transfer (the INV- tag is the primary matcher); without
+              it, settlement falls back to amount+unique-code only. Make it copy-able and
+              explain why. Closes the reconciliation gap (donors never told to tag transfers). */}
+          <div className="flex items-center justify-between rounded-xl border-2 border-brand-200 bg-brand-50 p-3">
+            <div className="min-w-0">
+              <div className="text-[11px] font-bold text-brand-700">Berita / Catatan Transfer (penting)</div>
+              <div className="font-mono font-extrabold text-ink text-lg truncate">{invoice.invoice_number}</div>
+              <div className="text-[11px] text-mute mt-0.5">Cantumkan kode ini di berita transfer agar otomatis terverifikasi.</div>
+            </div>
+            <button onClick={() => copy(invoice.invoice_number, 'inv')} className="shrink-0 ml-2 text-xs font-bold text-brand-600 hover:underline">{copied==='inv' ? 'Tersalin ✓' : 'Salin'}</button>
           </div>
         </div>
       )}

@@ -409,6 +409,22 @@ const FLIP_CHANNELS = {
   ]
 };
 
+// Legacy/default per-channel gateway (must mirror backend channelDefaultGateway):
+// VA→flip, QRIS/e-wallet→moota, transfer→manual. Used to seed the routing matrix when
+// the admin hasn't configured payment_channel_gateways yet.
+const CHANNEL_DEFAULT_GATEWAY = {
+  bca: 'flip', mandiri: 'flip', bni: 'flip', bri: 'flip', bsi: 'flip',
+  muamalat: 'flip', cimb: 'flip', danamon: 'flip', permata: 'flip',
+  qris: 'moota', gopay: 'moota', ovo: 'moota', dana: 'moota',
+  linkaja: 'moota', shopeepay: 'moota', doku: 'moota',
+  flip: 'manual',
+};
+const GATEWAY_OPTIONS = [
+  { value: 'flip', label: 'Flip' },
+  { value: 'moota', label: 'Moota' },
+  { value: 'manual', label: 'Manual' },
+];
+
 // Bank labels the admin can toggle for manual-transfer display (General tab). All
 // checked banks share the single org account (BankName/BankNumber/BankAccountName).
 const MANUAL_BANK_OPTIONS = [
@@ -468,6 +484,18 @@ function PaymentPanel({ settings, onSave }) {
   const defaultFlipCodes = Object.values(FLIP_CHANNELS).flat().reduce((acc, ch) => ({ ...acc, [ch.key]: { enabled: true, code: ch.key } }), {});
   const [flipCodes, setFlipCodes] = useStateA(parseArr(settings?.flip_code_config, defaultFlipCodes));
 
+  // Per-channel routing matrix: {channelKey: "flip"|"moota"|"manual"}. Seeded from the
+  // saved map, falling back to CHANNEL_DEFAULT_GATEWAY for any channel not yet configured.
+  const seedRouting = () => {
+    const saved = parseArr(settings?.payment_channel_gateways, {});
+    const out = {};
+    Object.values(FLIP_CHANNELS).flat().forEach(ch => {
+      out[ch.key] = saved[ch.key] || CHANNEL_DEFAULT_GATEWAY[ch.key] || 'manual';
+    });
+    return out;
+  };
+  const [routing, setRouting] = useStateA(seedRouting);
+
   // ---- Moota ----
   const [mootaEnabled, setMootaEnabled] = useStateA(settings?.moota_enabled ?? false);
   const [mootaKey, setMootaKey] = useStateA('');            // secret: blank = keep
@@ -477,6 +505,22 @@ function PaymentPanel({ settings, onSave }) {
   const [mootaRange, setMootaRange] = useStateA(settings?.moota_date_range ?? 7);
   const [mootaBalances, setMootaBalances] = useStateA(null);
   const [mootaBalLoading, setMootaBalLoading] = useStateA(false);
+  // Moota as a payment gateway (outbound VA/QRIS create-transaction).
+  const [mootaGwEnabled, setMootaGwEnabled] = useStateA(settings?.moota_gateway_enabled ?? false);
+  const [mootaGwAccount, setMootaGwAccount] = useStateA(settings?.moota_gateway_account_id || '');
+  const [mootaAccounts, setMootaAccounts] = useStateA(null);
+  const [mootaAccLoading, setMootaAccLoading] = useStateA(false);
+  const fetchMootaAccounts = async () => {
+    setMootaAccLoading(true);
+    try {
+      const res = await window.api.mootaAccounts();
+      if (res?.data) setMootaAccounts(res.data); else setMootaAccounts([]);
+    } catch (e) {
+      showToastSafe((e && e.message) || 'Gagal memuat akun Moota.');
+      setMootaAccounts([]);
+    }
+    setMootaAccLoading(false);
+  };
 
   const [mootaBalErr, setMootaBalErr] = useStateA('');
   const fetchMootaBalance = async () => {
@@ -509,6 +553,15 @@ function PaymentPanel({ settings, onSave }) {
     setBankHolder(s.bank_account_name || '');
     setMethodTypes(parseArr(s.payment_method_types, defaultMethodTypes));
     setManualBanks(parseArr(s.manual_banks, []));
+    // Re-seed routing matrix from saved map + defaults.
+    {
+      const saved = parseArr(s.payment_channel_gateways, {});
+      const out = {};
+      Object.values(FLIP_CHANNELS).flat().forEach(ch => {
+        out[ch.key] = saved[ch.key] || CHANNEL_DEFAULT_GATEWAY[ch.key] || 'manual';
+      });
+      setRouting(out);
+    }
 
     if (s.flip_enabled != null) setFlipEnabled(s.flip_enabled);
     setFlipMode(s.flip_mode || 'sandbox');
@@ -521,6 +574,8 @@ function PaymentPanel({ settings, onSave }) {
     if (s.moota_signature_enabled != null) setMootaSignature(s.moota_signature_enabled);
     setMootaEndpoint(s.moota_endpoint || '');
     if (s.moota_date_range != null) setMootaRange(s.moota_date_range);
+    if (s.moota_gateway_enabled != null) setMootaGwEnabled(s.moota_gateway_enabled);
+    setMootaGwAccount(s.moota_gateway_account_id || '');
   }, [settings]);
 
   const callbackHint = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/flip`;
@@ -534,8 +589,15 @@ function PaymentPanel({ settings, onSave }) {
       bank_number: bankNumber.replace(/[^0-9]/g, ''),
       bank_account_name: bankHolder.trim(),
       payment_method_types: JSON.stringify(methodTypes),
-      manual_banks: JSON.stringify(manualBanks)
+      manual_banks: JSON.stringify(manualBanks),
+      payment_channel_gateways: JSON.stringify(routing),
     };
+    // unique_code_mode=none breaks auto-reconcile for manual + Moota-gateway channels
+    // (no unique code → untagged transfers can't be disambiguated). Warn if any channel
+    // routes to manual/moota while unique is off.
+    if (ucMode === 'none' && Object.values(routing).some(g => g === 'manual' || g === 'moota')) {
+      showToastSafe('⚠ Kode unik = none: pembayaran manual & Moota tidak bisa terverifikasi otomatis. Pakai mode range/fixed.');
+    }
     if (ucMode === 'fixed') patch.unique_code_fixed = parseInt(String(ucFixed).replace(/\D/g, ''), 10) || 0;
     if (ucMode === 'range') {
       patch.unique_code_min = parseInt(String(ucMin).replace(/\D/g, ''), 10) || 1;
@@ -578,7 +640,13 @@ function PaymentPanel({ settings, onSave }) {
       moota_signature_enabled: mootaSignature,
       moota_endpoint: mootaEndpoint.trim(),
       moota_date_range: parseInt(String(mootaRange).replace(/\D/g, ''), 10) || 7,
+      moota_gateway_enabled: mootaGwEnabled,
+      moota_gateway_account_id: mootaGwAccount.trim(),
     };
+    if (mootaGwEnabled && !mootaGwAccount.trim()) {
+      showToastSafe('Pilih Akun Gateway Moota dulu untuk mengaktifkan payment gateway Moota.');
+      return;
+    }
     if (mootaKey.trim()) patch.moota_api_key = mootaKey.trim();
     if (mootaSecret.trim()) patch.moota_webhook_secret = mootaSecret.trim();
     return onSave(patch).then((ok) => { if (ok) { setMootaKey(''); setMootaSecret(''); clearPDirty('moota'); } return ok; });
@@ -704,6 +772,39 @@ function PaymentPanel({ settings, onSave }) {
             <div className="text-[11px] text-mute mt-3">Rekening tujuan di atas dipakai untuk semua bank tercentang (transfer manual, direkonsiliasi Moota) saat Flip nonaktif.</div>
           </div>
 
+          {/* ===== Routing Pembayaran (per-channel gateway matrix) ===== */}
+          <div>
+            <label className="text-sm font-bold text-ink mb-1 block">Routing Pembayaran</label>
+            <div className="text-[11px] text-mute mb-3 leading-relaxed">
+              Tentukan gateway yang menyelesaikan tiap metode. <b>Flip</b> = hosted page (VA), <b>Moota</b> = hosted page (VA/QRIS via Winpay), <b>Manual</b> = transfer ke rekening + rekonsiliasi Moota.
+              Gateway yang kredensialnya belum lengkap otomatis turun ke <b>Manual</b> di sisi donatur.
+            </div>
+            <div className="rounded-xl border border-line overflow-hidden">
+              <div className="grid grid-cols-[1fr_auto] gap-2 bg-bg2 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-mute">
+                <span>Metode</span><span>Settle via</span>
+              </div>
+              {Object.entries(FLIP_CHANNELS).map(([typeKey, channels]) => (
+                <div key={typeKey}>
+                  <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-mute bg-white">{typeKey === 'va' ? 'Virtual Account' : typeKey === 'instant' ? 'Instan (QRIS / e-wallet)' : 'Transfer'}</div>
+                  {channels.map(ch => (
+                    <div key={ch.key} className="grid grid-cols-[1fr_auto] items-center gap-2 px-3 py-1.5 border-t border-line/60">
+                      <span className="text-sm text-ink">{ch.name}</span>
+                      <select
+                        value={routing[ch.key] || 'manual'}
+                        onChange={(e) => setRouting(prev => ({ ...prev, [ch.key]: e.target.value }))}
+                        className="text-xs font-semibold rounded-lg border border-line bg-white px-2 py-1.5 text-ink focus:border-brand-600 focus:ring-0">
+                        {GATEWAY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-[11px] text-amber-700 leading-relaxed">
+              <b>Catatan Flip (VA-only):</b> Flip hanya menampilkan metode yang aktif di dashboard merchant Flip-mu. Agar benar-benar VA-only, nonaktifkan QRIS &amp; e-wallet di dashboard Flip juga — pengaturan di sini hanya mengatur daftar di situs NiatBaik.
+            </div>
+          </div>
+
         </div>
         <div className="flex mt-8"><SaveButton onClick={saveGeneral}>Update</SaveButton></div>
         </div>
@@ -816,6 +917,42 @@ function PaymentPanel({ settings, onSave }) {
           <div>
             <label className="text-xs font-semibold text-ink block mb-1">Moota Date Range (hari)</label>
             <input type="number" min="1" max="90" className="field w-24" value={mootaRange} onChange={(e) => setMootaRange(e.target.value)}/>
+          </div>
+
+          {/* ===== Moota Payment Gateway (outbound VA/QRIS) ===== */}
+          <div className="border-2 border-brand-100 bg-brand-50/40 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <div className="text-sm font-bold text-ink">Payment Gateway Moota</div>
+                <div className="text-[11px] text-mute">Terima pembayaran VA / QRIS via Moota (Winpay). Berbeda dari fitur saldo/mutasi.</div>
+              </div>
+              <Toggle value={mootaGwEnabled} onChange={setMootaGwEnabled}/>
+            </div>
+            {mootaGwEnabled && (
+              <div className="mt-2 space-y-2">
+                <label className="text-[11px] font-semibold text-mute block">Akun Gateway (bank_account_id)</label>
+                <div className="flex items-center gap-2">
+                  <select value={mootaGwAccount} onChange={(e) => setMootaGwAccount(e.target.value)}
+                    className="flex-1 text-sm rounded-lg border border-line bg-white px-3 py-2 text-ink focus:border-brand-600 focus:ring-0">
+                    <option value="">— Pilih akun —</option>
+                    {(mootaAccounts || []).map(a => (
+                      <option key={a.bank_id} value={a.bank_id}>{(a.bank_type || '').toUpperCase()} · {a.account_number} · {a.name}</option>
+                    ))}
+                    {/* Keep the saved id selectable even before the list loads. */}
+                    {mootaGwAccount && !(mootaAccounts || []).some(a => a.bank_id === mootaGwAccount) && (
+                      <option value={mootaGwAccount}>{mootaGwAccount}</option>
+                    )}
+                  </select>
+                  <button type="button" onClick={fetchMootaAccounts} disabled={mootaAccLoading}
+                    className="shrink-0 text-xs font-bold text-brand-600 border border-brand-200 bg-white px-3 py-2 rounded-lg hover:bg-brand-50 disabled:opacity-50">
+                    {mootaAccLoading ? 'Memuat…' : 'Muat Akun'}
+                  </button>
+                </div>
+                <div className="text-[11px] text-mute leading-relaxed">
+                  Pilih rekening Moota (idealnya akun Payment Gateway / Winpay) yang akan menampung pembayaran. Untuk VA/QRIS asli, akun harus tipe Payment Gateway — akun vaSandbox hanya menghasilkan halaman bayar hosted.
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Cek Saldo Moota */}

@@ -9,10 +9,18 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/config"
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
+	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/internal/repository"
+	"github.com/anrdart/niatbaik-api/internal/service"
 	"github.com/anrdart/niatbaik-api/pkg/pagination"
 	"github.com/labstack/echo/v4"
 )
+
+// hasManualBank reports whether the org's single manual bank account number is configured
+// (mirrors service.hasManualPath; the public list only needs the number to show a fallback).
+func hasManualBank(s *model.Setting) bool {
+	return s != nil && strings.TrimSpace(s.BankNumber) != ""
+}
 
 type PublicHandler struct {
 	campaignRepo      *repository.CampaignRepo
@@ -169,6 +177,11 @@ func (h *PublicHandler) GetPublicSettings(c echo.Context) error {
 		"bank_account_name": settings.BankAccountName,
 		"flip_enabled":      settings.FlipEnabled,
 		"flip_auto_redirect": settings.FlipAutoRedirect,
+		// Per-channel gateway routing map + Moota-as-gateway flag, so the donor form can
+		// show the right fee text per method and the confirmation page can treat a Moota
+		// invoice like a Flip redirect.
+		"payment_channel_gateways": settings.PaymentChannelGateways,
+		"moota_gateway_enabled":    settings.MootaGatewayEnabled,
 		// Method-type titles/active flags so the public form can label groups the way
 		// the admin configured (non-secret config; flip_code_config stays admin-only).
 		"payment_method_types": settings.PaymentMethodTypes,
@@ -198,16 +211,16 @@ func (h *PublicHandler) ListPaymentMethods(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("Failed to fetch payment settings"))
 	}
 
-	flipGateway := settings != nil && settings.FlipEnabled
+	items := make([]map[string]interface{}, 0, 16)
 
-	items := make([]map[string]interface{}, 0, 12)
-
-	if flipGateway {
-		// Donor-facing Flip channels are built from the admin's Flip Code matrix
-		// (settings.FlipCodeConfig: per-channel enabled + gateway code) AND filtered by
-		// the active method TYPES (settings.PaymentMethodTypes). This makes the admin's
-		// toggles actually change what donors see, instead of a fixed hardcoded list.
-		// Empty/unparseable config falls back to "everything enabled" (legacy behavior).
+	if settings != nil {
+		// Per-channel gateway routing: each catalog channel is shown only when (a) its
+		// method TYPE is active, (b) the channel is enabled in the Flip Code matrix, and
+		// (c) its RESOLVED gateway is actually usable. service.ResolveChannelGateway maps
+		// the channel → flip|moota|manual using the admin's PaymentChannelGateways map
+		// (legacy default: VA→flip, QRIS/e-wallet→moota, transfer→manual) and downgrades to
+		// manual when the target gateway's credentials are missing. The per-item "gateway"
+		// + synthetic id prefix tell the backend (and donor UI) who settles each method.
 		for _, ch := range flipChannelCatalog {
 			if !methodTypeActive(settings.PaymentMethodTypes, ch.methodType) {
 				continue
@@ -216,8 +229,14 @@ func (h *PublicHandler) ListPaymentMethods(c echo.Context) error {
 			if !enabled {
 				continue
 			}
+			gw := service.ResolveChannelGateway(settings, ch.key, "")
+			// "manual" channels are surfaced via the manual-bank block below (they point at
+			// the org account, not a hosted gateway page). Only show flip/moota here.
+			if gw != "flip" && gw != "moota" {
+				continue
+			}
 			items = append(items, map[string]interface{}{
-				"id":           "flip-" + ch.key,
+				"id":           gw + "-" + ch.key,
 				"bank_name":    ch.name,
 				"bank_number":  "",
 				"bank_type":    ch.typ,
@@ -227,30 +246,34 @@ func (h *PublicHandler) ListPaymentMethods(c echo.Context) error {
 				"code":         code,
 				"admin_fee":    settings.AdminFee,
 				"image":        "",
+				"gateway":      gw,
 			})
 		}
-	} else if settings != nil {
-		// Manual transfer to the org's account (gateway off). If the admin picked
-		// specific bank labels (ManualBanks), surface one option per label — each
-		// pointing at the single org account the admin configured. Empty config falls
-		// back to the legacy single BankName entry.
-		labels := manualBankList(settings.ManualBanks)
-		if len(labels) == 0 && settings.BankName != "" {
-			labels = []string{settings.BankName}
-		}
-		for i, label := range labels {
-			items = append(items, map[string]interface{}{
-				"id":           fmt.Sprintf("manual-bank-%d", i),
-				"bank_name":    label,
-				"bank_number":  settings.BankNumber,
-				"bank_type":    "va",
-				"account_name": settings.BankAccountName,
-				"type":         "va",
-				"category":     "bank_transfer",
-				"code":         "",
-				"admin_fee":    settings.AdminFee,
-				"image":        "",
-			})
+
+		// Manual bank transfer to the org account — shown when a bank number is configured
+		// (regardless of Flip/Moota), so a donor always has a manual fallback. If the admin
+		// picked specific bank labels (ManualBanks), surface one option per label; else the
+		// single BankName entry.
+		if hasManualBank(settings) {
+			labels := manualBankList(settings.ManualBanks)
+			if len(labels) == 0 && settings.BankName != "" {
+				labels = []string{settings.BankName}
+			}
+			for i, label := range labels {
+				items = append(items, map[string]interface{}{
+					"id":           fmt.Sprintf("manual-bank-%d", i),
+					"bank_name":    label,
+					"bank_number":  settings.BankNumber,
+					"bank_type":    "va",
+					"account_name": settings.BankAccountName,
+					"type":         "va",
+					"category":     "bank_transfer",
+					"code":         "",
+					"admin_fee":    settings.AdminFee,
+					"image":        "",
+					"gateway":      "manual",
+				})
+			}
 		}
 	}
 
@@ -279,6 +302,7 @@ func (h *PublicHandler) ListPaymentMethods(c echo.Context) error {
 				"code":         m.Code,
 				"admin_fee":    m.AdminFee,
 				"image":        m.Image,
+				"gateway":      "manual", // admin-managed rows settle via manual reconcile
 			})
 		}
 	}

@@ -1179,13 +1179,10 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
     return false;
   };
 
-  // Pre-submit fee disclosure. The donor must see the FULL amount they'll be billed
-  // BEFORE committing — previously the +admin fee / unique code only appeared on the
-  // confirmation page, after submit, which reads as a bait-and-switch. admin_fee comes
-  // from the chosen method; the manual unique code is added server-side (Flip off) and
-  // can't be known exactly here, so we disclose it as a small "up to" note rather than a
-  // precise figure to avoid showing a wrong total.
-  const adminFee = (typeof paymentMethod === 'object' && paymentMethod && Number(paymentMethod.admin_fee)) || 0;
+  // Admin fee is MERCHANT-borne (deducted from the campaign's share in
+  // payment_service.go: campaignReceives = Subtotal - adminFee), so the donor never pays
+  // it — Total = Amount (+ unique code for manual/Moota). Don't surface any "biaya admin"
+  // to the donor; showing it was misleading (a fee they're never charged).
   // The unique-code note applies whenever the chosen method does NOT settle via Flip
   // (Flip disambiguates on its own; Moota-gateway + manual transfer rely on the unique
   // code). Read the per-item gateway from the chosen method; fall back to the global
@@ -1194,7 +1191,7 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
   const settlesViaFlip = chosenGateway ? chosenGateway === 'flip'
     : !!(window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.flip_enabled);
   const subtotalNum = Number(amount) || 0;
-  const totalNum = subtotalNum + adminFee;
+  const totalNum = subtotalNum;
 
   return (
     <div className="rounded-2xl bg-white border border-line shadow-card p-5 lg:p-6">
@@ -1253,7 +1250,6 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
                       <button key={m.id} onClick={() => setPaymentMethod(m)}
                         className={`h-14 px-2 rounded-lg border-2 flex flex-col items-center justify-center text-center text-[10px] font-extrabold leading-tight ${isSelected(m) ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line bg-white text-ink hover:border-brand-200'}`}>
                         <span>{m.bank_name}</span>
-                        {m.admin_fee ? <span className="text-[9px] font-semibold text-mute">+{fmtIDRShort(m.admin_fee)}</span> : null}
                       </button>
                     ))}
                   </div>
@@ -1275,9 +1271,7 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
         {/* Fee disclosure — show the donor exactly what they'll pay BEFORE submitting. */}
         <div className="pt-4 border-t border-line">
           <div className="rounded-xl bg-bg2 p-4 text-sm space-y-1.5">
-            <div className="flex justify-between"><span className="text-mute">Subtotal donasi</span><b className="text-ink">{fmtIDR(subtotalNum)}</b></div>
-            {adminFee > 0 && <div className="flex justify-between"><span className="text-mute">Biaya admin</span><b className="text-ink">{fmtIDR(adminFee)}</b></div>}
-            <div className="flex justify-between pt-1.5 border-t border-line"><span className="font-bold text-ink">Total pembayaran</span><b className="text-brand-600 text-lg">{fmtIDR(totalNum)}</b></div>
+            <div className="flex justify-between"><span className="font-bold text-ink">Total donasi</span><b className="text-brand-600 text-lg">{fmtIDR(totalNum)}</b></div>
             {!settlesViaFlip && (
               <div className="text-[11px] text-mute pt-1 leading-relaxed">
                 Sistem menambahkan <b>kode unik</b> (beberapa rupiah) ke total agar pembayaran terverifikasi otomatis. Nominal final ditampilkan di halaman berikutnya.

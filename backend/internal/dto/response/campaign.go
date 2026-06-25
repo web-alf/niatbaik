@@ -55,6 +55,11 @@ type CampaignDetail struct {
 	FormType           string               `json:"form_type"`
 	OptNominal         string               `json:"opt_nominal"`
 	FormFieldsConfig   string               `json:"form_fields_config"`
+	// FormItemsConfig is the custom-form item list / zakat calculator (Qurban/Package2/
+	// Zakat). Surfaced publicly so the donor form can render the item picker / calculator
+	// instead of plain nominal presets. Empty = nominal presets. (Was missing → donor
+	// always saw presets even when the admin configured items.)
+	FormItemsConfig    string               `json:"form_items_config"`
 	ButtonColor        string               `json:"button_color"`
 	MinDonation        int64                `json:"min_donation"`
 	MaxDonation        int64                `json:"max_donation"`
@@ -161,6 +166,7 @@ func ToCampaignDetail(c *model.Campaign, donorCount int64, donors []CampaignDono
 		FormType:           c.FormType,
 		OptNominal:         c.OptNominal,
 		FormFieldsConfig:   c.FormFieldsConfig,
+		FormItemsConfig:    c.FormItemsConfig,
 		ButtonColor:        c.ButtonColor,
 		MinDonation:        c.MinDonation,
 		MaxDonation:        c.MaxDonation,

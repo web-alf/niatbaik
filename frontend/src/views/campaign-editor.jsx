@@ -109,7 +109,13 @@ function CampaignEditorForm({ campaign }) {
 
   // ---- form type panel ----
   // Initialize from the campaign being edited so saving doesn't silently reset them.
-  const [formMode, setFormMode] = useStateA(c?.form_type || 'Donation'); // Donation | Zakat
+  // form_type is stored lowercase by the backend default ('donasi') but the editor uses
+  // canonical 'Donation'/'Zakat' for its toggle. Normalize the seed so a legacy/default
+  // campaign ('donasi') still highlights the toggle and the Zakat branches work — without
+  // this, formMode was the raw 'donasi' and every `formMode === 'Zakat'` check silently
+  // failed AND neither toggle button appeared selected.
+  const normFormMode = (v) => /zakat/i.test(String(v || '')) ? 'Zakat' : 'Donation';
+  const [formMode, setFormMode] = useStateA(normFormMode(c?.form_type)); // Donation | Zakat
   const [formStyle, setFormStyle] = useStateA(c?.form_style || 'Card');  // List | Typing | Package | Card | Package2 | Qurban
 
   // Safe JSON parse helper for the per-campaign config blobs (payment/pixel/form).
@@ -206,6 +212,12 @@ function CampaignEditorForm({ campaign }) {
   // Zakat sub-mode: 'fitrah' (item list) | 'calc' (Maal/Pertanian calculator). Seed from the
   // saved kind so an edit reopens on the right zakat builder.
   const [zakatKind, setZakatKind] = useStateA(seededItems.kind === 'zakat_calc' ? 'calc' : 'fitrah');
+  // itemKindOf derives the active item-builder kind from mode/style/zakat-sub-mode. Used
+  // both to seed the right builder and to reset items when the kind changes (so qurban
+  // rows don't leak into a package2/zfitrah save — they have a different shape).
+  const itemKindOf = (mode, style, zk) => /zakat/i.test(mode)
+    ? (zk === 'calc' ? 'zakat_calc' : 'zfitrah')
+    : (style === 'Qurban' ? 'qurban' : style === 'Package2' ? 'package2' : '');
   const [zakatCalc, setZakatCalc] = useStateA({
     type: seededItems.calc.type || 'maal',
     rate: seededItems.calc.rate ?? 2.5,
@@ -214,6 +226,22 @@ function CampaignEditorForm({ campaign }) {
     agri_nisab_kg: seededItems.calc.agri_nisab_kg ?? 520,
     agri_price_per_kg: seededItems.calc.agri_price_per_kg ?? 0,
   });
+
+  // Guarded setters: when switching form mode/style/zakat-sub-mode changes the active item
+  // KIND, clear formItems so the previous kind's rows (e.g. qurban with animal_type/share)
+  // don't leak into a different kind's save. No reset when the kind is unchanged.
+  const changeFormMode = (m) => {
+    if (itemKindOf(m, formStyle, zakatKind) !== itemKindOf(formMode, formStyle, zakatKind)) setFormItems([]);
+    setFormMode(m);
+  };
+  const changeFormStyle = (s) => {
+    if (itemKindOf(formMode, s, zakatKind) !== itemKindOf(formMode, formStyle, zakatKind)) setFormItems([]);
+    setFormStyle(s);
+  };
+  const changeZakatKind = (zk) => {
+    if (itemKindOf(formMode, formStyle, zk) !== itemKindOf(formMode, formStyle, zakatKind)) setFormItems([]);
+    setZakatKind(zk);
+  };
 
   const [advCustom, setAdvCustom] = useStateA({
     fundraiserPct: '10', fundraiserEnabled: true,
@@ -317,9 +345,7 @@ function CampaignEditorForm({ campaign }) {
     // form style / zakat sub-mode so the public renderer knows which picker to show. Always
     // send (even empty) so clearing items on edit persists instead of keeping stale data.
     {
-      const itemsKind = formMode === 'Zakat'
-        ? (zakatKind === 'calc' ? 'zakat_calc' : 'zfitrah')
-        : (formStyle === 'Qurban' ? 'qurban' : formStyle === 'Package2' ? 'package2' : '');
+      const itemsKind = itemKindOf(formMode, formStyle, zakatKind);
       if (itemsKind === 'zakat_calc') {
         payload.form_items_config = JSON.stringify({ kind: 'zakat_calc', items: [], calc: zakatCalc });
       } else if (itemsKind) {
@@ -541,7 +567,7 @@ function CampaignEditorForm({ campaign }) {
                           <div className="font-bold text-ink mb-2">Zakat</div>
                           <div className="inline-flex p-1 bg-white rounded-lg border border-line mb-3">
                             {[{v:'fitrah',l:'Zakat Fitrah (paket)'},{v:'calc',l:'Maal / Pertanian (kalkulator)'}].map(o => (
-                              <button key={o.v} onClick={() => setZakatKind(o.v)}
+                              <button key={o.v} onClick={() => changeZakatKind(o.v)}
                                 className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${zakatKind===o.v ? 'bg-brand-600 text-white shadow-sm' : 'text-mute hover:text-ink'}`}>{o.l}</button>
                             ))}
                           </div>
@@ -733,7 +759,7 @@ function CampaignEditorForm({ campaign }) {
 
             <div className="inline-flex p-1 bg-bg2 rounded-lg border border-line w-full">
               {['Donation','Zakat'].map((m) => (
-                <button key={m} onClick={() => setFormMode(m)}
+                <button key={m} onClick={() => changeFormMode(m)}
                   className={`flex-1 px-3 py-2 text-sm font-bold rounded-md transition-all ${formMode === m ? 'bg-brand-600 text-white shadow-sm' : 'text-mute hover:text-ink'}`}>
                   {m}
                 </button>
@@ -747,7 +773,7 @@ function CampaignEditorForm({ campaign }) {
               <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2.5">
                 {['Card','List','Typing','Package','Package2','Qurban'].map((s) => (
                   <label key={s} className="inline-flex items-center gap-2 cursor-pointer text-sm">
-                    <input type="radio" checked={formStyle === s} onChange={() => setFormStyle(s)} className="accent-emerald-600 h-4 w-4"/>
+                    <input type="radio" checked={formStyle === s} onChange={() => changeFormStyle(s)} className="accent-emerald-600 h-4 w-4"/>
                     <span className={formStyle === s ? 'font-bold text-ink' : 'text-ink/85'}>{s === 'Package2' ? 'Package 2' : s}</span>
                   </label>
                 ))}
@@ -756,7 +782,7 @@ function CampaignEditorForm({ campaign }) {
               <div className="mt-4 grid grid-cols-1 gap-y-2.5">
                 {[{v:'fitrah',l:'Zakat Fitrah (paket)'},{v:'calc',l:'Zakat Maal / Pertanian (kalkulator)'}].map((o) => (
                   <label key={o.v} className="inline-flex items-center gap-2 cursor-pointer text-sm">
-                    <input type="radio" checked={zakatKind === o.v} onChange={() => setZakatKind(o.v)} className="accent-emerald-600 h-4 w-4"/>
+                    <input type="radio" checked={zakatKind === o.v} onChange={() => changeZakatKind(o.v)} className="accent-emerald-600 h-4 w-4"/>
                     <span className={zakatKind === o.v ? 'font-bold text-ink' : 'text-ink/85'}>{o.l}</span>
                   </label>
                 ))}

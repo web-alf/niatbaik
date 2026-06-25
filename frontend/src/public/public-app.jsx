@@ -1016,19 +1016,23 @@ function itemImg(image) {
 // to the item's price.
 function ItemSelect({ c, kind, items, amount, setAmount, customInput }) {
   const heading = kind === 'qurban' ? 'Pilih hewan qurban' : kind === 'zfitrah' ? 'Pilih paket zakat fitrah' : 'Pilih paket donasi';
+  // Track the chosen item by IDENTITY, not by price — two items can share a price, and
+  // matching on amount===price would highlight ALL of them at once.
+  const [selectedKey, setSelectedKey] = useState('');
   return (
     <div>
       <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">{heading}</div>
       <div className="space-y-2.5">
-        {items.map((it) => {
+        {items.map((it, i) => {
           const price = Number(it.price) || 0;
-          const selected = amount === price && price > 0;
+          const key = it.id || String(i);
+          const selected = selectedKey === key && amount === price && price > 0;
           const img = itemImg(it.image);
           const sub = kind === 'qurban'
             ? [it.animal_type, it.share && it.share !== '1' ? `Patungan ${it.share}` : (it.share === '1' ? 'Full' : ''), it.weight].filter(Boolean).join(' · ')
             : (it.desc || '');
           return (
-            <button key={it.id || it.name} onClick={() => setAmount(price)}
+            <button key={key} onClick={() => { setSelectedKey(key); setAmount(price); }}
               className={`w-full flex items-center gap-3 p-2.5 rounded-2xl border-2 text-left transition-all ${selected ? 'border-brand-600 bg-brand-50 shadow-card' : 'border-line bg-white hover:border-brand-200'}`}>
               <div className="shrink-0 h-16 w-16 rounded-xl overflow-hidden bg-bg2 flex items-center justify-center">
                 {img ? <img src={img} alt="" className="h-full w-full object-cover" onError={(e)=>{e.target.style.display='none';}}/> : <Icon name="heart" size={22} className="text-brand-300"/>}

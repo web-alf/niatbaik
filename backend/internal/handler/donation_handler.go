@@ -62,7 +62,7 @@ func (h *DonationHandler) GetPaymentStatus(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, response.SuccessResponse(
-		response.ToPaymentStatusResponse(invoice),
+		response.ToInvoiceResponse(invoice),
 		"success",
 	))
 }

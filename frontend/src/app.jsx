@@ -393,12 +393,22 @@ function campaignSlugFromPath() {
   return '';
 }
 
+// Parse the invoice number from a /donations/<invoice> URL, if present.
+function invoiceNumberFromPath() {
+  try {
+    const m = window.location.pathname.match(/^\/donations\/([^/?#]+)/);
+    if (m && m[1]) return decodeURIComponent(m[1]);
+  } catch {}
+  return '';
+}
+
 function initialRouteFromPath() {
   try {
     const p = window.location.pathname;
     if (p === '/reset-password') return 'reset-password';
     if (p === '/forgot-password') return 'forgot-password';
     if (/^\/c\/[^/?#]+/.test(p)) return 'campaign-detail';
+    if (/^\/donations\/[^/?#]+/.test(p)) return 'donation-invoice';
   } catch {}
   return 'landing';
 }
@@ -412,6 +422,8 @@ function App() {
   const [invoiceTxn, setInvoiceTxn] = uS(null);
   // Seed from a /c/<slug> deep-link so a direct visit/refresh opens that campaign.
   const [campaignDetail, setCampaignDetail] = uS(() => campaignSlugFromPath() || null);
+  // Seed from a /donations/<invoice> deep-link so a direct visit/refresh opens that invoice checkout.
+  const [donationInvoice, setDonationInvoice] = uS(() => invoiceNumberFromPath() || null);
   const [editingCampaign, setEditingCampaign] = uS(null);
   const [adsGuideOpen, setAdsGuideOpen] = uS(false);
   const [dark, setDarkRaw] = uS(() => {
@@ -447,6 +459,10 @@ function App() {
       const cd = campaignDetail;
       const slug = (cd && typeof cd === 'object') ? (cd.slug || cd.id) : cd;
       if (slug) target = '/c/' + slug;
+    } else if (route === 'donation-invoice') {
+      const inv = donationInvoice;
+      const num = (inv && typeof inv === 'object') ? inv.invoice_number : inv;
+      if (num) target = '/donations/' + num;
     } else if (route === 'reset-password') {
       target = '/reset-password';
     } else if (route === 'forgot-password') {
@@ -465,7 +481,7 @@ function App() {
       }
       urlSyncedOnce.current = true;
     } catch {}
-  }, [route, campaignDetail]);
+  }, [route, campaignDetail, donationInvoice]);
 
   // Back/forward: re-derive the route from the URL so navigation history works.
   // user is read from a ref so the listener is registered once (no re-register churn
@@ -475,8 +491,14 @@ function App() {
   uE(() => {
     const onPop = () => {
       const slug = campaignSlugFromPath();
-      if (slug) { setCampaignDetail(slug); setRouteRaw('campaign-detail'); }
-      else {
+      const invNum = invoiceNumberFromPath();
+      if (slug) {
+        setCampaignDetail(slug);
+        setRouteRaw('campaign-detail');
+      } else if (invNum) {
+        setDonationInvoice(invNum);
+        setRouteRaw('donation-invoice');
+      } else {
         const p = window.location.pathname;
         if (p === '/reset-password') setRouteRaw('reset-password');
         else if (p === '/forgot-password') setRouteRaw('forgot-password');
@@ -495,7 +517,7 @@ function App() {
     // logged-out browser). Covers reset/forgot AND the public campaign-detail route.
     // (Bare "/" still lands logged-in users on the dashboard, the established UX.)
     const onPublicFlow = route === 'reset-password' || route === 'forgot-password' ||
-      route === 'campaign-detail';
+      route === 'campaign-detail' || route === 'donation-invoice';
     const token = api.getToken && api.getToken();
     if (token) {
       api.me().then(res => {
@@ -656,6 +678,7 @@ function App() {
     login: handleLogin, logout: handleLogout, updateUser,
     invoiceTxn, setInvoiceTxn,
     campaignDetail, setCampaignDetail,
+    donationInvoice, setDonationInvoice,
     editingCampaign, setEditingCampaign,
     showToast,
     dark, setDark,
@@ -665,7 +688,7 @@ function App() {
     // and pass it to useMemo deps to recompute derived lists when fresh data lands.
     dataTick,
     setRole: () => {}
-  }), [user, role, route, invoiceTxn, campaignDetail, editingCampaign, dark, dataTick]);
+  }), [user, role, route, invoiceTxn, campaignDetail, donationInvoice, editingCampaign, dark, dataTick]);
 
   // --- Auth loading skeleton ---
   if (authLoading) {
@@ -713,7 +736,7 @@ function App() {
   }
 
   // --- Public routes (no auth required) ---
-  const isPublicRoute = route === 'landing' || route === 'campaign-detail';
+  const isPublicRoute = route === 'landing' || route === 'campaign-detail' || route === 'donation-invoice';
   if (isPublicRoute && !dataReady) {
     return null;
   }
@@ -723,6 +746,7 @@ function App() {
         <ViewErrorBoundary route={route}>
           {route === 'landing' && <LandingPage/>}
           {route === 'campaign-detail' && <CampaignDetailWrap/>}
+          {route === 'donation-invoice' && <DonationInvoiceWrap/>}
         </ViewErrorBoundary>
         <Toast message={toast}/>
       </AppCtx.Provider>
@@ -850,6 +874,17 @@ function CampaignDetailWrap() {
     return <div className="min-h-screen flex items-center justify-center text-mute">Memuat campaign…</div>;
   }
   return <CampaignDetail id={id} onBack={() => navigate('landing')}/>;
+}
+
+// --- Donation invoice wrapper (public route) ---
+function DonationInvoiceWrap() {
+  const { navigate, donationInvoice } = useApp();
+  const cd = donationInvoice;
+  const num = (cd && typeof cd === 'object') ? cd.invoice_number : (cd || invoiceNumberFromPath());
+  if (typeof window.DonationInvoicePage !== 'function') {
+    return <div className="min-h-screen flex items-center justify-center text-mute">Memuat invoice…</div>;
+  }
+  return <window.DonationInvoicePage invoiceNumber={num} onBack={() => navigate('landing')}/>;
 }
 
 // --- ErrorBoundary: a single view crash never blanks the whole app ---

@@ -144,121 +144,56 @@ function Navbar({ onNav }) {
 function Hero({ onNav }) {
   return (
     <section className="relative overflow-hidden bg-bg2 border-b border-line">
+      <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-brand-50 opacity-60 blur-3xl"/>
+      <div className="absolute top-40 -left-32 h-72 w-72 rounded-full bg-brand-100 opacity-50 blur-3xl"/>
 
-      <div className="max-w-7xl mx-auto px-4 lg:px-6 py-12 lg:py-20 grid lg:grid-cols-2 gap-10 items-center relative">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-line shadow-card text-xs font-bold text-ink">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"/>
-            <span>{fmtNum(window.TOTAL_DONORS || 0)} donatur aktif</span>
-            <span className="text-mute font-normal hidden sm:inline">· Update real-time</span>
-          </div>
-
-          <h1 className="mt-5 text-4xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-ink">
-            Salurkan <span className="text-brand-600">Niat Baik</span> Anda, wujudkan kebaikan nyata.
-          </h1>
-          <p className="mt-5 text-lg text-mute max-w-xl leading-relaxed">
-            Donasi terverifikasi untuk kemanusiaan, kesehatan, pendidikan, dan wakaf.
-            Transparan, mudah, dan dipercaya{(window.TOTAL_DONORS > 0) ? <> oleh <b className="text-ink">{fmtNum(window.TOTAL_DONORS)}+ donatur</b></> : ''} di Indonesia.
-          </p>
-
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <PrimaryBtn size="lg" className="ctaPulse" onClick={() => onNav('campaign', getFirstCampaign())}>
-              <Icon name="heart" size={18}/> Mulai Donasi
-            </PrimaryBtn>
-            <button onClick={() => document.getElementById('campaigns')?.scrollIntoView({behavior:'smooth'})} className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-base font-bold text-ink hover:bg-white border border-line bg-white/60">
-              <Icon name="eye" size={18}/> Lihat Campaign
-            </button>
-          </div>
-
-          <div className="mt-8 grid grid-cols-3 gap-3 max-w-md">
-            {[
-              { v: fmtIDRShort(window.TOTAL_RAISED || 0), l:'Donasi tersalurkan' },
-              { v: fmtNum(window.TOTAL_DONORS || 0) + '+', l:'Donatur bersama' },
-              { v: fmtNum(window.ACTIVE_CAMPAIGNS || 0), l:'Campaign aktif' },
-            ].map((s, i) => (
-              <div key={i} className="bg-white/80 backdrop-blur border border-line rounded-xl p-3">
-                <div className="text-xl lg:text-2xl font-extrabold text-brand-600 leading-none">{s.v}</div>
-                <div className="text-[11px] text-mute mt-1.5 leading-tight">{s.l}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 flex flex-wrap items-center gap-3 text-xs text-mute">
-            <span className="inline-flex items-center gap-1.5"><Icon name="shield" size={14} className="text-emerald-600"/> SSL Aman</span>
-            <span className="inline-flex items-center gap-1.5"><Icon name="check" size={14} className="text-emerald-600"/> Berizin Kemensos</span>
-            <span className="inline-flex items-center gap-1.5"><Icon name="check" size={14} className="text-emerald-600"/> Audit publik bulanan</span>
-          </div>
+      <div className="max-w-4xl mx-auto px-4 lg:px-6 py-12 lg:py-20 text-center relative flex flex-col items-center">
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-line shadow-card text-xs font-bold text-ink">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"/>
+          <span>{fmtNum(window.TOTAL_DONORS || 0)} donatur aktif</span>
+          <span className="text-mute font-normal hidden sm:inline">· Update real-time</span>
         </div>
 
-        {/* Hero campaign card */}
-        <HeroCard c={getFirstCampaign()} onNav={onNav}/>
+        <h1 className="mt-5 text-4xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-ink max-w-2xl">
+          Salurkan <span className="text-brand-600">Niat Baik</span> Anda, wujudkan kebaikan nyata.
+        </h1>
+        <p className="mt-5 text-lg text-mute max-w-xl leading-relaxed">
+          Donasi terverifikasi untuk kemানুsiaan, kesehatan, pendidikan, dan wakaf.
+          Transparan, mudah, dan dipercaya{(window.TOTAL_DONORS > 0) ? <> oleh <b className="text-ink">{fmtNum(window.TOTAL_DONORS)}+ donatur</b></> : ''} di Indonesia.
+        </p>
+
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <PrimaryBtn size="lg" className="ctaPulse" onClick={() => {
+            const el = document.getElementById('campaigns');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }}>
+            <Icon name="heart" size={18}/> Mulai Donasi
+          </PrimaryBtn>
+          <button onClick={() => document.getElementById('campaigns')?.scrollIntoView({behavior:'smooth'})} className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-base font-bold text-ink hover:bg-white border border-line bg-white/60">
+            <Icon name="eye" size={18}/> Lihat Campaign
+          </button>
+        </div>
+
+        <div className="mt-10 grid grid-cols-3 gap-3 w-full max-w-lg">
+          {[
+            { v: fmtIDRShort(window.TOTAL_RAISED || 0), l:'Donasi tersalurkan' },
+            { v: fmtNum(window.TOTAL_DONORS || 0) + '+', l:'Donatur bersama' },
+            { v: fmtNum(window.ACTIVE_CAMPAIGNS || 0), l:'Campaign aktif' },
+          ].map((s, i) => (
+            <div key={i} className="bg-white/80 backdrop-blur border border-line rounded-xl p-3">
+              <div className="text-xl lg:text-2xl font-extrabold text-brand-600 leading-none">{s.v}</div>
+              <div className="text-[11px] text-mute mt-1.5 leading-tight">{s.l}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-5 text-xs text-mute">
+          <span className="inline-flex items-center gap-1.5"><Icon name="shield" size={14} className="text-emerald-600"/> SSL Aman</span>
+          <span className="inline-flex items-center gap-1.5"><Icon name="check" size={14} className="text-emerald-600"/> Berizin Kemensos</span>
+          <span className="inline-flex items-center gap-1.5"><Icon name="check" size={14} className="text-emerald-600"/> Audit publik bulanan</span>
+        </div>
       </div>
     </section>
-  );
-}
-
-function HeroCard({ c, onNav }) {
-  const [amount, setAmount] = useState(100_000);
-  const presets = [50_000, 100_000, 250_000];
-  // Only show URGENT when the campaign is genuinely near its end (real daysLeft), with
-  // the real remaining-days count — not a hardcoded "6 hari lagi" that lied on every card.
-  const daysLeft = Number(c?.daysLeft) || 0;
-  const isUrgent = daysLeft > 0 && daysLeft <= 10;
-  return (
-    <div className="relative float-in">
-      {isUrgent && <div className="absolute -top-3 -left-3 bg-rose-500 text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-pop rotate-[-6deg] z-10">URGENT · {daysLeft} hari lagi</div>}
-      <div className="rounded-3xl bg-white border border-line shadow-pop overflow-hidden">
-        <div className="relative aspect-[16/10]" style={thumbStyle(c)}>
-          {!hasThumbImage(c) && <div className="absolute inset-0 flex items-center justify-center text-white/85"><Icon name={c.icon} size={120} strokeWidth={1}/></div>}
-          <div className="absolute inset-0 bg-black/30"/>
-          <div className="absolute top-3 left-3 flex gap-2">
-            <span className="px-2 py-0.5 rounded-md bg-white/95 text-[11px] font-bold text-ink">{c.category}</span>
-            <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-[11px] font-bold text-white inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse"/>LIVE</span>
-          </div>
-          <div className="absolute bottom-3 left-3 right-3 text-white">
-            <div className="text-xs font-semibold uppercase opacity-90">Featured Campaign</div>
-            <div className="font-extrabold text-xl lg:text-2xl leading-tight mt-1">{c.title}</div>
-          </div>
-        </div>
-
-        <div className="p-5">
-          <div className="flex items-baseline justify-between">
-            <div>
-              <div className="text-2xl font-extrabold text-brand-600">{fmtIDR(c.raised)}</div>
-              <div className="text-xs text-mute">terkumpul dari {fmtIDR(c.target)}</div>
-            </div>
-            <div className="text-right">
-              <div className="text-2xl font-extrabold text-ink">{c.target ? Math.round(c.raised/c.target*100) : 0}%</div>
-              <div className="text-xs text-mute">tercapai</div>
-            </div>
-          </div>
-          <Progress value={c.raised} max={c.target || 1} className="h-2.5 mt-3"/>
-          <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Donatur</div><div className="font-extrabold text-ink">{fmtNum(c.donors)}</div></div>
-            <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Sisa hari</div><div className="font-extrabold text-rose-600">{c.daysLeft}</div></div>
-            <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Sisa</div><div className="font-extrabold text-ink">{fmtIDRShort(c.target - c.raised)}</div></div>
-          </div>
-
-          <div className="mt-4">
-            <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">Pilih nominal donasi</div>
-            <div className="grid grid-cols-3 gap-2">
-              {presets.map((p) => (
-                <button key={p} onClick={() => setAmount(p)}
-                  className={`py-2.5 rounded-xl text-sm font-extrabold border-2 transition-all ${amount === p ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line bg-white text-ink hover:border-brand-200'}`}>
-                  {fmtIDRShort(p)}
-                </button>
-              ))}
-            </div>
-            <PrimaryBtn size="lg" className="w-full mt-3" onClick={() => onNav('campaign', { ...c, _seedAmount: amount })}>
-              <Icon name="heart" size={18}/> Donasi {fmtIDR(amount)}
-            </PrimaryBtn>
-            <div className="mt-2 text-center text-[11px] text-mute">
-              <Icon name="shield" size={12} className="inline mr-1 text-emerald-600"/> Pembayaran aman melalui QRIS, VA, dan e-wallet
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 

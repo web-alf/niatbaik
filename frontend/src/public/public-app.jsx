@@ -1100,8 +1100,12 @@ function ZakatCalc({ calc, amount, setAmount }) {
             Nisab {Number(calc.agri_nisab_kg) || 520} kg · rate {calc.agri_irrigation === 'mandiri' ? '5% (mandiri)' : '10% (tadah hujan)'}. Zakat wajib bila hasil ≥ nisab.
           </div>
         )}
-        {(type === 'maal' || type === 'profesi') && <div className="text-[11px] text-mute">Rate {rate}% dari nilai harta/penghasilan.</div>}
-        {type === 'emas' && <div className="text-[11px] text-mute">Harga emas Rp {fmtNum(Number(calc.gold_price_per_gram)||0)}/gram × 2.5%.</div>}
+        {(type === 'maal' || type === 'profesi') && (
+          <div className="text-[11px] text-mute leading-relaxed">
+            Rate {rate}% dari nilai harta/penghasilan. Zakat wajib bila telah mencapai <b>nisab</b> (setara 85 gram emas) dan haul 1 tahun.
+          </div>
+        )}
+        {type === 'emas' && <div className="text-[11px] text-mute leading-relaxed">Harga emas Rp {fmtNum(Number(calc.gold_price_per_gram)||0)}/gram × 2.5%. Nisab emas 85 gram.</div>}
       </div>
     </div>
   );
@@ -1289,6 +1293,12 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
   // the campaign page, button2 = the confirm/submit CTA), stored in form_fields_config.
   const formCfg = parseFormFieldsConfig(c?.form_fields_config);
   const submitLabel = (formCfg.button2 || '').trim() || 'Lanjut ke Pembayaran';
+  // Field visibility from the admin's custom toggles. Only enforce hiding when the admin
+  // explicitly authored a custom config (_custom); otherwise show all (back-compat).
+  const customForm = !!formCfg._custom;
+  const showEmail = !customForm || formCfg.email !== false;
+  const showAnonim = !customForm || formCfg.anonim !== false;
+  const showComment = !customForm || formCfg.comment !== false;
 
   // Group API methods by type; fallback to flat string list.
   const grouped = useMemo(() => {
@@ -1353,15 +1363,24 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
               ? <div className="mt-1 text-xs text-rose-600">{errors.wa}</div>
               : <div className="mt-1 text-[11px] text-mute">Untuk kirim bukti &amp; verifikasi donasi; tidak ditampilkan publik.</div>}
           </div>
-          <div>
-            <input className={`field ${errors.email ? 'border-rose-400' : ''}`} placeholder="Email (opsional)" value={donor.email} onChange={(e) => { setDonor({...donor, email:e.target.value}); clearErr('email'); }}/>
-            {errors.email && <div className="mt-1 text-xs text-rose-600">{errors.email}</div>}
-          </div>
-          <label className="flex items-center gap-2 text-sm text-ink/80">
-            <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded border-line"/>
-            Donasi sebagai anonim (Hamba Allah)
-          </label>
-          <textarea className="field" rows="2" placeholder="Doa / pesan donatur (opsional)" value={donor.message} onChange={(e) => setDonor({...donor, message:e.target.value})}/>
+          {/* Email / anonim / comment honor the admin's Advanced > Form > Custom field
+              toggles (form_fields_config). When _custom is set, hidden fields are omitted;
+              otherwise everything shows (back-compat for campaigns with no custom config). */}
+          {showEmail && (
+            <div>
+              <input className={`field ${errors.email ? 'border-rose-400' : ''}`} placeholder="Email (opsional)" value={donor.email} onChange={(e) => { setDonor({...donor, email:e.target.value}); clearErr('email'); }}/>
+              {errors.email && <div className="mt-1 text-xs text-rose-600">{errors.email}</div>}
+            </div>
+          )}
+          {showAnonim && (
+            <label className="flex items-center gap-2 text-sm text-ink/80">
+              <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded border-line"/>
+              Donasi sebagai anonim (Hamba Allah)
+            </label>
+          )}
+          {showComment && (
+            <textarea className="field" rows="2" placeholder="Doa / pesan donatur (opsional)" value={donor.message} onChange={(e) => setDonor({...donor, message:e.target.value})}/>
+          )}
         </div>
 
         {/* Pembayaran */}

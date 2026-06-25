@@ -740,25 +740,48 @@ function CampaignEditorForm({ campaign }) {
               ))}
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2.5">
-              {['List','Typing','Package','Card','Package2','Qurban'].map((s) => (
-                <label key={s} className="inline-flex items-center gap-2 cursor-pointer text-sm">
-                  <input type="radio" checked={formStyle === s} onChange={() => setFormStyle(s)} className="accent-emerald-600 h-4 w-4"/>
-                  <span className={formStyle === s ? 'font-bold text-ink' : 'text-ink/85'}>{s === 'Package2' ? 'Package 2' : s}</span>
-                </label>
-              ))}
-            </div>
+            {/* Mode-aware type list (mirrors DonasiAja's section_donation vs section_zakat).
+                Donation → layout styles (Card first = default). Zakat → Maal/Fitrah, which
+                map to the zakat sub-mode (Maal→calculator, Fitrah→item list). */}
+            {formMode === 'Donation' ? (
+              <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2.5">
+                {['Card','List','Typing','Package','Package2','Qurban'].map((s) => (
+                  <label key={s} className="inline-flex items-center gap-2 cursor-pointer text-sm">
+                    <input type="radio" checked={formStyle === s} onChange={() => setFormStyle(s)} className="accent-emerald-600 h-4 w-4"/>
+                    <span className={formStyle === s ? 'font-bold text-ink' : 'text-ink/85'}>{s === 'Package2' ? 'Package 2' : s}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 grid grid-cols-1 gap-y-2.5">
+                {[{v:'fitrah',l:'Zakat Fitrah (paket)'},{v:'calc',l:'Zakat Maal / Pertanian (kalkulator)'}].map((o) => (
+                  <label key={o.v} className="inline-flex items-center gap-2 cursor-pointer text-sm">
+                    <input type="radio" checked={zakatKind === o.v} onChange={() => setZakatKind(o.v)} className="accent-emerald-600 h-4 w-4"/>
+                    <span className={zakatKind === o.v ? 'font-bold text-ink' : 'text-ink/85'}>{o.l}</span>
+                  </label>
+                ))}
+              </div>
+            )}
 
-            {/* Preview */}
-            <FormTypePreview style={formStyle}/>
+            {/* Preview — reflects the active mode (Zakat shows a calc/list skeleton). */}
+            <FormTypePreview style={formStyle} mode={formMode} zakatKind={zakatKind}/>
 
-            {formMode === 'Zakat' && (
+            {/* Contextual hint: which Advanced > Form > Custom builder to fill. */}
+            {formMode === 'Zakat' && zakatKind === 'fitrah' && (
               <div className="mt-4 pt-4 border-t border-line">
                 <div className="font-bold text-ink">Note :</div>
                 <p className="text-sm text-ink/80 mt-1 leading-relaxed">
-                  Selepas memilih Borang Zakat Fitrah, jangan lupa untuk menambahkan pakej zakat fitrah anda pada :
-                  <br/>
-                  <span className="font-bold text-brand-600 mt-1 inline-block">Advanced Option &gt; Form &gt; Custom &gt; Zakat Fitrah.</span>
+                  Setelah memilih Zakat Fitrah, tambahkan paket zakat fitrah Anda di:
+                  <span className="font-bold text-brand-600 mt-1 inline-block">Advanced Option &gt; Form &gt; Custom &gt; Zakat.</span>
+                </p>
+              </div>
+            )}
+            {formMode === 'Donation' && (formStyle === 'Qurban' || formStyle === 'Package2') && (
+              <div className="mt-4 pt-4 border-t border-line">
+                <div className="font-bold text-ink">Note :</div>
+                <p className="text-sm text-ink/80 mt-1 leading-relaxed">
+                  Setelah memilih {formStyle === 'Qurban' ? 'Qurban' : 'Package 2'}, tambahkan {formStyle === 'Qurban' ? 'hewan qurban' : 'paket'} Anda di:
+                  <span className="font-bold text-brand-600 mt-1 inline-block">Advanced Option &gt; Form &gt; Custom &gt; {formStyle === 'Qurban' ? 'Qurban' : 'Package 2'}.</span>
                 </p>
               </div>
             )}
@@ -1259,6 +1282,15 @@ function ItemBuilder({ kind, items, setItems, rand4 }) {
     id: rand4(), name: '', price: 0, image: '',
     ...(kind === 'qurban' ? { animal_type: 'Kambing', share: '1', weight: '' } : { desc: '' }),
   }]);
+  // Reorder a row up/down (mirrors DonasiAja's drag-sort; chevrons are the lowest-risk
+  // approach in the IIFE/window-global setup — no DnD lib).
+  const move = (idx, dir) => {
+    const arr = [...items];
+    const to = idx + dir;
+    if (to < 0 || to >= arr.length) return;
+    [arr[idx], arr[to]] = [arr[to], arr[idx]];
+    setItems(arr);
+  };
 
   const uploadFor = async (id, file) => {
     if (!file) return;
@@ -1275,37 +1307,49 @@ function ItemBuilder({ kind, items, setItems, rand4 }) {
 
   return (
     <div className="mt-3 space-y-3">
-      {(items || []).map((it) => {
+      {(items || []).map((it, idx) => {
         const imgSrc = it.image ? (window.mediaUrl ? window.mediaUrl('/uploads/' + it.image) : '/uploads/' + it.image) : '';
+        const priceField = (
+          <div className="flex items-center field bg-white col-span-2"><span className="text-mute text-xs mr-1 font-bold">Rp</span>
+            <input type="number" min="0" value={it.price} onChange={(e) => upd(it.id, { price: Math.max(0, Math.floor(+e.target.value || 0)) })} className="bg-transparent border-0 p-0 w-full focus:ring-0" placeholder="Harga"/>
+          </div>
+        );
         return (
           <div key={it.id} className="rounded-xl border border-line bg-white p-3">
             <div className="flex gap-3">
-              <label className="shrink-0 h-16 w-16 rounded-lg border border-dashed border-line bg-bg2 flex items-center justify-center cursor-pointer overflow-hidden">
-                {imgSrc ? <img src={imgSrc} alt="" className="h-full w-full object-cover"/> : <Icon name="image" size={18} className="text-mute"/>}
+              {/* Image LEFT, large (~120px) to match DonasiAja's qurban card. */}
+              <label className="relative shrink-0 h-28 w-28 rounded-xl border border-dashed border-line bg-bg2 flex items-center justify-center cursor-pointer overflow-hidden group">
+                {imgSrc ? <img src={imgSrc} alt="" className="h-full w-full object-cover"/> : <Icon name="image" size={26} className="text-mute"/>}
+                <span className="absolute bottom-1 right-1 h-6 w-6 rounded-full bg-brand-600 text-white flex items-center justify-center shadow"><Icon name="image" size={12}/></span>
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => { uploadFor(it.id, e.target.files?.[0]); e.target.value=''; }}/>
               </label>
-              <div className="flex-1 grid grid-cols-2 gap-2">
+              <div className="flex-1 grid grid-cols-2 gap-2 content-start">
+                {/* Field order mirrors DonasiAja: name → weight → type → share → price(last). */}
                 <input value={it.name} onChange={(e) => upd(it.id, { name: e.target.value })} className="field bg-white col-span-2" placeholder={kind === 'zfitrah' ? 'Nama / Jenis Beras' : 'Nama / Judul'}/>
-                <div className="flex items-center field bg-white"><span className="text-mute text-xs mr-1">Rp</span>
-                  <input type="number" min="0" value={it.price} onChange={(e) => upd(it.id, { price: Math.max(0, Math.floor(+e.target.value || 0)) })} className="bg-transparent border-0 p-0 w-full focus:ring-0" placeholder="Harga"/>
-                </div>
                 {kind === 'qurban' ? (
-                  <select value={it.animal_type} onChange={(e) => upd(it.id, { animal_type: e.target.value })} className="field bg-white">
-                    {QURBAN_ANIMALS.map(a => <option key={a} value={a}>{a}</option>)}
-                  </select>
-                ) : (
-                  <input value={it.desc || ''} onChange={(e) => upd(it.id, { desc: e.target.value })} className="field bg-white" placeholder="Deskripsi"/>
-                )}
-                {kind === 'qurban' && (
                   <>
-                    <select value={it.share} onChange={(e) => upd(it.id, { share: e.target.value })} className="field bg-white">
+                    <input value={it.weight || ''} onChange={(e) => upd(it.id, { weight: e.target.value })} className="field bg-white col-span-2" placeholder="Bobot / Weight (cth 25-30kg)"/>
+                    <select value={it.animal_type} onChange={(e) => upd(it.id, { animal_type: e.target.value })} className="field bg-white" title="Jenis Hewan">
+                      {QURBAN_ANIMALS.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                    <select value={it.share} onChange={(e) => upd(it.id, { share: e.target.value })} className="field bg-white" title="Pembayaran / Patungan">
                       {QURBAN_SHARES.map(s => <option key={s.v} value={s.v}>{s.l}</option>)}
                     </select>
-                    <input value={it.weight || ''} onChange={(e) => upd(it.id, { weight: e.target.value })} className="field bg-white" placeholder="Bobot (cth 25-30kg)"/>
+                    {priceField}
+                  </>
+                ) : (
+                  <>
+                    <input value={it.desc || ''} onChange={(e) => upd(it.id, { desc: e.target.value })} className="field bg-white col-span-2" placeholder="Deskripsi / Description"/>
+                    {priceField}
                   </>
                 )}
               </div>
-              <button onClick={() => del(it.id)} className="shrink-0 h-9 w-9 rounded-md text-mute hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center self-start"><Icon name="trash" size={14}/></button>
+              {/* Reorder (up/down) + delete column. */}
+              <div className="shrink-0 flex flex-col items-center gap-1 self-start">
+                <button onClick={() => move(idx, -1)} disabled={idx === 0} className="h-7 w-7 rounded-md text-mute hover:text-brand-600 hover:bg-brand-50 disabled:opacity-30 flex items-center justify-center" title="Naik"><Icon name="arrowUp" size={13}/></button>
+                <button onClick={() => move(idx, 1)} disabled={idx === items.length - 1} className="h-7 w-7 rounded-md text-mute hover:text-brand-600 hover:bg-brand-50 disabled:opacity-30 flex items-center justify-center" title="Turun"><Icon name="arrowDown" size={13}/></button>
+                <button onClick={() => del(it.id)} className="h-7 w-7 rounded-md text-mute hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center" title="Hapus"><Icon name="trash" size={13}/></button>
+              </div>
             </div>
           </div>
         );
@@ -1410,8 +1454,34 @@ function AdvRadio({ label, sub, value, options, onChange }) {
   );
 }
 
-function FormTypePreview({ style }) {
+function FormTypePreview({ style, mode, zakatKind }) {
   const presets = ['Rp', 'Rp', 'Rp', 'Rp', 'OTHER NOMINAL'];
+  // Zakat mode shows a zakat-appropriate skeleton instead of the donation-nominal mock.
+  if (mode === 'Zakat') {
+    return (
+      <div className="mt-4 rounded-xl bg-bg2 border border-line p-4">
+        {zakatKind === 'calc' ? (
+          <div className="space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-mute">Kalkulator Zakat</div>
+            <div className="h-10 rounded-lg bg-white border border-line flex items-center px-3 text-xs font-bold text-mute">Rp [ nilai harta / hasil… ]</div>
+            <div className="h-10 rounded-lg bg-white border border-line flex items-center justify-between px-3 text-xs">
+              <span className="text-mute">Zakat</span><span className="font-bold text-brand-600">Rp …</span>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-mute">Paket Zakat Fitrah</div>
+            {[1,2].map(i => (
+              <div key={i} className="rounded-lg bg-white border border-line p-2.5 flex items-center gap-2">
+                <div className="h-10 w-10 rounded-md bg-bg2"/>
+                <div className="flex-1"><div className="text-xs font-bold text-ink">Beras Premium</div><div className="text-[10px] text-mute">Rp 45.000 / jiwa</div></div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="mt-4 rounded-xl bg-bg2 border border-line p-4">
       {style === 'List' && (

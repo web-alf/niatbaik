@@ -787,7 +787,19 @@ function CampaignPage({ c: listItem, onNav }) {
         // Fire the per-campaign "submit" conversion (Berdu's click-trigger equivalent):
         // donor completed the form and an invoice was created. value = actual nominal.
         if (window.NBTracking) { try { window.NBTracking.fireConversion(c, 'submit', Number(amount) || 0); } catch {} }
-        setSubmitting(false); setInvoice(res.data); return; // view swaps to confirmation
+        // HOSTED GATEWAY (Flip / Moota / Xendit): the donor pays on the gateway's own
+        // hosted page (we only get a redirect URL — VA/QRIS can't be rendered inline). Go
+        // STRAIGHT there instead of showing an intermediate confirmation page that just
+        // re-redirects (that intermediate page caused a redirect loop on return). The
+        // backend put the hosted page in qr_url / url_alternative. Manual / inline-QRIS
+        // invoices have NO http(s) gateway URL → fall through to the confirmation page,
+        // which is where the bank account / QR actually needs to render.
+        const gwUrl = res.data.qr_url || res.data.url_alternative || '';
+        if (/^https?:\/\//i.test(gwUrl)) {
+          window.location.href = gwUrl; // leave the SPA → gateway hosted checkout
+          return;
+        }
+        setSubmitting(false); setInvoice(res.data); return; // manual/QRIS → confirmation
       }
       setErrors({ form: res?.message || 'Gagal membuat donasi' });
     } catch (e) {
@@ -1492,8 +1504,6 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
   const isQRIS = !isHostedGateway && (pmType.includes('qris') || (invoice.payment_method || '').toLowerCase().includes('qris') || (!!invoice.qr_url && !/^https?:\/\//i.test(invoice.qr_url)));
   const isPaid = invoice.is_paid || /paid|berhasil|lunas|success/i.test(status);
 
-  const autoRedirect = !!(typeof window !== 'undefined' && window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.flip_auto_redirect);
-
   // Manual-transfer destination. Flip (gateway) returns a pay_code; otherwise the
   // donor transfers to the single org account configured in Settings → Payment
   // (exposed via public settings). Order: gateway pay_code → invoice → org settings.
@@ -1532,15 +1542,12 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
     ? invoice.qr_url
     : (pmObj && pmObj.image ? (window.mediaUrl ? window.mediaUrl(pmObj.image) : pmObj.image) : '');
 
-  // Flip auto-redirect: when the admin enabled "Auto Redirect" and this is a Flip
-  // invoice that's not yet paid, send the donor straight to Flip's payment page.
-  // The manual "Lanjutkan ke Pembayaran" button stays as a fallback if the redirect
-  // is blocked (popup blockers don't affect same-tab location changes).
-  useEffect(() => {
-    if (isHostedGateway && autoRedirect && flipUrl && !isPaid) {
-      try { window.location.href = flipUrl; } catch {}
-    }
-  }, [isHostedGateway, autoRedirect, flipUrl, isPaid]);
+  // NOTE: we intentionally do NOT auto-redirect to the hosted gateway here. Submit-time
+  // (handleSubmit) already sends the donor straight to the gateway page, and the gateway's
+  // success/failure redirect lands the donor BACK on this page (/donations/INV-). Auto-
+  // redirecting again from here while the webhook hasn't settled yet (isPaid still false)
+  // bounced the donor back to the gateway in a loop. This page now only SHOWS status; the
+  // "Lanjutkan ke Pembayaran" button below remains as a manual way back to the gateway.
 
   // Poll status every 12s until paid, but cap at ~12 min (60 attempts). Without a
   // cap, an invoice that never settles (e.g. a stuck webhook) polls forever with
@@ -1690,12 +1697,10 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
         <div className="mt-5 flex flex-col items-center text-center">
           <div className="text-xs font-bold uppercase tracking-wider text-mute mb-3">Pembayaran via {gatewayLabel}</div>
           <div className="w-full rounded-xl border border-brand-100 bg-brand-50 p-4 text-sm text-brand-800 leading-relaxed">
-            {autoRedirect
-              ? `Anda akan dialihkan ke halaman pembayaran ${gatewayLabel}. Jika tidak otomatis, tekan tombol di bawah.`
-              : `Lanjutkan ke halaman pembayaran ${gatewayLabel} (QRIS / Virtual Account / e-wallet) untuk menyelesaikan donasi.`}
+            Belum selesai membayar? Lanjutkan ke halaman pembayaran {gatewayLabel} (QRIS / Virtual Account / e-wallet). Setelah membayar, status di halaman ini akan otomatis diperbarui.
           </div>
           {flipUrl ? (
-            <a href={flipUrl} target="_blank" rel="noopener noreferrer"
+            <a href={flipUrl} target="_self"
                className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-brand-600 text-white hover:bg-brand-700 transition-colors">
               <Icon name="arrowR" size={16}/> Lanjutkan ke Pembayaran
             </a>

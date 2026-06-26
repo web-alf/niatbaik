@@ -27,6 +27,7 @@ type DonationService struct {
 	paymentMethodRepo *repository.PaymentMethodRepo
 	flipService       *FlipService
 	mootaService      *MootaService
+	xenditService     *XenditService
 	paymentSvc        *PaymentService
 }
 
@@ -40,6 +41,7 @@ func NewDonationService(
 	paymentMethodRepo *repository.PaymentMethodRepo,
 	flipService *FlipService,
 	mootaService *MootaService,
+	xenditService *XenditService,
 	paymentSvc *PaymentService,
 ) *DonationService {
 	return &DonationService{
@@ -52,6 +54,7 @@ func NewDonationService(
 		paymentMethodRepo: paymentMethodRepo,
 		flipService:       flipService,
 		mootaService:      mootaService,
+		xenditService:     xenditService,
 		paymentSvc:        paymentSvc,
 	}
 }
@@ -167,27 +170,27 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 		var lastErr error
 		for attempt := 0; attempt < 3; attempt++ {
 			invoice = model.Invoice{
-				InvoiceNumber: "INV-" + randomAlphanumeric(8),
-				CampaignID:    campaign.ID,
-				Subtotal:      req.Amount,
-				Total:         totalAmount,
-				DonorName:     req.DonorName,
-				DonorPhone:    req.DonorPhone,
-				DonorEmail:    req.DonorEmail,
-				Message:       &msg,
-				IsAnonymous:   req.IsAnonymous,
+				InvoiceNumber:     "INV-" + randomAlphanumeric(8),
+				CampaignID:        campaign.ID,
+				Subtotal:          req.Amount,
+				Total:             totalAmount,
+				DonorName:         req.DonorName,
+				DonorPhone:        req.DonorPhone,
+				DonorEmail:        req.DonorEmail,
+				Message:           &msg,
+				IsAnonymous:       req.IsAnonymous,
 				ExpiredAt:         time.Now().Add(24 * time.Hour),
 				Status:            "Menunggu Pembayaran",
 				IP:                ip,
 				ReferredBy:        referredBy,
 				PaymentMethodID:   paymentMethodID,
 				PaymentMethodName: paymentMethodName,
-					UTMSource:         req.UTMSource,
-					UTMMedium:         req.UTMMedium,
-					UTMCampaign:       req.UTMCampaign,
-					UTMContent:        req.UTMContent,
-					UTMTerm:           req.UTMTerm,
-					UTMID:             req.UTMID,
+				UTMSource:         req.UTMSource,
+				UTMMedium:         req.UTMMedium,
+				UTMCampaign:       req.UTMCampaign,
+				UTMContent:        req.UTMContent,
+				UTMTerm:           req.UTMTerm,
+				UTMID:             req.UTMID,
 			}
 			lastErr = tx.Create(&invoice).Error
 			if lastErr == nil {
@@ -261,6 +264,26 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 				log.Printf("[donation] failed to persist Moota txn details for %s: %v", invoice.InvoiceNumber, err)
 			}
 		} else if errMsg := s.degradeToManual(&invoice, settingsForPay, "Moota CreatePayment", mootaErr); errMsg != "" {
+			return nil, fmt.Errorf("%s", errMsg)
+		}
+
+	case "xendit":
+		if s.xenditService == nil {
+			if errMsg := s.degradeToManual(&invoice, settingsForPay, "Xendit gateway unavailable", fmt.Errorf("xenditService nil")); errMsg != "" {
+				return nil, fmt.Errorf("%s", errMsg)
+			}
+			break
+		}
+		xinv, xErr := s.xenditService.CreateInvoice(&invoice, redirectURL)
+		if xErr == nil && xinv != nil {
+			invoice.PayCode = xinv.ID
+			invoice.QrURL = xinv.InvoiceURL
+			invoice.URLAlternative = xinv.InvoiceURL
+			invoice.TypePayment = "Xendit"
+			if err := s.invoiceRepo.Update(&invoice); err != nil {
+				log.Printf("[donation] failed to persist Xendit invoice details for %s: %v", invoice.InvoiceNumber, err)
+			}
+		} else if errMsg := s.degradeToManual(&invoice, settingsForPay, "Xendit CreateInvoice", xErr); errMsg != "" {
 			return nil, fmt.Errorf("%s", errMsg)
 		}
 
@@ -388,6 +411,8 @@ func parseSyntheticMethodID(id string) (gatewayHint, channelKey string) {
 		return "flip", strings.TrimPrefix(id, "flip-")
 	case strings.HasPrefix(id, "moota-"):
 		return "moota", strings.TrimPrefix(id, "moota-")
+	case strings.HasPrefix(id, "xendit-"):
+		return "xendit", strings.TrimPrefix(id, "xendit-")
 	}
 	return "", ""
 }
@@ -404,6 +429,9 @@ func (s *DonationService) resolveGateway(settings *model.Setting, channelKey, cl
 	if gw == "moota" && s.mootaService == nil {
 		return "manual"
 	}
+	if gw == "xendit" && s.xenditService == nil {
+		return "manual"
+	}
 	return gw
 }
 
@@ -412,6 +440,7 @@ func (s *DonationService) resolveGateway(settings *model.Setting, channelKey, cl
 //  1. the admin's per-channel map (settings.PaymentChannelGateways) for channelKey;
 //  2. else the legacy default map (channelDefaultGateway);
 //  3. else fall back to today's global behavior (FlipEnabled → flip, else manual).
+//
 // Then it DOWNGRADES to "manual" when the resolved gateway's credentials aren't configured
 // (Flip secret / Moota gateway account), so the donation never routes to a dead gateway.
 // clientGatewayHint is a weak tiebreaker used only when channelKey is empty; never trusted
@@ -448,6 +477,10 @@ func ResolveChannelGateway(settings *model.Setting, channelKey, clientGatewayHin
 			settings.MootaAPIKey == "" || strings.TrimSpace(settings.MootaGatewayAccountID) == "" {
 			return "manual"
 		}
+	case "xendit":
+		if settings == nil || !settings.XenditEnabled || strings.TrimSpace(settings.XenditSecretKey) == "" {
+			return "manual"
+		}
 	}
 	return gw
 }
@@ -463,7 +496,7 @@ func lookupChannelGateway(cfgJSON, key string) string {
 		return ""
 	}
 	g := strings.ToLower(strings.TrimSpace(m[key]))
-	if g == "flip" || g == "moota" || g == "manual" {
+	if g == "flip" || g == "moota" || g == "xendit" || g == "manual" {
 		return g
 	}
 	return ""

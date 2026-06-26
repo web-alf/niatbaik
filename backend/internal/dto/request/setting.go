@@ -57,10 +57,19 @@ type UpdateSettingRequest struct {
 	FlipBaseURL         *string `json:"flip_base_url"`
 	FlipEnabled         *bool   `json:"flip_enabled"`
 
+	// Xendit (secret key + callback token are secrets → blank = keep)
+	XenditSecretKey     string  `json:"xendit_secret_key"`
+	XenditCallbackToken string  `json:"xendit_callback_token"`
+	XenditEnabled       *bool   `json:"xendit_enabled"`
+	XenditMode          *string `json:"xendit_mode" validate:"omitempty,oneof=sandbox production"`
+
 	// Theme extended
-	FontFamily   *string `json:"font_family"`
-	BorderRadius *int    `json:"border_radius"`
-	ButtonStyle  *string `json:"button_style"`
+	FontFamily          *string `json:"font_family"`
+	BorderRadius        *int    `json:"border_radius"`
+	ButtonStyle         *string `json:"button_style"`
+	// Public-form display styles (admin-selectable, global)
+	FormDisplayStyle    *string `json:"form_display_style" validate:"omitempty,oneof=normal bold"`
+	PaymentDisplayStyle *string `json:"payment_display_style" validate:"omitempty,oneof=card dropdown"`
 
 	// Form
 	FormFieldsConfig  *string `json:"form_fields_config" validate:"omitempty,max=65536"`

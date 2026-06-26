@@ -148,6 +148,10 @@ func (h *PublicHandler) GetPublicSettings(c echo.Context) error {
 		// Form config
 		"form_fields_config":  settings.FormFieldsConfig,
 		"nominal_presets":     settings.NominalPresets,
+		// Public-form display styles (admin-selectable, global): font/border weight +
+		// payment-method selector layout (card vs dropdown).
+		"form_display_style":    settings.FormDisplayStyle,
+		"payment_display_style": settings.PaymentDisplayStyle,
 		"min_donation_global": settings.MinDonationGlobal,
 		"anonymous_default":   settings.AnonymousDefault,
 		"message_enabled":     settings.MessageEnabled,
@@ -231,8 +235,8 @@ func (h *PublicHandler) ListPaymentMethods(c echo.Context) error {
 			}
 			gw := service.ResolveChannelGateway(settings, ch.key, "")
 			// "manual" channels are surfaced via the manual-bank block below (they point at
-			// the org account, not a hosted gateway page). Only show flip/moota here.
-			if gw != "flip" && gw != "moota" {
+			// the org account, not a hosted gateway page). Only show hosted gateways here.
+			if gw != "flip" && gw != "moota" && gw != "xendit" {
 				continue
 			}
 			items = append(items, map[string]interface{}{

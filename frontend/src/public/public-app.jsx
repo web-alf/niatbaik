@@ -1206,6 +1206,79 @@ function NominalSelect({ c, presets, amount, setAmount }) {
 }
 
 // -------- Donation form (form view, before invoice) --------
+// PaymentSelector renders the payment-method picker in the admin-chosen display style
+// (Settings → Payment → payment_display_style). 'card' = the original box grid; 'dropdown'
+// = a single <select> with grouped <optgroup>s. Both call setPaymentMethod with the SAME
+// method OBJECT so downstream routing (synthetic-id gateway resolution, fee note) is
+// unchanged. `grouped` is {TYPE: [method,...]} or null (no API methods → string fallback).
+function PaymentSelector({ grouped, paymentMethod, setPaymentMethod, isSelected, style, fieldCls }) {
+  // Flatten grouped methods so the dropdown can resolve a picked id back to its object.
+  const flat = useMemo(() => {
+    if (!grouped) return [];
+    return Object.values(grouped).flat();
+  }, [grouped]);
+
+  if (style === 'dropdown') {
+    if (grouped) {
+      const selectedId = (typeof paymentMethod === 'object' && paymentMethod) ? paymentMethod.id : '';
+      return (
+        <select
+          className={fieldCls}
+          value={selectedId}
+          onChange={(e) => {
+            const m = flat.find((x) => String(x.id) === e.target.value);
+            if (m) setPaymentMethod(m);
+          }}>
+          <option value="" disabled>— Pilih metode pembayaran —</option>
+          {Object.entries(grouped).map(([type, list]) => (
+            <optgroup key={type} label={type}>
+              {list.map((m) => <option key={m.id} value={m.id}>{m.bank_name}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      );
+    }
+    // No API methods → fallback string list as a plain dropdown.
+    return (
+      <select className={fieldCls} value={typeof paymentMethod === 'string' ? paymentMethod : ''} onChange={(e) => setPaymentMethod(e.target.value)}>
+        <option value="" disabled>— Pilih metode pembayaran —</option>
+        {PAYMENT_FALLBACK.map((m) => <option key={m} value={m}>{m}</option>)}
+      </select>
+    );
+  }
+
+  // Default: card / box grid.
+  if (grouped) {
+    return (
+      <div className="space-y-3">
+        {Object.entries(grouped).map(([type, list]) => (
+          <div key={type}>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-mute mb-1.5">{type}</div>
+            <div className="grid grid-cols-3 gap-2">
+              {list.map((m) => (
+                <button key={m.id} onClick={() => setPaymentMethod(m)}
+                  className={`h-14 px-2 rounded-lg border-2 flex flex-col items-center justify-center text-center text-[10px] font-extrabold leading-tight ${isSelected(m) ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line bg-white text-ink hover:border-brand-200'}`}>
+                  <span>{m.bank_name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="grid grid-cols-4 gap-2">
+      {PAYMENT_FALLBACK.map((m) => (
+        <button key={m} onClick={() => setPaymentMethod(m)}
+          className={`h-12 rounded-lg border-2 flex items-center justify-center text-[10px] font-extrabold ${paymentMethod===m ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line bg-white text-ink hover:border-brand-200'}`}>
+          {m}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, setAnon, paymentMethod, setPaymentMethod, submitting, errors = {}, setErrors, onBack, onSubmit }) {
   const clearErr = (k) => { if (setErrors && errors[k]) setErrors({ ...errors, [k]: undefined }); };
   // Per-campaign payment override: the editor's Advanced → Payment "Custom" rows are
@@ -1265,6 +1338,13 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
     return false;
   };
 
+  // Global display styles (admin Settings → Payment). boldForm thickens font/border;
+  // payStyle switches the payment-method selector between card grid and dropdown.
+  const ps0 = (typeof window !== 'undefined' && window.PUBLIC_SETTINGS) || {};
+  const boldForm = ps0.form_display_style === 'bold';
+  const payStyle = ps0.payment_display_style === 'dropdown' ? 'dropdown' : 'card';
+  const fieldCls = `field ${boldForm ? 'field-bold' : ''}`;
+
   // Admin fee is MERCHANT-borne (deducted from the campaign's share in
   // payment_service.go: campaignReceives = Subtotal - adminFee), so the donor never pays
   // it — Total = Amount (+ unique code for manual/Moota). Don't surface any "biaya admin"
@@ -1303,11 +1383,11 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
         <div className="pt-4 border-t border-line space-y-3">
           <div className="text-xs font-bold uppercase tracking-wider text-mute">Identitas donatur</div>
           <div>
-            <input className={`field ${errors.name ? 'border-rose-400' : ''}`} placeholder="Nama (cth: Hamba Allah)" value={donor.name} onChange={(e) => { setDonor({...donor, name:e.target.value}); clearErr('name'); }} disabled={anon}/>
+            <input className={`${fieldCls} ${errors.name ? 'border-rose-400' : ''}`} placeholder="Nama (cth: Hamba Allah)" value={donor.name} onChange={(e) => { setDonor({...donor, name:e.target.value}); clearErr('name'); }} disabled={anon}/>
             {errors.name && <div className="mt-1 text-xs text-rose-600">{errors.name}</div>}
           </div>
           <div>
-            <input className={`field ${errors.wa ? 'border-rose-400' : ''}`} placeholder="No. WhatsApp · cth 08123… (wajib)" value={donor.wa} onChange={(e) => { setDonor({...donor, wa:e.target.value}); clearErr('wa'); }}/>
+            <input className={`${fieldCls} ${errors.wa ? 'border-rose-400' : ''}`} placeholder="No. WhatsApp · cth 08123… (wajib)" value={donor.wa} onChange={(e) => { setDonor({...donor, wa:e.target.value}); clearErr('wa'); }}/>
             {errors.wa
               ? <div className="mt-1 text-xs text-rose-600">{errors.wa}</div>
               : <div className="mt-1 text-[11px] text-mute">Untuk kirim bukti &amp; verifikasi donasi; tidak ditampilkan publik.</div>}
@@ -1317,7 +1397,7 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
               otherwise everything shows (back-compat for campaigns with no custom config). */}
           {showEmail && (
             <div>
-              <input className={`field ${errors.email ? 'border-rose-400' : ''}`} placeholder="Email (opsional)" value={donor.email} onChange={(e) => { setDonor({...donor, email:e.target.value}); clearErr('email'); }}/>
+              <input className={`${fieldCls} ${errors.email ? 'border-rose-400' : ''}`} placeholder="Email (opsional)" value={donor.email} onChange={(e) => { setDonor({...donor, email:e.target.value}); clearErr('email'); }}/>
               {errors.email && <div className="mt-1 text-xs text-rose-600">{errors.email}</div>}
             </div>
           )}
@@ -1328,39 +1408,17 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
             </label>
           )}
           {showComment && (
-            <textarea className="field" rows="2" placeholder="Doa / pesan donatur (opsional)" value={donor.message} onChange={(e) => setDonor({...donor, message:e.target.value})}/>
+            <textarea className={fieldCls} rows="2" placeholder="Doa / pesan donatur (opsional)" value={donor.message} onChange={(e) => setDonor({...donor, message:e.target.value})}/>
           )}
         </div>
 
         {/* Pembayaran */}
         <div className="pt-4 border-t border-line space-y-3">
           <div className="text-xs font-bold uppercase tracking-wider text-mute">Metode pembayaran</div>
-          {grouped ? (
-            <div className="space-y-3">
-              {Object.entries(grouped).map(([type, list]) => (
-                <div key={type}>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-mute mb-1.5">{type}</div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {list.map((m) => (
-                      <button key={m.id} onClick={() => setPaymentMethod(m)}
-                        className={`h-14 px-2 rounded-lg border-2 flex flex-col items-center justify-center text-center text-[10px] font-extrabold leading-tight ${isSelected(m) ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line bg-white text-ink hover:border-brand-200'}`}>
-                        <span>{m.bank_name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-4 gap-2">
-              {PAYMENT_FALLBACK.map((m) => (
-                <button key={m} onClick={() => setPaymentMethod(m)}
-                  className={`h-12 rounded-lg border-2 flex items-center justify-center text-[10px] font-extrabold ${paymentMethod===m ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line bg-white text-ink hover:border-brand-200'}`}>
-                  {m}
-                </button>
-              ))}
-            </div>
-          )}
+          <PaymentSelector
+            grouped={grouped} paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod}
+            isSelected={isSelected} style={payStyle} fieldCls={fieldCls}
+          />
         </div>
 
         {/* Fee disclosure — show the donor exactly what they'll pay BEFORE submitting. */}

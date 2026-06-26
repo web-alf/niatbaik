@@ -107,6 +107,7 @@ function GatewaysView() {
   const origin = gwOrigin();
   const flipOk = !!s.flip_enabled && !!s.flip_configured;
   const mootaOk = !!s.moota_enabled && !!s.moota_configured;
+  const xenditOk = !!s.xendit_enabled && !!s.xendit_configured;
 
   const fetchBalance = async () => {
     setBalLoading(true); setBalErr('');
@@ -131,6 +132,14 @@ function GatewaysView() {
   const probeFlip = async () => {
     // Bad-token probe: a healthy endpoint rejects with 401 (auth aktif). 401 = sehat.
     const r = await fetch(origin + '/api/webhooks/flip', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'data={"id":1}&token=__probe__' });
+    return r.status === 401
+      ? { ok: true, text: 'Endpoint OK (HTTP 401 untuk token salah) — verifikasi token aktif.' }
+      : { ok: false, text: `HTTP ${r.status} — diharapkan 401; periksa konfigurasi.` };
+  };
+  const probeXendit = async () => {
+    // Bad-token probe: a healthy endpoint rejects a non-empty body with a bad
+    // X-CALLBACK-TOKEN as 401 (auth aktif). 401 = sehat.
+    const r = await fetch(origin + '/api/webhooks/xendit', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CALLBACK-TOKEN': '__probe__' }, body: '{"id":"probe","status":"PAID"}' });
     return r.status === 401
       ? { ok: true, text: 'Endpoint OK (HTTP 401 untuk token salah) — verifikasi token aktif.' }
       : { ok: false, text: `HTTP ${r.status} — diharapkan 401; periksa konfigurasi.` };
@@ -263,6 +272,38 @@ function GatewaysView() {
               <div className="text-[11px] text-mute italic text-center py-3 bg-bg2 rounded-xl border border-line/60">Belum ada transaksi Flip.</div>
             )}
           </div>
+        </div>
+
+        {/* ============ XENDIT ============ */}
+        <div className="rounded-2xl bg-white border border-line shadow-card overflow-hidden">
+          <div className="px-5 py-4 border-b border-line flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-lg bg-sky-100 flex items-center justify-center"><Icon name="creditcard" size={18} className="text-sky-600"/></div>
+              <div>
+                <div className="font-extrabold text-ink leading-tight">Xendit</div>
+                <div className="text-[11px] text-mute">Gateway pembayaran (VA / QRIS / e-wallet / retail)</div>
+              </div>
+            </div>
+            <GwBadge ok={xenditOk}/>
+          </div>
+
+          <div className="px-5 py-3">
+            <GwRow label="Status" value={s.xendit_enabled ? 'Diaktifkan' : 'Dimatikan'} good={!!s.xendit_enabled}/>
+            <GwRow label="Kredensial" value={s.xendit_configured ? 'Terpasang ✓' : 'Belum diisi'} good={!!s.xendit_configured}/>
+            <GwRow label="Mode" value={(s.xendit_mode || 'sandbox') === 'production' ? 'LIVE (Production)' : 'Sandbox (Test)'} good={(s.xendit_mode || 'sandbox') === 'production'}/>
+          </div>
+
+          <div className="px-5 pb-4">
+            <WebhookProbe label="Callback URL (set di dashboard Xendit — Settings → Webhooks → Invoices Paid)" url={origin + '/api/webhooks/xendit'} probe={probeXendit}/>
+          </div>
+
+          {(s.xendit_mode || 'sandbox') !== 'production' && (
+            <div className="px-5 pb-5">
+              <div className="rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-[11px] text-amber-700 leading-relaxed">
+                Mode <b>Sandbox</b> — pakai Secret Key <b>xnd_development_…</b>. Ganti ke key <b>xnd_production_…</b> di Settings → Payment → Xendit saat siap menerima uang asli.
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

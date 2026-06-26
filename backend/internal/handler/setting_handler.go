@@ -31,6 +31,7 @@ func (h *SettingHandler) Get(c echo.Context) error {
 		*model.Setting
 		MootaConfigured      bool `json:"moota_configured"`
 		FlipConfigured       bool `json:"flip_configured"`
+		XenditConfigured     bool `json:"xendit_configured"`
 		MetaCAPITokenSet     bool `json:"meta_capi_token_set"`
 		TiktokAccessTokenSet bool `json:"tiktok_access_token_set"`
 	}
@@ -39,6 +40,7 @@ func (h *SettingHandler) Get(c echo.Context) error {
 		Setting:              setting,
 		MootaConfigured:      setting.MootaAPIKey != "",
 		FlipConfigured:       setting.FlipSecretKey != "",
+		XenditConfigured:     setting.XenditSecretKey != "",
 		MetaCAPITokenSet:     setting.MetaCAPIToken != "",
 		TiktokAccessTokenSet: setting.TiktokAccessToken != "",
 	}

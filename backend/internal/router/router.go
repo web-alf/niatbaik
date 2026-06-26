@@ -42,7 +42,8 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	paymentService := service.NewPaymentService(db, invoiceRepo, campaignRepo, settingRepo, fundraiserRepo, commissionRepo, trackingService)
 	mootaService := service.NewMootaService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
 	flipService := service.NewFlipService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
-	donationService := service.NewDonationService(db, cfg, invoiceRepo, campaignRepo, donationRepo, settingRepo, paymentMethodRepo, flipService, mootaService, paymentService)
+	xenditService := service.NewXenditService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
+	donationService := service.NewDonationService(db, cfg, invoiceRepo, campaignRepo, donationRepo, settingRepo, paymentMethodRepo, flipService, mootaService, xenditService, paymentService)
 	dashboardService := service.NewDashboardService(statsRepo)
 	campaignService := service.NewCampaignService(campaignRepo, categoryRepo)
 	userService := service.NewUserService(userRepo, settingRepo)
@@ -62,7 +63,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	authHandler := handler.NewAuthHandler(authService)
 	publicHandler := handler.NewPublicHandler(campaignRepo, categoryRepo, settingRepo, invoiceRepo, donationRepo, paymentMethodRepo, cfg)
 	donationHandler := handler.NewDonationHandler(donationService)
-	webhookHandler := handler.NewWebhookHandler(mootaService, flipService)
+	webhookHandler := handler.NewWebhookHandler(mootaService, flipService, xenditService)
 	dashboardHandler := handler.NewDashboardHandler(dashboardService)
 	adminCampaignHandler := handler.NewAdminCampaignHandler(campaignService, campaignRepo)
 	userHandler := handler.NewUserHandler(userService, userRepo)
@@ -116,6 +117,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	// Webhooks (no auth, no CSRF)
 	api.POST("/webhooks/moota", webhookHandler.HandleMoota)
 	api.POST("/webhooks/flip", webhookHandler.HandleFlip)
+	api.POST("/webhooks/xendit", webhookHandler.HandleXendit)
 
 	// Auth routes. Credential-guessing surfaces (login/forgot/reset) get a tight
 	// per-IP rate limit to blunt brute-force and reset-spam; register is also

@@ -42,12 +42,13 @@ func extractMootaSignature(c echo.Context) (sig, fromHeader string) {
 }
 
 type WebhookHandler struct {
-	mootaService *service.MootaService
-	flipService  *service.FlipService
+	mootaService  *service.MootaService
+	flipService   *service.FlipService
+	xenditService *service.XenditService
 }
 
-func NewWebhookHandler(mootaService *service.MootaService, flipService *service.FlipService) *WebhookHandler {
-	return &WebhookHandler{mootaService: mootaService, flipService: flipService}
+func NewWebhookHandler(mootaService *service.MootaService, flipService *service.FlipService, xenditService *service.XenditService) *WebhookHandler {
+	return &WebhookHandler{mootaService: mootaService, flipService: flipService, xenditService: xenditService}
 }
 
 func (h *WebhookHandler) HandleMoota(c echo.Context) error {
@@ -145,6 +146,41 @@ func (h *WebhookHandler) HandleFlip(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 	})
+}
+
+// HandleXendit settles a donation from a Xendit invoice callback. Xendit authenticates the
+// webhook with a STATIC token in the X-CALLBACK-TOKEN header (not an HMAC of the body) — we
+// constant-time compare it against the dashboard token before trusting the payload.
+func (h *WebhookHandler) HandleXendit(c echo.Context) error {
+	body, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("Failed to read body"))
+	}
+
+	// An empty-body reachability ping (some dashboards probe the URL) — ack so the URL
+	// registers; an empty body carries no settlement, so this opens no forgery path.
+	if len(strings.TrimSpace(string(body))) == 0 {
+		return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "note": "reachability ok"})
+	}
+
+	token := c.Request().Header.Get("X-CALLBACK-TOKEN")
+	if !h.xenditService.VerifyCallbackToken(token) {
+		return c.JSON(http.StatusUnauthorized, response.ErrorResponse("Invalid callback token"))
+	}
+
+	var payload service.XenditWebhookPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("Invalid payload"))
+	}
+
+	if err := h.xenditService.HandleWebhook(payload); err != nil {
+		// Log server-side so a failed settlement (invoice not found, amount mismatch) is
+		// diagnosable — Xendit will retry, so a transient 400 here is recoverable.
+		log.Printf("[xendit-webhook] settle failed for external_id=%q: %v", payload.ExternalID, err)
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
 // logMootaInbound dumps inbound Moota webhook metadata to the server log so we can

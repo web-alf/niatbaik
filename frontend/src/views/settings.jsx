@@ -422,6 +422,7 @@ const CHANNEL_DEFAULT_GATEWAY = {
 const GATEWAY_OPTIONS = [
   { value: 'flip', label: 'Flip' },
   { value: 'moota', label: 'Moota' },
+  { value: 'xendit', label: 'Xendit' },
   { value: 'manual', label: 'Manual' },
 ];
 
@@ -453,6 +454,7 @@ function PaymentPanel({ settings, onSave }) {
   };
   const flipConfigured = !!(settings?.flip_configured);
   const mootaConfigured = !!(settings?.moota_configured);
+  const xenditConfigured = !!(settings?.xendit_configured);
 
   // ---- Umum / Kode Unik ----
   const [ucMode, setUcMode] = useStateA(settings?.unique_code_mode || 'range');
@@ -495,6 +497,16 @@ function PaymentPanel({ settings, onSave }) {
     return out;
   };
   const [routing, setRouting] = useStateA(seedRouting);
+
+  // ---- Xendit ----
+  const [xenditEnabled, setXenditEnabled] = useStateA(settings?.xendit_enabled ?? false);
+  const [xenditMode, setXenditMode] = useStateA(settings?.xendit_mode || 'sandbox');
+  const [xenditSecret, setXenditSecret] = useStateA('');     // secret: blank = keep
+  const [xenditToken, setXenditToken] = useStateA('');       // secret (callback token): blank = keep
+
+  // ---- Public-form display styles (global) ----
+  const [formDisplayStyle, setFormDisplayStyle] = useStateA(settings?.form_display_style || 'normal');
+  const [paymentDisplayStyle, setPaymentDisplayStyle] = useStateA(settings?.payment_display_style || 'card');
 
   // ---- Moota ----
   const [mootaEnabled, setMootaEnabled] = useStateA(settings?.moota_enabled ?? false);
@@ -570,6 +582,11 @@ function PaymentPanel({ settings, onSave }) {
     setFlipFee(s.flip_charge_fee || 'merchant');
     setFlipCodes(parseArr(s.flip_code_config, defaultFlipCodes));
 
+    if (s.xendit_enabled != null) setXenditEnabled(s.xendit_enabled);
+    setXenditMode(s.xendit_mode || 'sandbox');
+    setFormDisplayStyle(s.form_display_style || 'normal');
+    setPaymentDisplayStyle(s.payment_display_style || 'card');
+
     if (s.moota_enabled != null) setMootaEnabled(s.moota_enabled);
     if (s.moota_signature_enabled != null) setMootaSignature(s.moota_signature_enabled);
     setMootaEndpoint(s.moota_endpoint || '');
@@ -580,6 +597,7 @@ function PaymentPanel({ settings, onSave }) {
 
   const callbackHint = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/flip`;
   const mootaWebhook = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/moota`;
+  const xenditWebhook = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/xendit`;
 
   const saveGeneral = () => {
     const patch = {
@@ -591,6 +609,8 @@ function PaymentPanel({ settings, onSave }) {
       payment_method_types: JSON.stringify(methodTypes),
       manual_banks: JSON.stringify(manualBanks),
       payment_channel_gateways: JSON.stringify(routing),
+      form_display_style: formDisplayStyle,
+      payment_display_style: paymentDisplayStyle,
     };
     // unique_code_mode=none breaks auto-reconcile for manual + Moota-gateway channels
     // (no unique code → untagged transfers can't be disambiguated). Warn if any channel
@@ -632,6 +652,17 @@ function PaymentPanel({ settings, onSave }) {
       showToastSafe('⚠ Flip dimatikan & belum ada rekening manual — donasi tidak bisa diproses. Isi rekening bank di tab General.');
     }
     return onSave(patch).then((ok) => { if (ok) { setFlipSecret(''); setFlipToken(''); clearPDirty('flip'); } return ok; });
+  };
+
+  const saveXendit = () => {
+    const patch = {
+      xendit_enabled: xenditEnabled,
+      xendit_mode: xenditMode,
+    };
+    if (xenditSecret.trim()) patch.xendit_secret_key = xenditSecret.trim();
+    if (xenditToken.trim()) patch.xendit_callback_token = xenditToken.trim();
+    if (xenditEnabled && !xenditConfigured && !xenditSecret.trim()) { showToastSafe('Isi Xendit Secret Key untuk mengaktifkan Xendit'); return; }
+    return onSave(patch).then((ok) => { if (ok) { setXenditSecret(''); setXenditToken(''); clearPDirty('xendit'); } return ok; });
   };
 
   const saveMoota = () => {
@@ -676,7 +707,7 @@ function PaymentPanel({ settings, onSave }) {
         </div>
       )}
       <div className="flex gap-2 mb-8 flex-wrap">
-        {[{v:'general', l:'General'},{v:'flip', l:'Flip'},{v:'moota', l:'Moota'}].map((t) => (
+        {[{v:'general', l:'General'},{v:'flip', l:'Flip'},{v:'xendit', l:'Xendit'},{v:'moota', l:'Moota'}].map((t) => (
           <button key={t.v} onClick={() => switchPTab(t.v)}
             className={`px-6 py-2.5 text-sm font-semibold rounded-md transition-colors ${pTab===t.v ? 'bg-brand-600 text-white' : 'bg-transparent text-ink/70 hover:bg-bg2'}`}>
             {t.l}
@@ -805,6 +836,22 @@ function PaymentPanel({ settings, onSave }) {
             </div>
           </div>
 
+          {/* ===== Tampilan Form Publik (global) ===== */}
+          <div>
+            <label className="text-sm font-bold text-ink mb-1 block">Tampilan Form Donasi (Public Page)</label>
+            <div className="text-[11px] text-mute mb-3">Berlaku untuk semua campaign. Atur ketebalan font/border form dan bentuk pemilih metode pembayaran.</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+              <div>
+                <label className="text-[11px] text-mute block mb-1">Gaya Font &amp; Border</label>
+                <Select value={formDisplayStyle} onChange={setFormDisplayStyle} options={[{value:'normal',label:'Normal'},{value:'bold',label:'Tebal (Bold)'}]}/>
+              </div>
+              <div>
+                <label className="text-[11px] text-mute block mb-1">Tampilan Metode Pembayaran</label>
+                <Select value={paymentDisplayStyle} onChange={setPaymentDisplayStyle} options={[{value:'card',label:'Card (kotak)'},{value:'dropdown',label:'Dropdown (select)'}]}/>
+              </div>
+            </div>
+          </div>
+
         </div>
         <div className="flex mt-8"><SaveButton onClick={saveGeneral}>Update</SaveButton></div>
         </div>
@@ -879,6 +926,38 @@ function PaymentPanel({ settings, onSave }) {
 
         </div>
         <div className="flex mt-8"><SaveButton onClick={saveFlip}>Update Flip</SaveButton></div>
+        </div>
+      )}
+
+      {pTab === 'xendit' && (
+        <div onChangeCapture={markPDirty}>
+        <div className="space-y-8">
+          <div className="flex items-center justify-between rounded-xl border border-line p-3">
+            <div><div className="text-sm font-bold text-ink">Aktifkan Xendit</div><div className="text-xs text-mute">Gateway pembayaran multi-channel (VA, QRIS, e-wallet, retail). Daftar di <a href="https://dashboard.xendit.co" target="_blank" rel="noopener noreferrer" className="text-brand-600 font-semibold hover:underline">dashboard.xendit.co</a></div></div>
+            <Toggle value={xenditEnabled} onChange={setXenditEnabled}/>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Mode</label>
+            <div className="text-[11px] text-mute mb-2">Mode ditentukan oleh prefix Secret Key (xnd_development_… = Sandbox, xnd_production_… = LIVE). Pilihan ini hanya pengingat.</div>
+            <div className="flex items-center gap-4">
+              {[{v:'sandbox',l:'Sandbox'},{v:'production',l:'LIVE (Production)'}].map((o) => (
+                <button key={o.v} onClick={() => setXenditMode(o.v)}
+                  className={`px-8 py-2.5 rounded-lg border text-sm font-bold transition-colors ${xenditMode===o.v ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:bg-bg2'}`}>{o.l}</button>
+              ))}
+            </div>
+          </div>
+          <SecretInput label={`Xendit Secret Key ${xenditMode==='sandbox'?' - Sandbox':' - Production'}`} value={xenditSecret} onChange={setXenditSecret} configured={xenditConfigured} placeholder="xnd_development_… / xnd_production_…"/>
+          <SecretInput label="Xendit Callback Verification Token" value={xenditToken} onChange={setXenditToken} configured={xenditConfigured} placeholder="Token dari Settings → Webhooks (X-CALLBACK-TOKEN)"/>
+          <div>
+            <label className="text-xs font-semibold text-ink mb-1 block">URL Callback (set di dashboard Xendit → Settings → Webhooks → Invoices Paid)</label>
+            <div className="flex items-center gap-2 rounded-lg border border-line bg-bg2 px-3 py-2 max-w-md">
+              <span className="flex-1 min-w-0 truncate text-xs font-mono text-mute">{xenditWebhook}</span>
+              <button type="button" onClick={() => copy(xenditWebhook)} className="text-xs font-bold text-brand-600 hover:underline shrink-0">Salin</button>
+            </div>
+            <div className="text-[11px] text-mute mt-2 leading-relaxed">Pilih channel pembayaran yang ingin ditampilkan langsung di dashboard Xendit (Settings → Payment Channels). Untuk merutekan metode ke Xendit, atur di tab <b>General → Routing Pembayaran</b>.</div>
+          </div>
+        </div>
+        <div className="flex mt-8"><SaveButton onClick={saveXendit}>Update Xendit</SaveButton></div>
         </div>
       )}
 

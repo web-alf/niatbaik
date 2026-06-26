@@ -8,6 +8,10 @@ html, body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #1E
 ::-webkit-scrollbar-track { background: transparent; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .field { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-mute focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600; }
+/* Bolder form variant (admin: Settings → Payment → form_display_style = bold). Thicker
+   border + heavier text for a higher-contrast donor form. */
+.field-bold { border-width: 2px; font-weight: 600; }
+.field-bold::placeholder { font-weight: 500; }
 .dot::before { content:""; display:inline-block; width:6px; height:6px; border-radius:999px; margin-right:6px; background:currentColor; vertical-align:middle; }
 
 .density-compact .pad-y { padding-top:.5rem; padding-bottom:.5rem; }

@@ -52,6 +52,16 @@ type Setting struct {
 	FlipBaseURL         string `gorm:"size:255" json:"flip_base_url"`
 	FlipEnabled         bool   `gorm:"default:false" json:"flip_enabled"`
 
+	// Payment gateway — Xendit (hosted Invoice / Payment Links). Secrets are TEXT (not
+	// varchar) — same lesson as Moota's JWT overflow. Same base URL for test/live; the
+	// KEY PREFIX (xnd_development_* vs xnd_production_*) selects the environment, so
+	// XenditMode is display-only (a reminder of which key the admin pasted). The callback
+	// token is the static value Xendit sends in the X-CALLBACK-TOKEN webhook header.
+	XenditSecretKey     string `gorm:"type:text" json:"-"`
+	XenditCallbackToken string `gorm:"type:text" json:"-"`
+	XenditEnabled       bool   `gorm:"default:false" json:"xendit_enabled"`
+	XenditMode          string `gorm:"size:20;default:'sandbox'" json:"xendit_mode"`
+
 	// SMTP
 	SMTPHost     string `gorm:"size:255" json:"smtp_host"`
 	SMTPEmail    string `gorm:"size:255" json:"smtp_email"`
@@ -76,6 +86,12 @@ type Setting struct {
 	FontFamily          string `gorm:"size:100" json:"font_family"`
 	BorderRadius        int    `gorm:"default:12" json:"border_radius"`
 	ButtonStyle         string `gorm:"size:50" json:"button_style"`
+	// Public donation-form display styles (admin-selectable, global). FormDisplayStyle:
+	// "normal" | "bold" (bolder font + thicker field borders). PaymentDisplayStyle:
+	// "card" | "dropdown" (how the payment-method selector renders). Exposed via
+	// /settings/public so the donor page reads them at load. Empty = legacy defaults.
+	FormDisplayStyle    string `gorm:"size:20;default:'normal'" json:"form_display_style"`
+	PaymentDisplayStyle string `gorm:"size:20;default:'card'" json:"payment_display_style"`
 	FormFieldsConfig    string `gorm:"type:text" json:"form_fields_config"`
 	NominalPresets      string `gorm:"type:text" json:"nominal_presets"`
 	MinDonationGlobal   int64  `gorm:"default:0" json:"min_donation_global"`

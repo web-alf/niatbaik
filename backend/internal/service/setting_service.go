@@ -131,6 +131,9 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	set(&setting.FlipBaseURL, req.FlipBaseURL)
 	set(&setting.FontFamily, req.FontFamily)
 	set(&setting.ButtonStyle, req.ButtonStyle)
+	set(&setting.FormDisplayStyle, req.FormDisplayStyle)
+	set(&setting.PaymentDisplayStyle, req.PaymentDisplayStyle)
+	set(&setting.XenditMode, req.XenditMode)
 	set(&setting.FormFieldsConfig, req.FormFieldsConfig)
 	set(&setting.NominalPresets, req.NominalPresets)
 	set(&setting.SocialProofConfig, req.SocialProofConfig)
@@ -173,6 +176,12 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	if req.FlipValidationToken != "" {
 		setting.FlipValidationToken = req.FlipValidationToken
 	}
+	if req.XenditSecretKey != "" {
+		setting.XenditSecretKey = req.XenditSecretKey
+	}
+	if req.XenditCallbackToken != "" {
+		setting.XenditCallbackToken = req.XenditCallbackToken
+	}
 
 	// Numeric + boolean tri-state fields (nil = absent = skip).
 	if req.AdminFee != nil {
@@ -195,6 +204,9 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	}
 	if req.FlipEnabled != nil {
 		setting.FlipEnabled = *req.FlipEnabled
+	}
+	if req.XenditEnabled != nil {
+		setting.XenditEnabled = *req.XenditEnabled
 	}
 	if req.MootaGatewayEnabled != nil {
 		setting.MootaGatewayEnabled = *req.MootaGatewayEnabled

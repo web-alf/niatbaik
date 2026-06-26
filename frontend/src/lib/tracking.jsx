@@ -16,12 +16,14 @@ const STORE_KEY = 'nb_utm';
 // id still loads additively. (Global + per-campaign coexistence.)
 function initPixels(s) {
   if (!s) return;
-  // GTM loads other tags (incl. GA4/GAds) if configured in its container.
-  if (s.gtm_id && !window.dataLayer) {
+  // GTM loads other tags (incl. GA4/GAds) if configured in its container. Dedup by id
+  // (not by window.dataLayer) because the static <head> GTM already created dataLayer —
+  // a DIFFERENT global container from settings should still load alongside it.
+  if (s.gtm_id && !_loadedIds.has('gtm:' + s.gtm_id)) {
+    _loadedIds.add('gtm:' + s.gtm_id);
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
     injectScript('https://www.googletagmanager.com/gtm.js?id=' + s.gtm_id);
-    _loadedIds.add('gtm:' + s.gtm_id);
   }
   // Meta Pixel
   if (s.meta_pixel_id && !window.fbq) {
@@ -51,6 +53,13 @@ function initPixels(s) {
 // exists, while still never double-loading the SAME id (e.g. on re-render or when the
 // campaign id equals the global one). Meta/TikTok/Google all support multiple pixels.
 const _loadedIds = new Set();
+
+// Seed with the STATIC GTM container injected by index.html (<head>), so neither the global
+// initPixels nor a per-campaign initCampaignPixels re-injects the same container (double
+// gtm.js load → duplicate tags). window.__NB_STATIC_GTM is set by the static snippet.
+try {
+  if (typeof window !== 'undefined' && window.__NB_STATIC_GTM) _loadedIds.add('gtm:' + window.__NB_STATIC_GTM);
+} catch { /* ignore */ }
 
 // initCampaignPixels injects the campaign's OWN tracking scripts ADDITIVELY on top of the
 // global pixels. A campaign can carry its own Meta Pixel, TikTok Pixel, GTM container, and

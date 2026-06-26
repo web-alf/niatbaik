@@ -32,10 +32,24 @@ function assetVersion() {
 }
 const ASSET_VER = assetVersion();
 
-// index.html is small — read once, inject the asset version.
+// Global GTM container id, injected STATICALLY into <head> so GTM connects reliably
+// (the dynamic inject via /settings/public raced the API call + Tag Assistant →
+// "kadang ga terhubung"). Defaults to the org container; set GTM_ID="" to disable.
+const GTM_ID = process.env.GTM_ID !== undefined ? process.env.GTM_ID.trim() : "GTM-W452XTN9";
+
+// index.html is small — read once, inject the asset version + GTM container id. When
+// GTM_ID is empty, strip the marked GTM blocks so no broken snippet ships.
 function indexHtml() {
-  const raw = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-  return raw.replace(/__ASSET_VER__/g, ASSET_VER);
+  let raw = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  raw = raw.replace(/__ASSET_VER__/g, ASSET_VER);
+  if (GTM_ID) {
+    raw = raw.replace(/__GTM_ID__/g, GTM_ID);
+  } else {
+    raw = raw
+      .replace(/<!--GTM_START-->[\s\S]*?<!--GTM_END-->/g, "")
+      .replace(/<!--GTMNS_START-->[\s\S]*?<!--GTMNS_END-->/g, "");
+  }
+  return raw;
 }
 let INDEX_HTML = indexHtml();
 

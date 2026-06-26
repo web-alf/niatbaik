@@ -1371,6 +1371,23 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
   const subtotalNum = Number(amount) || 0;
   const totalNum = subtotalNum;
 
+  // A hosted payment gateway (Flip / Moota / Xendit) lets the donor pick the channel on
+  // the GATEWAY's own page — so showing our own method picker here is redundant and
+  // confusing. When any available method routes to a hosted gateway, hide the selector and
+  // auto-select a representative gateway method so submit goes straight to the gateway
+  // (handleSubmit redirects on the returned hosted URL). If ALL methods are manual, keep
+  // the selector (the donor must pick a bank to transfer to).
+  const gatewayMethod = useMemo(() => {
+    if (!Array.isArray(methods)) return null;
+    return methods.find((m) => m && ['flip', 'moota', 'xendit'].includes(String(m.gateway || '').toLowerCase())) || null;
+  }, [methods]);
+  const hideSelector = !!gatewayMethod;
+  // Auto-select the gateway method once so the donation routes to the gateway (not manual)
+  // even though the picker is hidden. Only when nothing is chosen yet.
+  useEffect(() => {
+    if (hideSelector && !paymentMethod && gatewayMethod) setPaymentMethod(gatewayMethod);
+  }, [hideSelector, gatewayMethod]);
+
   return (
     <div className="rounded-2xl bg-white border border-line shadow-card p-5 lg:p-6">
       <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm font-semibold text-mute hover:text-ink mb-4">
@@ -1424,20 +1441,30 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
           )}
         </div>
 
-        {/* Pembayaran */}
-        <div className="pt-4 border-t border-line space-y-3">
-          <div className="text-xs font-bold uppercase tracking-wider text-mute">Metode pembayaran</div>
-          <PaymentSelector
-            grouped={grouped} paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod}
-            isSelected={isSelected} style={payStyle} fieldCls={fieldCls}
-          />
-        </div>
+        {/* Pembayaran — hidden when a hosted gateway handles channel selection on its own
+            page (donor picks QRIS/VA/e-wallet there). Only shown for manual transfer. */}
+        {hideSelector ? (
+          <div className="pt-4 border-t border-line">
+            <div className="rounded-xl border border-brand-100 bg-brand-50 p-3 flex items-start gap-2 text-[12px] text-brand-800 leading-relaxed">
+              <Icon name="shield" size={15} className="text-brand-600 shrink-0 mt-0.5"/>
+              <span>Metode pembayaran (QRIS / Virtual Account / e-wallet) akan Anda pilih di halaman pembayaran yang aman setelah menekan tombol di bawah.</span>
+            </div>
+          </div>
+        ) : (
+          <div className="pt-4 border-t border-line space-y-3">
+            <div className="text-xs font-bold uppercase tracking-wider text-mute">Metode pembayaran</div>
+            <PaymentSelector
+              grouped={grouped} paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod}
+              isSelected={isSelected} style={payStyle} fieldCls={fieldCls}
+            />
+          </div>
+        )}
 
         {/* Fee disclosure — show the donor exactly what they'll pay BEFORE submitting. */}
         <div className="pt-4 border-t border-line">
           <div className="rounded-xl bg-bg2 p-4 text-sm space-y-1.5">
             <div className="flex justify-between"><span className="font-bold text-ink">Total donasi</span><b className="text-brand-600 text-lg">{fmtIDR(totalNum)}</b></div>
-            {!settlesViaFlip && (
+            {!settlesViaFlip && !hideSelector && (
               <div className="text-[11px] text-mute pt-1 leading-relaxed">
                 Sistem menambahkan <b>kode unik</b> (beberapa rupiah) ke total agar pembayaran terverifikasi otomatis. Nominal final ditampilkan di halaman berikutnya.
               </div>
@@ -1504,6 +1531,18 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
   const isQRIS = !isHostedGateway && (pmType.includes('qris') || (invoice.payment_method || '').toLowerCase().includes('qris') || (!!invoice.qr_url && !/^https?:\/\//i.test(invoice.qr_url)));
   const isPaid = invoice.is_paid || /paid|berhasil|lunas|success/i.test(status);
 
+  // WhatsApp confirmation link shown on the success screen. Pre-fills a thank-you/confirm
+  // message (invoice + nominal) to the CS/admin number (rotator-aware, falls back to
+  // whatsapp_admin). Empty when no number is configured → the button is hidden.
+  const successWaHref = useMemo(() => {
+    const cs = pickCsContact();
+    const num = normalizeWa((cs && cs.phone) || (window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.whatsapp_admin) || '');
+    if (!num) return '';
+    const campTitle = (c && c.title) || '';
+    const msg = encodeURIComponent(`Halo, saya sudah berdonasi.\nInvoice: ${invoice.invoice_number}\nNominal: ${fmtIDR(subtotal)}${campTitle ? `\nCampaign: ${campTitle}` : ''}\nMohon konfirmasi. Terima kasih 🙏`);
+    return `https://wa.me/${num}?text=${msg}`;
+  }, [invoice.invoice_number, subtotal, c && c.title]);
+
   // Manual-transfer destination. Flip (gateway) returns a pay_code; otherwise the
   // donor transfers to the single org account configured in Settings → Payment
   // (exposed via public settings). Order: gateway pay_code → invoice → org settings.
@@ -1549,30 +1588,39 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
   // bounced the donor back to the gateway in a loop. This page now only SHOWS status; the
   // "Lanjutkan ke Pembayaran" button below remains as a manual way back to the gateway.
 
-  // Poll status every 12s until paid, but cap at ~12 min (60 attempts). Without a
-  // cap, an invoice that never settles (e.g. a stuck webhook) polls forever with
-  // no signal to the donor. After the cap we stop and surface a "contact CS" path.
+  // Poll status until paid. Check IMMEDIATELY on mount (a donor returning from a hosted
+  // gateway may already be settled by the webhook — without an instant check they'd stare
+  // at "Menunggu Pembayaran" for up to a full interval), then poll fast for the first
+  // minute (every 4s — gateway webhooks usually land within seconds) and back off to 12s
+  // after. Cap total runtime so a never-settling invoice eventually stops + shows a CS path.
   useEffect(() => {
     if (isPaid || pollTimedOut) return;
+    let stopped = false;
     let attempts = 0;
-    const MAX_ATTEMPTS = 60;
-    const id = setInterval(async () => {
-      attempts += 1;
-      if (attempts > MAX_ATTEMPTS) {
-        clearInterval(id);
-        setPollTimedOut(true);
-        return;
-      }
+    const MAX_ATTEMPTS = 80; // ~ first 60s @4s (15) + ~13 min @12s
+    const check = async () => {
       try {
         const res = await window.api.paymentStatus(invoice.invoice_number);
-        if (res?.data) {
+        if (!stopped && res?.data) {
           setStatus(res.data.status || status);
           setInvoiceState((prev) => ({ ...prev, ...res.data }));
-          if (res.data.is_paid) clearInterval(id);
+          if (res.data.is_paid) { stopped = true; return true; }
         }
       } catch {}
-    }, 12000);
-    return () => clearInterval(id);
+      return false;
+    };
+    let timer;
+    const tick = async () => {
+      if (stopped) return;
+      attempts += 1;
+      if (attempts > MAX_ATTEMPTS) { setPollTimedOut(true); return; }
+      const done = await check();
+      if (done || stopped) return;
+      timer = setTimeout(tick, attempts <= 15 ? 4000 : 12000);
+    };
+    // Immediate first check, then schedule.
+    check().then((done) => { if (!done && !stopped) timer = setTimeout(tick, 4000); });
+    return () => { stopped = true; if (timer) clearTimeout(timer); };
   }, [invoice.invoice_number, isPaid, pollTimedOut]);
 
   // Tick once a second to drive the expiry countdown (only while unpaid + not expired).
@@ -1639,7 +1687,16 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
         <div className="mt-4 text-[12px] text-mute leading-relaxed">
           Bukti donasi &amp; ucapan terima kasih akan dikirim ke WhatsApp{invoice.donor_email ? ' & email' : ''} Anda.
         </div>
-        <button onClick={onReset} className="mt-5 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-brand-600 text-white hover:bg-brand-700">
+        {/* Primary CTA: confirm via WhatsApp (button, not auto-redirect — auto-open is
+            often blocked by the browser and skips this confirmation screen). Pre-fills a
+            message with the invoice + nominal to the CS/admin number. */}
+        {successWaHref && (
+          <a href={successWaHref} target="_blank" rel="noopener noreferrer"
+             className="mt-5 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700">
+            <Icon name="wa" size={16}/> Konfirmasi via WhatsApp
+          </a>
+        )}
+        <button onClick={onReset} className={`${successWaHref ? 'mt-3' : 'mt-5'} w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold ${successWaHref ? 'bg-white border border-line text-ink hover:bg-bg2' : 'bg-brand-600 text-white hover:bg-brand-700'}`}>
           Kembali ke campaign
         </button>
       </div>
@@ -1662,6 +1719,17 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
           </div>
         )}
       </div>
+
+      {/* Hosted-gateway donor returning from the payment page: the webhook settles
+          asynchronously (usually seconds), so reassure them we're verifying instead of
+          showing a bare "Menunggu Pembayaran". Hidden once paid (success screen takes over)
+          or after the poll times out. */}
+      {isHostedGateway && !isExpired && !pollTimedOut && (
+        <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50 p-3 flex items-center gap-2.5 text-sm text-brand-800">
+          <span className="h-2.5 w-2.5 rounded-full bg-brand-600 animate-pulse shrink-0"/>
+          <span>Memverifikasi pembayaran Anda secara otomatis… Jika sudah membayar, halaman ini akan berpindah ke konfirmasi dalam beberapa detik.</span>
+        </div>
+      )}
 
       {/* Sandbox tester banner + simulate button. Only visible in non-production. */}
       {sandboxMode && (

@@ -54,6 +54,13 @@ type Campaign struct {
 	// Drives the editor's "+ Add Qurban/Package/Zakat" builders and the public item picker.
 	// Empty = legacy nominal-preset behavior. Opaque JSON (like payment_config/pixel_config).
 	FormItemsConfig  string  `gorm:"type:text" json:"form_items_config"`
+	// ConversionConfig holds the per-campaign "Fire Event" client-fire config (Berdu-style):
+	// {meta:{enabled,events:{submit,success}}, tiktok:{enabled,events:{submit,success}},
+	//  gads:{enabled,conversion_id:"AW-…",labels:{submit,success}}}.
+	// Non-secret (conversion IDs/labels are fired client-side anyway) so it's surfaced in the
+	// public CampaignDetail. The Meta CAPI/TikTok EAPI SECRET tokens stay in PixelConfig
+	// (admin-only, never public). Opaque JSON like payment_config/form_items_config.
+	ConversionConfig string  `gorm:"type:text" json:"conversion_config"`
 
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`

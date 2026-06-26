@@ -10,7 +10,10 @@
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id'];
 const STORE_KEY = 'nb_utm';
 
-// initPixels injects pixel base scripts once. s is the public settings object.
+// initPixels injects the GLOBAL pixel base scripts once. s is the public settings object.
+// Each loaded id is recorded in _loadedIds so that a campaign reusing the SAME id (via
+// initCampaignPixels) won't re-init it and double-fire — while a campaign with a DIFFERENT
+// id still loads additively. (Global + per-campaign coexistence.)
 function initPixels(s) {
   if (!s) return;
   // GTM loads other tags (incl. GA4/GAds) if configured in its container.
@@ -18,23 +21,124 @@ function initPixels(s) {
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
     injectScript('https://www.googletagmanager.com/gtm.js?id=' + s.gtm_id);
+    _loadedIds.add('gtm:' + s.gtm_id);
   }
   // Meta Pixel
   if (s.meta_pixel_id && !window.fbq) {
     injectFbq(s.meta_pixel_id);
+    _loadedIds.add('fb:' + s.meta_pixel_id);
   }
   // GA4 standalone (only when GTM isn't handling it)
   if (s.ga4_measurement_id && !window.gtag && !s.gtm_id) {
     injectGtag(s.ga4_measurement_id);
+    _loadedIds.add('aw:' + s.ga4_measurement_id);
   }
   // Google Ads conversion (standalone gtag only)
   if (s.google_ads_conversion_id && window.gtag) {
     window.gtag('config', s.google_ads_conversion_id);
+    _loadedIds.add('aw:' + s.google_ads_conversion_id);
   }
   // TikTok Pixel
   if (s.tiktok_pixel_id && !window.ttq) {
     injectTtq(s.tiktok_pixel_id);
+    _loadedIds.add('tt:' + s.tiktok_pixel_id);
   }
+}
+
+// _loadedIds tracks every pixel/container id we've already initialized this page load, so
+// the GLOBAL pixels (from initPixels) and a campaign's OWN pixels COEXIST: we add the
+// campaign's id alongside the global one instead of skipping it because window.fbq already
+// exists, while still never double-loading the SAME id (e.g. on re-render or when the
+// campaign id equals the global one). Meta/TikTok/Google all support multiple pixels.
+const _loadedIds = new Set();
+
+// initCampaignPixels injects the campaign's OWN tracking scripts ADDITIVELY on top of the
+// global pixels. A campaign can carry its own Meta Pixel, TikTok Pixel, GTM container, and
+// Google Ads conversion id (Berdu-style "Fire Event"). `c` is the campaign detail object.
+function initCampaignPixels(c) {
+  if (!c) return;
+  try {
+    // Meta: bootstrap the fbq snippet if absent, otherwise add this pixel to the existing
+    // fbq (multi-pixel). injectFbq early-returns when fbq exists, so init the id directly.
+    if (c.meta_pixel_id && !_loadedIds.has('fb:' + c.meta_pixel_id)) {
+      _loadedIds.add('fb:' + c.meta_pixel_id);
+      if (!window.fbq) injectFbq(c.meta_pixel_id);
+      else { window.fbq('init', c.meta_pixel_id); window.fbq('track', 'PageView'); }
+    }
+    // TikTok: ttq.load() supports multiple pixel instances on the same ttq object.
+    if (c.tiktok_pixel_id && !_loadedIds.has('tt:' + c.tiktok_pixel_id)) {
+      _loadedIds.add('tt:' + c.tiktok_pixel_id);
+      if (!window.ttq) injectTtq(c.tiktok_pixel_id);
+      else { try { window.ttq.load(c.tiktok_pixel_id); window.ttq.page(); } catch {} }
+    }
+    // GTM: a second container loads alongside the global one (shared dataLayer).
+    if (c.gtm_id && !_loadedIds.has('gtm:' + c.gtm_id)) {
+      _loadedIds.add('gtm:' + c.gtm_id);
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+      injectScript('https://www.googletagmanager.com/gtm.js?id=' + c.gtm_id);
+    }
+    // Google Ads: bootstrap gtag if absent, then register the campaign's conversion id so
+    // gtag('event','conversion',{send_to:'AW-…/label'}) works later. parseConversion guards
+    // a malformed JSON blob.
+    const cfg = parseConversion(c.conversion_config);
+    const adsId = cfg.gads && cfg.gads.enabled && cfg.gads.conversion_id;
+    if (adsId && !_loadedIds.has('aw:' + adsId)) {
+      _loadedIds.add('aw:' + adsId);
+      if (!window.gtag) injectGtag(adsId);
+      else window.gtag('config', adsId);
+    }
+  } catch { /* pixel init must never break the page */ }
+}
+
+// parseConversion safely parses the campaign.conversion_config JSON envelope into
+// {meta,tiktok,gads}. Returns {} on any error so callers can optional-chain.
+function parseConversion(raw) {
+  try {
+    if (raw && typeof raw === 'object') return raw;
+    if (typeof raw === 'string' && raw.trim()) return JSON.parse(raw) || {};
+  } catch { /* fall through */ }
+  return {};
+}
+
+// fireConversion fires the per-campaign conversion event for a funnel phase
+// (phase ∈ {'submit','success'}) to every platform the campaign configured. `value` is the
+// actual donation nominal (IDR). Falls back to the global track() so a campaign with no
+// per-campaign override still reports a sensible default event. Never throws.
+function fireConversion(c, phase, value) {
+  try {
+    const cfg = parseConversion(c && c.conversion_config);
+    const val = Number(value) || 0;
+    const payload = { value: val, currency: 'IDR', content_name: (c && c.title) || '' };
+
+    // Meta Pixel
+    const metaEvt = cfg.meta && cfg.meta.enabled && cfg.meta.events && cfg.meta.events[phase];
+    if (window.fbq && metaEvt) window.fbq('track', metaEvt, payload);
+
+    // TikTok Pixel
+    const ttEvt = cfg.tiktok && cfg.tiktok.enabled && cfg.tiktok.events && cfg.tiktok.events[phase];
+    if (window.ttq && ttEvt) window.ttq.track(ttEvt, payload);
+
+    // Google Ads conversion (send_to = "AW-XXXX/label")
+    const gads = cfg.gads;
+    const label = gads && gads.enabled && gads.labels && gads.labels[phase];
+    if (window.gtag && gads && gads.conversion_id && label) {
+      window.gtag('event', 'conversion', {
+        send_to: gads.conversion_id + '/' + label,
+        value: val,
+        currency: 'IDR',
+      });
+    }
+
+    // Fallback (success only): a Default campaign with no per-campaign config still never
+    // fired a Purchase/conversion on payment success (the long-standing gap). Fire one to
+    // whatever global pixels loaded so global tracking reports the conversion. We do NOT
+    // fall back on 'submit' — InitiateCheckout already fires on form-open + AddPaymentInfo
+    // on method pick, so a submit fallback would double-count.
+    if (phase === 'success' && !metaEvt && !ttEvt && !(gads && gads.enabled)) {
+      track('Purchase', payload);
+    }
+  } catch { /* conversion fire must never break the donation UX */ }
 }
 
 // captureUTM reads utm_* from the current URL once on first landing. Stored so the
@@ -110,4 +214,4 @@ function injectTtq(pixelId) {
   /* eslint-enable */
 }
 
-window.NBTracking = { initPixels, captureUTM, getUTM, track };
+window.NBTracking = { initPixels, initCampaignPixels, fireConversion, captureUTM, getUTM, track };

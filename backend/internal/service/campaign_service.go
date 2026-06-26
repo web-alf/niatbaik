@@ -83,6 +83,7 @@ func (s *CampaignService) Create(req *request.CreateCampaignRequest, userID uuid
 		PaymentConfig:    req.PaymentConfig,
 		PixelConfig:      req.PixelConfig,
 		FormItemsConfig:  req.FormItemsConfig,
+		ConversionConfig: req.ConversionConfig,
 	}
 
 	if req.Target != nil {
@@ -172,11 +173,13 @@ func (s *CampaignService) Update(id uuid.UUID, req *request.UpdateCampaignReques
 	if req.FormStyle != "" {
 		c.FormStyle = req.FormStyle
 	}
-	if req.MetaPixelID != "" {
-		c.MetaPixelID = req.MetaPixelID
+	// Tri-state: nil = leave unchanged, otherwise set (incl. "" to clear back to inheriting
+	// the global pixel — the Fire Event "Custom → Default" switch sends "").
+	if req.MetaPixelID != nil {
+		c.MetaPixelID = *req.MetaPixelID
 	}
-	if req.TikTokPixelID != "" {
-		c.TikTokPixelID = req.TikTokPixelID
+	if req.TikTokPixelID != nil {
+		c.TikTokPixelID = *req.TikTokPixelID
 	}
 	if req.GTMID != "" {
 		c.GTMID = req.GTMID
@@ -196,11 +199,16 @@ func (s *CampaignService) Update(id uuid.UUID, req *request.UpdateCampaignReques
 	if req.PaymentConfig != "" {
 		c.PaymentConfig = req.PaymentConfig
 	}
-	if req.PixelConfig != "" {
-		c.PixelConfig = req.PixelConfig
+	// Tri-state pointers (nil = unchanged, "" = clear). Lets Fire Event "Custom → Default"
+	// wipe the per-campaign secret CAPI config + public conversion config.
+	if req.PixelConfig != nil {
+		c.PixelConfig = *req.PixelConfig
 	}
 	if req.FormItemsConfig != "" {
 		c.FormItemsConfig = req.FormItemsConfig
+	}
+	if req.ConversionConfig != nil {
+		c.ConversionConfig = *req.ConversionConfig
 	}
 	if req.WANotification != nil {
 		c.WANotification = *req.WANotification

@@ -132,6 +132,10 @@ function CampaignEditorForm({ campaign }) {
     return Array.isArray(p) ? p : (Array.isArray(p.rows) ? p.rows : []);
   })();
   const savedPixel = parseJSONObj(c?.pixel_config);
+  // Per-campaign "Fire Event" conversion config (FB/TikTok/Google Adwords). Public,
+  // non-secret — drives which events fire on submit/success + the Google Ads conversion
+  // id/labels. The Meta/TikTok CAPI secret token stays in pixel_config (above), never here.
+  const savedConv = parseJSONObj(c?.conversion_config);
 
   // Parse the campaign's saved form_fields_config ONCE, up here, so the Advanced → Form
   // toggle can be seeded from it (previously it was hardcoded to 'Default', so after a
@@ -157,8 +161,9 @@ function CampaignEditorForm({ campaign }) {
     fundraising: 'Default',
     wa: c?.wa_notification ? 'Custom' : 'Default',
     followup: c?.followup_enabled ? 'Custom' : 'Default',
-    metaPixel: c?.meta_pixel_id ? 'Custom' : 'Default',
-    tiktokPixel: c?.tiktok_pixel_id ? 'Custom' : 'Default',
+    // Unified "Fire Event" panel (FB / TikTok / Google Adwords). Custom when ANY
+    // per-campaign tracking is configured on this campaign.
+    fireEvent: (c?.meta_pixel_id || c?.tiktok_pixel_id || (c?.conversion_config && c.conversion_config.trim())) ? 'Custom' : 'Default',
     gtm: c?.gtm_id ? 'Custom' : 'Default',
     socialProof: 'Hide',
     popupInfo: c?.popup_info ? 'Show' : 'Hide',
@@ -253,6 +258,20 @@ function CampaignEditorForm({ campaign }) {
     events: (savedPixel.events && typeof savedPixel.events === 'object')
       ? { campaign:'PageView', form:'InitiateCheckout', invoice:'Lead', success:'Purchase', ...savedPixel.events }
       : { campaign:'PageView', form:'InitiateCheckout', invoice:'Lead', success:'Purchase' },
+    // ---- Fire Event (per-campaign conversion) ----
+    fireTab: 'fb', // fb | tiktok | gads
+    // Which funnel events fire on submit/success per platform. Meta defaults mirror the
+    // legacy per-page map (form→submit, success→success).
+    metaFireEnabled: savedConv.meta ? savedConv.meta.enabled !== false : !!c?.meta_pixel_id,
+    metaSubmitEvent: (savedConv.meta && savedConv.meta.events && savedConv.meta.events.submit) || savedPixel.events?.form || 'InitiateCheckout',
+    metaSuccessEvent: (savedConv.meta && savedConv.meta.events && savedConv.meta.events.success) || savedPixel.events?.success || 'Purchase',
+    tiktokFireEnabled: savedConv.tiktok ? savedConv.tiktok.enabled !== false : !!c?.tiktok_pixel_id,
+    tiktokSubmitEvent: (savedConv.tiktok && savedConv.tiktok.events && savedConv.tiktok.events.submit) || 'InitiateCheckout',
+    tiktokSuccessEvent: (savedConv.tiktok && savedConv.tiktok.events && savedConv.tiktok.events.success) || 'CompletePayment',
+    gadsEnabled: savedConv.gads ? savedConv.gads.enabled !== false : false,
+    gadsConversionId: (savedConv.gads && savedConv.gads.conversion_id) || '',
+    gadsSubmitLabel: (savedConv.gads && savedConv.gads.labels && savedConv.gads.labels.submit) || '',
+    gadsSuccessLabel: (savedConv.gads && savedConv.gads.labels && savedConv.gads.labels.success) || '',
     waFlyingNumber: '', waFlyingText: 'Chat via WhatsApp',
     extLinkUrl: c?.external_link || '', extLinkText: 'Kunjungi website',
     paymentRows: savedPaymentRows.length ? savedPaymentRows : [{ bank:'', account:'', holder:'', method:'instant' }],
@@ -357,12 +376,34 @@ function CampaignEditorForm({ campaign }) {
         payload.form_items_config = ''; // not an item-based form → clear
       }
     }
-    // Meta Pixel — Custom sends per-campaign config (global OFF); Default leaves meta_pixel_id empty = inherit global.
-    if (adv.metaPixel === 'Custom') {
+    // Fire Event (unified FB / TikTok / Google Adwords conversion panel).
+    // Custom sends per-campaign pixel IDs + secret CAPI config (pixel_config, admin-only)
+    // + the public conversion_config (events to fire + Google Ads id/labels). Default
+    // leaves meta_pixel_id empty = inherit the global pixels from Settings → Tracking & Ads.
+    if (adv.fireEvent === 'Custom') {
       payload.meta_pixel_id = advCustom.metaPixelId;
-      payload.pixel_config = JSON.stringify({ capi: advCustom.metaCAPIEnabled, token: advCustom.metaCAPIToken, test_event: advCustom.metaTestEvent, events: advCustom.events });
+      payload.tiktok_pixel_id = advCustom.tiktokPixelId;
+      // Secret Meta CAPI config stays in pixel_config (never surfaced publicly). Keep the
+      // legacy per-page event map in sync with the new submit/success choices.
+      payload.pixel_config = JSON.stringify({
+        capi: advCustom.metaCAPIEnabled, token: advCustom.metaCAPIToken, test_event: advCustom.metaTestEvent,
+        events: { ...advCustom.events, form: advCustom.metaSubmitEvent, success: advCustom.metaSuccessEvent },
+      });
+      // Public client-fire config consumed by the donor page (tracking.jsx fireConversion).
+      payload.conversion_config = JSON.stringify({
+        meta: { enabled: advCustom.metaFireEnabled, events: { submit: advCustom.metaSubmitEvent, success: advCustom.metaSuccessEvent } },
+        tiktok: { enabled: advCustom.tiktokFireEnabled, events: { submit: advCustom.tiktokSubmitEvent, success: advCustom.tiktokSuccessEvent } },
+        gads: { enabled: advCustom.gadsEnabled, conversion_id: advCustom.gadsConversionId.trim(), labels: { submit: advCustom.gadsSubmitLabel.trim(), success: advCustom.gadsSuccessLabel.trim() } },
+      });
+    } else {
+      // Default → clear ALL per-campaign fire config so the campaign inherits the global
+      // pixels. Send "" (not omit) — the backend update fields are tri-state pointers, so
+      // an explicit "" clears while omitting would leave stale per-campaign config behind.
+      payload.meta_pixel_id = '';
+      payload.tiktok_pixel_id = '';
+      payload.pixel_config = '';
+      payload.conversion_config = '';
     }
-    if (advCustom.tiktokPixelId) payload.tiktok_pixel_id = advCustom.tiktokPixelId;
     if (advCustom.gtmId) payload.gtm_id = advCustom.gtmId;
     if (advCustom.extLinkUrl) payload.external_link = advCustom.extLinkUrl;
     // Persist the campaign URL slug on edit. Send it whenever it has a valid value
@@ -649,53 +690,110 @@ function CampaignEditorForm({ campaign }) {
                   )}
                 </div>
 
+                {/* Fire Event — unified per-campaign conversion tracking (FB / TikTok /
+                    Google Adwords), mirrors Berdu. Default = inherit global pixels from
+                    Settings → Tracking & Ads. Custom = configure this campaign's own pixels
+                    + which events fire on form submit and payment success. */}
                 <div>
-                  <AdvRadio label="Meta Pixel (Facebook)" value={adv.metaPixel} options={['Default','Custom']} onChange={(v) => setAdv({...adv, metaPixel:v})}/>
-                  {adv.metaPixel === 'Default' && (
+                  <AdvRadio label="Fire Event (Conversion Tracking)" sub="( FB Pixel · TikTok · Google Adwords — per campaign )" value={adv.fireEvent} options={['Default','Custom']} onChange={(v) => setAdv({...adv, fireEvent:v})}/>
+                  {adv.fireEvent === 'Default' && (
                     <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line">
                       <div className="flex items-start gap-2 text-[12px] text-mute">
                         <Icon name="pixel" size={15} className="text-brand-600 shrink-0 mt-0.5"/>
-                        <span>Mengikuti Meta Pixel global dari <b className="text-ink">Settings &rarr; Tracking &amp; Ads</b>.</span>
+                        <span>Mengikuti pixel global dari <b className="text-ink">Settings &rarr; Tracking &amp; Ads</b>. Tidak ada event konversi khusus untuk campaign ini.</span>
                       </div>
                     </div>
                   )}
-                  {adv.metaPixel === 'Custom' && (
+                  {adv.fireEvent === 'Custom' && (
                     <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line space-y-4">
-                      <div className="text-[11px] text-mute">Pixel global dimatikan untuk campaign ini. Konfigurasi tracking khusus di bawah.</div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <FieldToggle label="Meta Pixel Only" value={advCustom.metaPixelEnabled ?? true} onChange={(v) => setAdvCustom({...advCustom, metaPixelEnabled:v})}/>
-                        <FieldToggle label="Meta Pixel & Conversion API" value={advCustom.metaCAPIEnabled ?? false} onChange={(v) => setAdvCustom({...advCustom, metaCAPIEnabled:v, metaPixelEnabled: v ? true : (advCustom.metaPixelEnabled ?? true)})}/>
+                      <div className="text-[11px] text-mute">Pixel global dimatikan untuk campaign ini. Konversi <b>Submit</b> kirim saat form dikirim; <b>Success</b> saat pembayaran lunas. Pixel Value = nominal donasi (otomatis).</div>
+                      {/* Tab strip: FB Pixel · TikTok · Google Adwords */}
+                      <div className="inline-flex p-1 bg-white rounded-lg border border-line">
+                        {[['fb','FB Pixel'],['tiktok','TikTok'],['gads','Google Adwords']].map(([k,label]) => (
+                          <button key={k} type="button" onClick={() => setAdvCustom({...advCustom, fireTab:k})}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${advCustom.fireTab === k ? 'bg-brand-600 text-white shadow-sm' : 'text-mute hover:text-ink'}`}>
+                            {label}
+                          </button>
+                        ))}
                       </div>
-                      <div className={`grid grid-cols-1 ${advCustom.metaCAPIEnabled ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-2`}>
-                        <div><label className="text-xs font-semibold text-mute">Pixel ID</label><input value={advCustom.metaPixelId} onChange={(e) => setAdvCustom({...advCustom, metaPixelId:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="123456789012345"/></div>
-                        {advCustom.metaCAPIEnabled && (
-                          <div><label className="text-xs font-semibold text-mute">Secret Token (CAPI)</label><input value={advCustom.metaCAPIToken||''} onChange={(e) => setAdvCustom({...advCustom, metaCAPIToken:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="EAAxxxxx"/></div>
-                        )}
-                        <div><label className="text-xs font-semibold text-mute">Test Event Code</label><input value={advCustom.metaTestEvent||''} onChange={(e) => setAdvCustom({...advCustom, metaTestEvent:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="TEST12345"/></div>
-                      </div>
-                      <div className="pt-3 border-t border-line">
-                        <div className="text-xs font-bold text-ink mb-2">Event Tracking per Halaman</div>
-                        <div className="grid grid-cols-2 gap-3">
-                          {[['campaign','Page Campaign'],['form','Page Form'],['invoice','Page Invoice'],['success','Page Success Payment']].map(([k,label]) => (
-                            <div key={k}>
-                              <label className="text-xs font-semibold text-mute">{label}</label>
-                              <select value={advCustom.events?.[k]||''} onChange={(e) => setAdvCustom({...advCustom, events:{...advCustom.events, [k]:e.target.value}})} className="field mt-1 bg-white">
+
+                      {/* ---- FB Pixel tab ---- */}
+                      {advCustom.fireTab === 'fb' && (
+                        <div className="space-y-3">
+                          <FieldToggle label="Aktifkan FB Pixel untuk campaign ini" value={advCustom.metaFireEnabled} onChange={(v) => setAdvCustom({...advCustom, metaFireEnabled:v})}/>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <FieldToggle label="Meta Pixel & Conversion API" value={advCustom.metaCAPIEnabled ?? false} onChange={(v) => setAdvCustom({...advCustom, metaCAPIEnabled:v})}/>
+                          </div>
+                          <div className={`grid grid-cols-1 ${advCustom.metaCAPIEnabled ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-2`}>
+                            <div><label className="text-xs font-semibold text-mute">Pixel ID</label><input value={advCustom.metaPixelId} onChange={(e) => setAdvCustom({...advCustom, metaPixelId:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="123456789012345"/></div>
+                            {advCustom.metaCAPIEnabled && (
+                              <div><label className="text-xs font-semibold text-mute">Secret Token (CAPI)</label><input value={advCustom.metaCAPIToken||''} onChange={(e) => setAdvCustom({...advCustom, metaCAPIToken:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="EAAxxxxx"/></div>
+                            )}
+                            <div><label className="text-xs font-semibold text-mute">Test Event Code</label><input value={advCustom.metaTestEvent||''} onChange={(e) => setAdvCustom({...advCustom, metaTestEvent:e.target.value})} className="field mt-1 bg-white font-mono" placeholder="TEST12345"/></div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-xs font-semibold text-mute">Event Submit (form)</label>
+                              <select value={advCustom.metaSubmitEvent} onChange={(e) => setAdvCustom({...advCustom, metaSubmitEvent:e.target.value})} className="field mt-1 bg-white">
                                 {EVENT_OPTS.map(o => <option key={o} value={o}>{o||'Pilih Event'}</option>)}
                               </select>
                             </div>
-                          ))}
+                            <div>
+                              <label className="text-xs font-semibold text-mute">Event Success (paid)</label>
+                              <select value={advCustom.metaSuccessEvent} onChange={(e) => setAdvCustom({...advCustom, metaSuccessEvent:e.target.value})} className="field mt-1 bg-white">
+                                {EVENT_OPTS.map(o => <option key={o} value={o}>{o||'Pilih Event'}</option>)}
+                              </select>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                      )}
 
-                <div>
-                  <AdvRadio label="Tiktok Pixel" value={adv.tiktokPixel} options={['Default','Custom']} onChange={(v) => setAdv({...adv, tiktokPixel:v})}/>
-                  {adv.tiktokPixel === 'Custom' && (
-                    <div className="mt-3 p-4 rounded-xl bg-bg2 border border-line">
-                      <label className="text-xs font-semibold text-mute">TikTok Pixel ID</label>
-                      <input value={advCustom.tiktokPixelId} onChange={(e) => setAdvCustom({...advCustom, tiktokPixelId: e.target.value})} className="field mt-1 bg-white font-mono" placeholder="CIK29JLM3"/>
+                      {/* ---- TikTok tab ---- */}
+                      {advCustom.fireTab === 'tiktok' && (
+                        <div className="space-y-3">
+                          <FieldToggle label="Aktifkan TikTok Pixel untuk campaign ini" value={advCustom.tiktokFireEnabled} onChange={(v) => setAdvCustom({...advCustom, tiktokFireEnabled:v})}/>
+                          <div><label className="text-xs font-semibold text-mute">TikTok Pixel ID</label>
+                            <input value={advCustom.tiktokPixelId} onChange={(e) => setAdvCustom({...advCustom, tiktokPixelId: e.target.value})} className="field mt-1 bg-white font-mono" placeholder="CIK29JLM3"/>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-xs font-semibold text-mute">Event Submit (form)</label>
+                              <select value={advCustom.tiktokSubmitEvent} onChange={(e) => setAdvCustom({...advCustom, tiktokSubmitEvent:e.target.value})} className="field mt-1 bg-white">
+                                {EVENT_OPTS.map(o => <option key={o} value={o}>{o||'Pilih Event'}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-xs font-semibold text-mute">Event Success (paid)</label>
+                              <select value={advCustom.tiktokSuccessEvent} onChange={(e) => setAdvCustom({...advCustom, tiktokSuccessEvent:e.target.value})} className="field mt-1 bg-white">
+                                {EVENT_OPTS.map(o => <option key={o} value={o}>{o||'Pilih Event'}</option>)}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ---- Google Adwords tab (mirrors berdu-googleads.jpeg) ---- */}
+                      {advCustom.fireTab === 'gads' && (
+                        <div className="space-y-3">
+                          <FieldToggle label="Aktifkan Google Ads Conversion untuk campaign ini" value={advCustom.gadsEnabled} onChange={(v) => setAdvCustom({...advCustom, gadsEnabled:v})}/>
+                          <div><label className="text-xs font-semibold text-mute">Conversion ID</label>
+                            <input value={advCustom.gadsConversionId} onChange={(e) => setAdvCustom({...advCustom, gadsConversionId: e.target.value})} className="field mt-1 bg-white font-mono" placeholder="AW-829360860"/>
+                            <div className="text-[11px] text-mute mt-1">Format: AW-XXXXXXXXX (dari Google Ads → Tools → Conversions).</div>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div><label className="text-xs font-semibold text-mute">Conversion Label — Submit</label>
+                              <input value={advCustom.gadsSubmitLabel} onChange={(e) => setAdvCustom({...advCustom, gadsSubmitLabel: e.target.value})} className="field mt-1 bg-white font-mono" placeholder="(opsional)"/>
+                            </div>
+                            <div><label className="text-xs font-semibold text-mute">Conversion Label — Success</label>
+                              <input value={advCustom.gadsSuccessLabel} onChange={(e) => setAdvCustom({...advCustom, gadsSuccessLabel: e.target.value})} className="field mt-1 bg-white font-mono" placeholder="43r8CKC17HsQ3JW8iwM"/>
+                            </div>
+                          </div>
+                          <div className="rounded-lg bg-white border border-line p-3 flex items-center justify-between">
+                            <div className="text-xs font-semibold text-mute">Pixel Value</div>
+                            <div className="text-xs text-ink"><b>Rp</b> nominal donasi <span className="text-mute">(otomatis)</span></div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

@@ -60,6 +60,11 @@ type CampaignDetail struct {
 	// instead of plain nominal presets. Empty = nominal presets. (Was missing → donor
 	// always saw presets even when the admin configured items.)
 	FormItemsConfig    string               `json:"form_items_config"`
+	// ConversionConfig is the per-campaign "Fire Event" client-fire config (FB/TikTok/
+	// Google Adwords conversion IDs + labels + which events fire on submit/success).
+	// Non-secret → surfaced publicly so the donor page can load the right pixels and fire
+	// the conversion. The CAPI/EAPI secret tokens are NOT here (they stay in pixel_config).
+	ConversionConfig   string               `json:"conversion_config"`
 	ButtonColor        string               `json:"button_color"`
 	MinDonation        int64                `json:"min_donation"`
 	MaxDonation        int64                `json:"max_donation"`
@@ -167,6 +172,7 @@ func ToCampaignDetail(c *model.Campaign, donorCount int64, donors []CampaignDono
 		OptNominal:         c.OptNominal,
 		FormFieldsConfig:   c.FormFieldsConfig,
 		FormItemsConfig:    c.FormItemsConfig,
+		ConversionConfig:   c.ConversionConfig,
 		ButtonColor:        c.ButtonColor,
 		MinDonation:        c.MinDonation,
 		MaxDonation:        c.MaxDonation,

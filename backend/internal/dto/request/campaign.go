@@ -35,6 +35,7 @@ type CreateCampaignRequest struct {
 	PaymentConfig    string     `json:"payment_config" validate:"omitempty,max=20000"`
 	PixelConfig      string     `json:"pixel_config" validate:"omitempty,max=20000"`
 	FormItemsConfig  string     `json:"form_items_config" validate:"omitempty,max=20000"`
+	ConversionConfig string     `json:"conversion_config" validate:"omitempty,max=20000"`
 }
 
 type UpdateCampaignRequest struct {
@@ -57,8 +58,12 @@ type UpdateCampaignRequest struct {
 	Slug             string     `json:"slug" validate:"omitempty,max=255"`
 	WANotification   *bool      `json:"wa_notification"`
 	FollowupEnabled  *bool      `json:"followup_enabled"`
-	MetaPixelID      string     `json:"meta_pixel_id"`
-	TikTokPixelID    string     `json:"tiktok_pixel_id"`
+	// Tracking fields are pointers (tri-state: nil = leave unchanged, "" = clear, value =
+	// set) so the editor's Fire Event "Custom → Default" switch can actually clear a
+	// per-campaign pixel back to inheriting the global one. A plain string can't clear
+	// (the `if != ""` guard skips empties), which stranded stale per-campaign config.
+	MetaPixelID      *string    `json:"meta_pixel_id"`
+	TikTokPixelID    *string    `json:"tiktok_pixel_id"`
 	GTMID            string     `json:"gtm_id"`
 	PopupInfo        *bool      `json:"popup_info"`
 	WAFlyingButton   *bool      `json:"wa_flying_button"`
@@ -69,6 +74,10 @@ type UpdateCampaignRequest struct {
 	ButtonColor      string     `json:"button_color" validate:"omitempty,max=30"`
 	FormFieldsConfig string     `json:"form_fields_config" validate:"omitempty,max=10000"`
 	PaymentConfig    string     `json:"payment_config" validate:"omitempty,max=20000"`
-	PixelConfig      string     `json:"pixel_config" validate:"omitempty,max=20000"`
+	// Pointers (tri-state) so Fire Event "Custom → Default" can clear the per-campaign
+	// secret CAPI config + public conversion config back to empty (inherit global).
+	// validator dereferences pointers for `max`; omitempty skips a nil pointer.
+	PixelConfig      *string    `json:"pixel_config" validate:"omitempty,max=20000"`
 	FormItemsConfig  string     `json:"form_items_config" validate:"omitempty,max=20000"`
+	ConversionConfig *string    `json:"conversion_config" validate:"omitempty,max=20000"`
 }

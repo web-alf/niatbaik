@@ -679,6 +679,11 @@ function CampaignPage({ c: listItem, onNav }) {
             category: d.category || listItem.category,
             icon: d.icon || listItem.icon,
           });
+          // Load this campaign's OWN pixels (Meta/TikTok/GTM/Google Ads) so per-campaign
+          // "Fire Event" tracking actually fires — initPixels() only loaded the GLOBAL ones.
+          if (window.NBTracking) {
+            try { window.NBTracking.initCampaignPixels(d); } catch {}
+          }
           // ViewContent funnel event: a donor landed on a campaign detail page.
           if (window.NBTracking) {
             try { window.NBTracking.track('ViewContent', { content_name: d.title || listItem.title, content_ids: [listItem.id], value: d.target_amount || 0, currency: 'IDR' }); } catch {}
@@ -778,7 +783,12 @@ function CampaignPage({ c: listItem, onNav }) {
         // invoice carries ad-source attribution feeding the Data Studio + Advertiser views.
         ...(window.NBTracking ? window.NBTracking.getUTM() : {}),
       });
-      if (res?.data) { setSubmitting(false); setInvoice(res.data); return; } // view swaps to confirmation
+      if (res?.data) {
+        // Fire the per-campaign "submit" conversion (Berdu's click-trigger equivalent):
+        // donor completed the form and an invoice was created. value = actual nominal.
+        if (window.NBTracking) { try { window.NBTracking.fireConversion(c, 'submit', Number(amount) || 0); } catch {} }
+        setSubmitting(false); setInvoice(res.data); return; // view swaps to confirmation
+      }
       setErrors({ form: res?.message || 'Gagal membuat donasi' });
     } catch (e) {
       const msg = e?.message || 'Periksa koneksi';
@@ -1507,6 +1517,18 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
     return () => clearInterval(t);
   }, [isPaid]);
 
+  // Fire the per-campaign "success" conversion exactly ONCE on the first paid transition.
+  // The 12s poller mutates invoice state repeatedly, so guard with a ref to avoid
+  // double-counting the ad conversion. value = subtotal (the actual donation nominal,
+  // excluding the unique code). This is the Purchase/conversion that was never firing.
+  const successFiredRef = useRef(false);
+  useEffect(() => {
+    if (isPaid && !successFiredRef.current) {
+      successFiredRef.current = true;
+      if (window.NBTracking) { try { window.NBTracking.fireConversion(c, 'success', subtotal); } catch {} }
+    }
+  }, [isPaid]);
+
   const checkNow = async () => {
     setChecking(true);
     setPollTimedOut(false); // a manual check re-arms the automatic poller below
@@ -1999,7 +2021,13 @@ function DonationInvoicePage({ invoiceNumber, onBack }) {
           try {
             const campRes = await window.api.campaign(campId);
             if (alive && campRes && campRes.data) {
-              setCampaign(window.mapCampaign ? window.mapCampaign(campRes.data) : campRes.data);
+              const mapped = window.mapCampaign ? window.mapCampaign(campRes.data) : campRes.data;
+              setCampaign(mapped);
+              // Load the campaign's own pixels here too — a donor may land directly on the
+              // invoice page (e.g. returning from a Flip redirect) without passing through
+              // the campaign page where initCampaignPixels normally runs. Needed so the
+              // success conversion (fired in InvoiceConfirmation) has the right pixels.
+              if (window.NBTracking) { try { window.NBTracking.initCampaignPixels(mapped); } catch {} }
             }
           } catch (e) {
             console.error('Failed to load campaign for invoice:', e);

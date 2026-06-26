@@ -1,6 +1,14 @@
+// parseArr parses a settings value that may be an array OR an object (both stored as a
+// JSON string in the backend TEXT column). It previously accepted ONLY arrays, so the
+// object-shaped configs (payment_channel_gateways {channel:gateway}, payment_method_types,
+// flip_code_config) never round-tripped: JSON.parse succeeded but the Array.isArray gate
+// rejected the object → the fallback was used → the routing matrix silently reverted to
+// defaults on every reload/save ("balik ke semula"). Accept any non-null object (arrays
+// are objects too), so both shapes round-trip. `fb` is returned only when v is absent or
+// unparseable.
 const parseArr = (v, fb) => {
-  if (Array.isArray(v)) return v;
-  if (typeof v === 'string' && v.trim()) { try { const p = JSON.parse(v); if (Array.isArray(p)) return p; } catch {} }
+  if (v && typeof v === 'object') return v;
+  if (typeof v === 'string' && v.trim()) { try { const p = JSON.parse(v); if (p && typeof p === 'object') return p; } catch {} }
   return fb;
 };
 

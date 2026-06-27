@@ -89,7 +89,12 @@ function usePublicDark() {
 }
 
 // -------- Navbar --------
-function Navbar({ onNav }) {
+// Navbar is the shared public header used on BOTH the landing page and the campaign page,
+// so the donor sees one consistent navbar (no stripped-down variant). `onHome` controls
+// what the logo / section links do: on the landing page they're in-page anchors; on a
+// campaign page (onHome provided) they first return to the landing route, then scroll to
+// the section so the link still lands the donor in the right place.
+function Navbar({ onNav, onHome }) {
   const [open, setOpen] = useState(false);
   const [dark, toggleDark] = usePublicDark();
   const { navigate } = useApp();
@@ -99,6 +104,16 @@ function Navbar({ onNav }) {
     { l:'Testimoni', h:'#testi' },
     { l:'FAQ', h:'#faq' },
   ];
+  // Section-link click. On the landing page let the native anchor jump handle it. On a
+  // campaign page, go home first, then scroll to the target section after it renders.
+  const goSection = (e, hash) => {
+    if (!onHome) return; // landing → default anchor behavior
+    e.preventDefault();
+    setOpen(false);
+    onHome();
+    const id = hash.replace('#', '');
+    setTimeout(() => { try { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); } catch {} }, 120);
+  };
   return (
     <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-line">
       <div className="max-w-7xl mx-auto px-4 lg:px-6 h-16 flex items-center gap-4">
@@ -107,7 +122,7 @@ function Navbar({ onNav }) {
         </button>
         <nav className="hidden lg:flex items-center gap-1 ml-6">
           {links.map((l) => (
-            <a key={l.l} href={l.h} className="px-3 py-2 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2 hover:text-ink">{l.l}</a>
+            <a key={l.l} href={l.h} onClick={(e) => goSection(e, l.h)} className="px-3 py-2 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2 hover:text-ink">{l.l}</a>
           ))}
         </nav>
         <div className="flex-1"/>
@@ -127,7 +142,7 @@ function Navbar({ onNav }) {
         <div className="lg:hidden border-t border-line bg-white">
           <div className="px-4 py-3 flex flex-col gap-1">
             {links.map((l) => (
-              <a key={l.l} href={l.h} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2" onClick={() => setOpen(false)}>{l.l}</a>
+              <a key={l.l} href={l.h} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2" onClick={(e) => { if (onHome) goSection(e, l.h); else setOpen(false); }}>{l.l}</a>
             ))}
             <button onClick={toggleDark} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2 text-left flex items-center gap-2">
               <Icon name={dark ? 'sun' : 'moon'} size={16}/> {dark ? 'Light Mode' : 'Dark Mode'}
@@ -895,9 +910,11 @@ function CampaignPage({ c: listItem, onNav }) {
 
   return (
     <>
-      {/* Hero header — back link (left) + share button (top-right). */}
+      {/* Sub-bar under the shared navbar: breadcrumb back (left) + share (top-right). The
+          main home navigation lives in the Navbar above; this keeps the campaign-scoped
+          "kembali" + the Bagikan button close to the content. */}
       <section className="bg-bg2 border-b border-line">
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-4 flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-3 flex items-center justify-between gap-3">
           <button onClick={() => onNav('home')} className="inline-flex items-center gap-1.5 text-sm font-semibold text-mute hover:text-ink">
             <Icon name="chevronL" size={16}/> Kembali ke beranda
           </button>
@@ -2110,7 +2127,6 @@ window.LandingPage = PublicApp;
 // campaign by slug/id from live CAMPAIGNS (else seed) and renders the public
 // CampaignPage; onBack returns to the landing route.
 function CampaignDetail({ id, onBack }) {
-  const [dark, toggleDark] = usePublicDark();
   const list = window.CAMPAIGNS || getCampaigns();
   // Resolve strictly by exact slug/id — NO fallback to another campaign (a wrong
   // slug like /c/anjay must not silently show a different program).
@@ -2139,20 +2155,11 @@ function CampaignDetail({ id, onBack }) {
     return () => { alive = false; };
   }, [id]);
 
+  // Same navbar as the landing page (consistent header across the public site). The logo /
+  // 'home' action + section links return to the landing route via onBack; the Donasi button
+  // routes through onNav('campaign') like everywhere else.
   const Header = (
-    <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-line">
-      <div className="max-w-7xl mx-auto px-4 lg:px-6 h-16 flex items-center gap-4">
-        <button onClick={onBack} className="inline-flex items-center gap-2 text-sm font-bold text-ink">
-          <Icon name="chevronL" size={16}/> Kembali
-        </button>
-        <div className="flex-1"/>
-        <button onClick={toggleDark} aria-label="Toggle dark mode"
-          className="h-9 w-9 rounded-lg border border-line bg-white hover:bg-bg2 flex items-center justify-center text-ink">
-          <Icon name={dark ? 'sun' : 'moon'} size={16}/>
-        </button>
-        <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-7"/>
-      </div>
-    </header>
+    <Navbar onNav={(name) => { if (name === 'home') onBack(); }} onHome={onBack}/>
   );
 
   if (state === 'loading') {

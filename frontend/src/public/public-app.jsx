@@ -307,9 +307,12 @@ function CampaignsSection({ onNav }) {
 function PublicCampaignCard({ c, onNav }) {
   return (
     <div onClick={() => onNav('campaign', c)} className="group cursor-pointer rounded-2xl bg-white border border-line shadow-card hover:shadow-pop transition-all hover:-translate-y-1 overflow-hidden">
-      <div className="relative aspect-[16/10]" style={thumbStyle(c)}>
+      <div className="relative aspect-[16/10] bg-cover bg-center" style={thumbStyle(c)}>
         {!hasThumbImage(c) && <div className="absolute inset-0 flex items-center justify-center text-white/85"><Icon name={c.icon} size={70} strokeWidth={1.2}/></div>}
-        <div className="absolute inset-0 bg-black/30"/>
+        {/* Keep the photo bright: only soft top+bottom gradients for badge legibility,
+            not a flat dark veil over the whole image (that made covers look "redup"). */}
+        <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/35 to-transparent"/>
+        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/35 to-transparent"/>
         <div className="absolute top-3 left-3 flex gap-1.5">
           <span className="px-2 py-0.5 rounded-md bg-white/95 text-[11px] font-bold text-ink">{c.category}</span>
           {c.daysLeft <= 10 && <span className="px-2 py-0.5 rounded-md bg-rose-500 text-[11px] font-bold text-white">URGENT</span>}
@@ -483,8 +486,12 @@ function Footer() {
     <footer className="bg-ink text-white pt-14 pb-8">
       <div className="max-w-7xl mx-auto px-4 lg:px-6 grid grid-cols-2 lg:grid-cols-5 gap-8">
         <div className="col-span-2">
-          <div className="flex items-center gap-2"><img src="/assets/logo-niatbaik.png" alt="" className="h-7 invert brightness-200"/></div>
-          <p className="mt-3 text-sm text-white/70 max-w-sm leading-relaxed">Platform donasi & crowdfunding terpercaya. Salurkan zakat, sedekah, wakaf, dan donasi kemanusiaan dengan mudah.</p>
+          {/* Logo on a white chip so its real brand colors stay correct on the dark footer
+              (the old invert/brightness hack washed the navy wordmark out). */}
+          <div className="inline-flex items-center rounded-xl bg-white px-3 py-2 shadow-sm">
+            <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-7"/>
+          </div>
+          <p className="mt-4 text-sm text-white/70 max-w-sm leading-relaxed">Platform donasi & crowdfunding terpercaya. Salurkan zakat, sedekah, wakaf, dan donasi kemanusiaan dengan mudah.</p>
           {kontakHref && (
             <a href={kontakHref} target="_blank" rel="noopener noreferrer"
               className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white">
@@ -927,9 +934,12 @@ function CampaignPage({ c: listItem, onNav }) {
           <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 lg:py-10 grid lg:grid-cols-5 gap-6">
             {/* Left main */}
             <div className="lg:col-span-3">
-              <div className="relative aspect-[16/9] rounded-2xl overflow-hidden" style={thumbStyle(c)}>
+              <div className="relative aspect-[16/9] rounded-2xl overflow-hidden bg-cover bg-center" style={thumbStyle(c)}>
                 {!hasThumbImage(c) && <div className="absolute inset-0 flex items-center justify-center text-white/85"><Icon name={c.icon} size={140} strokeWidth={1}/></div>}
-                <div className="absolute inset-0 bg-black/30"/>
+                {/* Bright image; gradient only where text/badges sit (top + bottom) so the
+                    photo isn't flatly darkened. The title overlays the bottom band. */}
+                <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/40 to-transparent"/>
+                <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/70 via-black/30 to-transparent"/>
                 <div className="absolute top-4 left-4 flex gap-2">
                   <span className="px-2.5 py-1 rounded-md bg-white/95 text-[11px] font-bold text-ink">{c.category}</span>
                   <span className="px-2.5 py-1 rounded-md bg-emerald-600 text-[11px] font-bold text-white inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse"/>LIVE</span>
@@ -2163,12 +2173,42 @@ function CampaignDetail({ id, onBack }) {
   );
 
   if (state === 'loading') {
+    // Skeleton mirrors the real campaign-detail layout (cover + story on the left, the
+    // donation card on the right) so the page doesn't visually jump when content lands.
+    const Bar = ({ className = '' }) => <div className={`rounded bg-slate-200 animate-pulse ${className}`}/>;
     return (
       <div className="min-h-screen flex flex-col bg-white">
         {Header}
-        <main className="flex-1 flex items-center justify-center text-mute text-sm">
-          <span className="h-5 w-5 mr-3 rounded-full border-2 border-brand-600 border-t-transparent animate-spin"/>
-          Memuat campaign…
+        <section className="bg-bg2 border-b border-line">
+          <div className="max-w-7xl mx-auto px-4 lg:px-6 py-3 flex items-center justify-between">
+            <Bar className="h-5 w-36"/><Bar className="h-9 w-24 rounded-lg"/>
+          </div>
+        </section>
+        <main className="flex-1 bg-bg2">
+          <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 lg:py-10 grid lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-3 space-y-5">
+              <Bar className="aspect-[16/9] w-full rounded-2xl"/>
+              <div className="rounded-2xl bg-white border border-line p-5 lg:p-6 space-y-4">
+                <div className="flex items-center gap-3 border-b border-line pb-4">
+                  <div className="h-10 w-10 rounded-full bg-slate-200 animate-pulse"/>
+                  <div className="flex-1 space-y-2"><Bar className="h-4 w-40"/><Bar className="h-3 w-24"/></div>
+                </div>
+                <Bar className="h-4 w-full"/><Bar className="h-4 w-11/12"/><Bar className="h-4 w-10/12"/>
+                <Bar className="h-4 w-full"/><Bar className="h-4 w-9/12"/>
+              </div>
+            </div>
+            <div className="lg:col-span-2">
+              <div className="rounded-2xl bg-white border border-line p-5 lg:p-6 space-y-4 lg:sticky lg:top-20">
+                <Bar className="h-7 w-2/3"/>
+                <Bar className="h-2.5 w-full rounded-full"/>
+                <div className="flex justify-between"><Bar className="h-4 w-24"/><Bar className="h-4 w-20"/></div>
+                <div className="grid grid-cols-3 gap-2 pt-2">
+                  <Bar className="h-11 rounded-lg"/><Bar className="h-11 rounded-lg"/><Bar className="h-11 rounded-lg"/>
+                </div>
+                <Bar className="h-12 w-full rounded-xl"/>
+              </div>
+            </div>
+          </div>
         </main>
       </div>
     );

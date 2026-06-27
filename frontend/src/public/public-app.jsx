@@ -614,6 +614,81 @@ function effectiveMin(c) {
   return 10000;
 }
 
+// ShareCampaign renders the top-right "Bagikan" button on a campaign page. On devices with
+// the native Web Share API (most mobiles) it opens the OS share sheet; otherwise it toggles
+// a small menu with WhatsApp / Facebook / Telegram / X + Copy-link. The shared URL is the
+// canonical /c/<slug> permalink (origin + path), so it deep-links straight to this campaign.
+function ShareCampaign({ c, slug }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const boxRef = useRef(null);
+
+  const shareUrl = (() => {
+    const s = slug || (c && c.slug) || '';
+    try {
+      const origin = window.location.origin;
+      return origin + (s ? `/c/${s}` : window.location.pathname);
+    } catch { return s ? `/c/${s}` : ''; }
+  })();
+  const title = (c && c.title) || 'Campaign donasi';
+  const shareText = `Yuk bantu donasi: ${title}`;
+
+  // Close the menu on an outside click.
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  const nativeShare = async () => {
+    if (navigator.share) {
+      try { await navigator.share({ title, text: shareText, url: shareUrl }); return true; }
+      catch { return false; } // user cancelled / not allowed → fall back to menu
+    }
+    return false;
+  };
+  const onClick = async () => {
+    const ok = await nativeShare();
+    if (!ok) setOpen((v) => !v);
+  };
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(shareUrl); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch {}
+  };
+
+  const enc = encodeURIComponent;
+  const links = [
+    { key: 'wa', label: 'WhatsApp', icon: 'wa', href: `https://wa.me/?text=${enc(shareText + ' ' + shareUrl)}` },
+    { key: 'fb', label: 'Facebook', icon: 'globe', href: `https://www.facebook.com/sharer/sharer.php?u=${enc(shareUrl)}` },
+    { key: 'tg', label: 'Telegram', icon: 'send', href: `https://t.me/share/url?url=${enc(shareUrl)}&text=${enc(shareText)}` },
+    { key: 'x', label: 'X / Twitter', icon: 'megaphone', href: `https://twitter.com/intent/tweet?url=${enc(shareUrl)}&text=${enc(shareText)}` },
+  ];
+
+  return (
+    <div className="relative" ref={boxRef}>
+      <button onClick={onClick}
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-white text-sm font-bold text-ink hover:border-brand-300 hover:text-brand-600 transition-colors">
+        <Icon name="link" size={16}/> Bagikan
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-2 w-56 rounded-xl border border-line bg-white shadow-pop z-20 p-1.5">
+          {links.map((l) => (
+            <a key={l.key} href={l.href} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold text-ink hover:bg-bg2">
+              <Icon name={l.icon} size={16} className="text-brand-600"/> {l.label}
+            </a>
+          ))}
+          <button onClick={copyLink}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold text-ink hover:bg-bg2">
+            <Icon name={copied ? 'check' : 'copy'} size={16} className={copied ? 'text-emerald-600' : 'text-brand-600'}/>
+            {copied ? 'Link tersalin!' : 'Salin link'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CampaignPage({ c: listItem, onNav }) {
   // A donor who picked a nominal on the hero card lands here with _seedAmount set —
   // honor it (and jump straight to the form) instead of resetting to the default, so the
@@ -820,12 +895,13 @@ function CampaignPage({ c: listItem, onNav }) {
 
   return (
     <>
-      {/* Hero header */}
+      {/* Hero header — back link (left) + share button (top-right). */}
       <section className="bg-bg2 border-b border-line">
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-4">
+        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-4 flex items-center justify-between gap-3">
           <button onClick={() => onNav('home')} className="inline-flex items-center gap-1.5 text-sm font-semibold text-mute hover:text-ink">
             <Icon name="chevronL" size={16}/> Kembali ke beranda
           </button>
+          <ShareCampaign c={c} slug={slug}/>
         </div>
       </section>
 
@@ -1988,9 +2064,21 @@ function CampaignFAQ() {
 // App entry
 // ====================================================================
 function PublicApp() {
-  const [page, setPage] = useState({ name: 'home', data: null });
+  // openCampaign drives the REAL app router (app.jsx): it sets the campaign slug + switches
+  // to the 'campaign-detail' route, which syncs the address bar to /c/<slug> and makes the
+  // Back button + share links work. Without this the landing page self-routed via local
+  // `page` state only, so opening a campaign left the URL stuck at "/" (not shareable).
+  const { openCampaign } = useApp();
+  // Every campaign open goes through the REAL app router (openCampaign → /c/<slug>); the
+  // landing page itself only ever shows "home", so there's no local campaign sub-view here
+  // anymore. onNav handles 'campaign' (route out) + 'home' (stay/scroll-top) only.
   const onNav = (name, data) => {
-    setPage({ name, data });
+    if (name === 'campaign') {
+      const slug = (data && typeof data === 'object') ? (data.slug || data.id) : data;
+      if (slug && typeof openCampaign === 'function') openCampaign(slug);
+      return;
+    }
+    // 'home' (and anything else): we're already on the landing route — just scroll to top.
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
@@ -1998,28 +2086,18 @@ function PublicApp() {
     <div className="min-h-screen flex flex-col bg-white">
       <Navbar onNav={onNav}/>
       <main className="flex-1 pb-24 lg:pb-0">
-        {page.name === 'home' ? (
-          <>
-            <Hero onNav={onNav}/>
-            <TrustStrip/>
-            <StatsSection/>
-            <CampaignsSection onNav={onNav}/>
-            <HowToSection/>
-            <TestimonialsSection/>
-            <FAQ/>
-            <FinalCTA onNav={onNav}/>
-            <Footer/>
-          </>
-        ) : (
-          <CampaignPage c={page.data || getFirstCampaign()} onNav={onNav}/>
-        )}
+        <Hero onNav={onNav}/>
+        <TrustStrip/>
+        <StatsSection/>
+        <CampaignsSection onNav={onNav}/>
+        <HowToSection/>
+        <TestimonialsSection/>
+        <FAQ/>
+        <FinalCTA onNav={onNav}/>
+        <Footer/>
       </main>
-      {page.name === 'home' && (
-        <>
-          <SocialPopup/>
-          <StickyCTA onClick={() => onNav('campaign', getFirstCampaign())}/>
-        </>
-      )}
+      <SocialPopup/>
+      <StickyCTA onClick={() => onNav('campaign', getFirstCampaign())}/>
     </div>
   );
 }

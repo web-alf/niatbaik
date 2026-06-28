@@ -120,6 +120,13 @@ function fireConversion(c, phase, value) {
     const val = Number(value) || 0;
     const payload = { value: val, currency: 'IDR', content_name: (c && c.title) || '' };
 
+    // GTM dataLayer: always announce the funnel phase so a Tag Manager Custom Event
+    // trigger ("donation_submit" / "donation_success") fires regardless of which direct
+    // pixels are configured. Includes the campaign slug for GTM-side filtering.
+    pushDL(phase === 'success' ? 'donation_success' : 'donation_submit', {
+      ...payload, campaign_slug: (c && (c.slug || c.id)) || '',
+    });
+
     // Meta Pixel
     const metaEvt = cfg.meta && cfg.meta.enabled && cfg.meta.events && cfg.meta.events[phase];
     if (window.fbq && metaEvt) window.fbq('track', metaEvt, payload);
@@ -172,14 +179,33 @@ function getUTM() {
   } catch { return {}; }
 }
 
-// track fires a client-side event to every configured pixel. Non-fatal if a pixel
-// isn't loaded — it just no-ops for that platform.
+// pushDL pushes a semantic event onto window.dataLayer so GOOGLE TAG MANAGER can read it
+// via a Custom Event trigger. This is the piece that was missing: the donation form is a
+// SPA flow (onClick + fetch, not a native <form> submit), so GTM's built-in Form/Click
+// triggers never fire, AND we previously only called fbq/gtag/ttq directly — none of which
+// GTM "sees". Without a dataLayer.push, filling the form was invisible in Tag Manager.
+// Every funnel step now lands here as {event:'<name>', ...payload} for the user's triggers.
+function pushDL(event, payload = {}) {
+  try {
+    window.dataLayer = window.dataLayer || [];
+    // `event` LAST so a stray payload.event can never clobber the semantic event name
+    // GTM triggers on (later keys win in an object literal).
+    window.dataLayer.push({ ...payload, event });
+  } catch { /* dataLayer unavailable — non-fatal */ }
+}
+
+// track fires a client-side event to every configured pixel AND pushes it to the GTM
+// dataLayer. Non-fatal if a pixel isn't loaded — it just no-ops for that platform.
 function track(name, payload = {}) {
   try {
     if (window.fbq) window.fbq('track', name, payload);
     if (window.gtag) window.gtag('event', name, payload);
     if (window.ttq) window.ttq.track(name, payload);
   } catch { /* pixel fire must never break the UX */ }
+  // Always mirror to dataLayer so GTM can trigger on the event even when no direct pixel
+  // is configured (GTM itself may host the GA4/Ads/Meta tags). Runs regardless of the
+  // pixel try/catch above.
+  pushDL(name, payload);
 }
 
 // --- private injectors ---

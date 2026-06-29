@@ -545,7 +545,14 @@ function App() {
     (async () => {
       setDataReady(false);
       await (window.refreshAllData ? window.refreshAllData(!!user) : Promise.resolve());
-      if (!cancelled) setDataReady(true);
+      if (!cancelled) {
+        setDataReady(true);
+        // Bump dataTick so views memoizing on it (e.g. CampaignPage's gatewayMethod, which
+        // reads window.PAYMENT_METHODS_PUBLIC) recompute now that the globals are populated.
+        // Previously dataTick only changed on the logged-in realtime poll, so a PUBLIC donor
+        // whose payment list loaded async kept gatewayMethod=null and routed to manual.
+        setDataTick(t => t + 1);
+      }
     })();
     return () => { cancelled = true; };
   }, [user]);

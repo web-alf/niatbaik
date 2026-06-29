@@ -10,6 +10,36 @@ const parseFormFieldsConfig = (ffc) => {
   try { return ffc ? JSON.parse(ffc) : {}; } catch { return {}; }
 };
 
+// donorPaymentMethods returns the list of payment methods the donor can use for a campaign:
+// the per-campaign override (campaign.payment_config) when present, else the global public
+// list (window.PAYMENT_METHODS_PUBLIC). Single source of truth shared by CampaignPage (for
+// submit-time routing) and DonationForm (for the picker) so they never disagree.
+const donorPaymentMethods = (c) => {
+  try {
+    const parsed = c && c.payment_config ? JSON.parse(c.payment_config) : null;
+    if (Array.isArray(parsed) && parsed.length) {
+      const rows = parsed.filter((r) => r && (r.bank || r.account)).map((r, i) => ({
+        id: r.id || ('camp-' + i),
+        bank_name: r.bank || '', bank_number: r.account || '', account_name: r.holder || '',
+        type: r.method || 'va',
+        category: r.method === 'ewallet' ? 'ewallet' : (r.method === 'qris' ? 'qris' : 'bank_transfer'),
+        admin_fee: 0,
+      }));
+      if (rows.length) return rows;
+    }
+  } catch { /* fall through to global list */ }
+  return (Array.isArray(window.PAYMENT_METHODS_PUBLIC) && window.PAYMENT_METHODS_PUBLIC.length)
+    ? window.PAYMENT_METHODS_PUBLIC : null;
+};
+
+// firstGatewayMethod returns the first method that settles via a HOSTED gateway
+// (flip/moota/xendit) from a method list, or null if all are manual. When non-null the
+// donor form hides its picker and routes straight to that gateway.
+const firstGatewayMethod = (methods) => {
+  if (!Array.isArray(methods)) return null;
+  return methods.find((m) => m && ['flip', 'moota', 'xendit'].includes(String(m.gateway || '').toLowerCase())) || null;
+};
+
 // Resolve the CS contact(s) from public settings. In 'rotator' mode a contact is
 // picked pseudo-randomly so load spreads across numbers; otherwise the first is used.
 const getCsContacts = () => {
@@ -756,6 +786,11 @@ function CampaignPage({ c: listItem, onNav }) {
   const [detail, setDetail] = useState(null);
   const c = detail || listItem;
   const slug = listItem && (listItem.slug || listItem.id);
+  // Resolve the hosted-gateway method for THIS campaign (recomputed when detail/methods
+  // load via dataTick). Used in handleSubmit so a gateway donation always sends the gateway
+  // method's id — never falls back to manual just because the picker is hidden.
+  const { dataTick } = useApp();
+  const gatewayMethod = useMemo(() => firstGatewayMethod(donorPaymentMethods(c)), [c, dataTick]);
   useEffect(() => {
     let cancelled = false;
     if (!slug || !window.api) return;
@@ -863,6 +898,12 @@ function CampaignPage({ c: listItem, onNav }) {
 
     setSubmitting(true);
     try {
+      // Resolve the method to send AT SUBMIT TIME. When a hosted gateway is active for this
+      // campaign (gatewayMethod != null) the picker is hidden, so force the gateway method
+      // object even if paymentMethod is still the default 'QRIS' string — otherwise no
+      // payment_method_id is sent and the backend routes to manual (the "Xendit ga ke-load"
+      // bug). Falls back to whatever the donor picked when there's no gateway (manual only).
+      const effectiveMethod = gatewayMethod || paymentMethod;
       const res = await window.api.createDonation({
         campaign_slug: c.slug || c.id,
         donor_name: anon ? 'Hamba Allah' : (donor.name || 'Hamba Allah'),
@@ -871,10 +912,10 @@ function CampaignPage({ c: listItem, onNav }) {
         amount: Number(amount),
         message: donor.message || '',
         is_anonymous: anon,
-        payment_method: typeof paymentMethod === 'object' ? (paymentMethod.bank_name || paymentMethod.type) : paymentMethod,
-        // Send the method's UUID when chosen from the API list so the backend records
-        // the exact method on the invoice (admin dashboard + correct confirmation info).
-        payment_method_id: (typeof paymentMethod === 'object' && paymentMethod) ? paymentMethod.id : undefined,
+        payment_method: typeof effectiveMethod === 'object' ? (effectiveMethod.bank_name || effectiveMethod.type) : effectiveMethod,
+        // Send the method's UUID/synthetic id when chosen so the backend derives the channel
+        // + records the exact method on the invoice (admin dashboard + correct gateway route).
+        payment_method_id: (typeof effectiveMethod === 'object' && effectiveMethod) ? effectiveMethod.id : undefined,
         referral_code: referralCode || undefined,
         // Attribution: merge captured UTM (source/medium/campaign/content/term/id) so the
         // invoice carries ad-source attribution feeding the Data Studio + Advertiser views.
@@ -1396,35 +1437,13 @@ function PaymentSelector({ grouped, paymentMethod, setPaymentMethod, isSelected,
 
 function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, setAnon, paymentMethod, setPaymentMethod, submitting, errors = {}, setErrors, onBack, onSubmit }) {
   const clearErr = (k) => { if (setErrors && errors[k]) setErrors({ ...errors, [k]: undefined }); };
-  // Per-campaign payment override: the editor's Advanced → Payment "Custom" rows are
-  // persisted in campaign.payment_config (shape {bank, account, holder, method}). When
-  // present, the donor sees THIS campaign's configured methods instead of the global
-  // public list — honoring the admin's per-campaign choice (previously a dead-end: the
-  // override was saved but never surfaced publicly).
-  const campaignMethods = useMemo(() => {
-    let rows = null;
-    try {
-      const parsed = c?.payment_config ? JSON.parse(c.payment_config) : null;
-      if (Array.isArray(parsed) && parsed.length) {
-        rows = parsed
-          .filter((r) => r && (r.bank || r.account))
-          .map((r, i) => ({
-            id: r.id || ('camp-' + i),
-            bank_name: r.bank || '',
-            bank_number: r.account || '',
-            account_name: r.holder || '',
-            type: r.method || 'va',
-            category: r.method === 'ewallet' ? 'ewallet' : (r.method === 'qris' ? 'qris' : 'bank_transfer'),
-            admin_fee: 0,
-          }));
-      }
-    } catch { rows = null; }
-    return (rows && rows.length) ? rows : null;
-  }, [c?.payment_config]);
-
-  const methods = campaignMethods
-    || (Array.isArray(window.PAYMENT_METHODS_PUBLIC) && window.PAYMENT_METHODS_PUBLIC.length
-      ? window.PAYMENT_METHODS_PUBLIC : null);
+  // Per-campaign payment override (campaign.payment_config) else the global public list —
+  // via the shared donorPaymentMethods() so this picker and CampaignPage's submit-time
+  // routing use the exact same list (otherwise they can disagree and route to manual).
+  // dataTick is in the deps so the picker recomputes when window.PAYMENT_METHODS_PUBLIC
+  // arrives async after first paint (otherwise hideSelector stays false on a slow load).
+  const { dataTick } = useApp();
+  const methods = useMemo(() => donorPaymentMethods(c), [c?.payment_config, dataTick]);
 
   // The campaign editor lets admins customize the donate-button labels (button1 on
   // the campaign page, button2 = the confirm/submit CTA), stored in form_fields_config.
@@ -1480,16 +1499,13 @@ function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, se
   // auto-select a representative gateway method so submit goes straight to the gateway
   // (handleSubmit redirects on the returned hosted URL). If ALL methods are manual, keep
   // the selector (the donor must pick a bank to transfer to).
-  const gatewayMethod = useMemo(() => {
-    if (!Array.isArray(methods)) return null;
-    return methods.find((m) => m && ['flip', 'moota', 'xendit'].includes(String(m.gateway || '').toLowerCase())) || null;
-  }, [methods]);
+  const gatewayMethod = useMemo(() => firstGatewayMethod(methods), [methods]);
   const hideSelector = !!gatewayMethod;
-  // Auto-select the gateway method once so the donation routes to the gateway (not manual)
-  // even though the picker is hidden. Only when nothing is chosen yet.
-  useEffect(() => {
-    if (hideSelector && !paymentMethod && gatewayMethod) setPaymentMethod(gatewayMethod);
-  }, [hideSelector, gatewayMethod]);
+  // NOTE: we deliberately do NOT auto-select the gateway method into state here. Routing is
+  // guaranteed at submit time by CampaignPage's effectiveMethod = gatewayMethod || paymentMethod,
+  // which always sends the gateway method's id when one exists. Mutating paymentMethod from an
+  // effect would (a) fire a false AddPaymentInfo (the wrapped setter tracks every call) for a
+  // choice the donor never made, and (b) couple two components' state for no functional gain.
 
   return (
     <div className="rounded-2xl bg-white border border-line shadow-card p-5 lg:p-6">

@@ -363,7 +363,7 @@ function HowToSection() {
                 <div className="font-extrabold text-ink text-lg mt-0.5">{s.t}</div>
                 <div className="mt-1.5 text-sm text-mute leading-relaxed">{s.d}</div>
               </div>
-              {i < 3 && <div className="hidden lg:block absolute top-12 -right-3 text-mute"><Icon name="arrowR" size={20}/></div>}
+              {i < 3 && <div className="hidden lg:block absolute top-1/2 -right-3 -translate-y-1/2 text-mute"><Icon name="arrowR" size={20}/></div>}
             </div>
           ))}
         </div>

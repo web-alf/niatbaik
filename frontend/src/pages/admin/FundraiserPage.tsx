@@ -4,29 +4,49 @@ import { exportCSV } from '@/lib/export';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { api } from '@/lib/api';
-import { PageHeader, StatCard, Card, Tabs, SearchInput, Select, Btn, Icon, StatusBadge, Modal } from '@/components';
+import { PageHeader, StatCard, Card, SearchInput, Select, Btn, Icon, Modal } from '@/components';
 
+// Fundraiser admin. Rows come from GET /fundraisers (mapped by mapFundraiser in the
+// store): name, campaign, raised, txn, txnPaid, donors, clicks. Commission, payout
+// status, and a referral code are NOT tracked on model.Fundraiser yet, so they are
+// deliberately absent here rather than fabricated — add them once the backend has
+// the columns. Created/generated invite passwords are surfaced to the admin.
 export default function FundraiserPage() {
   const fundraisers = useDataStore((s) => s.fundraisers);
   const campaigns = useDataStore((s) => s.campaigns);
+  const refreshAdmin = useDataStore((s) => s.refreshAdmin);
   const showToast = useUiStore((s) => s.showToast);
-  const [tab, setTab] = useState('all');
   const [search, setSearch] = useState('');
+  const [campaignFilter, setCampaignFilter] = useState('all');
   const [showInvite, setShowInvite] = useState(false);
-  const [invForm, setInvForm] = useState<any>({ name:'', email:'', phone:'', campaign:'' });
+  const [inviting, setInviting] = useState(false);
+  const [invForm, setInvForm] = useState<any>({ name: '', email: '', phone: '', campaign: '' });
+  const [createdCreds, setCreatedCreds] = useState<any>(null);
 
-  const total = fundraisers.reduce((s: any, f: any) => s + f.raised, 0);
-  const totalComm = fundraisers.reduce((s: any, f: any) => s + f.commission, 0);
+  const total = fundraisers.reduce((s: any, f: any) => s + (f.raised || 0), 0);
+  const totalDonors = fundraisers.reduce((s: any, f: any) => s + (f.donors || 0), 0);
+  const totalClicks = fundraisers.reduce((s: any, f: any) => s + (f.clicks || 0), 0);
+
+  const filtered = fundraisers
+    .filter((f: any) => campaignFilter === 'all' || f.campaignId === campaignFilter)
+    .filter((f: any) => !search || (f.name || '').toLowerCase().includes(search.toLowerCase()));
 
   const handleInvite = async () => {
+    if (!invForm.name.trim() || !invForm.email.trim()) { showToast('Nama & email wajib diisi'); return; }
+    // Generate a temporary password and SHOW it to the admin (the backend invite email
+    // is best-effort and may be off, so the admin needs the credential to share).
+    const tempPassword = 'fr-' + Math.random().toString(36).slice(-8);
+    setInviting(true);
     try {
-      await api.createUser({ name: invForm.name, email: invForm.email, phone: invForm.phone, role: 'fundraiser', password: Math.random().toString(36).slice(-10) });
-      showToast('Undangan fundraiser berhasil dikirim');
+      await api.createUser({ name: invForm.name, email: invForm.email, phone: invForm.phone, role: 'fundraiser', password: tempPassword });
+      setCreatedCreds({ email: invForm.email, password: tempPassword });
       setShowInvite(false);
-      setInvForm({ name:'', email:'', phone:'', campaign:'' });
+      setInvForm({ name: '', email: '', phone: '', campaign: '' });
+      await refreshAdmin();
     } catch (e: any) {
-      showToast('Gagal mengirim undangan: ' + (e.message || 'Error'));
+      showToast('Gagal mengirim undangan: ' + (e?.message || 'Error'));
     }
+    setInviting(false);
   };
 
   return (
@@ -36,128 +56,106 @@ export default function FundraiserPage() {
         subtitle="Mitra fundraiser yang mempromosikan campaign NIATBAIK.ORG."
         actions={<>
           <Btn variant="outline" tone="ink" icon="download" onClick={() => {
-            const rows = fundraisers.map((f: any) => ({
-              nama: f.name, campaign: f.campaign, transaksi: f.txn,
-              terkumpul: f.raised, komisi: f.commission, status: f.status, referral: f.ref
+            const rows = filtered.map((f: any) => ({
+              nama: f.name, email: f.email, campaign: f.campaign,
+              transaksi: f.txn, transaksi_terbayar: f.txnPaid, donatur: f.donors,
+              klik: f.clicks, terkumpul: f.raised,
             }));
-            exportCSV(rows, 'niatbaik_fundraiser_komisi');
+            if (!rows.length) { showToast('Tidak ada data'); return; }
+            exportCSV(rows, 'niatbaik_fundraiser');
             showToast(rows.length + ' fundraiser diekspor');
-          }}>Export komisi</Btn>
+          }}>Export</Btn>
           <Btn icon="plus" onClick={() => setShowInvite(true)}>Undang Fundraiser</Btn>
         </>}
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon="handshake" label="Total Fundraiser"    value={fmtNum(fundraisers.length)} accent="brand" sub="aktif bulan ini"/>
-        <StatCard icon="wallet"    label="Total Donasi (FR)"   value={fmtIDRShort(total)} delta="+19.2%" accent="ok"/>
-        <StatCard icon="creditcard" label="Total Komisi"       value={fmtIDRShort(totalComm)} accent="sky" sub="10% dari raised"/>
-        <StatCard icon="bolt"      label="Pending Payout"      value={fmtIDRShort(totalComm * 0.6)} accent="warn" sub="butuh diproses"/>
+        <StatCard icon="handshake" label="Total Fundraiser" value={fmtNum(fundraisers.length)} accent="brand"/>
+        <StatCard icon="wallet" label="Total Donasi (FR)" value={fmtIDRShort(total)} accent="ok"/>
+        <StatCard icon="heart" label="Total Donatur" value={fmtNum(totalDonors)} accent="sky"/>
+        <StatCard icon="bolt" label="Total Klik Referral" value={fmtNum(totalClicks)} accent="warn"/>
       </div>
 
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <Tabs variant="underline" value={tab} onChange={setTab} tabs={[
-            { value:'all',     label:'Semua', count: fundraisers.length },
-            { value:'pending', label:'Komisi Pending', count: fundraisers.filter((f: any) => f.status==='pending').length },
-            { value:'paid',    label:'Komisi Paid',    count: fundraisers.filter((f: any) => f.status==='paid').length },
-          ]}/>
           <div className="ml-auto w-full sm:w-auto flex flex-wrap items-center gap-2">
             <SearchInput placeholder="Cari nama fundraiser…" className="w-full sm:w-64" value={search} onChange={setSearch}/>
-            <Select value="all" onChange={()=>{}} icon="filter" options={[{value:'all', label:'Semua campaign'}, {value:'aira', label:'Bantuan Aira'}, {value:'air', label:'Sumur Bersih'}]}/>
+            <Select value={campaignFilter} onChange={setCampaignFilter} icon="filter"
+              options={[{ value: 'all', label: 'Semua campaign' }, ...(campaigns || []).map((c: any) => ({ value: c.id, label: c.title }))]}/>
           </div>
         </div>
       </Card>
 
       <Card className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[680px] text-sm">
           <thead>
             <tr className="text-left text-xs uppercase tracking-wider text-mute border-b border-line bg-bg2/60">
               <th className="px-5 py-3 font-semibold">Fundraiser</th>
               <th className="py-3 font-semibold">Campaign</th>
-              <th className="py-3 font-semibold">Transaksi</th>
-              <th className="py-3 font-semibold">Terkumpul</th>
-              <th className="py-3 font-semibold">Komisi</th>
-              <th className="py-3 font-semibold">Status</th>
-              <th className="py-3 font-semibold">Referral Link</th>
-              <th className="pr-5 py-3 font-semibold text-right">Aksi</th>
+              <th className="py-3 font-semibold text-right">Klik</th>
+              <th className="py-3 font-semibold text-right">Transaksi</th>
+              <th className="py-3 font-semibold text-right">Donatur</th>
+              <th className="pr-5 py-3 font-semibold text-right">Terkumpul</th>
             </tr>
           </thead>
           <tbody>
-            {fundraisers
-              .filter((f: any) => tab==='all' || f.status===tab)
-              .filter((f: any) => !search || f.name.toLowerCase().includes(search.toLowerCase()))
-              .map((f: any) => (
-              <tr key={f.id} className="border-b border-line last:border-0 hover:bg-bg2/60">
+            {filtered.length === 0 && (
+              <tr><td colSpan={6} className="px-5 py-10 text-center text-mute">Belum ada fundraiser.</td></tr>
+            )}
+            {filtered.map((f: any) => (
+              <tr key={f.id} className="border-b border-line last:border-0">
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-2.5">
                     <div className="h-9 w-9 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-xs">
-                      {f.name.split(' ').map((s: any)=>s[0]).join('').slice(0,2)}
+                      {(f.name || '?').split(' ').map((s: any) => s[0] || '').join('').slice(0, 2)}
                     </div>
                     <div>
-                      <div className="font-semibold text-ink">{f.name}</div>
-                      <div className="text-[11px] text-mute">{f.id}</div>
+                      <div className="font-semibold text-ink">{f.name || '—'}</div>
+                      <div className="text-[11px] text-mute">{f.email || ''}</div>
                     </div>
                   </div>
                 </td>
-                <td className="py-3 text-ink/90">{f.campaign}</td>
-                <td className="py-3">{fmtNum(f.txn)}</td>
-                <td className="py-3 font-bold text-ink">{fmtIDRShort(f.raised)}</td>
-                <td className="py-3 font-semibold text-emerald-600">{fmtIDRShort(f.commission)}</td>
-                <td className="py-3"><StatusBadge status={f.status}/></td>
-                <td className="py-3">
-                  <button onClick={() => showToast('Link referral disalin')} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-bg2 border border-line text-xs font-mono text-ink hover:bg-white">
-                    niatbaik.org/r/{f.ref}
-                    <Icon name="copy" size={12}/>
-                  </button>
-                </td>
-                <td className="pr-5 py-3 text-right">
-                  <div className="inline-flex items-center gap-1 relative z-10">
-                    <button onClick={() => showToast('Detail fundraiser ' + f.name)} className="h-8 w-8 rounded-md hover:bg-brand-50 hover:text-brand-600 text-mute flex items-center justify-center" title="Detail"><Icon name="eye" size={16}/></button>
-                    <button onClick={() => showToast('Payout komisi ' + fmtIDRShort(f.commission))} className="h-8 w-8 rounded-md hover:bg-emerald-50 hover:text-emerald-600 text-mute flex items-center justify-center" title="Proses payout"><Icon name="wallet" size={16}/></button>
-                    <button onClick={() => { navigator.clipboard?.writeText('https://niatbaik.org/r/' + f.ref); showToast('Link referral disalin'); }} className="h-8 w-8 rounded-md hover:bg-bg2 hover:text-ink text-mute flex items-center justify-center" title="Salin link"><Icon name="copy" size={16}/></button>
-                  </div>
-                </td>
+                <td className="py-3 text-ink/90">{f.campaign || '—'}</td>
+                <td className="py-3 text-right">{fmtNum(f.clicks)}</td>
+                <td className="py-3 text-right">{fmtNum(f.txn)}</td>
+                <td className="py-3 text-right">{fmtNum(f.donors)}</td>
+                <td className="pr-5 py-3 text-right font-bold text-ink">{fmtIDRShort(f.raised)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </Card>
 
-      <Card className="p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div className="font-bold text-ink">Riwayat Komisi Terbaru</div>
-          <Btn size="sm" variant="ghost" tone="ink" iconRight="arrowR">Lihat semua</Btn>
-        </div>
-        <div className="space-y-2">
-          {fundraisers.map((f: any, i: number) => (
-            <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-bg2">
-              <div className={`h-8 w-8 rounded-md flex items-center justify-center ${f.status==='paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                <Icon name={f.status==='paid' ? 'check' : 'refresh'} size={14}/>
-              </div>
-              <div className="flex-1">
-                <div className="text-sm font-semibold text-ink">{f.name} · komisi {fmtIDRShort(f.commission)}</div>
-                <div className="text-xs text-mute">Periode 1–31 Mei 2026 · {f.campaign}</div>
-              </div>
-              <StatusBadge status={f.status}/>
-            </div>
-          ))}
-        </div>
-      </Card>
-
+      {/* Invite modal */}
       <Modal open={showInvite} onClose={() => setShowInvite(false)} title="Undang Fundraiser" size="md"
         footer={<>
           <Btn variant="outline" tone="ink" onClick={() => setShowInvite(false)}>Batal</Btn>
-          <Btn icon="plus" onClick={handleInvite}>Kirim Undangan</Btn>
+          <Btn icon="plus" onClick={handleInvite} loading={inviting}>Buat Akun Fundraiser</Btn>
         </>}>
         <div className="space-y-3">
-          <div><label className="text-xs font-semibold text-mute">Nama</label><input className="field mt-1" value={invForm.name} onChange={e => setInvForm({...invForm, name:e.target.value})} placeholder="Nama fundraiser"/></div>
-          <div><label className="text-xs font-semibold text-mute">Email</label><input className="field mt-1" value={invForm.email} onChange={e => setInvForm({...invForm, email:e.target.value})} placeholder="email@domain.com"/></div>
-          <div><label className="text-xs font-semibold text-mute">No. HP</label><input className="field mt-1" value={invForm.phone} onChange={e => setInvForm({...invForm, phone:e.target.value})} placeholder="08xxx"/></div>
-          <div><label className="text-xs font-semibold text-mute">Campaign</label>
-            <Select value={invForm.campaign} onChange={(v: any) => setInvForm({...invForm, campaign:v})}
-              options={[{value:'',label:'Semua campaign'}, ...(campaigns || []).map((c: any) => ({value:c.id, label:c.title}))]} className="mt-1"/>
-          </div>
+          <div><label className="text-xs font-semibold text-mute">Nama</label><input className="field mt-1" value={invForm.name} onChange={(e) => setInvForm({ ...invForm, name: e.target.value })} placeholder="Nama fundraiser"/></div>
+          <div><label className="text-xs font-semibold text-mute">Email</label><input className="field mt-1" value={invForm.email} onChange={(e) => setInvForm({ ...invForm, email: e.target.value })} placeholder="email@domain.com"/></div>
+          <div><label className="text-xs font-semibold text-mute">No. HP</label><input className="field mt-1" value={invForm.phone} onChange={(e) => setInvForm({ ...invForm, phone: e.target.value })} placeholder="08xxx"/></div>
+          <div className="text-[11px] text-mute">Akun fundraiser dibuat dengan password sementara yang akan ditampilkan setelah dibuat — bagikan ke fundraiser agar bisa login.</div>
         </div>
+      </Modal>
+
+      {/* Generated-credential reveal (the admin must copy this; it isn't stored in plaintext). */}
+      <Modal open={!!createdCreds} onClose={() => setCreatedCreds(null)} title="Akun Fundraiser Dibuat" size="sm"
+        footer={<Btn onClick={() => setCreatedCreds(null)}>Selesai</Btn>}>
+        {createdCreds && (
+          <div className="space-y-3 text-sm">
+            <div className="text-ink/85">Bagikan kredensial berikut ke fundraiser. Password ini tidak akan ditampilkan lagi.</div>
+            <div className="rounded-lg bg-bg2 border border-line p-3 font-mono text-xs space-y-1">
+              <div><span className="text-mute">Email:</span> {createdCreds.email}</div>
+              <div><span className="text-mute">Password:</span> {createdCreds.password}</div>
+            </div>
+            <Btn size="sm" variant="outline" tone="ink" icon="copy" onClick={() => {
+              navigator.clipboard?.writeText(`Email: ${createdCreds.email}\nPassword: ${createdCreds.password}`);
+              showToast('Kredensial disalin');
+            }}>Salin kredensial</Btn>
+          </div>
+        )}
       </Modal>
     </div>
   );

@@ -2,6 +2,7 @@
 // Ported from app.jsx auth gating + role guard.
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { isStaffRole } from '@/lib/nav';
 import { Icon } from '@/components';
 import type { Role } from '@/types/api';
 
@@ -31,6 +32,9 @@ export function RequireAuth() {
   const loc = useLocation();
   if (authLoading) return <AppSkeleton />;
   if (!user) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
+  // Logged in but not staff (donor/fundraiser): the admin tree is not theirs. Bounce
+  // to the public site rather than rendering the admin shell with a non-staff role.
+  if (!isStaffRole(user)) return <Navigate to="/" replace />;
   return <Outlet />;
 }
 

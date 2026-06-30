@@ -6,6 +6,9 @@ type CreateUserRequest struct {
 	Phone    string `json:"phone"`
 	Password string `json:"password" validate:"required,min=8,max=72"` // bcrypt truncates >72 bytes
 	Role     string `json:"role" validate:"required,oneof=admin cs advertiser user fundraiser"`
+	// Admin-set account status. Empty => "verified" (admin-created staff are trusted
+	// and active immediately, no email round-trip required).
+	VerificationStatus string `json:"verification_status" validate:"omitempty,oneof=unverified pending verified rejected"`
 }
 
 type UpdateUserRequest struct {

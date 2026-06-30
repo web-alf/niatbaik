@@ -41,18 +41,21 @@ type PaymentBreakdown struct {
 
 type TrafficSource struct {
 	Source    string `json:"source"`
-	Visits   int64  `json:"visits"`
-	Leads    int64  `json:"leads"`
-	Donations int64 `json:"donations"`
+	Name      string `json:"name"` // alias of source; the FE traffic cards key on `name`
+	Visits    int64  `json:"visits"`
+	Leads     int64  `json:"leads"`
+	Donations int64  `json:"donations"`
+	Revenue   int64  `json:"revenue"` // settled rupiah attributed to this source
 }
 
 type CampaignPerf struct {
-	CampaignID   string `json:"campaign_id"`
-	Title        string `json:"title"`
-	Visitors     int64  `json:"visitors"`
-	Leads        int64  `json:"leads"`
-	Donations    int64  `json:"donations"`
-	Revenue      int64  `json:"revenue"`
+	CampaignID string `json:"campaign_id"`
+	Title      string `json:"title"`
+	Image      string `json:"image"`
+	Visitors   int64  `json:"visitors"`
+	Leads      int64  `json:"leads"`
+	Donations  int64  `json:"donations"`
+	Revenue    int64  `json:"revenue"`
 }
 
 type UTMEntry struct {
@@ -158,9 +161,11 @@ func (r *StatsRepo) GetTrafficSources() ([]TrafficSource, error) {
 		Where("utm_source != ''").
 		Select(`
 			utm_source as source,
+			utm_source as name,
 			COUNT(*) as visits,
 			COUNT(*) as leads,
-			SUM(CASE WHEN is_paid = true THEN 1 ELSE 0 END) as donations
+			SUM(CASE WHEN is_paid = true THEN 1 ELSE 0 END) as donations,
+			COALESCE(SUM(CASE WHEN is_paid = true THEN total ELSE 0 END), 0) as revenue
 		`).
 		Group("utm_source").
 		Order("donations desc").
@@ -175,6 +180,7 @@ func (r *StatsRepo) GetCampaignPerformance() ([]CampaignPerf, error) {
 		Select(`
 			campaigns.id as campaign_id,
 			campaigns.title,
+			campaigns.image,
 			(SELECT COUNT(*) FROM loves WHERE loves.campaign_id = campaigns.id) as visitors,
 			(SELECT COUNT(*) FROM invoices WHERE invoices.campaign_id = campaigns.id) as leads,
 			(SELECT COUNT(*) FROM invoices WHERE invoices.campaign_id = campaigns.id AND invoices.is_paid = true) as donations,

@@ -41,17 +41,20 @@ func (r *NotificationRepo) Create(notification *model.Notification) error {
 	return r.db.Create(notification).Error
 }
 
-// MarkRead flips a single notification to read, scoped to the owner (or a global
-// broadcast notification). The user_id guard prevents one user from mutating
-// another user's notification state by guessing its UUID (IDOR).
+// MarkRead flips a single OWNED notification to read. Broadcast rows (user_id IS
+// NULL) are deliberately excluded: they are a single shared row, so flipping is_read
+// on one would clear it for every user. Per-user broadcast read-state needs a
+// notification_reads junction table (not yet built); until then broadcasts stay
+// unread for everyone rather than letting one user mutate another's view.
+// The user_id match also prevents IDOR (mutating another user's row by UUID).
 func (r *NotificationRepo) MarkRead(id, userID uuid.UUID) error {
 	return r.db.Model(&model.Notification{}).
-		Where("id = ? AND (user_id = ? OR user_id IS NULL)", id, userID).
+		Where("id = ? AND user_id = ?", id, userID).
 		Update("is_read", true).Error
 }
 
 func (r *NotificationRepo) MarkAllRead(userID uuid.UUID) error {
 	return r.db.Model(&model.Notification{}).
-		Where("(user_id = ? OR user_id IS NULL) AND is_read = false", userID).
+		Where("user_id = ? AND is_read = false", userID).
 		Update("is_read", true).Error
 }

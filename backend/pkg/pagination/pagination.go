@@ -86,7 +86,9 @@ func GetPaginationParams(c echo.Context) PaginationParams {
 	}
 
 	limit, _ := strconv.Atoi(c.QueryParam("limit"))
-	if limit < 1 || limit > 100 {
+	// Cap at 500 so admin list views (users, invoices) can load a full working set in
+	// one request without page controls, while still bounding the query.
+	if limit < 1 || limit > 500 {
 		limit = 15
 	}
 

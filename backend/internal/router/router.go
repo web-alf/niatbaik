@@ -47,7 +47,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	dashboardService := service.NewDashboardService(statsRepo)
 	campaignService := service.NewCampaignService(campaignRepo, categoryRepo)
 	userService := service.NewUserService(userRepo, settingRepo)
-	analyticsService := service.NewAnalyticsService(statsRepo)
+	analyticsService := service.NewAnalyticsService(statsRepo, adCostRepo)
 	withdrawalService := service.NewWithdrawalService(db, withdrawalRepo)
 	verificationService := service.NewVerificationService(verificationRepo, userRepo)
 	settingService := service.NewSettingService(settingRepo)
@@ -193,7 +193,6 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	admin.POST("/settings/test-email", settingHandler.TestEmail)
 	admin.GET("/settings/moota-balance", settingHandler.GetMootaBalance)
 	admin.GET("/settings/moota-accounts", settingHandler.GetMootaGatewayAccounts)
-	admin.GET("/admin/tracking/status", trackingHandler.GetStatus)
 
 	admin.GET("/admin/payment-methods", paymentMethodHandler.List)
 	admin.POST("/admin/payment-methods", paymentMethodHandler.Create)
@@ -216,9 +215,6 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	admin.POST("/trash/:type/:id/restore", trashHandler.Restore)
 	admin.DELETE("/trash/:type/:id", trashHandler.PermanentDelete)
 
-	admin.GET("/fundraisers", fundraiserHandler.List)
-	admin.GET("/fundraisers/:id", fundraiserHandler.GetDetail)
-
 	// CS routes (admin + cs)
 	cs := protected.Group("")
 	cs.Use(middleware.RequireCS())
@@ -228,9 +224,20 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	cs.PUT("/invoices/:id/status", invoiceHandler.UpdateStatus)
 	cs.PUT("/invoices/:id/note", invoiceHandler.AddNote)
 
+	// Fundraiser management is operational — admin + cs (the FE route and nav both
+	// allow CS; keeping it admin-only made the page 403 silently for CS).
+	cs.GET("/fundraisers", fundraiserHandler.List)
+	cs.GET("/fundraisers/:id", fundraiserHandler.GetDetail)
+
 	// Analytics (admin + advertiser)
 	analytics := protected.Group("/analytics")
 	analytics.Use(middleware.RequireAdvertiser())
+
+	// Tracking-pixel health is read by the Advertiser dashboard, so it lives with the
+	// other advertiser-accessible reads (was admin-only, which 403'd for advertisers).
+	advertiser := protected.Group("")
+	advertiser.Use(middleware.RequireAdvertiser())
+	advertiser.GET("/admin/tracking/status", trackingHandler.GetStatus)
 
 	analytics.GET("/overview", analyticsHandler.GetOverview)
 	analytics.GET("/campaigns", analyticsHandler.GetCampaignPerformance)

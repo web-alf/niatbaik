@@ -26,24 +26,30 @@ export default function NotificationsPage() {
     return days === 1 ? 'kemarin' : days + ' hari lalu';
   };
 
+  // Normalize a backend Notification row to the shape this list renders.
+  const mapNotif = (n: any) => ({
+    id: n.id,
+    icon: mapIcon(n.type),
+    tone: mapTone(n.type),
+    title: n.title || '',
+    body: n.subtitle || n.body || n.message || '',
+    when: timeAgo(n.created_at),
+    unread: !(n.is_read ?? n.read_at),
+    type: n.type || 'system',
+  });
+
   useEffect(() => {
     (async () => {
       try {
         const res = await api.notifications();
-        const arr = Array.isArray(res?.data) ? res.data : [];
-        setItems(arr.map((n: any) => ({
-          id: n.id,
-          icon: mapIcon(n.type),
-          tone: mapTone(n.type),
-          title: n.title || '',
-          body: n.body || n.message || '',
-          when: timeAgo(n.created_at),
-          unread: !n.read_at,
-          type: n.type || 'system',
-        })));
+        // Backend wraps the list: { notifications: [...], unread_count }. Tolerate a
+        // bare array too. Fields are is_read (not read_at) and subtitle (not body).
+        const data: any = res?.data;
+        const arr = Array.isArray(data?.notifications) ? data.notifications : (Array.isArray(data) ? data : []);
+        setItems(arr.map(mapNotif));
       } catch {
-        const fb = useDataStore.getState().notifications;
-        setItems(Array.isArray(fb) ? fb : []);
+        const fb = useDataStore.getState().notifications as any[];
+        setItems(Array.isArray(fb) ? fb.map(mapNotif) : []);
       }
       setLoading(false);
     })();
@@ -127,10 +133,13 @@ export default function NotificationsPage() {
                 <div className="font-bold text-ink">{n.title}</div>
                 {n.unread && <span className="h-2 w-2 rounded-full bg-brand-600" />}
               </div>
-              <div className="text-sm text-ink/80 mt-0.5">{n.body}</div>
+              {n.body && <div className="text-sm text-ink/80 mt-0.5">{n.body}</div>}
               <div className="text-xs text-mute mt-1">{n.when}</div>
             </div>
-            <button className="text-mute hover:text-ink" onClick={(e) => e.stopPropagation()}><Icon name="more" size={16} /></button>
+            {n.unread && (
+              <button title="Tandai dibaca" className="text-mute hover:text-emerald-600 shrink-0"
+                onClick={(e) => { e.stopPropagation(); handleClick(n); }}><Icon name="check" size={16} /></button>
+            )}
           </div>
         ))}
       </Card>

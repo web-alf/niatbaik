@@ -15,26 +15,36 @@ export default function TrashPage() {
 
   const daysUntilExpiry = (deletedAt: any) => {
     const days = 30 - Math.floor((Date.now() - new Date(deletedAt).getTime()) / 86400000);
-    if (days <= 0) return 'sudah lewat masa retensi · permanen besok';
+    if (days <= 0) return 'masa retensi terlampaui';
     return days + ' hari lagi dihapus permanen';
   };
 
   const load = async () => {
     setLoading(true);
     try {
+      // Backend now returns a flat array of { id, type, name, detail, deleted_at }.
+      // Tolerate the legacy {campaigns, users} object shape too.
       const res = await api.trash();
-      setItems((res?.data || []).map((i: any) => ({
+      const raw: any = res?.data;
+      const list: any[] = Array.isArray(raw)
+        ? raw
+        : [
+            ...((raw?.campaigns || []).map((c: any) => ({ ...c, type: 'campaign' }))),
+            ...((raw?.users || []).map((u: any) => ({ ...u, type: 'user' }))),
+          ];
+      setItems(list.map((i: any) => ({
         id: i.id,
         type: i.type,
-        name: i.name || i.title || i.invoice_number || 'Unknown',
+        name: i.name || i.title || 'Unknown',
         meta: i.deleted_at ? daysUntilExpiry(i.deleted_at) : '',
-        icon: i.type === 'campaign' ? 'megaphone' : i.type === 'user' ? 'user' : 'creditcard',
-        tone: i.type === 'campaign' ? 'brand' : i.type === 'user' ? 'sky' : 'ok',
+        icon: i.type === 'campaign' ? 'megaphone' : 'user',
+        tone: i.type === 'campaign' ? 'brand' : 'sky',
         size: i.detail || '',
         deletedAt: i.deleted_at,
       })));
     } catch {
       setItems([]);
+      showToast('Gagal memuat data trash');
     }
     setLoading(false);
   };
@@ -51,7 +61,6 @@ export default function TrashPage() {
     all: items.length,
     campaign: items.filter((i) => i.type === 'campaign').length,
     user: items.filter((i) => i.type === 'user').length,
-    transaction: items.filter((i) => i.type === 'transaction').length,
   }), [items]);
 
   const filtered = useMemo(() => {
@@ -113,7 +122,6 @@ export default function TrashPage() {
             { value: 'all', label: 'Semua', count: typeCounts.all },
             { value: 'campaign', label: 'Campaigns', count: typeCounts.campaign },
             { value: 'user', label: 'Users', count: typeCounts.user },
-            { value: 'transaction', label: 'Transaksi', count: typeCounts.transaction },
           ]}/>
           <div className="ml-auto w-full sm:w-auto flex flex-wrap items-center gap-2">
             <SearchInput placeholder="Cari di trash…" value={q} onChange={setQ} className="w-full sm:w-64"/>

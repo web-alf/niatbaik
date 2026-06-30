@@ -33,11 +33,17 @@ func (s *UserService) Create(req *request.CreateUserRequest) (*model.User, error
 		return nil, err
 	}
 
+	// Admin-created staff are active immediately unless the admin says otherwise.
+	status := req.VerificationStatus
+	if status == "" {
+		status = "verified"
+	}
 	u := model.User{
-		Name:     req.Name,
-		Email:    req.Email,
-		Password: hashed,
-		Role:     req.Role,
+		Name:               req.Name,
+		Email:              req.Email,
+		Password:           hashed,
+		Role:               req.Role,
+		VerificationStatus: status,
 	}
 	if req.Phone != "" {
 		u.Phone = &req.Phone

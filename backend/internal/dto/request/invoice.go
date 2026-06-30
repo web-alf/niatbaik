@@ -7,5 +7,6 @@ type UpdateInvoiceStatusRequest struct {
 }
 
 type AddInvoiceNoteRequest struct {
-	Note string `json:"note" validate:"required"`
+	// Not required: an empty note is a valid "clear the note" action. Cap length only.
+	Note string `json:"note" validate:"max=2000"`
 }

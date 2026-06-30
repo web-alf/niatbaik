@@ -3,22 +3,23 @@ import { fmtNum, fmtIDRShort } from '@/lib/format';
 import { campaignBgStyle } from '@/lib/mappers';
 import { getDateRange } from '@/lib/date';
 import { api } from '@/lib/api';
+import { exportCSV } from '@/lib/export';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { Icon, Donut, DateRangePill } from '@/components';
 
-// Data Studio (Looker Studio) embed page — consolidated analytics dashboard
+// Data Studio — consolidated analytics dashboard. Every number here is DB-backed:
+// /datastudio/overview (scorecard, daily series, source mix), /datastudio/{meta,google,tiktok}
+// (per-platform spend/sessions/donations/revenue/roas), /datastudio/geo (per-region),
+// /datastudio/funnel (per-step). Sections without a backing endpoint show an honest
+// empty state rather than fabricated figures.
+const SRC_COLORS = ['#1A73E8', '#0F9D58', '#F4B400', '#EA4335', '#9C27B0', '#FB8C00', '#94A3B8'];
+const colorFor = (i: number) => SRC_COLORS[i % SRC_COLORS.length];
+
 export default function DataStudioPage() {
-  const dailyDonations = useDataStore((s) => s.dailyDonations) || [];
-  const trafficSources = useDataStore((s) => s.trafficSources) || [];
   const campaignSeed = useDataStore((s) => s.campaigns) || [];
   const [page, setPage] = useState('overview');
-  const [dateRange, setDateRange] = useState('Last 30 days');
   const [dateRangeObj, setDateRangeObj] = useState<any>(getDateRange());
-  const [platform, setPlatform] = useState('All');
-  const [dsCampaign, setDsCampaign] = useState('All Campaigns');
-  const [country, setCountry] = useState('Indonesia');
-  const [device, setDevice] = useState('All devices');
   const [dsData, setDsData] = useState<any>({});
   const [dsLoading, setDsLoading] = useState(false);
   const showToast = useUiStore((s) => s.showToast);
@@ -26,59 +27,63 @@ export default function DataStudioPage() {
   const fetchPage = async (p: any) => {
     setDsLoading(true);
     try {
+      // Bind as arrow thunks so `this` stays the api object — `api.method` detached
+      // and called bare loses its receiver and crashes (every method uses this.get).
       const loaders: any = {
-        overview: api.dataStudioOverview,
-        meta: api.dataStudioMeta,
-        google: api.dataStudioGoogle,
-        tiktok: api.dataStudioTiktok,
-        geo: api.dataStudioGeo,
-        funnel: api.dataStudioFunnel,
+        overview: () => api.dataStudioOverview(),
+        meta: () => api.dataStudioMeta(),
+        google: () => api.dataStudioGoogle(),
+        tiktok: () => api.dataStudioTiktok(),
+        geo: () => api.dataStudioGeo(),
+        funnel: () => api.dataStudioFunnel(),
       };
       const fn = loaders[p || page];
       if (fn) {
         const res = await fn();
-        setDsData((prev: any) => ({...prev, [p || page]: res?.data || {}}));
+        setDsData((prev: any) => ({ ...prev, [p || page]: res?.data ?? {} }));
       }
-    } catch {}
+    } catch { /* network errors degrade to empty states */ }
     setDsLoading(false);
   };
 
   useEffect(() => { fetchPage(page); }, [page]);
 
+  // Export whatever the current page has loaded as CSV.
+  const exportCurrent = () => {
+    const d = dsData[page];
+    let rows: any[] = [];
+    if (page === 'overview') rows = (d?.sources || []).map((s: any) => ({ source: s.source, sessions: s.sessions, revenue: s.revenue }));
+    else if (page === 'geo') rows = (Array.isArray(d) ? d : d?.regions || []).map((g: any) => ({ region: g.region, donations: g.donations, revenue: g.revenue }));
+    else if (page === 'funnel') rows = (Array.isArray(d) ? d : d?.steps || []).map((f: any) => ({ step: f.step, count: f.count }));
+    else if (d) rows = [{ platform: d.platform, spend: d.spend, sessions: d.sessions, donations: d.donations, revenue: d.revenue, roas: d.roas }];
+    if (rows.length) { exportCSV(rows, 'niatbaik_datastudio_' + page); showToast(rows.length + ' baris diekspor'); }
+    else showToast('Tidak ada data untuk diekspor');
+  };
+
   const pages = [
-    { v:'overview', l:'Overview' },
-    { v:'meta',     l:'Meta Ads' },
-    { v:'google',   l:'Google Ads + GA4' },
-    { v:'tiktok',   l:'TikTok Funnel' },
-    { v:'geo',      l:'Geographic' },
-    { v:'funnel',   l:'Conversion Funnel' },
+    { v: 'overview', l: 'Overview' },
+    { v: 'meta', l: 'Meta Ads' },
+    { v: 'google', l: 'Google Ads + GA4' },
+    { v: 'tiktok', l: 'TikTok' },
+    { v: 'geo', l: 'Geographic' },
+    { v: 'funnel', l: 'Conversion Funnel' },
   ];
 
   return (
     <div className="space-y-4 -mx-4 lg:-mx-6 -my-6 min-h-screen bg-bg2">
-      {/* Data Studio top bar */}
+      {/* Top bar */}
       <div className="bg-white border-b border-line">
         <div className="px-4 lg:px-6 py-3 flex items-center gap-3">
-          {/* DS logo */}
           <div className="flex items-center gap-2">
-            <DataStudioLogo/>
+            <DataStudioLogo />
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-mute leading-none">Looker Studio</div>
-              <div className="font-extrabold text-ink text-base leading-tight">NIATBAIK.ORG · Overview Donasi (Master)</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-mute leading-none">Analytics</div>
+              <div className="font-extrabold text-ink text-base leading-tight">NIATBAIK.ORG · Overview Donasi</div>
             </div>
           </div>
-          <div className="hidden md:flex items-center gap-1.5 ml-2 text-[10px] text-mute">
-            <Icon name="refresh" size={12}/> Refreshed 2m ago
-          </div>
-          <div className="flex-1"/>
-          <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute" onClick={() => { fetchPage(page); }}><Icon name="refresh" size={14}/></button>
-          <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute"><Icon name="download" size={14}/></button>
-          <button className="hidden sm:inline-flex items-center gap-1.5 h-8 px-3 rounded-md hover:bg-bg2 text-ink text-xs font-bold" onClick={() => showToast('Fitur edit coming soon')}>
-            <Icon name="eye" size={14}/> Edit
-          </button>
-          <button className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-[#1A73E8] hover:bg-[#1666D5] text-white text-xs font-bold" onClick={() => showToast('Fitur share coming soon')}>
-            <Icon name="link" size={14}/> Share
-          </button>
+          <div className="flex-1" />
+          <button title="Muat ulang" className="h-8 w-8 rounded-md hover:bg-bg2 text-mute" onClick={() => fetchPage(page)}><Icon name="refresh" size={14} /></button>
+          <button title="Export CSV" className="h-8 w-8 rounded-md hover:bg-bg2 text-mute" onClick={exportCurrent}><Icon name="download" size={14} /></button>
         </div>
         {/* Page tabs */}
         <div className="px-4 lg:px-6 flex items-center gap-1 overflow-x-auto border-t border-line">
@@ -86,46 +91,36 @@ export default function DataStudioPage() {
             <button key={p.v} onClick={() => setPage(p.v)}
               className={`relative px-3 py-2.5 text-xs font-bold whitespace-nowrap transition-colors ${page === p.v ? 'text-[#1A73E8]' : 'text-mute hover:text-ink'}`}>
               {p.l}
-              {page === p.v && <span className="absolute left-2 right-2 -bottom-px h-0.5 bg-[#1A73E8] rounded-full"/>}
+              {page === p.v && <span className="absolute left-2 right-2 -bottom-px h-0.5 bg-[#1A73E8] rounded-full" />}
             </button>
           ))}
-          <button className="px-2.5 py-2.5 text-mute hover:text-ink"><Icon name="plus" size={12}/></button>
         </div>
       </div>
 
-      {/* Filter / control bar */}
+      {/* Filter bar (date range only — the backend endpoints aggregate all-time;
+          per-range filtering needs query params not yet supported server-side). */}
       <div className="px-4 lg:px-6 flex flex-wrap items-center gap-2">
-        {/* Pill sits at the left edge of a full-bleed bar; force its calendar popup to
-            open from the left so it doesn't get pushed off-screen (shared DateRangePicker
-            defaults to right-0). Higher-specificity arbitrary variant beats the inline right-0. */}
         <div className="[&_.absolute]:left-0 [&_.absolute]:right-auto">
-          <DateRangePill value={dateRangeObj} onChange={(r: any) => { setDateRangeObj(r); }}/>
+          <DateRangePill value={dateRangeObj} onChange={(r: any) => setDateRangeObj(r)} />
         </div>
-        <DSControl label="Platform"   value={platform} onChange={setPlatform} options={['All','Meta','Google','TikTok','Organic']}/>
-        <DSControl label="Campaign"   value={dsCampaign} onChange={setDsCampaign} options={['All Campaigns', ...campaignSeed.map((c: any) => c.title.slice(0,30)+'…')]}/>
-        <DSControl label="Country"    value={country} onChange={setCountry} options={['Indonesia','Malaysia','Singapore','Global']}/>
-        <DSControl label="Device"     value={device} onChange={setDevice} options={['All devices','Mobile','Desktop','Tablet']}/>
-        <button onClick={() => fetchPage(page)} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-[#1A73E8] hover:bg-[#1666D5] text-white text-xs font-bold">
-          <Icon name="filter" size={12}/> Apply Filter
-        </button>
         <div className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-mute">
-          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"/>
-          Live data · Sumber: Meta Ads · Google Ads · GA4 · TikTok Ads · NIATBAIK.ORG
+          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          Sumber: data donasi NIATBAIK.ORG + ad spend tercatat
         </div>
       </div>
 
       <div className="px-4 lg:px-6 pb-8 relative">
         {dsLoading && (
-          <div className="absolute inset-0 bg-white/60 dark:bg-ink/40 z-10 flex items-center justify-center">
-            <div className="h-8 w-8 border-3 border-brand-600 border-t-transparent rounded-full animate-spin"/>
+          <div className="absolute inset-0 bg-white/60 z-10 flex items-center justify-center">
+            <div className="h-8 w-8 border-3 border-brand-600 border-t-transparent rounded-full animate-spin" />
           </div>
         )}
-        {page === 'overview' && <DSOverview daily={dsData.overview?.daily_donations || dailyDonations} sources={dsData.overview?.traffic_sources || trafficSources} campaigns={dsData.overview?.campaigns || campaignSeed} data={dsData.overview}/>}
-        {page === 'meta'     && <DSMeta data={dsData.meta}/>}
-        {page === 'google'   && <DSGoogle daily={dsData.google?.daily_donations || dailyDonations} data={dsData.google}/>}
-        {page === 'tiktok'   && <DSTiktok data={dsData.tiktok}/>}
-        {page === 'geo'      && <DSGeo/>}
-        {page === 'funnel'   && <DSFunnel/>}
+        {page === 'overview' && <DSOverview data={dsData.overview} campaigns={campaignSeed} />}
+        {page === 'meta' && <DSPlatformPage data={dsData.meta} label="Meta Ads" accent="#1877F2" />}
+        {page === 'google' && <DSPlatformPage data={dsData.google} label="Google Ads + GA4" accent="#34A853" />}
+        {page === 'tiktok' && <DSPlatformPage data={dsData.tiktok} label="TikTok" accent="#000000" />}
+        {page === 'geo' && <DSGeo data={dsData.geo} />}
+        {page === 'funnel' && <DSFunnel data={dsData.funnel} />}
       </div>
     </div>
   );
@@ -134,383 +129,172 @@ export default function DataStudioPage() {
 // -------- Logo --------
 function DataStudioLogo() {
   return (
-    <svg width="32" height="32" viewBox="0 0 36 36" className="shrink-0">
-      <circle cx="11" cy="14" r="6" fill="#4285F4"/>
-      <circle cx="22" cy="11" r="5" fill="#0F9D58"/>
-      <circle cx="20" cy="24" r="7" fill="#F4B400"/>
-      <circle cx="11" cy="14" r="6" fill="#4285F4" opacity="0.85"/>
+    <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <rect x="2" y="11" width="4" height="9" rx="1" fill="#1A73E8" />
+      <rect x="9" y="6" width="4" height="14" rx="1" fill="#34A853" />
+      <rect x="16" y="2" width="4" height="18" rx="1" fill="#F4B400" />
     </svg>
   );
 }
 
-// -------- Filter control --------
-function DSControl({ label, value, options = [], onChange }: any) {
-  return (
-    <div className="inline-flex items-center gap-1.5 h-8 pl-2.5 pr-1 rounded-md bg-white border border-line hover:border-[#1A73E8] cursor-pointer">
-      <span className="text-[10px] uppercase tracking-wider font-bold text-mute">{label}</span>
-      <div className="relative">
-        <select value={value} onChange={(e) => onChange && onChange(e.target.value)}
-          className="appearance-none bg-transparent pr-5 text-xs font-bold text-ink focus:outline-none cursor-pointer">
-          {options.map((o: any) => <option key={o} value={o}>{o}</option>)}
-        </select>
-        <Icon name="chevronD" size={11} className="absolute right-0 top-1/2 -translate-y-1/2 text-mute pointer-events-none"/>
-      </div>
-    </div>
-  );
-}
-
-// -------- DS Card wrapper --------
-function DSCard({ title, subtitle, children, className = '', actions, span }: any) {
-  return (
-    <div className={`bg-white rounded-md border border-line ${className}`} style={ span ? { gridColumn: `span ${span}` } : {} }>
-      <div className="flex items-center justify-between px-4 pt-3 pb-1">
-        <div>
-          <div className="text-[13px] font-bold text-ink">{title}</div>
-          {subtitle && <div className="text-[10px] text-mute mt-0.5">{subtitle}</div>}
-        </div>
-        <div className="flex items-center gap-1">
-          {actions}
-          <button className="h-6 w-6 rounded hover:bg-bg2 text-mute flex items-center justify-center"><Icon name="more" size={13}/></button>
-        </div>
-      </div>
-      <div className="px-4 pb-4">{children}</div>
-    </div>
-  );
-}
-
-// -------- DS Scorecard --------
-function DSScorecard({ label, value, delta, deltaTone = 'up', color = '#1A73E8', sub }: any) {
-  return (
-    <div className="bg-white rounded-md border border-line p-4">
-      <div className="text-[11px] font-bold uppercase tracking-wider text-mute">{label}</div>
-      <div className="mt-2 text-2xl lg:text-3xl font-extrabold leading-none" style={{ color }}>{value}</div>
-      {sub && <div className="mt-1 text-[10px] text-mute">{sub}</div>}
-      {delta && (
-        <div className={`mt-2 inline-flex items-center gap-1 text-[11px] font-bold ${deltaTone === 'up' ? 'text-emerald-600' : 'text-rose-600'}`}>
-          <Icon name={deltaTone === 'up' ? 'arrowUp' : 'arrowDown'} size={11} strokeWidth={2.5}/>
-          {delta}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // =============================================================
-// OVERVIEW PAGE
+// OVERVIEW PAGE — backend: { scorecard, series[], sources[] }
 // =============================================================
-function DSOverview({ daily, sources, campaigns, data }: any) {
+function DSOverview({ data, campaigns }: any) {
   const d = data || {};
-  const s = d.scorecards || {};
+  const s = d.scorecard || {};
+  const series: any[] = Array.isArray(d.series) ? d.series : [];
+  const sources: any[] = (Array.isArray(d.sources) ? d.sources : []).map((x: any, i: number) => ({ ...x, color: colorFor(i) }));
+  const totalSess = sources.reduce((sum, x) => sum + (x.sessions || 0), 0) || 1;
+
   return (
     <div className="grid grid-cols-12 gap-4">
       {/* Scorecards */}
       <div className="col-span-12 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        <DSScorecard label="Sessions"      value={fmtNum(s.sessions || 0)}     delta={s.sessions_delta || ''} color="#1A73E8"/>
-        <DSScorecard label="Donors"        value={fmtNum(s.donors || 0)}       delta={s.donors_delta || ''} color="#0F9D58"/>
-        <DSScorecard label="Donations"     value={fmtNum(s.donations || 0)}    delta={s.donations_delta || ''} color="#F4B400"/>
-        <DSScorecard label="Revenue"       value={fmtIDRShort(s.revenue || 0)} delta={s.revenue_delta || ''} color="#EA4335"/>
-        <DSScorecard label="ROAS"          value={s.roas ? s.roas + 'x' : '—'} delta={s.roas_delta || ''} color="#4285F4"/>
-        <DSScorecard label="CVR"           value={s.cvr ? s.cvr + '%' : '—'}   delta={s.cvr_delta || ''} color="#9C27B0"/>
+        <DSScorecard label="Sessions" value={fmtNum(s.sessions || 0)} color="#1A73E8" />
+        <DSScorecard label="Donors" value={fmtNum(s.donors || 0)} color="#0F9D58" />
+        <DSScorecard label="Donations" value={fmtNum(s.donations || 0)} color="#F4B400" />
+        <DSScorecard label="Revenue" value={fmtIDRShort(s.revenue || 0)} color="#EA4335" />
+        <DSScorecard label="ROAS" value={s.roas ? s.roas.toFixed(1) + 'x' : '—'} color="#4285F4" />
+        <DSScorecard label="CVR" value={s.cvr ? s.cvr.toFixed(2) + '%' : '—'} color="#9C27B0" />
       </div>
 
-      {/* Time series + Source mix */}
+      {/* Time series + source mix */}
       <div className="col-span-12 lg:col-span-8">
-        <DSCard title="Sessions, Donations & Revenue" subtitle="Daily · Last 30 days">
-          <DSStackedSeries daily={daily}/>
+        <DSCard title="Sessions, Donations & Revenue" subtitle="Harian">
+          <DSSeries series={series} />
           <DSLegend items={[
-            { c:'#1A73E8', l:'Sessions' },
-            { c:'#0F9D58', l:'Donations' },
-            { c:'#F4B400', l:'Revenue (Rp jt)' },
-          ]}/>
+            { c: '#1A73E8', l: 'Sessions' },
+            { c: '#0F9D58', l: 'Donations' },
+            { c: '#F4B400', l: 'Revenue' },
+          ]} />
         </DSCard>
       </div>
       <div className="col-span-12 lg:col-span-4">
-        <DSCard title="Sessions by Source" subtitle="Compared to previous period">
-          <div className="flex items-center justify-center my-2">
-            <Donut size={170} data={sources.map((s: any) => ({ value: s.visits, color: s.color }))}/>
-          </div>
-          <div className="space-y-1.5 mt-2">
-            {sources.map((s: any) => (
-              <div key={s.name} className="flex items-center gap-2 text-xs">
-                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: s.color }}/>
-                <span className="flex-1 font-semibold text-ink">{s.name}</span>
-                <span className="text-mute">{fmtNum(s.visits)}</span>
-              </div>
-            ))}
-          </div>
-        </DSCard>
-      </div>
-
-      {/* Hourly heatmap */}
-      <div className="col-span-12 lg:col-span-8">
-        <DSCard title="Donation activity heatmap" subtitle="Donations per hour × day of week">
-          <DSHeatmap/>
-        </DSCard>
-      </div>
-      <div className="col-span-12 lg:col-span-4">
-        <DSCard title="Top KPI dibanding target Q2">
-          <div className="space-y-3">
-            {(d.kpi_targets || [
-              { l:'Revenue',  v: (s.revenue||0)/1e6, t: (s.revenue_target||0)/1e6 || 1, suf:' jt', color:'#1A73E8' },
-              { l:'Donors',   v: s.donors||0, t: s.donors_target||1, suf:'',   color:'#0F9D58' },
-              { l:'CVR',      v: s.cvr||0, t: s.cvr_target||1, suf:'%',     color:'#F4B400' },
-              { l:'ROAS',     v: s.roas||0, t: s.roas_target||1, suf:'x',     color:'#EA4335' },
-            ]).map((k: any, i: number) => {
-              const pct = Math.min(100, (k.v / k.t) * 100);
-              return (
-                <div key={i}>
-                  <div className="flex justify-between text-xs">
-                    <span className="font-bold text-ink">{k.l}</span>
-                    <span className="text-mute">{fmtNum(k.v)}{k.suf} / {fmtNum(k.t)}{k.suf}</span>
-                  </div>
-                  <div className="mt-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: pct + '%', background: k.color }}/>
-                  </div>
+        <DSCard title="Sessions by Source">
+          {sources.length === 0 ? <DSEmpty /> : <>
+            <div className="flex items-center justify-center my-2">
+              <Donut size={170} data={sources.map((x: any) => ({ value: x.sessions || 0, color: x.color }))} />
+            </div>
+            <div className="space-y-1.5 mt-2">
+              {sources.map((x: any) => (
+                <div key={x.source} className="flex items-center gap-2 text-xs">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: x.color }} />
+                  <span className="flex-1 font-semibold text-ink">{x.source || '(direct)'}</span>
+                  <span className="text-mute">{fmtNum(x.sessions || 0)}</span>
+                  <span className="w-10 text-right font-bold">{Math.round((x.sessions || 0) / totalSess * 100)}%</span>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          </>}
         </DSCard>
       </div>
 
-      {/* Channel performance table */}
+      {/* Channel performance table (from sources) */}
       <div className="col-span-12 lg:col-span-7">
-        <DSCard title="Channel Performance" subtitle="Last 30 days · sorted by Revenue">
-          <div className="overflow-x-auto -mx-4">
-            <table className="w-full min-w-[560px] text-xs">
-              <thead>
-                <tr className="text-left text-[10px] uppercase tracking-wider text-mute border-b border-line">
-                  <th className="px-4 py-2 font-bold">Source / Medium</th>
-                  <th className="py-2 font-bold text-right">Sessions</th>
-                  <th className="py-2 font-bold text-right">Donors</th>
-                  <th className="py-2 font-bold text-right">CVR</th>
-                  <th className="py-2 font-bold text-right">Revenue</th>
-                  <th className="pr-4 py-2 font-bold text-right">ROAS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(d.channels || sources || []).length === 0 && (
-                  <tr><td colSpan={6} className="px-4 py-6 text-center text-mute text-xs">Belum ada data channel</td></tr>
-                )}
-                {(d.channels || sources || []).map((r: any, i: number) => {
-                  const sm = r.sm || r.source_medium || ((r.name || '') + ' / ' + (r.medium || ''));
-                  const s2 = r.s || r.sessions || r.visits || 0;
-                  const d2 = r.d || r.donors || 0;
-                  const rev = r.rev || r.revenue || 0;
-                  const roas = r.roas || (rev > 0 && s2 > 0 ? (rev / s2 * 10).toFixed(1) : '—');
-                  const color = r.color || '#94A3B8';
-                  return { sm, s: s2, d: d2, rev, roas, color };
-                }).map((r: any, i: number) => (
-                  <tr key={i} className="border-b border-line/60 last:border-0 hover:bg-bg2/60">
-                    <td className="px-4 py-2.5">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full" style={{ background: r.color }}/>
-                        <span className="font-mono">{r.sm}</span>
-                      </span>
-                    </td>
-                    <td className="py-2.5 text-right">{fmtNum(r.s)}</td>
-                    <td className="py-2.5 text-right">{fmtNum(r.d)}</td>
-                    <td className="py-2.5 text-right">{(r.d/r.s*100).toFixed(2)}%</td>
-                    <td className="py-2.5 text-right font-bold">{fmtIDRShort(r.rev)}</td>
-                    <td className="pr-4 py-2.5 text-right">
-                      <span className={`font-bold ${typeof r.roas === 'number' && r.roas < 3 ? 'text-amber-600' : 'text-emerald-600'}`}>{r.roas}{typeof r.roas === 'number' ? 'x' : ''}</span>
-                    </td>
+        <DSCard title="Channel Performance" subtitle="Diurutkan berdasarkan Revenue">
+          {sources.length === 0 ? <DSEmpty /> : (
+            <div className="overflow-x-auto -mx-4">
+              <table className="w-full min-w-[480px] text-xs">
+                <thead>
+                  <tr className="text-left text-[10px] uppercase tracking-wider text-mute border-b border-line">
+                    <th className="px-4 py-2 font-bold">Source</th>
+                    <th className="py-2 font-bold text-right">Sessions</th>
+                    <th className="py-2 font-bold text-right">CVR</th>
+                    <th className="pr-4 py-2 font-bold text-right">Revenue</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {[...sources].sort((a, b) => (b.revenue || 0) - (a.revenue || 0)).map((r: any, i: number) => {
+                    const sess = r.sessions || 0;
+                    // CVR needs paid count; the source row may not carry `donations`. Show '—'
+                    // when it can't be computed rather than rendering NaN%.
+                    const cvr = sess > 0 && r.donations ? (r.donations / sess * 100).toFixed(2) + '%' : '—';
+                    return (
+                      <tr key={i} className="border-b border-line/60 last:border-0 hover:bg-bg2/60">
+                        <td className="px-4 py-2.5">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full" style={{ background: r.color }} />
+                            <span className="font-mono">{r.source || '(direct)'}</span>
+                          </span>
+                        </td>
+                        <td className="py-2.5 text-right">{fmtNum(sess)}</td>
+                        <td className="py-2.5 text-right">{cvr}</td>
+                        <td className="pr-4 py-2.5 text-right font-bold">{fmtIDRShort(r.revenue || 0)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </DSCard>
       </div>
       <div className="col-span-12 lg:col-span-5">
-        <DSCard title="Top Campaigns" subtitle="Revenue · Last 30 days">
-          <div className="space-y-2">
-            {campaigns.slice(0, 5).map((c: any, i: number) => {
-              const rev = c.raised + i * 1000;
-              const pct = (rev / 600_000_000) * 100;
-              return (
-                <div key={c.id} className="flex items-center gap-2.5">
-                  <div className="h-8 w-8 rounded-md shrink-0 overflow-hidden bg-bg2" style={campaignBgStyle ? campaignBgStyle(c) : { background: c.thumb }}/>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-ink line-clamp-1">{c.title}</div>
-                    <div className="mt-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full bg-[#1A73E8]" style={{ width: Math.min(100, pct) + '%' }}/>
+        <DSCard title="Top Campaigns" subtitle="Berdasarkan dana terkumpul">
+          {(!campaigns || campaigns.length === 0) ? <DSEmpty /> : (
+            <div className="space-y-2">
+              {(() => {
+                const top = [...campaigns].sort((a: any, b: any) => (b.raised || 0) - (a.raised || 0)).slice(0, 5);
+                const maxRaised = Math.max(...top.map((c: any) => c.raised || 0), 1);
+                return top.map((c: any) => {
+                  const rev = c.raised || 0;
+                  const pct = (rev / maxRaised) * 100;
+                  return (
+                    <div key={c.id} className="flex items-center gap-2.5">
+                      <div className="h-8 w-8 rounded-md shrink-0 overflow-hidden bg-bg2" style={campaignBgStyle ? campaignBgStyle(c) : { background: c.thumb }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold text-ink line-clamp-1">{c.title}</div>
+                        <div className="mt-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-[#1A73E8]" style={{ width: Math.min(100, pct) + '%' }} />
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-xs font-extrabold text-ink">{fmtIDRShort(rev)}</div>
+                        <div className="text-[10px] text-mute">{fmtNum(c.donors || 0)} donor</div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-xs font-extrabold text-ink">{fmtIDRShort(rev)}</div>
-                    <div className="text-[10px] text-mute">{fmtNum(c.donors)} donors</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
         </DSCard>
-      </div>
-
-      {/* Geo + device */}
-      <div className="col-span-12 lg:col-span-6">
-        <DSCard title="Sessions by Country" subtitle="Top 10">
-          <div className="space-y-1.5">
-            {[
-              { n:'🇮🇩 Indonesia', v: 142_300, pct: 78 },
-              { n:'🇲🇾 Malaysia',  v: 18_120,  pct: 10 },
-              { n:'🇸🇬 Singapore', v: 8_140,   pct: 4.5 },
-              { n:'🇸🇦 Saudi Arabia', v: 5_280, pct: 3 },
-              { n:'🇺🇸 United States', v: 4_220, pct: 2.5 },
-              { n:'🇦🇪 UAE',       v: 3_220, pct: 1.8 },
-              { n:'🇳🇱 Belanda',   v: 1_510, pct: 0.8 },
-              { n:'🇦🇺 Australia', v: 1_500, pct: 0.4 },
-            ].map((c, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs">
-                <span className="w-32 truncate">{c.n}</span>
-                <div className="flex-1 h-2.5 bg-slate-100 rounded-sm overflow-hidden">
-                  <div className="h-full bg-[#4285F4]" style={{ width: c.pct + '%' }}/>
-                </div>
-                <span className="w-16 text-right text-mute">{fmtNum(c.v)}</span>
-                <span className="w-10 text-right font-bold">{c.pct}%</span>
-              </div>
-            ))}
-          </div>
-        </DSCard>
-      </div>
-      <div className="col-span-12 lg:col-span-3">
-        <DSCard title="Device Category">
-          <div className="flex items-center justify-center my-2">
-            <Donut size={140} data={[
-              { value: 8420, color: '#1A73E8' },
-              { value: 3140, color: '#0F9D58' },
-              { value: 1280, color: '#F4B400' },
-            ]}/>
-          </div>
-          <div className="space-y-1 text-xs">
-            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-sm bg-[#1A73E8]"/><span className="flex-1">Mobile</span><span className="font-bold">66%</span></div>
-            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-sm bg-[#0F9D58]"/><span className="flex-1">Desktop</span><span className="font-bold">24%</span></div>
-            <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-sm bg-[#F4B400]"/><span className="flex-1">Tablet</span><span className="font-bold">10%</span></div>
-          </div>
-        </DSCard>
-      </div>
-      <div className="col-span-12 lg:col-span-3">
-        <DSCard title="Payment Method">
-          <div className="space-y-1.5 text-xs">
-            {[
-              { n:'QRIS', v:38, c:'#1A73E8' },
-              { n:'Bank VA', v:25, c:'#0F9D58' },
-              { n:'GoPay', v:17, c:'#F4B400' },
-              { n:'OVO', v:12, c:'#EA4335' },
-              { n:'Dana', v:7, c:'#9C27B0' },
-              { n:'Other', v:1, c:'#94A3B8' },
-            ].map((p, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-sm" style={{ background: p.c }}/>
-                <span className="flex-1 truncate">{p.n}</span>
-                <div className="w-16 h-1.5 bg-slate-100 rounded-sm overflow-hidden">
-                  <div className="h-full" style={{ width: (p.v * 2.6) + '%', background: p.c }}/>
-                </div>
-                <span className="w-8 text-right font-bold">{p.v}%</span>
-              </div>
-            ))}
-          </div>
-        </DSCard>
-      </div>
-
-      {/* Footer info */}
-      <div className="col-span-12 mt-2 text-[10px] text-mute flex flex-wrap items-center gap-3">
-        <span className="inline-flex items-center gap-1.5"><DataStudioLogo/> Powered by Looker Studio</span>
-        <span>·</span>
-        <span>Data freshness: 15 minutes</span>
-        <span>·</span>
-        <span>Last update: 2 menit lalu</span>
-        <span className="ml-auto">Owner: andre@niatbaik.org</span>
       </div>
     </div>
   );
 }
 
 // =============================================================
-// META ADS PAGE
+// PLATFORM PAGE (Meta / Google / TikTok) — backend DSPlatform:
+// { platform, spend, sessions, donations, revenue, roas }
 // =============================================================
-function DSMeta({ data }: any) {
+function DSPlatformPage({ data, label, accent }: any) {
   const m = data || {};
-  const dailyDonations = useDataStore((s) => s.dailyDonations) || [];
+  const hasData = (m.spend || 0) > 0 || (m.sessions || 0) > 0 || (m.donations || 0) > 0;
   return (
     <div className="grid grid-cols-12 gap-4">
       <div className="col-span-12 grid grid-cols-2 md:grid-cols-5 gap-3">
-        <DSScorecard label="Ad Spend"   value={fmtIDRShort(m.ad_spend || 0)}  delta={m.ad_spend_delta || ''} color="#1877F2"/>
-        <DSScorecard label="Impressions" value={fmtNum(m.impressions || 0)}    delta={m.impressions_delta || ''} color="#1877F2"/>
-        <DSScorecard label="CTR"        value={m.ctr ? m.ctr + '%' : '—'}     delta={m.ctr_delta || ''} color="#1877F2"/>
-        <DSScorecard label="Donations"  value={fmtNum(m.donations || 0)}       delta={m.donations_delta || ''} color="#0F9D58"/>
-        <DSScorecard label="ROAS"       value={m.roas ? m.roas + 'x' : '—'}   delta={m.roas_delta || ''} color="#EA4335"/>
+        <DSScorecard label="Ad Spend" value={fmtIDRShort(m.spend || 0)} color={accent} />
+        <DSScorecard label="Sessions" value={fmtNum(m.sessions || 0)} color={accent} />
+        <DSScorecard label="Donations" value={fmtNum(m.donations || 0)} color="#0F9D58" />
+        <DSScorecard label="Revenue" value={fmtIDRShort(m.revenue || 0)} color="#F4B400" />
+        <DSScorecard label="ROAS" value={m.roas ? m.roas.toFixed(1) + 'x' : '—'} color="#EA4335" />
       </div>
-
-      <div className="col-span-12 lg:col-span-8">
-        <DSCard title="Meta Ads — Spend vs Revenue" subtitle="Daily">
-          <DSStackedSeries daily={dailyDonations}/>
-        </DSCard>
-      </div>
-      <div className="col-span-12 lg:col-span-4">
-        <DSCard title="Placement Performance">
-          <div className="space-y-2">
-            {[
-              { n:'Feed', v:48, c:'#1877F2' },
-              { n:'Stories', v:24, c:'#42A5F5' },
-              { n:'Reels',   v:18, c:'#0288D1' },
-              { n:'Marketplace', v:6, c:'#01579B' },
-              { n:'Audience Network', v:4, c:'#7C9CB8' },
-            ].map((p, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs">
-                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: p.c }}/>
-                <span className="flex-1 font-semibold">{p.n}</span>
-                <div className="w-20 h-1.5 bg-slate-100 rounded-sm overflow-hidden">
-                  <div className="h-full" style={{ width: (p.v * 2) + '%', background: p.c }}/>
-                </div>
-                <span className="w-8 text-right font-bold">{p.v}%</span>
-              </div>
-            ))}
-          </div>
-        </DSCard>
-      </div>
-
       <div className="col-span-12">
-        <DSCard title="Ad Sets" subtitle="Top 10 · Sorted by ROAS">
-          <div className="overflow-x-auto -mx-4">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-left text-[10px] uppercase tracking-wider text-mute border-b border-line">
-                  <th className="px-4 py-2 font-bold">Ad Set</th>
-                  <th className="py-2 font-bold text-right">Reach</th>
-                  <th className="py-2 font-bold text-right">Impressions</th>
-                  <th className="py-2 font-bold text-right">Clicks</th>
-                  <th className="py-2 font-bold text-right">CTR</th>
-                  <th className="py-2 font-bold text-right">CPC</th>
-                  <th className="py-2 font-bold text-right">Spend</th>
-                  <th className="py-2 font-bold text-right">Donations</th>
-                  <th className="pr-4 py-2 font-bold text-right">ROAS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  ['Aira-Jantung · Reels · 25-44 F', 184_220, 412_300, 14820, 3.59, 6234, 18_410_000, 412, 4.2],
-                  ['Sumur-NTT · Feed · Indonesia',   142_180, 320_180, 10240, 3.20, 5840, 12_980_000, 318, 3.8],
-                  ['Bukber-Yatim · Stories · 30-50', 120_440, 280_120, 9120,  3.26, 6210,  11_320_000, 294, 3.6],
-                  ['Wakaf-Quran · Lookalike 1%',     98_120,  220_410, 6824,  3.10, 7280,   9_870_000, 184, 2.9],
-                  ['Madrasah · Carousel',             82_310,  180_220, 5210,  2.89, 7912,   8_240_000, 142, 2.6],
-                ].map((r: any, i: number) => (
-                  <tr key={i} className="border-b border-line/60 hover:bg-bg2/60">
-                    <td className="px-4 py-2 font-mono">{r[0]}</td>
-                    <td className="py-2 text-right">{fmtNum(r[1])}</td>
-                    <td className="py-2 text-right">{fmtNum(r[2])}</td>
-                    <td className="py-2 text-right">{fmtNum(r[3])}</td>
-                    <td className="py-2 text-right">{r[4]}%</td>
-                    <td className="py-2 text-right">{fmtIDRShort(r[5])}</td>
-                    <td className="py-2 text-right font-bold">{fmtIDRShort(r[6])}</td>
-                    <td className="py-2 text-right">{fmtNum(r[7])}</td>
-                    <td className="pr-4 py-2 text-right"><span className={'font-bold ' + (r[8] >= 3 ? 'text-emerald-600' : 'text-amber-600')}>{r[8]}x</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <DSCard title={label + ' — Ringkasan'} subtitle="Dari ad spend tercatat + UTM donasi">
+          {!hasData ? (
+            <div className="py-10 text-center text-sm text-mute">
+              Belum ada data {label}. Catat ad spend di halaman <b>Advertiser</b> dan pastikan donasi membawa <code>utm_source</code> platform ini.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2">
+              <DSStat label="Total Spend" value={fmtIDRShort(m.spend || 0)} />
+              <DSStat label="Sessions" value={fmtNum(m.sessions || 0)} />
+              <DSStat label="Donations" value={fmtNum(m.donations || 0)} />
+              <DSStat label="Revenue" value={fmtIDRShort(m.revenue || 0)} />
+            </div>
+          )}
         </DSCard>
       </div>
     </div>
@@ -518,86 +302,39 @@ function DSMeta({ data }: any) {
 }
 
 // =============================================================
-// GOOGLE PAGE
+// GEO PAGE — backend DSGeoEntry[]: { region, donations, revenue }
 // =============================================================
-function DSGoogle({ daily, data }: any) {
-  const g = data || {};
+function DSGeo({ data }: any) {
+  const rows: any[] = Array.isArray(data) ? data : (data?.regions || []);
+  const total = rows.reduce((s, r) => s + (r.donations || 0), 0); // real sum (may be 0)
+  const max = Math.max(...rows.map((r) => r.donations || 0), 1);
   return (
     <div className="grid grid-cols-12 gap-4">
-      <div className="col-span-12 grid grid-cols-2 md:grid-cols-5 gap-3">
-        <DSScorecard label="Ad Spend"    value={fmtIDRShort(g.ad_spend || 0)} delta={g.ad_spend_delta || ''} color="#34A853"/>
-        <DSScorecard label="Impr."        value={fmtNum(g.impressions || 0)}  delta={g.impressions_delta || ''} color="#34A853"/>
-        <DSScorecard label="CTR"          value={g.ctr ? g.ctr + '%' : '—'} delta={g.ctr_delta || ''} color="#34A853"/>
-        <DSScorecard label="GA4 Sessions" value={fmtNum(g.ga4_sessions || 0)} delta={g.ga4_delta || ''} color="#4285F4"/>
-        <DSScorecard label="ROAS"         value={g.roas ? g.roas + 'x' : '—'} delta={g.roas_delta || ''} color="#EA4335"/>
-      </div>
       <div className="col-span-12 lg:col-span-7">
-        <DSCard title="GA4 · Sessions & Conversions" subtitle="Daily">
-          <DSStackedSeries daily={daily}/>
+        <DSCard title="Donasi per Wilayah" subtitle="Berdasarkan data donatur">
+          {rows.length === 0 ? (
+            <div className="py-10 text-center text-sm text-mute">Belum ada data wilayah. Wilayah diturunkan dari data donatur saat tersedia.</div>
+          ) : (
+            <div className="space-y-1.5">
+              {[...rows].sort((a, b) => (b.donations || 0) - (a.donations || 0)).map((r: any, i: number) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span className="w-32 truncate font-semibold">{r.region || '—'}</span>
+                  <div className="flex-1 h-2.5 bg-slate-100 rounded-sm overflow-hidden">
+                    <div className="h-full bg-[#1A73E8]" style={{ width: ((r.donations || 0) / max * 100) + '%' }} />
+                  </div>
+                  <span className="w-16 text-right text-mute">{fmtIDRShort(r.revenue || 0)}</span>
+                  <span className="w-10 text-right font-bold">{Math.round((r.donations || 0) / (total || 1) * 100)}%</span>
+                </div>
+              ))}
+            </div>
+          )}
         </DSCard>
       </div>
       <div className="col-span-12 lg:col-span-5">
-        <DSCard title="Top Search Keywords">
-          <div className="space-y-1.5 text-xs">
-            {[
-              { k:'donasi sumur bersih', v:8420, c:1.8 },
-              { k:'wakaf quran online', v:5210, c:2.2 },
-              { k:'donasi anak yatim', v:4180, c:1.5 },
-              { k:'zakat fitrah online', v:3820, c:1.3 },
-              { k:'sedekah jariyah', v:3120, c:1.9 },
-              { k:'donasi medis terpercaya', v:2510, c:2.8 },
-            ].map((r, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="font-mono flex-1 truncate">{r.k}</span>
-                <span className="w-12 text-right text-mute">{fmtNum(r.v)}</span>
-                <span className="w-12 text-right font-bold text-emerald-600">{r.c}%</span>
-              </div>
-            ))}
-          </div>
-        </DSCard>
-      </div>
-      <div className="col-span-12 lg:col-span-6">
-        <DSCard title="Landing Page Performance">
-          <div className="space-y-2 text-xs">
-            {[
-              { l:'/c/aira-jantung-q2', s:18420, b:0.42, t:'01:24' },
-              { l:'/c/sumur-bersih-ntt', s:14820, b:0.38, t:'01:48' },
-              { l:'/c/wakaf-quran', s:11240, b:0.51, t:'00:58' },
-              { l:'/c/bukber-yatim', s:8820, b:0.34, t:'02:12' },
-              { l:'/', s:21340, b:0.62, t:'00:42' },
-            ].map((r, i) => (
-              <div key={i} className="grid grid-cols-[1fr_auto_auto_auto] gap-3 items-center border-b border-line/40 pb-1.5">
-                <span className="font-mono text-ink truncate">{r.l}</span>
-                <span className="text-mute">{fmtNum(r.s)} sess</span>
-                <span className={'font-bold ' + (r.b > 0.5 ? 'text-rose-600' : 'text-emerald-600')}>{(r.b*100).toFixed(0)}% BR</span>
-                <span className="text-mute">{r.t}</span>
-              </div>
-            ))}
-          </div>
-        </DSCard>
-      </div>
-      <div className="col-span-12 lg:col-span-6">
-        <DSCard title="Conversion Path">
-          <div className="space-y-2">
-            {[
-              { path:['Direct'], v:14, conv:412 },
-              { path:['Google Organic'], v:12, conv:382 },
-              { path:['Google Paid'], v:18, conv:524 },
-              { path:['Google Paid','Direct'], v:9, conv:296 },
-              { path:['Google Organic','Google Paid'], v:7, conv:212 },
-              { path:['Facebook','Google Paid','Direct'], v:4, conv:148 },
-            ].map((p, i) => (
-              <div key={i} className="flex items-center gap-1.5 text-xs">
-                {p.path.map((step, j) => (
-                  <span key={j} className="inline-flex items-center gap-1.5">
-                    <span className="px-1.5 py-0.5 rounded bg-brand-50 text-[#1A73E8] font-mono text-[10px] font-bold">{step}</span>
-                    {j < p.path.length - 1 && <Icon name="arrowR" size={10} className="text-mute"/>}
-                  </span>
-                ))}
-                <span className="ml-auto text-mute">{p.v}%</span>
-                <span className="font-bold w-14 text-right">{p.conv} conv</span>
-              </div>
-            ))}
+        <DSCard title="Ringkasan">
+          <div className="grid grid-cols-2 gap-4">
+            <DSStat label="Total wilayah" value={fmtNum(rows.length)} />
+            <DSStat label="Total donasi" value={fmtNum(total)} />
           </div>
         </DSCard>
       </div>
@@ -606,89 +343,41 @@ function DSGoogle({ daily, data }: any) {
 }
 
 // =============================================================
-// TIKTOK PAGE
+// FUNNEL PAGE — backend DSFunnelStep[]: { step, count }
 // =============================================================
-function DSTiktok({ data }: any) {
-  const t = data || {};
-  const dailyDonations = useDataStore((s) => s.dailyDonations) || [];
-  return (
-    <div className="grid grid-cols-12 gap-4">
-      <div className="col-span-12 rounded-md bg-rose-50 border border-rose-200 px-4 py-3 flex items-center gap-2 text-rose-700 text-xs font-semibold">
-        <Icon name="shield" size={14}/> Connection error: <code className="bg-white px-1.5 py-0.5 rounded">TikTok Events API token expired</code> — sebagian data mungkin belum tersinkron.
-        <button className="ml-auto text-rose-700 font-bold hover:underline">Reconnect</button>
-      </div>
-      <div className="col-span-12 grid grid-cols-2 md:grid-cols-5 gap-3">
-        <DSScorecard label="Ad Spend"   value={fmtIDRShort(t.ad_spend || 0)} delta={t.ad_spend_delta || ''} color="#000000"/>
-        <DSScorecard label="Views"      value={fmtNum(t.views || 0)}        delta={t.views_delta || ''} color="#FF0050"/>
-        <DSScorecard label="VTR (3s)"   value={t.vtr ? t.vtr + '%' : '—'} delta={t.vtr_delta || ''} color="#00F2EA"/>
-        <DSScorecard label="Donations"  value={fmtNum(t.donations || 0)} delta={t.donations_delta || ''} color="#0F9D58"/>
-        <DSScorecard label="ROAS"       value={t.roas ? t.roas + 'x' : '—'} delta={t.roas_delta || ''} deltaTone={t.roas_delta?.startsWith('-') ? 'down' : 'up'} color="#EA4335"/>
-      </div>
-      <div className="col-span-12 lg:col-span-7">
-        <DSCard title="TikTok — Spend vs Donations">
-          <DSStackedSeries daily={dailyDonations}/>
-        </DSCard>
-      </div>
-      <div className="col-span-12 lg:col-span-5">
-        <DSCard title="Top Performing Creatives">
-          <div className="space-y-2">
-            {[
-              { n:'bantu-rans (UGC story)', cvr:5.8, v:840_120 },
-              { n:'aira-story-30s',          cvr:4.2, v:620_140 },
-              { n:'sumur-impact-video',      cvr:3.9, v:512_320 },
-              { n:'wakaf-testimonial',       cvr:3.1, v:412_120 },
-            ].map((r, i) => (
-              <div key={i} className="flex items-center gap-2.5">
-                <div className="h-10 w-7 rounded bg-[#FF0050] shrink-0"/>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-ink truncate">{r.n}</div>
-                  <div className="text-[10px] text-mute">{fmtNum(r.v)} views</div>
-                </div>
-                <span className="text-xs font-extrabold text-emerald-600">{r.cvr}%</span>
-              </div>
-            ))}
-          </div>
-        </DSCard>
-      </div>
-    </div>
-  );
-}
-
-// =============================================================
-// GEO PAGE
-// =============================================================
-function DSGeo() {
+function DSFunnel({ data }: any) {
+  const steps: any[] = Array.isArray(data) ? data : (data?.steps || []);
+  const max = steps[0]?.count || 1;
   return (
     <div className="grid grid-cols-12 gap-4">
       <div className="col-span-12 lg:col-span-8">
-        <DSCard title="Donations by Province" subtitle="Indonesia · Last 30 days">
-          <DSIndonesiaMap/>
-        </DSCard>
-      </div>
-      <div className="col-span-12 lg:col-span-4">
-        <DSCard title="Top Provinces">
-          <div className="space-y-1.5">
-            {[
-              { p:'DKI Jakarta', v: 412, pct: 28 },
-              { p:'Jawa Barat',  v: 318, pct: 22 },
-              { p:'Jawa Timur',  v: 240, pct: 16 },
-              { p:'Banten',      v: 142, pct: 10 },
-              { p:'Yogyakarta',  v: 98,  pct: 7 },
-              { p:'Sumatera Utara', v: 82, pct: 5 },
-              { p:'Bali',        v: 64,  pct: 4 },
-              { p:'Sulawesi Selatan', v: 52, pct: 3.5 },
-              { p:'Kalimantan Timur', v: 40, pct: 2.5 },
-              { p:'Lainnya',     v: 28,  pct: 2 },
-            ].map((r, i) => (
-              <div key={i} className="flex items-center gap-2 text-xs">
-                <span className="w-32 truncate">{r.p}</span>
-                <div className="flex-1 h-2 bg-slate-100 rounded-sm overflow-hidden">
-                  <div className="h-full bg-[#1A73E8]" style={{ width: r.pct * 3 + '%' }}/>
-                </div>
-                <span className="w-8 text-right font-bold">{r.v}</span>
-              </div>
-            ))}
-          </div>
+        <DSCard title="Conversion Funnel" subtitle="Semua sumber">
+          {steps.length === 0 ? <DSEmpty /> : (
+            <div className="space-y-3 py-2">
+              {steps.map((s: any, i: number) => {
+                const w = (s.count / max) * 100;
+                const drop = i > 0 && steps[i - 1].count > 0 ? (1 - s.count / steps[i - 1].count) * 100 : 0;
+                return (
+                  <div key={i}>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-bold text-ink">{i + 1}. {s.step}</span>
+                      <span className="text-mute">{fmtNum(s.count)} · {((s.count / max) * 100).toFixed(1)}% of top</span>
+                    </div>
+                    <div className="h-9 bg-slate-100 rounded overflow-hidden relative">
+                      <div className="h-full rounded flex items-center justify-end px-3 text-white text-xs font-extrabold" style={{ width: Math.max(2, w) + '%', background: colorFor(i) }}>
+                        {fmtNum(s.count)}
+                      </div>
+                    </div>
+                    {i > 0 && (
+                      <div className="mt-1 text-[10px] text-rose-600 font-semibold flex items-center gap-1">
+                        <Icon name="arrowDown" size={10} /> Drop-off {drop.toFixed(1)}%
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </DSCard>
       </div>
     </div>
@@ -696,108 +385,45 @@ function DSGeo() {
 }
 
 // =============================================================
-// FUNNEL PAGE
+// Reusable bits
 // =============================================================
-function DSFunnel() {
-  const trafficSources = useDataStore((s) => s.trafficSources) || [];
-  const steps = [
-    { l:'Sessions',          v: 184_290, c:'#1A73E8' },
-    { l:'View Content',      v: 121_140, c:'#4285F4' },
-    { l:'Initiate Checkout', v: 38_280,  c:'#0F9D58' },
-    { l:'Add Payment Info',  v: 18_240,  c:'#F4B400' },
-    { l:'Lead (form submit)',v: 13_072,  c:'#FB8C00' },
-    { l:'Complete Donation', v: 4_558,   c:'#EA4335' },
-  ];
-  const max = steps[0].v;
-  return (
-    <div className="grid grid-cols-12 gap-4">
-      <div className="col-span-12 lg:col-span-8">
-        <DSCard title="Conversion Funnel" subtitle="Last 30 days · all sources">
-          <div className="space-y-3 py-2">
-            {steps.map((s, i) => {
-              const w = (s.v / max) * 100;
-              const drop = i > 0 ? (1 - s.v / steps[i-1].v) * 100 : 0;
-              return (
-                <div key={i}>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-bold text-ink">{i+1}. {s.l}</span>
-                    <span className="text-mute">{fmtNum(s.v)} · {((s.v/max)*100).toFixed(1)}% of top</span>
-                  </div>
-                  <div className="h-9 bg-slate-100 rounded overflow-hidden relative">
-                    <div className="h-full rounded flex items-center justify-end px-3 text-white text-xs font-extrabold" style={{ width: w + '%', background: s.c }}>
-                      {fmtNum(s.v)}
-                    </div>
-                  </div>
-                  {i > 0 && (
-                    <div className="mt-1 text-[10px] text-rose-600 font-semibold flex items-center gap-1">
-                      <Icon name="arrowDown" size={10}/> Drop-off {drop.toFixed(1)}%
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </DSCard>
-      </div>
-      <div className="col-span-12 lg:col-span-4 space-y-4">
-        <DSCard title="Funnel by Source">
-          <div className="space-y-2 text-xs">
-            {trafficSources.map((s: any) => (
-              <div key={s.name}>
-                <div className="flex justify-between">
-                  <span className="font-bold text-ink">{s.name}</span>
-                  <span className="text-mute">{(s.donations/s.visits*100).toFixed(2)}%</span>
-                </div>
-                <div className="mt-1 h-1.5 bg-slate-100 rounded-sm overflow-hidden">
-                  <div className="h-full" style={{ width: Math.min(100, (s.donations/s.visits*100)*30) + '%', background: s.color }}/>
-                </div>
-              </div>
-            ))}
-          </div>
-        </DSCard>
-        <DSCard title="Recommendations">
-          <ul className="space-y-2 text-xs text-ink/85">
-            <li className="flex gap-2"><Icon name="sparkle" size={12} className="text-amber-500 mt-0.5"/><span>Drop-off terbesar di <b>Initiate Checkout → Add Payment</b> (52%). Cek loading speed gateway.</span></li>
-            <li className="flex gap-2"><Icon name="sparkle" size={12} className="text-amber-500 mt-0.5"/><span><b>TikTok funnel</b> punya VTR tinggi tapi CVR rendah — tambah retargeting via Meta.</span></li>
-            <li className="flex gap-2"><Icon name="sparkle" size={12} className="text-amber-500 mt-0.5"/><span>Mobile sessions 66% tapi konversi 48% — uji A/B form mobile.</span></li>
-          </ul>
-        </DSCard>
-      </div>
-    </div>
-  );
-}
-
-// =============================================================
-// Reusable chart components
-// =============================================================
-function DSStackedSeries({ daily }: any) {
+function DSSeries({ series }: any) {
+  const pts: any[] = Array.isArray(series) ? series : [];
+  if (pts.length < 2) {
+    return <div className="h-[220px] flex items-center justify-center text-mute text-xs">Belum ada data deret waktu</div>;
+  }
   const w = 600, h = 200;
-  const max = Math.max(...daily) * 1.2;
-  const step = w / (daily.length - 1);
-  const series = [
-    daily,
-    daily.map((v: any) => v * 0.45),
-    daily.map((v: any) => v * 0.25),
+  const sessions = pts.map((p) => p.sessions || 0);
+  const donations = pts.map((p) => p.donations || 0);
+  const revenue = pts.map((p) => p.revenue || 0);
+  const allMax = Math.max(...sessions, ...donations, ...revenue.map((r) => r / 1e6), 1) * 1.2;
+  const step = w / (pts.length - 1);
+  const lines = [
+    { data: sessions, c: '#1A73E8' },
+    { data: donations, c: '#0F9D58' },
+    { data: revenue.map((r) => r / 1e6), c: '#F4B400' }, // revenue scaled to Rp-juta to share the axis
   ];
-  const colors = ['#1A73E8', '#0F9D58', '#F4B400'];
-  const paths = series.map((s: any) => s.map((v: any, i: number) => `${i ? 'L' : 'M'} ${i*step} ${h - (v/max)*(h-20) - 5}`).join(' '));
+  const pathFor = (arr: number[]) => arr.map((v, i) => `${i ? 'L' : 'M'} ${i * step} ${h - (v / allMax) * (h - 20) - 5}`).join(' ');
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: 220 }}>
       <defs>
-        {colors.map((c, i) => (
+        {lines.map((ln, i) => (
           <linearGradient key={i} id={`dsg${i}`} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={c} stopOpacity="0.15"/>
-            <stop offset="100%" stopColor={c} stopOpacity="0"/>
+            <stop offset="0%" stopColor={ln.c} stopOpacity="0.15" />
+            <stop offset="100%" stopColor={ln.c} stopOpacity="0" />
           </linearGradient>
         ))}
       </defs>
-      {[0,1,2,3].map(i => <line key={i} x1="0" x2={w} y1={5 + i*(h-20)/3} y2={5 + i*(h-20)/3} stroke="#DADCE0" strokeDasharray="2 3"/>)}
-      {paths.map((d: any, i: number) => (
-        <g key={i}>
-          <path d={d + ` L ${w} ${h} L 0 ${h} Z`} fill={`url(#dsg${i})`}/>
-          <path d={d} fill="none" stroke={colors[i]} strokeWidth="2" strokeLinejoin="round"/>
-        </g>
-      ))}
+      {[0, 1, 2, 3].map((i) => <line key={i} x1="0" x2={w} y1={5 + i * (h - 20) / 3} y2={5 + i * (h - 20) / 3} stroke="#DADCE0" strokeDasharray="2 3" />)}
+      {lines.map((ln, i) => {
+        const d = pathFor(ln.data);
+        return (
+          <g key={i}>
+            <path d={d + ` L ${w} ${h} L 0 ${h} Z`} fill={`url(#dsg${i})`} />
+            <path d={d} fill="none" stroke={ln.c} strokeWidth="2" strokeLinejoin="round" />
+          </g>
+        );
+      })}
     </svg>
   );
 }
@@ -806,100 +432,45 @@ function DSLegend({ items }: any) {
   return (
     <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-mute">
       {items.map((it: any, i: number) => (
-        <div key={i} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: it.c }}/>{it.l}</div>
+        <div key={i} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: it.c }} />{it.l}</div>
       ))}
     </div>
   );
 }
 
-function DSHeatmap() {
-  const days = ['Sen','Sel','Rab','Kam','Jum','Sab','Min'];
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-  // synthetic intensity
-  const cell = (d: number, h: number) => {
-    const peakHour = Math.exp(-Math.pow((h - 20) / 4, 2));
-    const dayFactor = d === 4 || d === 5 ? 1.2 : 1;
-    const noise = ((d * 31 + h * 17) % 20) / 60;
-    return Math.min(1, peakHour * dayFactor + noise);
-  };
+function DSCard({ title, subtitle, children }: any) {
   return (
-    <div className="overflow-x-auto">
-      <div className="inline-block">
-        <div className="flex pl-8 gap-0.5 text-[9px] text-mute mb-1">
-          {hours.map((h) => <div key={h} className="w-5 text-center">{h}</div>)}
-        </div>
-        {days.map((d, di) => (
-          <div key={d} className="flex items-center gap-0.5 mb-0.5">
-            <div className="w-8 text-[10px] font-bold text-mute">{d}</div>
-            {hours.map((h) => {
-              const v = cell(di, h);
-              return <div key={h} className="w-5 h-5 rounded-sm" style={{ background: `rgba(26,115,232,${0.06 + v*0.85})` }} title={`${d} ${h}:00 · intensitas ${Math.round(v*100)}%`}/>;
-            })}
-          </div>
-        ))}
+    <div className="bg-white rounded-md border border-line p-4 h-full">
+      <div className="mb-3">
+        <div className="font-bold text-ink text-sm">{title}</div>
+        {subtitle && <div className="text-[11px] text-mute mt-0.5">{subtitle}</div>}
       </div>
+      {children}
     </div>
   );
 }
 
-function DSIndonesiaMap() {
-  // Stylized province cells with intensity
-  const provinces = [
-    { n:'JKT', x:42, y:62, v:0.95, l:'DKI Jakarta' },
-    { n:'JBR', x:36, y:67, v:0.85, l:'Jawa Barat' },
-    { n:'JTG', x:46, y:65, v:0.55, l:'Jawa Tengah' },
-    { n:'YGY', x:46, y:71, v:0.4, l:'Yogyakarta' },
-    { n:'JTM', x:55, y:67, v:0.75, l:'Jawa Timur' },
-    { n:'BTN', x:34, y:64, v:0.5, l:'Banten' },
-    { n:'BAL', x:62, y:73, v:0.4, l:'Bali' },
-    { n:'NTB', x:68, y:75, v:0.25, l:'NTB' },
-    { n:'NTT', x:78, y:76, v:0.3, l:'NTT' },
-    { n:'SUM',x:13, y:30, v:0.35, l:'Sumatera Utara' },
-    { n:'SUS',x:21, y:48, v:0.3,  l:'Sumatera Selatan' },
-    { n:'ACH',x:6,  y:18, v:0.18, l:'Aceh' },
-    { n:'RIA',x:18, y:36, v:0.22, l:'Riau' },
-    { n:'KLB',x:50, y:36, v:0.18, l:'Kalimantan Barat' },
-    { n:'KLT',x:60, y:42, v:0.25, l:'Kalimantan Timur' },
-    { n:'KLS',x:60, y:55, v:0.2,  l:'Kalimantan Selatan' },
-    { n:'SLU',x:73, y:38, v:0.18, l:'Sulawesi Utara' },
-    { n:'SLS',x:72, y:55, v:0.28, l:'Sulawesi Selatan' },
-    { n:'PAP',x:92, y:55, v:0.12, l:'Papua' },
-    { n:'MAL',x:84, y:46, v:0.1,  l:'Maluku' },
-  ];
+function DSScorecard({ label, value, color }: any) {
   return (
-    <div className="relative w-full bg-bg2 rounded-md overflow-hidden" style={{ aspectRatio: '2 / 1' }}>
-      {/* Background ocean */}
-      <div className="absolute inset-0 bg-brand-50"/>
-      {/* faint land outline */}
-      <svg viewBox="0 0 100 50" className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
-        <path d="M 5 22 Q 9 14 18 16 L 25 22 L 30 18 L 38 24 L 45 22 L 52 28 L 60 22 L 68 26 L 75 22 L 82 28 L 92 24" stroke="#B8C7E0" strokeWidth="0.5" fill="none" strokeDasharray="0.5 0.5"/>
-      </svg>
-      {provinces.map((p, i) => (
-        <div key={i}
-          className="absolute group cursor-pointer"
-          style={{ left: p.x + '%', top: p.y + '%', transform: 'translate(-50%, -50%)' }}>
-          <div className="rounded-full transition-all group-hover:scale-110 shadow"
-            style={{
-              width: 16 + p.v * 22,
-              height: 16 + p.v * 22,
-              background: `rgba(26,115,232,${0.4 + p.v*0.55})`,
-              boxShadow: `0 0 0 2px rgba(26,115,232,${p.v*0.2})`
-            }}>
-          </div>
-          <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-[#1A73E8] whitespace-nowrap pointer-events-none">{p.n}</div>
-          <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-ink text-white text-[10px] px-2 py-1 rounded whitespace-nowrap pointer-events-none transition-opacity">
-            {p.l} · {Math.round(p.v * 412)} donasi
-          </div>
-        </div>
-      ))}
-
-      {/* legend */}
-      <div className="absolute bottom-2 right-2 bg-white border border-line rounded px-2 py-1 text-[10px] flex items-center gap-1.5">
-        <span className="text-mute">Donations:</span>
-        <span className="h-2 w-2 rounded-full bg-[#1A73E8]/30"/>
-        <span className="h-2.5 w-2.5 rounded-full bg-[#1A73E8]/60"/>
-        <span className="h-3 w-3 rounded-full bg-[#1A73E8]"/>
+    <div className="bg-white rounded-md border border-line p-3">
+      <div className="flex items-center gap-1.5">
+        <span className="h-2 w-2 rounded-sm" style={{ background: color }} />
+        <div className="text-[10px] uppercase tracking-wider text-mute font-bold">{label}</div>
       </div>
+      <div className="mt-1.5 text-lg font-extrabold text-ink">{value}</div>
     </div>
   );
+}
+
+function DSStat({ label, value }: any) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-mute font-bold">{label}</div>
+      <div className="mt-1 text-lg font-extrabold text-ink">{value}</div>
+    </div>
+  );
+}
+
+function DSEmpty() {
+  return <div className="py-10 text-center text-sm text-mute">Belum ada data.</div>;
 }

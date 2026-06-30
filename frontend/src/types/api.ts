@@ -76,6 +76,7 @@ export interface Invoice {
   whatsapp: string;
   email: string;
   note: string;
+  clickId?: string;
   anon: boolean;
   message: string;
 }

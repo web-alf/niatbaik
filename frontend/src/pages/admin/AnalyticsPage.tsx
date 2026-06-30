@@ -10,16 +10,43 @@ import { Card, PageHeader, Select, DateRangePill, Btn, StatCard, LineChart, Donu
 export default function AnalyticsPage() {
   const showToast = useUiStore((s) => s.showToast);
   const [campaign, setCampaign] = useState('all');
+  const [search, setSearch] = useState('');
 
-  const trafficSources = useDataStore((s) => s.analyticsTraffic) || useDataStore((s) => s.trafficSources) || [];
+  // Each useDataStore call is an unconditional hook; pick the fallback AFTER (never
+  // chain hook calls with `||` — that makes the second call conditional and breaks
+  // the Rules of Hooks). A fixed palette colors the traffic donut client-side since
+  // the backend TrafficSource has no color field.
+  const SRC_COLORS = ['#2E4191', '#38B6FF', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#94A3B8'];
+  const analyticsTraffic = useDataStore((s) => s.analyticsTraffic);
+  const trafficSourcesStore = useDataStore((s) => s.trafficSources);
+  const trafficSources = ((analyticsTraffic || trafficSourcesStore || []) as any[])
+    .map((t: any, i: number) => ({ ...t, color: t.color || SRC_COLORS[i % SRC_COLORS.length] }));
   const dailyDonations = useDataStore((s) => s.dailyDonations) || [];
-  const allCampaigns = useDataStore((s) => s.analyticsCampaigns) || useDataStore((s) => s.campaigns) || [];
+  const analyticsCampaigns = useDataStore((s) => s.analyticsCampaigns);
+  const campaignsStore = useDataStore((s) => s.campaigns);
+  const allCampaigns = analyticsCampaigns || campaignsStore || [];
   // Filter table by selected campaign. (A platform filter intentionally
   // omitted: backend CampaignPerf has no per-platform breakdown, so offering
   // a platform selector would falsely imply filtering that can't happen.)
   const campaigns = allCampaigns.filter((c: any) =>
-    campaign === 'all' || c.id === campaign || c.title === campaign
+    (campaign === 'all' || c.id === campaign || c.title === campaign) &&
+    (!search || (c.title || c.name || '').toLowerCase().includes(search.toLowerCase()))
   );
+
+  const analyticsUtm = useDataStore((s) => s.analyticsUtm);
+  // Build live UTM field summaries from captured donation UTM rows (UTMEntry:
+  // {source, medium, campaign, sessions}). Each field shows the distinct real
+  // values seen; a field with no data renders an honest "Belum ada data" badge.
+  const utmRows: any[] = Array.isArray(analyticsUtm) ? analyticsUtm : (analyticsUtm?.entries || []);
+  const distinct = (key: string) => {
+    const vals = Array.from(new Set(utmRows.map((r) => (r?.[key] || '').toString().trim()).filter(Boolean)));
+    return vals;
+  };
+  const utmFields = [
+    { f: 'utm_source',   vals: distinct('source'),   tone: 'brand' },
+    { f: 'utm_medium',   vals: distinct('medium'),   tone: 'sky' },
+    { f: 'utm_campaign', vals: distinct('campaign'), tone: 'ok' },
+  ];
 
   const ov = useDataStore((s) => s.analyticsOverview) || {};
   // Backend /analytics/overview returns: total_raised, total_transactions, total_leads,
@@ -67,14 +94,14 @@ export default function AnalyticsPage() {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon="eye"    label="Total Visitor"   value={fmtNum(totals.visitors)} delta="+24.1%" accent="brand"/>
-        <StatCard icon="target" label="Total Leads"     value={fmtNum(totals.leads)}    delta="+18.0%" accent="sky"/>
-        <StatCard icon="heart"  label="Total Donasi"    value={fmtNum(totals.donations)} delta="+12.4%" accent="ok"/>
-        <StatCard icon="bolt"   label="Conversion Rate" value={(totals.convRate || 0).toFixed(2)+'%'} delta="+0.4pp" accent="warn"/>
-        <StatCard icon="creditcard" label="Cost / Lead" value={fmtIDRShort(totals.cpl)} delta="-8.2%" deltaTone="down" accent="bad"/>
-        <StatCard icon="wallet" label="Cost / Donation" value={fmtIDRShort(totals.cpd)} delta="-4.6%" deltaTone="down" accent="bad"/>
-        <StatCard icon="flame"  label="Revenue"         value={fmtIDRShort(totals.revenue)} delta="+22.1%" accent="ok"/>
-        <StatCard icon="sparkle" label="ROAS Estimasi"  value={totals.roas+'x'} delta="+0.3x" accent="brand"/>
+        <StatCard icon="eye"    label="Total Visitor"   value={fmtNum(totals.visitors)} sub="estimasi (leads ×3)" accent="brand"/>
+        <StatCard icon="target" label="Total Leads"     value={fmtNum(totals.leads)}    accent="sky"/>
+        <StatCard icon="heart"  label="Total Donasi"    value={fmtNum(totals.donations)} accent="ok"/>
+        <StatCard icon="bolt"   label="Conversion Rate" value={(totals.convRate || 0).toFixed(2)+'%'} accent="warn"/>
+        <StatCard icon="creditcard" label="Cost / Lead" value={totals.cpl ? fmtIDRShort(totals.cpl) : '—'} accent="bad"/>
+        <StatCard icon="wallet" label="Cost / Donation" value={totals.cpd ? fmtIDRShort(totals.cpd) : '—'} accent="bad"/>
+        <StatCard icon="flame"  label="Revenue"         value={fmtIDRShort(totals.revenue)} accent="ok"/>
+        <StatCard icon="sparkle" label="ROAS Estimasi"  value={totals.roas ? totals.roas.toFixed(1)+'x' : '—'} accent="brand"/>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -122,8 +149,7 @@ export default function AnalyticsPage() {
             <div className="text-xs text-mute mt-0.5">Diurutkan berdasarkan donasi 30 hari terakhir</div>
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <SearchInput placeholder="Filter campaign…" className="w-full sm:w-56"/>
-            <Btn variant="outline" tone="ink" size="sm" icon="download">Export</Btn>
+            <SearchInput placeholder="Filter campaign…" value={search} onChange={setSearch} className="w-full sm:w-56"/>
           </div>
         </div>
 
@@ -154,7 +180,7 @@ export default function AnalyticsPage() {
                 const rev = c.revenue || c.raised || c.total_raised || 0;
                 const cpl = c.cost_per_lead || 0;
                 const cpd = c.cost_per_donation || 0;
-                const roas = c.roas || (rev > 0 && cpd > 0 ? (rev / (d * cpd)).toFixed(1) : '—');
+                const roas = c.roas || (rev > 0 && cpd > 0 && d > 0 ? +(rev / (d * cpd)).toFixed(1) : '—');
                 return (
                   <tr key={c.id} className="border-b border-line last:border-0 hover:bg-bg2/60">
                     <td className="px-5 py-3">
@@ -171,7 +197,7 @@ export default function AnalyticsPage() {
                     <td className="py-3 text-right text-mute">{cpd ? fmtIDRShort(cpd) : '—'}</td>
                     <td className="py-3 text-right font-bold text-ink">{fmtIDRShort(rev)}</td>
                     <td className="pr-5 py-3 text-right">
-                      <span className={'font-bold ' + (roas >= 3 ? 'text-emerald-600' : roas >= 1.5 ? 'text-amber-600' : 'text-rose-600')}>{typeof roas === 'number' ? roas.toFixed(1) + 'x' : roas}</span>
+                      <span className={'font-bold ' + (typeof roas !== 'number' ? 'text-mute' : roas >= 3 ? 'text-emerald-600' : roas >= 1.5 ? 'text-amber-600' : 'text-rose-600')}>{typeof roas === 'number' ? roas.toFixed(1) + 'x' : roas}</span>
                     </td>
                   </tr>
                 );
@@ -191,20 +217,15 @@ export default function AnalyticsPage() {
           <Btn variant="ghost" tone="ink" size="sm" icon="copy">Salin URL builder</Btn>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-          {[
-            { f:'utm_source',   v:'facebook · google · tiktok · instagram', tone:'brand' },
-            { f:'utm_medium',   v:'paid · cpc · cpm · social · email',      tone:'sky' },
-            { f:'utm_content',  v:'hero-vid-01 · carousel-3 · bantu-rans',  tone:'warn' },
-            { f:'utm_campaign', v:'aira-jantung-q2 · sumur-ntt · pelindung', tone:'ok' },
-            { f:'utm_term',     v:'donasi · sedekah · zakat · organik',     tone:'purple' },
-            { f:'utm_id',       v:'rian · fb-29384 · gg-71028',             tone:'brand' },
-          ].map((u) => (
+          {utmFields.map((u) => (
             <div key={u.f} className="rounded-xl border border-line p-3">
               <div className="flex items-center gap-2 mb-1.5">
                 <code className="text-xs font-mono font-bold text-ink bg-bg2 px-2 py-0.5 rounded">{u.f}</code>
-                <Badge tone={u.tone} size="sm">active</Badge>
+                {u.vals.length > 0
+                  ? <Badge tone={u.tone} size="sm">{u.vals.length} nilai</Badge>
+                  : <Badge tone="slate" size="sm">belum ada data</Badge>}
               </div>
-              <div className="text-xs text-mute">{u.v}</div>
+              <div className="text-xs text-mute line-clamp-2">{u.vals.length > 0 ? u.vals.slice(0, 6).join(' · ') : '—'}</div>
             </div>
           ))}
         </div>

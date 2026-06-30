@@ -10,7 +10,6 @@ import { Card, StatCard, Badge, StatusBadge, Btn, SearchInput, Modal, PageHeader
 export default function CsInboxPage() {
   // Live invoices when API loaded them; else seed.
   const transactions = useDataStore((s) => s.transactions);
-  const dashboardStats = useDataStore((s) => s.dashboardStats);
   const seedTxns = transactions;
   const openInvoice = useUiStore((s) => s.openInvoice);
   const showToast = useUiStore((s) => s.showToast);
@@ -19,7 +18,7 @@ export default function CsInboxPage() {
   const [txns, setTxns] = useState<any[]>(() => seedTxns.map((t: any) => ({ ...t })));
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<any>(txns[1]);
+  const [selected, setSelected] = useState<any>(txns[0]);
   const [advFilterOpen, setAdvFilterOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
 
@@ -77,15 +76,27 @@ export default function CsInboxPage() {
   // Update status to paid — optimistic local + best-effort API. The backend expects
   // a real PaymentStatus *code* (e.g. "Terbayar"), not the UI bucket "Paid"; pick the
   // first status flagged is_paid from the admin-managed list, falling back to "Terbayar".
-  const updateStatusToPaid = (t: any) => {
+  const updateStatusToPaid = async (t: any) => {
+    if (!t.uuid) { showToast('UUID invoice tidak tersedia, tidak bisa update status'); return; }
+    // The backend expects a real PaymentStatus *code* (e.g. "Terbayar"), not the UI
+    // bucket "Paid". Require the master list to be loaded so we send a code the backend
+    // recognizes — guessing "Terbayar" 422s silently if that status doesn't exist.
+    const paidStatus = (useDataStore.getState().paymentStatuses || []).find((s: any) => s.is_paid);
+    if (!paidStatus) { showToast('Daftar status pembayaran belum dimuat. Refresh lalu coba lagi.'); return; }
+
+    const prevStatus = t.status;
+    // Optimistic update, then await the API and roll back on failure so the UI can't
+    // silently show "Paid" while the backend rejected it.
     setTxns((prev) => prev.map((x: any) => x.id === t.id ? { ...x, status: 'Paid' } : x));
     setSelected((prev: any) => prev && prev.id === t.id ? { ...prev, status: 'Paid' } : prev);
-    showToast(`Invoice ${t.id} → Paid`);
-    const paidStatus = (useDataStore.getState().paymentStatuses || []).find((s: any) => s.is_paid);
-    const code = paidStatus ? paidStatus.code : 'Terbayar';
-    // Use the DB UUID (t.uuid), NOT the display id (invoice_number) — the backend parses
-    // the path param as a UUID and would 400 on "INV-…" (previously silently failed).
-    try { if (t.uuid) (api as any)?.updateInvoiceStatus?.(t.uuid, code); } catch (e) { /* offline: optimistic only */ }
+    try {
+      await api.updateInvoiceStatus(t.uuid, paidStatus.code);
+      showToast(`Invoice ${t.id} → Paid`);
+    } catch (e: any) {
+      setTxns((prev) => prev.map((x: any) => x.id === t.id ? { ...x, status: prevStatus } : x));
+      setSelected((prev: any) => prev && prev.id === t.id ? { ...prev, status: prevStatus } : prev);
+      showToast('Gagal update status: ' + (e?.message || 'Error'));
+    }
   };
 
   // Persist a CS internal note. Uses the DB UUID (t.uuid) — the note endpoint parses its
@@ -111,6 +122,17 @@ export default function CsInboxPage() {
     showToast('Invoice ' + t.id + ' disalin');
   };
 
+  // "Selesai bulan ini" — computed from the loaded invoices (the backend dashboardStats
+  // payload has no completed_month field), counting Paid invoices dated this month.
+  const completedThisMonth = useMemo(() => {
+    const now = new Date();
+    return txns.filter((t: any) => {
+      if (t.status !== 'Paid') return false;
+      const d = parseTxnDate(t.date);
+      return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).length;
+  }, [txns]);
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -134,7 +156,7 @@ export default function CsInboxPage() {
         <StatCard icon="inbox"  label="Total hasil filter" value={fmtNum(filtered.length)} accent="brand" sub={`dari ${fmtNum(txns.length)} transaksi`}/>
         <StatCard icon="bolt"   label="Menunggu follow-up" value={fmtNum(txns.filter((t: any)=>t.status==='Pending').length)} accent="warn"/>
         <StatCard icon="close"  label="Pembayaran gagal"   value={fmtNum(txns.filter((t: any)=>t.status==='Failed').length)} accent="bad"/>
-        <StatCard icon="check"  label="Selesai bulan ini"  value={String((dashboardStats || {}).completed_month || 0)} accent="ok"/>
+        <StatCard icon="check"  label="Selesai bulan ini"  value={fmtNum(completedThisMonth)} accent="ok"/>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -186,7 +208,7 @@ export default function CsInboxPage() {
 
         {/* Detail */}
         <Card className="lg:col-span-2 p-5">
-          {selected ? <CSDetail t={selected} onOpen={() => openInvoice(selected)} onCopy={copyInvoice} onMarkPaid={updateStatusToPaid} onSaveNote={saveNote} showToast={showToast}/>
+          {selected ? <CSDetail key={selected?.id} t={selected} onOpen={() => openInvoice(selected)} onCopy={copyInvoice} onMarkPaid={updateStatusToPaid} onSaveNote={saveNote} showToast={showToast}/>
                     : <Empty title="Pilih percakapan" sub="Pilih donatur di sebelah kiri."/>}
         </Card>
       </div>
@@ -583,40 +605,14 @@ function CSDetail({ t, onOpen, onCopy, onMarkPaid, onSaveNote, showToast }: any)
         <div className="text-xs italic text-mute mt-1">"{String(t.message||'')}"</div>
       </div>
 
-      {/* Conversation thread */}
-      <div className="rounded-xl border border-line bg-bg2/60 p-4 space-y-3">
-        <div className="text-xs uppercase font-semibold text-mute">Riwayat Komunikasi</div>
-        <div className="flex gap-2">
-          <div className="h-7 w-7 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0"><Icon name="wa" size={14}/></div>
-          <div className="flex-1">
-            <div className="bg-emerald-50 rounded-2xl rounded-tl-md px-3 py-2 inline-block max-w-md text-sm">
-              Halo, Kak. Terima kasih sudah berniat baik 🙏 Mohon konfirmasi transfer untuk donasi {fmtIDR(t.amount)} ke campaign "{String(t.campaign||'').slice(0,40)}…". Apakah pembayaran sudah dilakukan?
-            </div>
-            <div className="text-[10px] text-mute mt-0.5">CS · 14:24</div>
-          </div>
-        </div>
-        <div className="flex gap-2 flex-row-reverse">
-          <div className="h-7 w-7 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center shrink-0">{String(t.anon?'HA':(t.donor||''))[0]}</div>
-          <div className="flex-1 text-right">
-            <div className="bg-white border border-line rounded-2xl rounded-tr-md px-3 py-2 inline-block max-w-md text-sm text-left">
-              Sudah saya transfer kak via BCA. Mohon dicek ya.
-            </div>
-            <div className="text-[10px] text-mute mt-0.5">Donatur · 14:31</div>
-          </div>
-        </div>
-      </div>
-
       <div>
         <label className="text-xs uppercase font-semibold text-mute">Catatan CS</label>
-        <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Tambahkan catatan internal…" className="field mt-1" rows={2}/>
+        <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Tambahkan catatan internal…" className="field mt-1" rows={3}/>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <button onClick={() => { if (onSaveNote) onSaveNote(t, note, setNoteSaving); }} disabled={noteSaving}
             className="px-3 py-1.5 rounded-lg border border-line bg-white text-xs font-bold text-brand-600 hover:bg-brand-50 disabled:opacity-50 inline-flex items-center gap-1.5">
             {noteSaving ? 'Menyimpan…' : 'Simpan catatan'}
           </button>
-          <Badge tone="outline">Sudah dihubungi WA</Badge>
-          <Badge tone="outline">Menunggu transfer</Badge>
-          <Badge tone="outline">Donasi berulang</Badge>
         </div>
       </div>
 

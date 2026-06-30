@@ -113,8 +113,32 @@ export function mapInvoice(inv: any): Invoice {
     whatsapp: inv.donor_phone || inv.whatsapp || '',
     email: inv.donor_email || inv.email || '',
     note: inv.cs_note || inv.note || '',
+    clickId: inv.click_id || inv.clickId || '',
     anon: inv.is_anonymous ?? inv.anon ?? false,
     message: inv.message || '',
+  };
+}
+
+// mapFundraiser normalizes a backend model.Fundraiser (nested user/campaign objects)
+// into the flat shape FundraiserPage renders. Fields the backend does not yet track
+// (commission, ref_code, per-fundraiser status) are intentionally absent here — the
+// page must not invent them. `name`/`campaign` come from the preloaded relations.
+export function mapFundraiser(f: any): any {
+  if (!f) return f;
+  return {
+    id: f.id,
+    userId: f.user_id,
+    campaignId: f.campaign_id,
+    name: f.user?.name || f.name || '',
+    email: f.user?.email || '',
+    campaign: f.campaign?.title || '',
+    campaignSlug: f.campaign?.slug || '',
+    raised: f.total_raised ?? 0,
+    clicks: f.total_clicks ?? 0,
+    donors: f.total_donors ?? 0,
+    txn: f.invoices_created ?? 0,
+    txnPaid: f.invoices_paid ?? 0,
+    joined: f.created_at || '',
   };
 }
 

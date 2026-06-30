@@ -347,11 +347,9 @@ export const InvoiceModal = ({ txn, onClose, onCopy }: any) => {
   );
   return (
     <Modal open onClose={onClose} title="Detail Invoice" size="lg"
-      footer={<>
+      footer={
         <Btn variant="outline" tone="ink" icon="copy" onClick={() => onCopy && onCopy(txn.id)}>Salin invoice</Btn>
-        <Btn variant="outline" tone="ink" icon="refresh">Update status</Btn>
-        <Btn icon="wa">Kirim follow-up WA</Btn>
-      </>}>
+      }>
       <div className="space-y-5">
         <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-line">
           <div>
@@ -382,24 +380,16 @@ export const InvoiceModal = ({ txn, onClose, onCopy }: any) => {
           <div className="text-xs uppercase tracking-wider text-mute font-semibold mb-3">UTM & Ads Tracking</div>
           <UtmGrid utm={txn.utm} />
           <div className="mt-4 pt-4 border-t border-line">
-            <div className="text-[11px] uppercase tracking-wider text-mute font-semibold mb-2">Click IDs</div>
-            <div className="grid grid-cols-3 gap-3">
-              <Field label="fbclid" value={txn.utm.source === 'facebook' ? 'IwAR0…xy3' : '—'} mono />
-              <Field label="gclid" value={txn.utm.source === 'google' ? 'CjwK…aBc' : '—'} mono />
-              <Field label="ttclid" value={txn.utm.source === 'tiktok' ? 'E.C.P…29' : '—'} mono />
-            </div>
+            <div className="text-[11px] uppercase tracking-wider text-mute font-semibold mb-2">Click ID</div>
+            <Field label={txn.utm?.source ? `${txn.utm.source} click id` : 'click id'} value={txn.clickId} mono />
           </div>
         </div>
         <div>
           <div className="text-xs uppercase tracking-wider text-mute font-semibold mb-2">Catatan CS</div>
-          <textarea defaultValue={txn.note}
-            className="w-full min-h-[80px] rounded-xl border border-line bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600"
-            placeholder="Tambahkan catatan internal untuk transaksi ini…" />
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Badge tone="outline">Sudah dihubungi WA</Badge>
-            <Badge tone="outline">Menunggu transfer</Badge>
-            <Badge tone="outline">Donasi berulang</Badge>
-            <Badge tone="outline">+ Tag</Badge>
+          {/* Read-only here — this modal is a viewer (opened from search/dashboard).
+              Notes are edited in the CS Inbox panel which has the save handler. */}
+          <div className="w-full min-h-[60px] rounded-xl border border-line bg-bg2 p-3 text-sm text-ink whitespace-pre-wrap">
+            {txn.note ? txn.note : <span className="text-mute">Belum ada catatan. Tambahkan dari CS Inbox.</span>}
           </div>
         </div>
       </div>

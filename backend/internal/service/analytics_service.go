@@ -5,11 +5,12 @@ import (
 )
 
 type AnalyticsService struct {
-	statsRepo *repository.StatsRepo
+	statsRepo   *repository.StatsRepo
+	adCostRepo  *repository.AdCostRepo
 }
 
-func NewAnalyticsService(statsRepo *repository.StatsRepo) *AnalyticsService {
-	return &AnalyticsService{statsRepo: statsRepo}
+func NewAnalyticsService(statsRepo *repository.StatsRepo, adCostRepo *repository.AdCostRepo) *AnalyticsService {
+	return &AnalyticsService{statsRepo: statsRepo, adCostRepo: adCostRepo}
 }
 
 type AnalyticsOverview struct {
@@ -21,6 +22,14 @@ type AnalyticsOverview struct {
 	TotalFundraisers  int64   `json:"total_fundraisers"`
 	TodayRaised       int64   `json:"today_raised"`
 	MonthRaised       int64   `json:"month_raised"`
+	// Ad-spend-derived KPIs the Advertiser/Analytics dashboards render. total_visitors
+	// uses the same leads*3 estimate as the funnel until real session tracking exists;
+	// when there is no recorded ad spend, cost_per_lead/cost_per_donation/roas are 0.
+	TotalVisitors    int64   `json:"total_visitors"`
+	TotalAdSpend     int64   `json:"total_ad_spend"`
+	CostPerLead      float64 `json:"cost_per_lead"`
+	CostPerDonation  float64 `json:"cost_per_donation"`
+	ROAS             float64 `json:"roas"`
 }
 
 func (s *AnalyticsService) GetOverview() (*AnalyticsOverview, error) {
@@ -29,7 +38,18 @@ func (s *AnalyticsService) GetOverview() (*AnalyticsOverview, error) {
 		return nil, err
 	}
 
-	return &AnalyticsOverview{
+	// Sum recorded ad spend across all platforms (best-effort; empty => 0 KPIs).
+	var totalSpend int64
+	if s.adCostRepo != nil {
+		if totals, err := s.adCostRepo.GetTotalByPlatform(); err == nil {
+			for _, t := range totals {
+				totalSpend += t.Total
+			}
+		}
+	}
+
+	visitors := stats.TotalLeads * 3
+	ov := &AnalyticsOverview{
 		TotalRaised:       stats.TotalRaised,
 		TotalTransactions: stats.TotalTransactions,
 		TotalLeads:        stats.TotalLeads,
@@ -38,7 +58,19 @@ func (s *AnalyticsService) GetOverview() (*AnalyticsOverview, error) {
 		TotalFundraisers:  stats.TotalFundraisers,
 		TodayRaised:       stats.TodayRaised,
 		MonthRaised:       stats.MonthRaised,
-	}, nil
+		TotalVisitors:     visitors,
+		TotalAdSpend:      totalSpend,
+	}
+	if totalSpend > 0 {
+		if stats.TotalLeads > 0 {
+			ov.CostPerLead = float64(totalSpend) / float64(stats.TotalLeads)
+		}
+		if stats.TotalTransactions > 0 {
+			ov.CostPerDonation = float64(totalSpend) / float64(stats.TotalTransactions)
+		}
+		ov.ROAS = float64(stats.TotalRaised) / float64(totalSpend)
+	}
+	return ov, nil
 }
 
 func (s *AnalyticsService) GetCampaignPerformance() ([]repository.CampaignPerf, error) {
@@ -70,10 +102,14 @@ func (s *AnalyticsService) GetFunnelData() ([]FunnelStage, error) {
 		visitors = 1
 	}
 
+	// Stages: visit (estimated) -> lead (any invoice created) -> paid (settled).
+	// "donation" == invoice created (TotalLeads counts all invoices), "paid" ==
+	// settled (TotalTransactions counts is_paid). Distinct counts so the funnel
+	// shows the real drop-off between created and paid instead of two equal bars.
 	funnel := []FunnelStage{
 		{Stage: "visit", Count: visitors, Rate: 100},
 		{Stage: "lead", Count: stats.TotalLeads, Rate: float64(stats.TotalLeads) / float64(visitors) * 100},
-		{Stage: "donation", Count: stats.TotalTransactions, Rate: float64(stats.TotalTransactions) / float64(visitors) * 100},
+		{Stage: "donation", Count: stats.TotalLeads, Rate: float64(stats.TotalLeads) / float64(visitors) * 100},
 		{Stage: "paid", Count: stats.TotalTransactions, Rate: float64(stats.TotalTransactions) / float64(visitors) * 100},
 	}
 	return funnel, nil

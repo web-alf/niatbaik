@@ -8,7 +8,7 @@
 // would silently stop updating on the next poll.
 import { create } from 'zustand';
 import { api } from '@/lib/api';
-import { mapCampaign, mapInvoice, applyThemeColor, setPaymentStatusRef } from '@/lib/mappers';
+import { mapCampaign, mapInvoice, mapFundraiser, applyThemeColor, setPaymentStatusRef } from '@/lib/mappers';
 import { NBTracking } from '@/lib/tracking';
 import type {
   Campaign, Invoice, Category, PaymentMethod, PaymentStatus, NotificationItem, User,
@@ -126,10 +126,10 @@ export const useDataStore = create<DataState & DataActions>((set, get) => ({
       safe(() => api.recentTransactions(48)),
       safe(() => api.notifications()),
       safe(() => api.fundraisers()),
-      safe(() => api.users()),
+      safe(() => api.users('limit=500')),
       safe(() => api.settings()),
       safe(() => api.profile()),
-      safe(() => api.invoices('limit=100')),
+      safe(() => api.invoices('limit=500')),
       safe(() => api.dailyChart(30)),
       safe(() => api.dashboardStats()),
       safe(() => api.paymentMethodChart()),
@@ -138,11 +138,14 @@ export const useDataStore = create<DataState & DataActions>((set, get) => ({
       safe(() => api.trash()),
     ]);
     const patch: Partial<DataState> = {};
-    // invoices('limit=100') is the fuller list; recentTransactions is the fallback.
+    // invoices('limit=500') is the fuller list; recentTransactions is the fallback.
     if (Array.isArray(invRes?.data)) patch.transactions = invRes.data.map(mapInvoice);
     else if (Array.isArray(txRes?.data)) patch.transactions = txRes.data.map(mapInvoice);
-    if (Array.isArray(notifRes?.data)) patch.notifications = notifRes.data;
-    if (Array.isArray(fundraiserRes?.data)) patch.fundraisers = fundraiserRes.data;
+    // Notifications endpoint wraps the list: { notifications: [...], unread_count }.
+    const notifData: any = notifRes?.data;
+    if (Array.isArray(notifData?.notifications)) patch.notifications = notifData.notifications;
+    else if (Array.isArray(notifData)) patch.notifications = notifData; // tolerate bare-array shape
+    if (Array.isArray(fundraiserRes?.data)) patch.fundraisers = fundraiserRes.data.map(mapFundraiser);
     if (Array.isArray(usersRes?.data)) patch.users = usersRes.data;
     if (settingsRes?.data) patch.settings = settingsRes.data;
     if (profileRes?.data) patch.profile = profileRes.data;
@@ -151,12 +154,20 @@ export const useDataStore = create<DataState & DataActions>((set, get) => ({
     if (pmChartRes?.data) patch.paymentBreakdown = pmChartRes.data;
     if (tsChartRes?.data) patch.trafficSources = tsChartRes.data;
     if (pmListRes?.data) patch.paymentMethodsList = pmListRes.data;
-    if (Array.isArray(trashRes?.data)) patch.trash = trashRes.data;
+    // Trash endpoint returns { campaigns: [...], users: [...] }; flatten to a typed list.
+    if (Array.isArray(trashRes?.data)) patch.trash = trashRes.data; // tolerate bare-array shape
+    else if (trashRes?.data && typeof trashRes.data === 'object') {
+      const d: any = trashRes.data;
+      patch.trash = [
+        ...(Array.isArray(d.campaigns) ? d.campaigns.map((c: any) => ({ ...c, type: 'campaign' })) : []),
+        ...(Array.isArray(d.users) ? d.users.map((u: any) => ({ ...u, type: 'user' })) : []),
+      ];
+    }
     set(patch);
   },
 
   async refreshInvoices() {
-    const r = await safe(() => api.invoices('limit=100'));
+    const r = await safe(() => api.invoices('limit=500'));
     if (Array.isArray(r?.data)) set({ transactions: r.data.map(mapInvoice) });
   },
 

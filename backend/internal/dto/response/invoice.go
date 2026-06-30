@@ -28,6 +28,10 @@ type InvoiceResponse struct {
 	PayCode       string     `json:"pay_code"`
 	TypePayment    string    `json:"type_payment"`
 	URLAlternative string    `json:"url_alternative"`
+	// PaymentInstructions is a JSON snapshot of the manual bank the donor chose
+	// ({bank_name, account_number, account_name, logo, unique_code}) so the
+	// confirmation page shows the exact destination, not a generic org account.
+	PaymentInstructions string `json:"payment_instructions"`
 	UTMSource     string     `json:"utm_source"`
 	UTMMedium     string     `json:"utm_medium"`
 	UTMCampaign   string     `json:"utm_campaign"`
@@ -81,6 +85,7 @@ func ToInvoiceResponse(inv *model.Invoice) InvoiceResponse {
 		PayCode:       inv.PayCode,
 		TypePayment:    inv.TypePayment,
 		URLAlternative: inv.URLAlternative,
+		PaymentInstructions: inv.PaymentInstructions,
 		UTMSource:     inv.UTMSource,
 		UTMMedium:     inv.UTMMedium,
 		UTMCampaign:   inv.UTMCampaign,

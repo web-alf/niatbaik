@@ -173,6 +173,19 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 		paymentMethodID = &chosenMethod.ID
 	}
 
+	// For a manual bank transfer, snapshot the destination account onto the invoice
+	// (PaymentInstructions JSON) so the confirmation page shows the exact
+	// bank/number/holder/logo + kode unik. Use the donor's CHOSEN account
+	// ("manual-bank-N"); fall back to the first configured account when the id is a bare
+	// "manual" (no specific pick).
+	paymentInstructions := ""
+	if gateway == "manual" {
+		if bank, instr := manualInstructions(settingsForPay, rawID, uniqueCode); bank != nil {
+			paymentMethodName = bank.BankName
+			paymentInstructions = instr
+		}
+	}
+
 	msg := req.Message
 	var invoice model.Invoice
 
@@ -194,10 +207,11 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 				Status:            "Menunggu Pembayaran",
 				IP:                ip,
 				ReferredBy:        referredBy,
-				PaymentMethodID:   paymentMethodID,
-				PaymentMethodName: paymentMethodName,
-				CSPhone:           csPhone,
-				CSName:            csName,
+				PaymentMethodID:     paymentMethodID,
+				PaymentMethodName:   paymentMethodName,
+				PaymentInstructions: paymentInstructions,
+				CSPhone:             csPhone,
+				CSName:              csName,
 				UTMSource:         req.UTMSource,
 				UTMMedium:         req.UTMMedium,
 				UTMCampaign:       req.UTMCampaign,
@@ -329,14 +343,52 @@ func (s *DonationService) degradeToManual(invoice *model.Invoice, settings *mode
 	}
 	log.Printf("[donation] %s failed for %s, degrading to manual transfer: %v", what, invoice.InvoiceNumber, cause)
 	// The gateway path didn't add a unique code; add it now so manual reconciliation matches.
-	invoice.Total = invoice.Subtotal + uniqueCodeFromSettings(settings)
+	uc := uniqueCodeFromSettings(settings)
+	invoice.Total = invoice.Subtotal + uc
 	invoice.TypePayment = "Transfer Manual"
 	invoice.PayCode = ""
 	invoice.QrURL = ""
+	// The donor picked a gateway channel, not a specific manual bank, so snapshot the
+	// FIRST configured manual account (bare "manual" → index 0) onto the invoice — else
+	// the confirmation page would show a blank destination after a gateway failure.
+	if bank, instr := manualInstructions(settings, "manual", uc); bank != nil {
+		invoice.PaymentMethodName = bank.BankName
+		invoice.PaymentInstructions = instr
+	}
 	if err := s.invoiceRepo.Update(invoice); err != nil {
 		log.Printf("[donation] failed to persist manual fallback for %s: %v", invoice.InvoiceNumber, err)
 	}
 	return ""
+}
+
+// manualInstructions resolves the manual-transfer destination for an invoice and returns
+// the chosen ManualBank plus a JSON PaymentInstructions snapshot. rawID may be a specific
+// "manual-bank-N" pick or a bare "manual"/empty (→ first configured account). Returns
+// (nil, "") when no manual account is configured.
+func manualInstructions(settings *model.Setting, rawID string, uniqueCode int64) (*model.ManualBank, string) {
+	bank := model.ManualBankBySyntheticID(settings, rawID)
+	if bank == nil {
+		// Bare "manual" or unparseable index: use the first configured account.
+		if banks := model.ParseManualBanks(settings); len(banks) > 0 {
+			bank = &banks[0]
+		}
+	}
+	if bank == nil {
+		return nil, ""
+	}
+	instr := map[string]interface{}{
+		"type":           "manual_transfer",
+		"bank_name":      bank.BankName,
+		"account_number": bank.AccountNumber,
+		"account_name":   bank.AccountName,
+		"logo":           bank.Logo,
+		"unique_code":    uniqueCode,
+	}
+	b, err := json.Marshal(instr)
+	if err != nil {
+		return bank, ""
+	}
+	return bank, string(b)
 }
 
 // cleanupDeadInvoice removes an invoice + its donation that turned out to be unpayable,
@@ -494,7 +546,9 @@ func hasManualPath(s *model.Setting) bool {
 	if s == nil {
 		return false
 	}
-	return strings.TrimSpace(s.BankNumber) != ""
+	// A structured ManualBanks list counts even when the legacy single BankNumber is
+	// blank — ParseManualBanks covers both shapes plus the org-account fallback.
+	return len(model.ParseManualBanks(s)) > 0
 }
 
 // channelDefaultGateway is the legacy/unconfigured routing default per channel key,

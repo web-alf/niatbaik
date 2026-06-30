@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/anrdart/niatbaik-api/internal/config"
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
@@ -16,10 +15,12 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// hasManualBank reports whether the org's single manual bank account number is configured
-// (mirrors service.hasManualPath; the public list only needs the number to show a fallback).
+// hasManualBank reports whether at least one manual-transfer account is configured —
+// either via the structured ManualBanks list OR the legacy single org account. Checks
+// ParseManualBanks (not just BankNumber) so a structured-only config (legacy BankNumber
+// left blank) still surfaces its accounts to donors.
 func hasManualBank(s *model.Setting) bool {
-	return s != nil && strings.TrimSpace(s.BankNumber) != ""
+	return s != nil && len(model.ParseManualBanks(s)) > 0
 }
 
 type PublicHandler struct {
@@ -254,27 +255,22 @@ func (h *PublicHandler) ListPaymentMethods(c echo.Context) error {
 			})
 		}
 
-		// Manual bank transfer to the org account — shown when a bank number is configured
-		// (regardless of Flip/Moota), so a donor always has a manual fallback. If the admin
-		// picked specific bank labels (ManualBanks), surface one option per label; else the
-		// single BankName entry.
+		// Manual bank transfer — one donor-facing option per configured account, each with
+		// its OWN number/holder/logo (structured ManualBanks). Shown whenever a manual bank
+		// exists so the donor always has a fallback. The donor picks one in a dropdown.
 		if hasManualBank(settings) {
-			labels := manualBankList(settings.ManualBanks)
-			if len(labels) == 0 && settings.BankName != "" {
-				labels = []string{settings.BankName}
-			}
-			for i, label := range labels {
+			for i, b := range model.ParseManualBanks(settings) {
 				items = append(items, map[string]interface{}{
 					"id":           fmt.Sprintf("manual-bank-%d", i),
-					"bank_name":    label,
-					"bank_number":  settings.BankNumber,
+					"bank_name":    b.BankName,
+					"bank_number":  b.AccountNumber,
 					"bank_type":    "va",
-					"account_name": settings.BankAccountName,
+					"account_name": b.AccountName,
 					"type":         "va",
 					"category":     "bank_transfer",
 					"code":         "",
 					"admin_fee":    settings.AdminFee,
-					"image":        "",
+					"image":        b.Logo,
 					"gateway":      "manual",
 				})
 			}
@@ -426,21 +422,3 @@ func flipChannelState(cfgJSON, key string) (bool, string) {
 	return entry.Enabled, code
 }
 
-// manualBankList parses the ManualBanks JSON config (a flat array of bank-label
-// strings, e.g. ["Bank BCA","Bank BNI"]). Empty/unparseable → nil (legacy fallback).
-func manualBankList(cfgJSON string) []string {
-	if cfgJSON == "" {
-		return nil
-	}
-	var labels []string
-	if err := json.Unmarshal([]byte(cfgJSON), &labels); err != nil {
-		return nil
-	}
-	out := labels[:0]
-	for _, l := range labels {
-		if s := strings.TrimSpace(l); s != "" {
-			out = append(out, s)
-		}
-	}
-	return out
-}

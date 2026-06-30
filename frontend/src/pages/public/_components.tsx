@@ -781,18 +781,46 @@ export function CampaignPage({ c: listItem, onNav }: any) {
   // are declared below; the wrapper closes over them and runs only when called.)
   const setView = (v: any) => {
     if (v === 'form' && view !== 'form') {
-      try { NBTracking.track('InitiateCheckout', { content_name: c.title, value: amount || 0, currency: 'IDR' }); } catch {}
+      // Funnel: click_donate (CTA pressed) → begin_checkout/InitiateCheckout (form shown).
+      try {
+        NBTracking.track('click_donate', { content_name: c.title, value: amount || 0, currency: 'IDR' });
+        NBTracking.track('begin_checkout', { content_name: c.title, value: amount || 0, currency: 'IDR' });
+        NBTracking.track('InitiateCheckout', { content_name: c.title, value: amount || 0, currency: 'IDR' });
+      } catch {}
     }
     setViewRaw(v);
   };
   const [tab, setTab] = useState('story');
-  const [amount, setAmount] = useState(seededAmount > 0 ? seededAmount : 100_000);
+  const [amount, setAmountRaw] = useState(seededAmount > 0 ? seededAmount : 100_000);
+  // Wrap setAmount to fire the funnel's select_amount step (debounced so dragging a
+  // custom-amount field doesn't spam pixels). Fires a semantic dataLayer event for GTM
+  // plus the standard AddToCart pixel event.
+  const amtTrackRef = useRef<any>(null);
+  const setAmount = (a: any) => {
+    setAmountRaw(a);
+    try {
+      if (amtTrackRef.current) clearTimeout(amtTrackRef.current);
+      const v = Number(a) || 0;
+      if (v <= 0) return; // skip zero/reset (e.g. ZakatCalc mount) — not a real pick
+      amtTrackRef.current = setTimeout(() => {
+        NBTracking.track('AddToCart', { content_name: c.title, value: v, currency: 'IDR' });
+        NBTracking.track('select_amount', { content_name: c.title, value: v, currency: 'IDR' });
+      }, 600);
+    } catch {}
+  };
 
   const [paymentMethod, setPaymentMethodRaw] = useState('QRIS');
-  // Wrap setPaymentMethod to fire AddPaymentInfo once the donor picks how they'll pay.
+  // Wrap setPaymentMethod to fire AddPaymentInfo + select_payment once the donor picks
+  // how they'll pay (manual bank, etc.). De-duped: only fires on an actual change.
   const setPaymentMethod = (m: any) => {
+    const changed = m !== paymentMethod;
     setPaymentMethodRaw(m);
-    try { NBTracking.track('AddPaymentInfo', { content_name: c.title, value: amount, currency: 'IDR' }); } catch {}
+    if (!changed) return;
+    try {
+      const label = typeof m === 'object' ? (m?.bank_name || m?.type || '') : m;
+      NBTracking.track('AddPaymentInfo', { content_name: c.title, value: amount, currency: 'IDR', payment_method: label });
+      NBTracking.track('select_payment', { content_name: c.title, value: amount, currency: 'IDR', payment_method: label });
+    } catch {}
   };
   const [anon, setAnon] = useState(false);
   const [donor, setDonor] = useState<any>({ name:'', wa:'', email:'', message:'' });
@@ -806,7 +834,7 @@ export function CampaignPage({ c: listItem, onNav }: any) {
   // Track mount so a deferred setSubmitting (idempotency retry hold) doesn't fire on
   // an unmounted component if the donor navigates away during the 5s window.
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => () => { mountedRef.current = false; if (amtTrackRef.current) clearTimeout(amtTrackRef.current); }, []);
 
   // The landing list only carries summary fields (short_description, no story /
   // donors / updates). Fetch the full detail by slug and merge it over the list
@@ -841,8 +869,11 @@ export function CampaignPage({ c: listItem, onNav }: any) {
           // Load this campaign's OWN pixels (Meta/TikTok/GTM/Google Ads) so per-campaign
           // "Fire Event" tracking actually fires — initPixels() only loaded the GLOBAL ones.
           try { NBTracking.initCampaignPixels(d); } catch {}
-          // ViewContent funnel event: a donor landed on a campaign detail page.
-          try { NBTracking.track('ViewContent', { content_name: d.title || listItem.title, content_ids: [listItem.id], value: d.target_amount || 0, currency: 'IDR' }); } catch {}
+          // ViewContent + view_campaign funnel event: a donor landed on a campaign page.
+          try {
+            NBTracking.track('ViewContent', { content_name: d.title || listItem.title, content_ids: [listItem.id], value: d.target_amount || 0, currency: 'IDR' });
+            NBTracking.track('view_campaign', { content_name: d.title || listItem.title, campaign_slug: d.slug || listItem.slug, value: d.target_amount || 0, currency: 'IDR' });
+          } catch {}
         }
       } catch { /* keep list item as fallback */ }
     })();
@@ -1431,7 +1462,9 @@ function PaymentSelector({ grouped, paymentMethod, setPaymentMethod, isSelected,
     );
   }
 
-  // Default: card / box grid.
+  // Default: card / box grid. Renders each method's logo (m.image) when present —
+  // structured manual banks carry a per-account logo, which makes the dropdown of
+  // destination accounts scannable for donors.
   if (grouped) {
     return (
       <div className="space-y-3">
@@ -1441,8 +1474,9 @@ function PaymentSelector({ grouped, paymentMethod, setPaymentMethod, isSelected,
             <div className="grid grid-cols-3 gap-2">
               {list.map((m: any) => (
                 <button key={m.id} onClick={() => setPaymentMethod(m)}
-                  className={`h-14 px-2 rounded-lg border-2 flex flex-col items-center justify-center text-center text-[10px] font-extrabold leading-tight ${isSelected(m) ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line bg-white text-ink hover:border-brand-200'}`}>
-                  <span>{m.bank_name}</span>
+                  className={`h-16 px-2 rounded-lg border-2 flex flex-col items-center justify-center gap-1 text-center text-[10px] font-extrabold leading-tight ${isSelected(m) ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line bg-white text-ink hover:border-brand-200'}`}>
+                  {m.image ? <img src={mediaUrl(m.image)} alt={m.bank_name} className="h-5 max-w-[56px] object-contain"/> : null}
+                  <span className="line-clamp-1">{m.bank_name}</span>
                 </button>
               ))}
             </div>
@@ -1699,13 +1733,24 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
     return `https://wa.me/${num}?text=${msg}`;
   }, [invoice.invoice_number, subtotal, c && c.title, invoice.cs_phone, invoice.cs_name]);
 
-  // Manual-transfer destination. Flip (gateway) returns a pay_code; otherwise the
-  // donor transfers to the single org account configured in Settings → Payment
-  // (exposed via public settings). Order: gateway pay_code → invoice → org settings.
+  // The bank the donor PICKED is snapshotted onto the invoice at creation
+  // (payment_instructions JSON: {bank_name, account_number, account_name, logo}). That
+  // is the source of truth on the confirmation page so the donor sees exactly the
+  // account they chose — not a generic org account. Tolerate string or object.
+  const payInstr = useMemo(() => {
+    const raw = (invoice as any).payment_instructions;
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+    try { return JSON.parse(raw); } catch { return null; }
+  }, [invoice]);
+
+  // Manual-transfer destination. Order: donor's chosen bank (payment_instructions) →
+  // gateway pay_code → invoice fields → single org account from public settings.
   const ps = psPublic || {};
-  const bankNumber = invoice.pay_code || invoice.bank_number || pmObj?.bank_number || ps.bank_number || '';
-  const accountName = pmObj?.account_name || invoice.account_name || ps.bank_account_name || 'Yayasan Niat Baik';
-  const bankName = pmObj?.bank_name || invoice.payment_method || ps.bank_name || (typeof paymentMethod === 'string' ? paymentMethod : 'Transfer Bank');
+  const bankNumber = payInstr?.account_number || invoice.pay_code || invoice.bank_number || pmObj?.bank_number || ps.bank_number || '';
+  const accountName = payInstr?.account_name || pmObj?.account_name || invoice.account_name || ps.bank_account_name || 'Yayasan Niat Baik';
+  const bankName = payInstr?.bank_name || pmObj?.bank_name || invoice.payment_method || ps.bank_name || (typeof paymentMethod === 'string' ? paymentMethod : 'Transfer Bank');
+  const bankLogo = payInstr?.logo ? mediaUrl(payInstr.logo) : '';
 
   // A manual/VA invoice with NO payable destination (no Flip link, no QR, no account
   // number) is the UNPAYABLE dead-end. The backend now rejects creating these, but guard
@@ -2004,6 +2049,7 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
           {bankName && (
             <div className="flex items-center justify-between rounded-xl border border-line p-3">
               <div><div className="text-[11px] text-mute">Bank / Metode</div><div className="font-bold text-ink">{bankName}</div></div>
+              {bankLogo && <img src={bankLogo} alt={bankName} className="h-7 max-w-[80px] object-contain"/>}
             </div>
           )}
           {bankNumber ? (
@@ -2068,7 +2114,7 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
         const fallback = (psPublic && psPublic.whatsapp_admin) || '';
         const num = normalizeWa((assignedCs && assignedCs.phone) || fallback);
         if (!num) return null;
-        const label = assignedCs && assignedCs.name ? `Konfirmasi via WhatsApp (${assignedCs.name})` : 'Konfirmasi via WhatsApp';
+        const label = assignedCs && assignedCs.name ? `Saya sudah bayar — konfirmasi ke ${assignedCs.name}` : 'Saya sudah bayar (konfirmasi via WhatsApp)';
         const msg = encodeURIComponent(`Halo admin, saya sudah donasi. Invoice: ${invoice.invoice_number}, nominal: ${fmtIDR(total)}. Mohon konfirmasi.`);
         return (
           <a href={`https://wa.me/${num}?text=${msg}`} target="_blank" rel="noopener noreferrer"

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { api } from '@/lib/api';
+import { api, mediaUrl } from '@/lib/api';
 import { fmtIDRShort } from '@/lib/format';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
@@ -442,12 +442,75 @@ const GATEWAY_OPTIONS = [
   { value: 'manual', label: 'Manual' },
 ];
 
-// Bank labels the admin can toggle for manual-transfer display (General tab). All
-// checked banks share the single org account (BankName/BankNumber/BankAccountName).
+// Common Indonesian bank names for the manual-transfer account dropdown.
 const MANUAL_BANK_OPTIONS = [
   'Bank BCA', 'Bank BRI', 'Bank BNI', 'Bank Syariah Indonesia (BSI)',
-  'Bank CIMB Niaga', 'Bank Mandiri', 'Bank Danamon', 'Bank Muamalat', 'Bank Permata'
+  'Bank CIMB Niaga', 'Bank Mandiri', 'Bank Danamon', 'Bank Muamalat', 'Bank Permata',
 ];
+
+// normalizeBanks reads settings.manual_banks into the structured shape
+// [{bank_name, account_number, account_name, logo}], migrating the legacy flat-label
+// array (["BCA",…], all sharing the single org account) on the fly.
+function normalizeBanks(s: any): any[] {
+  const raw = parseArr(s?.manual_banks, []);
+  if (!Array.isArray(raw) || raw.length === 0) {
+    // No structured list yet: seed one row from the legacy single org account if present.
+    if (s?.bank_number) return [{ bank_name: s.bank_name || '', account_number: s.bank_number || '', account_name: s.bank_account_name || '', logo: '' }];
+    return [];
+  }
+  if (typeof raw[0] === 'string') {
+    // Legacy: array of labels, all pointing at the single org account.
+    return raw.map((label: string) => ({ bank_name: label, account_number: s?.bank_number || '', account_name: s?.bank_account_name || '', logo: '' }));
+  }
+  return raw.map((b: any) => ({ bank_name: b.bank_name || '', account_number: b.account_number || b.bank_number || '', account_name: b.account_name || '', logo: b.logo || '' }));
+}
+
+// ManualBankRow — one editable manual-transfer account (name, number, holder, logo).
+function ManualBankRow({ bank, onChange, onRemove, onToast }: any) {
+  const [uploading, setUploading] = useState(false);
+  const uploadLogo = async (e: any) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setUploading(true);
+    try {
+      const res = await api.uploadImage(f);
+      const url = (res as any)?.data?.url || (res as any)?.url || '';
+      if (url) onChange({ logo: url });
+      else onToast?.('Upload logo gagal');
+    } catch (err: any) { onToast?.('Upload gagal: ' + (err?.message || '')); }
+    setUploading(false);
+  };
+  return (
+    <div className="rounded-lg border border-line bg-white p-3">
+      <div className="flex items-start gap-3">
+        {/* Logo */}
+        <label className="shrink-0 cursor-pointer">
+          <div className="h-14 w-14 rounded-lg border border-dashed border-line bg-bg2 flex items-center justify-center overflow-hidden hover:border-brand-400">
+            {bank.logo ? <img src={mediaUrl(bank.logo)} alt="logo" className="h-full w-full object-contain"/> : <Icon name={uploading ? 'refresh' : 'upload'} size={16} className="text-mute"/>}
+          </div>
+          <input type="file" accept="image/*" className="hidden" onChange={uploadLogo}/>
+        </label>
+        <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div>
+            <label className="text-[11px] text-mute block mb-1">Bank</label>
+            <input list="manual-bank-names" className="field" value={bank.bank_name} onChange={(e) => onChange({ bank_name: e.target.value })} placeholder="Nama bank"/>
+          </div>
+          <div>
+            <label className="text-[11px] text-mute block mb-1">No. Rekening</label>
+            <input className="field font-mono" value={bank.account_number} onChange={(e) => onChange({ account_number: e.target.value })} placeholder="No. Rekening"/>
+          </div>
+          <div>
+            <label className="text-[11px] text-mute block mb-1">Atas Nama</label>
+            <input className="field" value={bank.account_name} onChange={(e) => onChange({ account_name: e.target.value })} placeholder="Atas Nama"/>
+          </div>
+        </div>
+        <button type="button" title="Hapus rekening" onClick={onRemove} className="shrink-0 h-8 w-8 rounded-md hover:bg-rose-50 text-mute hover:text-rose-600 flex items-center justify-center">
+          <Icon name="trash" size={16}/>
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function PaymentPanel({ settings, onSave }: any) {
   const showToastSafe = useUiStore((s) => s.showToast);
@@ -486,8 +549,10 @@ function PaymentPanel({ settings, onSave }: any) {
   const defaultMethodTypes = METHOD_TYPES.reduce((acc: any, mt) => ({ ...acc, [mt.key]: { active: true, title: mt.defaultTitle } }), {});
   const [methodTypes, setMethodTypes] = useState<any>(parseArr(settings?.payment_method_types, defaultMethodTypes));
 
-  // Bank Account — checkbox list of bank labels to show donors (manual transfer).
-  const [manualBanks, setManualBanks] = useState<any>(parseArr(settings?.manual_banks, []));
+  // Manual-transfer bank accounts (structured): [{bank_name, account_number,
+  // account_name, logo}]. Migrates the legacy flat-label array (["BCA","BNI"]) — each
+  // label shared the single org account — into one structured row per label.
+  const [manualBanks, setManualBanks] = useState<any>(() => normalizeBanks(settings));
 
   // ---- Flip ----
   const [flipEnabled, setFlipEnabled] = useState(settings?.flip_enabled ?? false);
@@ -580,7 +645,7 @@ function PaymentPanel({ settings, onSave }: any) {
     setBankNumber(s.bank_number || '');
     setBankHolder(s.bank_account_name || '');
     setMethodTypes(parseArr(s.payment_method_types, defaultMethodTypes));
-    setManualBanks(parseArr(s.manual_banks, []));
+    setManualBanks(normalizeBanks(s));
     // Re-seed routing matrix from saved map + defaults.
     {
       const saved = parseArr(s.payment_channel_gateways, {});
@@ -616,14 +681,26 @@ function PaymentPanel({ settings, onSave }: any) {
   const xenditWebhook = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/xendit`;
 
   const saveGeneral = () => {
+    // Sanitize the structured bank rows (drop blank-name rows; normalize numbers).
+    const cleanBanks = (manualBanks || [])
+      .map((b: any) => ({
+        bank_name: (b.bank_name || '').trim(),
+        account_number: (b.account_number || '').replace(/[^0-9]/g, ''),
+        account_name: (b.account_name || '').trim(),
+        logo: b.logo || '',
+      }))
+      .filter((b: any) => b.bank_name && b.account_number);
+    // Keep the legacy single-account fields in sync from the first bank so the backend's
+    // hasManualBank() guard (settings.bank_number != "") and any legacy reader still work.
+    const primary = cleanBanks[0] || { bank_name: '', account_number: '', account_name: '' };
     const patch: any = {
       unique_code_mode: ucMode,
       admin_fee: parseInt(String(adminFee).replace(/\D/g, ''), 10) || 0,
-      bank_name: bankName.trim(),
-      bank_number: bankNumber.replace(/[^0-9]/g, ''),
-      bank_account_name: bankHolder.trim(),
+      bank_name: primary.bank_name,
+      bank_number: primary.account_number,
+      bank_account_name: primary.account_name,
       payment_method_types: JSON.stringify(methodTypes),
-      manual_banks: JSON.stringify(manualBanks),
+      manual_banks: JSON.stringify(cleanBanks),
       payment_channel_gateways: JSON.stringify(routing),
       form_display_style: formDisplayStyle,
       payment_display_style: paymentDisplayStyle,
@@ -706,10 +783,11 @@ function PaymentPanel({ settings, onSave }: any) {
   // name). With neither, donors see no way to pay → donations are UNPAYABLE. This drives
   // a persistent warning banner and blocks the two saves that could create the dead state.
   const flipEffective = flipEnabled && (flipConfigured || !!flipSecret.trim());
-  // Payable manual path = an account NUMBER to transfer to. Bank label/holder are
-  // display-only (frontend has fallbacks), so don't require them — matches backend
-  // hasManualPath. Requiring bankName here falsely flagged a valid number-only config.
-  const manualPath = !!bankNumber.replace(/[^0-9]/g, '');
+  // Payable manual path = at least one configured account NUMBER to transfer to.
+  // Read from the live structured manualBanks rows (the new editor only writes there;
+  // the legacy single bankNumber is derived from row 0 on save, so checking bankNumber
+  // would be stale while editing). Matches backend hasManualPath (ParseManualBanks > 0).
+  const manualPath = (manualBanks || []).some((b: any) => (b.account_number || '').replace(/[^0-9]/g, '').length >= 6);
   const noPayablePath = !flipEffective && !manualPath;
 
   return (
@@ -785,38 +863,30 @@ function PaymentPanel({ settings, onSave }: any) {
             <div className="text-[11px] text-mute pb-2">Dipotong dari nominal yang masuk ke campaign.</div>
           </div>
 
-          {/* Bank Account — shared destination account + checkbox list of banks to show */}
+          {/* Rekening Transfer Manual — daftar rekening lengkap (nama, nomor, atas nama, logo)
+              yang muncul sebagai dropdown di form donasi publik. */}
           <div>
-            <label className="text-sm font-bold text-ink mb-1 block">Bank Account</label>
-            <div className="text-[11px] text-mute mb-3">Centang bank yang ingin ditampilkan ke donatur. Semua opsi memakai rekening tujuan di bawah.</div>
+            <label className="text-sm font-bold text-ink mb-1 block">Rekening Transfer Manual</label>
+            <div className="text-[11px] text-mute mb-3">Tambahkan satu atau beberapa rekening tujuan. Donatur memilih salah satu via dropdown di halaman donasi, lalu konfirmasi ke CS via WhatsApp.</div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 p-3 rounded-lg border border-line bg-white">
-              <div>
-                <label className="text-[11px] text-mute block mb-1">Bank Tujuan</label>
-                <Select value={bankName} onChange={setBankName} options={[{value:'',label:'Pilih Bank'},...MANUAL_BANK_OPTIONS.map(b => ({value:b,label:b}))]}/>
-              </div>
-              <div>
-                <label className="text-[11px] text-mute block mb-1">No. Rekening</label>
-                <input className="field font-mono" value={bankNumber} onChange={(e) => setBankNumber(e.target.value)} placeholder="No. Rekening"/>
-              </div>
-              <div>
-                <label className="text-[11px] text-mute block mb-1">Atas Nama</label>
-                <input className="field" value={bankHolder} onChange={(e) => setBankHolder(e.target.value)} placeholder="Atas Nama"/>
-              </div>
+            <div className="space-y-3">
+              {manualBanks.length === 0 && (
+                <div className="rounded-lg border border-dashed border-line p-4 text-center text-[12px] text-mute">Belum ada rekening. Klik "Tambah Rekening" di bawah.</div>
+              )}
+              {manualBanks.map((b: any, i: number) => (
+                <ManualBankRow key={i} bank={b}
+                  onChange={(patch: any) => setManualBanks((prev: any) => prev.map((x: any, j: number) => j === i ? { ...x, ...patch } : x))}
+                  onRemove={() => setManualBanks((prev: any) => prev.filter((_: any, j: number) => j !== i))}
+                  onToast={showToastSafe}/>
+              ))}
             </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {MANUAL_BANK_OPTIONS.map(b => {
-                const on = manualBanks.includes(b);
-                return (
-                  <label key={b} className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer ${on ? 'border-brand-600 bg-brand-50' : 'border-line bg-white'}`}>
-                    <input type="checkbox" checked={on} onChange={() => setManualBanks((prev: any) => prev.includes(b) ? prev.filter((x: any) => x !== b) : [...prev, b])} className="w-4 h-4 rounded text-brand-600 border-line focus:ring-brand-600"/>
-                    <span className="text-sm text-ink">{b}</span>
-                  </label>
-                );
-              })}
-            </div>
-            <div className="text-[11px] text-mute mt-3">Rekening tujuan di atas dipakai untuk semua bank tercentang (transfer manual, direkonsiliasi Moota) saat Flip nonaktif.</div>
+            <datalist id="manual-bank-names">{MANUAL_BANK_OPTIONS.map((b) => <option key={b} value={b}/>)}</datalist>
+            <button type="button"
+              onClick={() => setManualBanks((prev: any) => [...prev, { bank_name: '', account_number: '', account_name: '', logo: '' }])}
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold text-brand-600 hover:underline">
+              <Icon name="plus" size={14}/> Tambah Rekening
+            </button>
+            <div className="text-[11px] text-mute mt-3">Transfer manual direkonsiliasi otomatis via Moota (cek mutasi) bila aktif, atau dikonfirmasi manual oleh CS.</div>
           </div>
 
           {/* ===== Routing Pembayaran (per-channel gateway matrix) ===== */}

@@ -21,12 +21,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!--GTM_END-->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://unpkg.com" crossorigin>
-<link rel="preload" href="https://unpkg.com/react@18.3.1/umd/react.production.min.js" as="script" crossorigin>
-<link rel="preload" href="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" as="script" crossorigin>
-<link rel="preload" href="/app.min.js?v=__ASSET_VER__" as="script">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/app.css?v=__ASSET_VER__">
 <style>
   html,body{background:#F7FAFC;color:#1E293B;font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 
@@ -225,13 +220,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 try{if(localStorage.getItem('niatbaik_dark')==='1'){document.documentElement.classList.add('dark');document.body.classList.add('dark');}}catch(e){}
 </script>
 
-<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
-<!-- QR code generator for donation invoice (QRIS fallback) -->
-<script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js"></script>
-
-<!-- Prebuilt bundle (see frontend/build.mjs). JSX is transpiled at build time;
-     no @babel/standalone in the browser anymore. -->
-<script src="/app.min.js?v=__ASSET_VER__" defer></script>
+<!-- Vite entry. React, React-DOM, qrcodejs and the app are bundled — no CDN. -->
+<script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

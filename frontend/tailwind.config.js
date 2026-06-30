@@ -1,8 +1,9 @@
+import forms from '@tailwindcss/forms';
+import typography from '@tailwindcss/typography';
+
 /** @type {import('tailwindcss').Config} */
-// Ported from the inline `tailwind.config` that used to live in index.html
-// (cdn.tailwindcss.com runtime). Static build now generates app.css.
-module.exports = {
-  content: ['./index.html', './src/**/*.jsx'],
+export default {
+  content: ['./index.html', './src/**/*.{ts,tsx}'],
   darkMode: 'class',
   theme: {
     extend: {
@@ -39,5 +40,5 @@ module.exports = {
       },
     },
   },
-  plugins: [require('@tailwindcss/forms'), require('@tailwindcss/typography')],
+  plugins: [forms, typography],
 };

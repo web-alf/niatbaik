@@ -1,0 +1,213 @@
+// Central data store — replaces window.NB + all window.DATA_* caches + the
+// data.jsx loaders + refreshAllData. Components subscribe via selectors, so a
+// store update re-renders only the views that read the changed slice (the old
+// dataTick counter is gone).
+//
+// RULE: use the useDataStore(selector) hook in render; use getState() only inside
+// actions/effects (e.g. the realtime poll). A getState() snapshot read in render
+// would silently stop updating on the next poll.
+import { create } from 'zustand';
+import { api } from '@/lib/api';
+import { mapCampaign, mapInvoice, applyThemeColor, setPaymentStatusRef } from '@/lib/mappers';
+import { NBTracking } from '@/lib/tracking';
+import type {
+  Campaign, Invoice, Category, PaymentMethod, PaymentStatus, NotificationItem, User,
+} from '@/types/api';
+
+// Resolve null (network failure) and exceptions to null so one dead endpoint
+// never aborts a whole refresh batch.
+const safe = async <X>(fn: () => Promise<X>): Promise<X | null> => {
+  try { return await fn(); } catch { return null; }
+};
+
+interface Totals {
+  raised: number; donors: number; tx: number; activeCampaigns: number; totalCampaigns: number;
+  fundraiser: number; leads: number; convRate: number; today: number; month: number;
+}
+
+interface DataState {
+  // public (everyone)
+  campaigns: Campaign[];
+  categories: Category[];
+  publicSettings: any | null;
+  paymentMethodsPublic: PaymentMethod[];
+  paymentStatuses: PaymentStatus[];
+  // admin (logged-in)
+  transactions: Invoice[];
+  notifications: NotificationItem[];
+  fundraisers: any[];
+  users: User[];
+  settings: any | null;
+  profile: any | null;
+  trash: any[];
+  paymentMethodsList: PaymentMethod[];
+  dailyDonations: any[];
+  dashboardStats: any | null;
+  paymentBreakdown: any | null;
+  trafficSources: any | null;
+  analyticsOverview: any | null;
+  analyticsCampaigns: any | null;
+  analyticsUtm: any | null;
+  analyticsTraffic: any | null;
+  analyticsFunnel: any | null;
+  dataStudio: any | null;
+  adCosts: any | null;
+  totals: Totals;
+  ready: boolean;
+  loading: boolean;
+}
+
+interface DataActions {
+  refreshAll: (isLoggedIn: boolean) => Promise<void>;
+  refreshPublic: () => Promise<void>;
+  refreshAdmin: () => Promise<void>;
+  refreshInvoices: () => Promise<void>;
+  refreshAnalytics: () => Promise<void>;
+  refreshDataStudio: () => Promise<void>;
+  refreshDashboard: () => Promise<void>;
+  refreshPaymentMethods: () => Promise<void>;
+  setCategories: (c: Category[]) => void;
+  setPaymentStatuses: (s: PaymentStatus[]) => void;
+}
+
+const EMPTY_TOTALS: Totals = {
+  raised: 0, donors: 0, tx: 0, activeCampaigns: 0, totalCampaigns: 0,
+  fundraiser: 0, leads: 0, convRate: 0, today: 0, month: 0,
+};
+
+export const useDataStore = create<DataState & DataActions>((set, get) => ({
+  campaigns: [], categories: [], publicSettings: null, paymentMethodsPublic: [], paymentStatuses: [],
+  transactions: [], notifications: [], fundraisers: [], users: [], settings: null, profile: null,
+  trash: [], paymentMethodsList: [], dailyDonations: [], dashboardStats: null, paymentBreakdown: null,
+  trafficSources: null, analyticsOverview: null, analyticsCampaigns: null, analyticsUtm: null,
+  analyticsTraffic: null, analyticsFunnel: null, dataStudio: null, adCosts: null,
+  totals: EMPTY_TOTALS,
+  ready: false, loading: false,
+
+  // = loadApiData
+  async refreshPublic() {
+    const [statsRes, campaignsRes, categoriesRes, pubSettingsRes, pubPayRes, payStatusRes] = await Promise.all([
+      safe(() => api.publicStats()), safe(() => api.campaigns()), safe(() => api.categories()),
+      safe(() => api.publicSettings()), safe(() => api.publicPaymentMethods()), safe(() => api.paymentStatuses()),
+    ]);
+    const patch: Partial<DataState> = {};
+    const totals = { ...get().totals };
+    if (statsRes?.data) {
+      totals.raised = statsRes.data.total_raised ?? 0;
+      totals.donors = statsRes.data.total_donors ?? 0;
+      totals.activeCampaigns = statsRes.data.active_campaigns ?? 0;
+      totals.totalCampaigns = statsRes.data.total_campaigns ?? 0;
+    }
+    if (Array.isArray(campaignsRes?.data)) {
+      patch.campaigns = campaignsRes.data.map(mapCampaign);
+      totals.activeCampaigns = patch.campaigns.filter((c) => c.status === 'Berjalan' || c.status === 'Running').length;
+    }
+    patch.totals = totals;
+    if (categoriesRes?.data) patch.categories = categoriesRes.data;
+    if (pubSettingsRes?.data) {
+      patch.publicSettings = pubSettingsRes.data;
+      if (pubSettingsRes.data.primary_color) applyThemeColor(pubSettingsRes.data.primary_color);
+      // Tracking: capture UTM from the landing URL + inject configured pixels. Both
+      // are safe no-ops when nothing is configured and must never break data load.
+      try { NBTracking.captureUTM(); NBTracking.initPixels(pubSettingsRes.data); } catch { /* ignore */ }
+    }
+    if (Array.isArray(pubPayRes?.data)) patch.paymentMethodsPublic = pubPayRes.data;
+    if (Array.isArray(payStatusRes?.data)) {
+      patch.paymentStatuses = payStatusRes.data;
+      setPaymentStatusRef(payStatusRes.data); // keep mapInvoice's status map fresh
+    }
+    set(patch);
+  },
+
+  // = loadAdminData + sibling loaders, batched into one set()
+  async refreshAdmin() {
+    const [txRes, notifRes, fundraiserRes, usersRes, settingsRes, profileRes, invRes,
+      chartRes, statsRes, pmChartRes, tsChartRes, pmListRes, trashRes] = await Promise.all([
+      safe(() => api.recentTransactions(48)),
+      safe(() => api.notifications()),
+      safe(() => api.fundraisers()),
+      safe(() => api.users()),
+      safe(() => api.settings()),
+      safe(() => api.profile()),
+      safe(() => api.invoices('limit=100')),
+      safe(() => api.dailyChart(30)),
+      safe(() => api.dashboardStats()),
+      safe(() => api.paymentMethodChart()),
+      safe(() => api.trafficSourceChart()),
+      safe(() => api.paymentMethods()),
+      safe(() => api.trash()),
+    ]);
+    const patch: Partial<DataState> = {};
+    // invoices('limit=100') is the fuller list; recentTransactions is the fallback.
+    if (Array.isArray(invRes?.data)) patch.transactions = invRes.data.map(mapInvoice);
+    else if (Array.isArray(txRes?.data)) patch.transactions = txRes.data.map(mapInvoice);
+    if (Array.isArray(notifRes?.data)) patch.notifications = notifRes.data;
+    if (Array.isArray(fundraiserRes?.data)) patch.fundraisers = fundraiserRes.data;
+    if (Array.isArray(usersRes?.data)) patch.users = usersRes.data;
+    if (settingsRes?.data) patch.settings = settingsRes.data;
+    if (profileRes?.data) patch.profile = profileRes.data;
+    if (Array.isArray(chartRes?.data)) patch.dailyDonations = chartRes.data;
+    if (statsRes?.data) patch.dashboardStats = statsRes.data;
+    if (pmChartRes?.data) patch.paymentBreakdown = pmChartRes.data;
+    if (tsChartRes?.data) patch.trafficSources = tsChartRes.data;
+    if (pmListRes?.data) patch.paymentMethodsList = pmListRes.data;
+    if (Array.isArray(trashRes?.data)) patch.trash = trashRes.data;
+    set(patch);
+  },
+
+  async refreshInvoices() {
+    const r = await safe(() => api.invoices('limit=100'));
+    if (Array.isArray(r?.data)) set({ transactions: r.data.map(mapInvoice) });
+  },
+
+  // = loadAnalytics
+  async refreshAnalytics() {
+    const [ov, camp, utm, traf, fun] = await Promise.all([
+      safe(() => api.analyticsOverview()), safe(() => api.analyticsCampaigns()),
+      safe(() => api.analyticsUTM()), safe(() => api.analyticsTraffic()), safe(() => api.analyticsFunnel()),
+    ]);
+    const patch: Partial<DataState> = {};
+    if (ov?.data) patch.analyticsOverview = ov.data;
+    if (camp?.data) patch.analyticsCampaigns = camp.data;
+    if (utm?.data) patch.analyticsUtm = utm.data;
+    if (traf?.data) patch.analyticsTraffic = traf.data;
+    if (fun?.data) patch.analyticsFunnel = fun.data;
+    set(patch);
+  },
+
+  async refreshDataStudio() {
+    const r = await safe(() => api.dataStudioOverview());
+    if (r?.data) set({ dataStudio: r.data });
+  },
+
+  async refreshDashboard() {
+    const [s, pm, tr] = await Promise.all([
+      safe(() => api.dashboardStats()), safe(() => api.paymentMethodChart()), safe(() => api.trafficSourceChart()),
+    ]);
+    const patch: Partial<DataState> = {};
+    if (s?.data) patch.dashboardStats = s.data;
+    if (pm?.data) patch.paymentBreakdown = pm.data;
+    if (tr?.data) patch.trafficSources = tr.data;
+    set(patch);
+  },
+
+  async refreshPaymentMethods() {
+    const r = await safe(() => api.paymentMethods());
+    if (r?.data) set({ paymentMethodsList: r.data });
+  },
+
+  // = refreshAllData
+  async refreshAll(isLoggedIn: boolean) {
+    set({ loading: true });
+    await get().refreshPublic();
+    if (isLoggedIn) {
+      await Promise.all([
+        get().refreshAdmin(), get().refreshAnalytics(), get().refreshDataStudio(),
+      ]);
+    }
+    set({ loading: false, ready: true });
+  },
+
+  setCategories(c) { set({ categories: c }); },
+  setPaymentStatuses(s) { setPaymentStatusRef(s); set({ paymentStatuses: s }); },
+}));

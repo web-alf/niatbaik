@@ -21,3 +21,6 @@ flow/
 flowchart_donasi_donasiaja.jpeg
 .vscode/
 .gstack/
+
+# Vite build output
+frontend/dist/

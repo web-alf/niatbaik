@@ -1,4 +1,4 @@
-# ---- Build stage: transpile JSX bundle + compile Tailwind CSS ----
+# ---- Build stage: Vite build (TS check + bundle + Tailwind) ----
 FROM oven/bun:1-alpine AS build
 
 WORKDIR /app
@@ -6,20 +6,18 @@ WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
-COPY build.mjs tailwind.config.js ./
-COPY styles/ styles/
+COPY tsconfig.json vite.config.ts postcss.config.js tailwind.config.js index.html ./
 COPY src/ src/
-COPY index.html ./
+COPY public/ public/
 RUN bun run build
 
-# ---- Runtime stage: only what the server needs to serve ----
+# ---- Runtime stage: thin Bun server serving dist/ ----
 FROM oven/bun:1-alpine
 
 WORKDIR /app
 
-COPY server.js index.html ./
-COPY assets/ assets/
-COPY --from=build /app/public/ public/
+COPY server.js ./
+COPY --from=build /app/dist/ dist/
 
 ENV PORT=3000
 EXPOSE 3000

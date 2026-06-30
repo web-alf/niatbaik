@@ -31,6 +31,7 @@ func Migrate(db *gorm.DB) error {
 		&model.PasswordResetToken{},
 		&model.Campaign{},
 		&model.Notification{},
+		&model.NotificationRead{},
 		&model.ActivityLog{},
 		&model.LoginHistory{},
 		&model.FundraiserClick{},

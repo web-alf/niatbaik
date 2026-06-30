@@ -9,6 +9,11 @@ export interface NavItem {
   path: string;
   roles: Role[];
   badge?: number;
+  // Rendered grayed-out and non-navigating in the sidebar. Used to "park" a feature
+  // (e.g. hosted Payment Gateways while the org runs manual-transfer only) without
+  // deleting its route/page — flip back to enable.
+  disabled?: boolean;
+  disabledHint?: string;
 }
 
 // path is the React Router URL; key is the legacy setView() id (kept for matching).
@@ -19,8 +24,10 @@ export const NAV: NavItem[] = [
   { key: 'data-studio',   label: 'Data Studio',      icon: 'sparkle',    path: '/data-studio',   roles: ['Admin', 'Advertiser'] },
   { key: 'inbox',         label: 'CS Inbox',         icon: 'inbox',      path: '/inbox',         roles: ['Admin', 'CS'] },
   { key: 'fundraiser',    label: 'Fundraiser',       icon: 'handshake',  path: '/fundraiser',    roles: ['Admin', 'CS'] },
+  { key: 'withdrawals',   label: 'Penarikan Dana',   icon: 'wallet',     path: '/withdrawals',   roles: ['Admin'] },
+  { key: 'verifications', label: 'Verifikasi KYC',   icon: 'shield',     path: '/verifications', roles: ['Admin'] },
   { key: 'members',       label: 'Members / User',   icon: 'users',      path: '/members',       roles: ['Admin'] },
-  { key: 'gateways',      label: 'Payment Gateways', icon: 'creditcard', path: '/gateways',      roles: ['Admin'] },
+  { key: 'gateways',      label: 'Payment Gateways', icon: 'creditcard', path: '/gateways',      roles: ['Admin'], disabled: true, disabledHint: 'Dinonaktifkan — fokus Transfer Manual' },
   { key: 'notifications', label: 'Notification',     icon: 'bell',       path: '/notifications', roles: ['Admin', 'CS', 'Advertiser'] },
   { key: 'trash',         label: 'Trash',            icon: 'trash',      path: '/trash',         roles: ['Admin'] },
 ];

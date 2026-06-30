@@ -120,11 +120,15 @@ export function mapInvoice(inv: any): Invoice {
 }
 
 // mapFundraiser normalizes a backend model.Fundraiser (nested user/campaign objects)
-// into the flat shape FundraiserPage renders. Fields the backend does not yet track
-// (commission, ref_code, per-fundraiser status) are intentionally absent here — the
-// page must not invent them. `name`/`campaign` come from the preloaded relations.
+// into the flat shape FundraiserPage renders. Commission/payout come from the
+// preloaded User's bonus ledger (bonus_balance = unpaid commission earned, kept by
+// payment_service on each paid referral; bonus_withdrawn = already paid out). The
+// referral code IS the fundraiser's user id (?ref=<user_id> share link), so `ref` is
+// derived, not a separate column.
 export function mapFundraiser(f: any): any {
   if (!f) return f;
+  const earned = f.user?.bonus_balance ?? 0;        // unpaid commission balance
+  const withdrawn = f.user?.bonus_withdrawn ?? 0;   // commission already paid out
   return {
     id: f.id,
     userId: f.user_id,
@@ -138,6 +142,9 @@ export function mapFundraiser(f: any): any {
     donors: f.total_donors ?? 0,
     txn: f.invoices_created ?? 0,
     txnPaid: f.invoices_paid ?? 0,
+    commission: earned + withdrawn,                 // total commission ever earned
+    pendingPayout: earned,                          // unpaid, awaiting withdrawal
+    ref: f.user_id || '',                           // referral code = user id
     joined: f.created_at || '',
   };
 }

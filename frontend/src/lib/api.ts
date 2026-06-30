@@ -261,11 +261,17 @@ export const api = {
 
   // Fundraisers
   fundraisers(params = '') { return this.get<any[]>('/fundraisers' + (params ? '?' + params : '')); },
+  fundraiser(id: string | number) { return this.get<any>('/fundraisers/' + id); },
 
   // Withdrawals
   withdrawals() { return this.get<any[]>('/withdrawals'); },
   approveWithdrawal(id: string | number) { return this.post('/withdrawals/' + id + '/approve'); },
   rejectWithdrawal(id: string | number) { return this.post('/withdrawals/' + id + '/reject'); },
+
+  // Verifications (KYC)
+  verifications() { return this.get<any[]>('/verifications'); },
+  approveVerification(id: string | number) { return this.post('/verifications/' + id + '/approve'); },
+  rejectVerification(id: string | number) { return this.post('/verifications/' + id + '/reject'); },
 
   // Trash
   trash() { return this.get<any[]>('/trash'); },

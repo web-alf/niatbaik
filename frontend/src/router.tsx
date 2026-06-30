@@ -33,6 +33,8 @@ import DataStudioPage from '@/pages/admin/DataStudioPage';
 import CsInboxPage from '@/pages/admin/CsInboxPage';
 import FundraiserPage from '@/pages/admin/FundraiserPage';
 import MembersPage from '@/pages/admin/MembersPage';
+import WithdrawalsPage from '@/pages/admin/WithdrawalsPage';
+import VerificationsPage from '@/pages/admin/VerificationsPage';
 import GatewaysPage from '@/pages/admin/GatewaysPage';
 import ProfilePage from '@/pages/admin/ProfilePage';
 import SettingsPage from '@/pages/admin/SettingsPage';
@@ -87,6 +89,8 @@ export const router = createBrowserRouter([
               { path: '/inbox', element: <RequireRole roles={['Admin', 'CS']}><CsInboxPage /></RequireRole> },
               { path: '/fundraiser', element: <RequireRole roles={['Admin', 'CS']}><FundraiserPage /></RequireRole> },
               { path: '/members', element: <RequireRole roles={['Admin']}><MembersPage /></RequireRole> },
+              { path: '/withdrawals', element: <RequireRole roles={['Admin']}><WithdrawalsPage /></RequireRole> },
+              { path: '/verifications', element: <RequireRole roles={['Admin']}><VerificationsPage /></RequireRole> },
               { path: '/gateways', element: <RequireRole roles={['Admin']}><GatewaysPage /></RequireRole> },
               { path: '/notifications', element: <NotificationsPage /> },
               { path: '/trash', element: <RequireRole roles={['Admin']}><TrashPage /></RequireRole> },

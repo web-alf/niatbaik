@@ -13,6 +13,7 @@ type User struct {
 	Email              string         `gorm:"size:255;uniqueIndex;not null" json:"email"`
 	Phone              *string        `gorm:"size:20;uniqueIndex" json:"phone"`
 	EmailVerifiedAt    *time.Time     `json:"email_verified_at"`
+	LastLoginAt        *time.Time     `gorm:"index" json:"last_login_at"` // updated on each successful login
 	Password           string         `gorm:"size:255;not null" json:"-"`
 	Role               string         `gorm:"size:20;not null;default:'user'" json:"role"` // admin, cs, advertiser, user, fundraiser
 	ForcePasswordReset bool           `gorm:"default:false" json:"force_password_reset"`

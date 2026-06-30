@@ -62,16 +62,22 @@ func (s *AuthService) Login(email, password, ip, userAgent string) (*response.To
 			Update("is_current", false).Error; err != nil {
 			return err
 		}
+		now := time.Now()
 		history := model.LoginHistory{
 			UserID:     user.ID,
 			IP:         ip,
 			UserAgent:  userAgent,
 			Device:     parseDevice(userAgent),
 			Location:   "",
-			LoggedInAt: time.Now(),
+			LoggedInAt: now,
 			IsCurrent:  true,
 		}
-		return tx.Create(&history).Error
+		if err := tx.Create(&history).Error; err != nil {
+			return err
+		}
+		// Denormalized last-login on the user row so the Members admin list can show it
+		// without joining LoginHistory on every page load.
+		return tx.Model(&model.User{}).Where("id = ?", user.ID).Update("last_login_at", now).Error
 	}); err != nil {
 		log.Printf("[Login] failed to record login history for user %s: %v", user.ID, err)
 	}
@@ -343,6 +349,7 @@ func userToResponse(u *model.User) *response.UserResponse {
 		Role:               u.Role,
 		Image:              u.Image,
 		VerificationStatus: u.VerificationStatus,
+		LastLoginAt:        u.LastLoginAt,
 		CreatedAt:          u.CreatedAt,
 	}
 }

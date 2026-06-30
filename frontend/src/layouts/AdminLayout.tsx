@@ -37,7 +37,14 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         <div className="flex-1 overflow-y-auto px-3 py-4 nice-scroll">
           <div className="px-2 mb-2 text-[11px] font-semibold uppercase tracking-wider text-mute">Menu Utama</div>
           <nav className="flex flex-col gap-1">
-            {visible.map((n) => (
+            {visible.map((n) => n.disabled ? (
+              <div key={n.key} title={n.disabledHint || 'Dinonaktifkan'}
+                className="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold text-mute/50 cursor-not-allowed select-none">
+                <Icon name={n.icon} size={18} className="text-mute/40" />
+                <span className="flex-1 text-left">{n.label}</span>
+                <span className="text-[9px] font-bold uppercase tracking-wide bg-bg2 text-mute/60 px-1.5 py-0.5 rounded">off</span>
+              </div>
+            ) : (
               <NavLink key={n.key} to={n.path} onClick={onClose} className={linkCls}>
                 {({ isActive }) => (
                   <>

@@ -22,6 +22,8 @@ type InvoiceResponse struct {
 	PaymentMethod string     `json:"payment_method"`
 	Message       string     `json:"message"`
 	CSNote        string     `json:"cs_note"`
+	CSPhone       string     `json:"cs_phone"`
+	CSName        string     `json:"cs_name"`
 	QRUrl         string     `json:"qr_url"`
 	PayCode       string     `json:"pay_code"`
 	TypePayment    string    `json:"type_payment"`
@@ -73,6 +75,8 @@ func ToInvoiceResponse(inv *model.Invoice) InvoiceResponse {
 		PaymentMethod: pm,
 		Message:       message,
 		CSNote:        inv.CSNote,
+		CSPhone:       inv.CSPhone,
+		CSName:        inv.CSName,
 		QRUrl:         inv.QrURL,
 		PayCode:       inv.PayCode,
 		TypePayment:    inv.TypePayment,

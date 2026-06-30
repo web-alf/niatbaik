@@ -55,7 +55,17 @@ const pickCsContact = () => {
   if (mode === 'rotator') return list[Math.floor(Math.random() * list.length)];
   return list[0];
 };
-const normalizeWa = (n) => String(n || '').replace(/[^0-9]/g, '').replace(/^0/, '62');
+// Normalize an Indonesian WA number to wa.me form (digits, country code 62). Mirrors the
+// backend normalizeWA so a stored cs_phone and a freshly-typed number resolve identically:
+// "08…"→"628…", bare "8…"→"628…", already-"62…" kept as-is.
+const normalizeWa = (n) => {
+  const d = String(n || '').replace(/[^0-9]/g, '');
+  if (!d) return '';
+  if (d.startsWith('62')) return d;
+  if (d.startsWith('0')) return '62' + d.slice(1);
+  if (d.startsWith('8')) return '62' + d;
+  return d;
+};
 
 // Resolve a campaign's display image: the dedicated uploaded `img`, else any image
 // path stuffed into `thumb`. Returns '' when there's only a gradient/no image.
@@ -1620,6 +1630,9 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
   const [pollTimedOut, setPollTimedOut] = useState(false);
   const [simulating, setSimulating] = useState(false);
   const [now, setNow] = useState(Date.now());
+  // Countdown before auto-redirecting the donor to the CS WhatsApp on success (3→0).
+  // null = no countdown running / cancelled (donor clicked "Lewati" or there's no CS).
+  const [waCountdown, setWaCountdown] = useState(null);
 
   // Sandbox flag from public settings: true only in non-production. Gates the tester
   // "Simulasikan Pembayaran" button, which advances QRIS/VA/manual invoices (no hosted
@@ -1650,17 +1663,25 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
   const isQRIS = !isHostedGateway && (pmType.includes('qris') || (invoice.payment_method || '').toLowerCase().includes('qris') || (!!invoice.qr_url && !/^https?:\/\//i.test(invoice.qr_url)));
   const isPaid = invoice.is_paid || /paid|berhasil|lunas|success/i.test(status);
 
+  // The CS contact for THIS donation. The backend assigns it once at creation (rotator /
+  // least-loaded) and returns it on the invoice — so it's STICKY: identical on the success
+  // + waiting screens and after a /donations/INV- reload, and load-balanced (not the old
+  // per-render Math.random() that could show two different numbers in one session). Falls
+  // back to a client-side pick only for legacy invoices created before this field existed.
+  const assignedCs = (invoice.cs_phone || invoice.cs_name)
+    ? { phone: invoice.cs_phone || '', name: invoice.cs_name || '' }
+    : pickCsContact();
+
   // WhatsApp confirmation link shown on the success screen. Pre-fills a thank-you/confirm
-  // message (invoice + nominal) to the CS/admin number (rotator-aware, falls back to
-  // whatsapp_admin). Empty when no number is configured → the button is hidden.
+  // message (invoice + nominal) to the assigned CS number (falls back to whatsapp_admin).
+  // Empty when no number is configured → the button is hidden.
   const successWaHref = useMemo(() => {
-    const cs = pickCsContact();
-    const num = normalizeWa((cs && cs.phone) || (window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.whatsapp_admin) || '');
+    const num = normalizeWa((assignedCs && assignedCs.phone) || (window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.whatsapp_admin) || '');
     if (!num) return '';
     const campTitle = (c && c.title) || '';
     const msg = encodeURIComponent(`Halo, saya sudah berdonasi.\nInvoice: ${invoice.invoice_number}\nNominal: ${fmtIDR(subtotal)}${campTitle ? `\nCampaign: ${campTitle}` : ''}\nMohon konfirmasi. Terima kasih 🙏`);
     return `https://wa.me/${num}?text=${msg}`;
-  }, [invoice.invoice_number, subtotal, c && c.title]);
+  }, [invoice.invoice_number, subtotal, c && c.title, invoice.cs_phone, invoice.cs_name]);
 
   // Manual-transfer destination. Flip (gateway) returns a pay_code; otherwise the
   // donor transfers to the single org account configured in Settings → Payment
@@ -1761,6 +1782,43 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
     }
   }, [isPaid]);
 
+  // Auto-redirect to the CS WhatsApp on success: count 3→0 then navigate. Guarded by a ref
+  // so the repeated poll re-renders can't restart it. Same-tab location.href (NOT
+  // window.open) so it isn't treated as a popup — survives iOS Safari + popup blockers; the
+  // manual "Buka sekarang" / "Lewati" buttons cover the case where the donor wants control.
+  const waRedirectedRef = useRef(false);
+  const waIntervalRef = useRef(null);
+  useEffect(() => {
+    if (!isPaid || !successWaHref || waRedirectedRef.current) return;
+    setWaCountdown(3);
+    const id = setInterval(() => {
+      setWaCountdown((n) => {
+        if (n === null) return null;          // cancelled by "Lewati"
+        if (n <= 1) {
+          clearInterval(id);
+          if (!waRedirectedRef.current) { waRedirectedRef.current = true; window.location.href = successWaHref; }
+          return 0;
+        }
+        return n - 1;
+      });
+    }, 1000);
+    waIntervalRef.current = id;
+    return () => clearInterval(id);
+  }, [isPaid, successWaHref]);
+
+  // Donor takes control: open WA immediately ("Buka sekarang") — sets the ref so the timer
+  // tick won't double-navigate.
+  const goWaNow = () => { if (successWaHref) { waRedirectedRef.current = true; window.location.href = successWaHref; } };
+  // Cancel the auto-redirect and go back to the campaign ("Lewati"). Clear the interval
+  // directly (don't rely on onReset triggering unmount) and stop the countdown so the UI
+  // never flashes "0 detik".
+  const skipWa = () => {
+    waRedirectedRef.current = true;
+    if (waIntervalRef.current) { clearInterval(waIntervalRef.current); waIntervalRef.current = null; }
+    setWaCountdown(null);
+    onReset && onReset();
+  };
+
   const checkNow = async () => {
     setChecking(true);
     setPollTimedOut(false); // a manual check re-arms the automatic poller below
@@ -1803,21 +1861,38 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
           <div className="flex justify-between"><span className="text-mute">Nominal donasi</span><b className="text-ink">{fmtIDR(subtotal)}</b></div>
           <div className="flex justify-between pt-1.5 border-t border-line"><span className="font-bold text-ink">Status</span><b className="text-emerald-600">Pembayaran Diterima</b></div>
         </div>
-        <div className="mt-4 text-[12px] text-mute leading-relaxed">
-          Bukti donasi &amp; ucapan terima kasih akan dikirim ke WhatsApp{invoice.donor_email ? ' & email' : ''} Anda.
-        </div>
-        {/* Primary CTA: confirm via WhatsApp (button, not auto-redirect — auto-open is
-            often blocked by the browser and skips this confirmation screen). Pre-fills a
-            message with the invoice + nominal to the CS/admin number. */}
-        {successWaHref && (
-          <a href={successWaHref} target="_blank" rel="noopener noreferrer"
-             className="mt-5 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700">
-            <Icon name="wa" size={16}/> Konfirmasi via WhatsApp
-          </a>
+        {/* Donasi belum selesai sampai donatur konfirmasi ke CS — so push them there. */}
+        {successWaHref ? (
+          <>
+            <div className="mt-4 text-sm font-semibold text-ink">
+              Satu langkah lagi — konfirmasi ke CS{assignedCs && assignedCs.name ? ` (${assignedCs.name})` : ''}
+            </div>
+            {waCountdown != null && (
+              <div className="mt-1 text-[12px] text-mute leading-relaxed">
+                Mengarahkan ke WhatsApp dalam <b className="text-emerald-600">{waCountdown}</b> detik
+                untuk mengirim bukti &amp; ucapan terima kasih{invoice.donor_email ? ' (juga via email)' : ''}.
+              </div>
+            )}
+            {/* Primary CTA — same-tab nav, survives popup blockers. */}
+            <button onClick={goWaNow}
+              className="mt-5 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700">
+              <Icon name="wa" size={16}/> Buka WhatsApp sekarang
+            </button>
+            <button onClick={skipWa}
+              className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-mute hover:text-ink hover:bg-bg2">
+              Lewati &amp; kembali ke campaign →
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="mt-4 text-[12px] text-mute leading-relaxed">
+              Bukti donasi &amp; ucapan terima kasih akan dikirim ke WhatsApp{invoice.donor_email ? ' & email' : ''} Anda.
+            </div>
+            <button onClick={onReset} className="mt-5 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-brand-600 text-white hover:bg-brand-700">
+              Kembali ke campaign
+            </button>
+          </>
         )}
-        <button onClick={onReset} className={`${successWaHref ? 'mt-3' : 'mt-5'} w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold ${successWaHref ? 'bg-white border border-line text-ink hover:bg-bg2' : 'bg-brand-600 text-white hover:bg-brand-700'}`}>
-          Kembali ke campaign
-        </button>
       </div>
     );
   }
@@ -1970,12 +2045,12 @@ function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMethod, o
         <Icon name="check" size={16}/> {checking ? 'Memeriksa…' : 'Cek Status Pembayaran'}
       </PrimaryBtn>
       {(() => {
-        // Prefer the configured CS contacts (rotator-aware); fall back to whatsapp_admin.
-        const cs = pickCsContact();
+        // Use the SAME CS assigned to this invoice (server rotator) — identical to the
+        // success screen, sticky across reload. Fall back to whatsapp_admin for legacy invoices.
         const fallback = (window.PUBLIC_SETTINGS && window.PUBLIC_SETTINGS.whatsapp_admin) || '';
-        const num = normalizeWa(cs ? cs.phone : fallback);
+        const num = normalizeWa((assignedCs && assignedCs.phone) || fallback);
         if (!num) return null;
-        const label = cs && cs.name ? `Konfirmasi via WhatsApp (${cs.name})` : 'Konfirmasi via WhatsApp';
+        const label = assignedCs && assignedCs.name ? `Konfirmasi via WhatsApp (${assignedCs.name})` : 'Konfirmasi via WhatsApp';
         const msg = encodeURIComponent(`Halo admin, saya sudah donasi. Invoice: ${invoice.invoice_number}, nominal: ${fmtIDR(total)}. Mohon konfirmasi.`);
         return (
           <a href={`https://wa.me/${num}?text=${msg}`} target="_blank" rel="noopener noreferrer"

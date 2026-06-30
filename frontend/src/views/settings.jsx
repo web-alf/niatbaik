@@ -1856,8 +1856,14 @@ function GeneralPanel({ settings, onSave }) {
             <label className="text-xs font-semibold text-mute">Mode kontak CS</label>
             <Select value={csMode} onChange={setCsMode} options={[
               {value:'default', label:'Default (satu nomor)'},
-              {value:'rotator', label:'Rotator (bergilir antar nomor)'},
+              {value:'rotator', label:'Rotator (bergilir berurutan)'},
+              {value:'least', label:'Least-loaded (paling sedikit beban)'},
             ]} className="mt-1"/>
+            <div className="text-[11px] text-mute mt-1">
+              <b>Default</b>: selalu nomor pertama. <b>Rotator</b>: bergilir berurutan tiap donasi.
+              <b> Least-loaded</b>: tiap donasi diarahkan ke CS dengan donasi paling sedikit. Nomor CS
+              disimpan per-invoice (donatur lihat nomor yang sama di semua halaman).
+            </div>
           </div>
           <div>
             <label className="text-xs font-semibold text-mute">Nomor CS (WhatsApp)</label>

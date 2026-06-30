@@ -110,7 +110,8 @@ type Setting struct {
 	// Donor greeting + CS contact rotator
 	DonorGreeting string `gorm:"type:text" json:"donor_greeting"`            // greeting message shown to donor
 	CSContacts    string `gorm:"type:text" json:"cs_contacts"`              // JSON array of CS WA contacts (rotator)
-	CSRotatorMode string `gorm:"size:20;default:'default'" json:"cs_rotator_mode"` // "default" | "rotator"
+	CSRotatorMode string `gorm:"size:20;default:'default'" json:"cs_rotator_mode"` // "default" | "rotator" | "least"
+	CSRotatorIndex int64 `gorm:"default:0" json:"-"`                              // round-robin cursor, server-incremented atomically
 
 	// Ads tracking & pixels
 	MetaPixelID           string `gorm:"size:100" json:"meta_pixel_id"`

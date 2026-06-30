@@ -15,6 +15,7 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/repository"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type DonationService struct {
@@ -117,6 +118,16 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 
 	settingsForPay, _ := s.settingRepo.Get()
 
+	// Assign a CS WhatsApp contact to this donation (rotator). Done server-side + stored on
+	// the invoice so the donor sees the SAME number on every screen + after reload, the
+	// assignment is load-balanced (round-robin / least-loaded, not per-render random), and
+	// admin can see which CS handled which donation.
+	// NOTE: in "rotator" mode this increments the counter OUTSIDE the invoice tx, so a rare
+	// invoice-create failure burns one rotation slot (next donor skips a number). Accepted:
+	// rotation still converges and the alternative (counter inside the tx) couples an
+	// unrelated settings row to every donation tx for no real benefit.
+	csPhone, csName := s.assignCS(settingsForPay)
+
 	// Resolve the chosen payment method + which GATEWAY settles it. The frontend sends
 	// payment_method_id which is either a real payment_methods UUID OR a synthetic id
 	// ("flip-qris", "moota-bca", "manual-bank-0"). The synthetic ids fail uuid.Parse, so
@@ -185,6 +196,8 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 				ReferredBy:        referredBy,
 				PaymentMethodID:   paymentMethodID,
 				PaymentMethodName: paymentMethodName,
+				CSPhone:           csPhone,
+				CSName:            csName,
 				UTMSource:         req.UTMSource,
 				UTMMedium:         req.UTMMedium,
 				UTMCampaign:       req.UTMCampaign,
@@ -339,6 +352,106 @@ func (s *DonationService) cleanupDeadInvoice(invoice *model.Invoice) {
 
 func (s *DonationService) GetPaymentStatus(invoiceNumber string) (*model.Invoice, error) {
 	return s.invoiceRepo.FindByInvoiceNumber(invoiceNumber)
+}
+
+// csContact is one entry from settings.cs_contacts (admin-managed CS WhatsApp list).
+type csContact struct {
+	Phone string `json:"phone"`
+	Name  string `json:"name"`
+}
+
+// normalizeWA strips non-digits and maps a leading 0 → 62 (Indonesia), matching the
+// frontend's normalizeWa so a stored cs_phone equals the one used to build the wa.me link
+// AND the value least-loaded counts group on.
+func normalizeWA(n string) string {
+	digits := strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, n)
+	switch {
+	case digits == "":
+		return ""
+	case strings.HasPrefix(digits, "62"): // already E.164-ish (e.g. from "+62…")
+		return digits
+	case strings.HasPrefix(digits, "0"): // local "08…" → "628…"
+		return "62" + digits[1:]
+	case strings.HasPrefix(digits, "8"): // bare "8…" (common when admin drops the 0) → "628…"
+		return "62" + digits
+	default:
+		return digits
+	}
+}
+
+// assignCS picks the CS WhatsApp contact for a new donation per the admin-selected
+// cs_rotator_mode. Returns normalized phone + display name (both "" when no CS is
+// configured — the donor page then just hides the WA button). Never errors: a bad config
+// degrades to "no CS", never blocks the donation.
+//
+//   - "least"   → least-loaded: the contact with the fewest invoices assigned so far.
+//   - "rotator" → round-robin via an atomic counter on Setting (race-safe under concurrent
+//     donations; clause.Returning reads the post-increment value in one round-trip).
+//   - default   → the first configured contact (or whatsapp_admin fallback).
+func (s *DonationService) assignCS(settings *model.Setting) (string, string) {
+	if settings == nil {
+		return "", ""
+	}
+	var list []csContact
+	if settings.CSContacts != "" {
+		_ = json.Unmarshal([]byte(settings.CSContacts), &list)
+	}
+	// Keep only contacts with a usable phone, normalized once.
+	contacts := make([]csContact, 0, len(list))
+	for _, c := range list {
+		if p := normalizeWA(c.Phone); p != "" {
+			contacts = append(contacts, csContact{Phone: p, Name: strings.TrimSpace(c.Name)})
+		}
+	}
+	if len(contacts) == 0 {
+		// No rotator list — fall back to the single admin number (also normalized).
+		return normalizeWA(settings.WhatsappAdmin), ""
+	}
+	if len(contacts) == 1 {
+		return contacts[0].Phone, contacts[0].Name
+	}
+
+	switch settings.CSRotatorMode {
+	case "least":
+		// Edge case (accepted): if an old whatsapp_admin fallback number later gets added to
+		// the CS list, historical invoices stamped with it inflate that contact's count. Rare
+		// and self-correcting as new donations spread out — not worth a date/mode cutoff.
+		best, bestCount := 0, int64(-1)
+		for i, c := range contacts {
+			var count int64
+			if err := s.db.Model(&model.Invoice{}).Where("cs_phone = ?", c.Phone).Count(&count).Error; err != nil {
+				continue // counting failed for this one — treat as "no info", keep current best
+			}
+			if bestCount < 0 || count < bestCount {
+				best, bestCount = i, count
+			}
+		}
+		return contacts[best].Phone, contacts[best].Name
+	case "rotator":
+		// Atomic increment + return the new value in a single statement → race-safe.
+		var updated model.Setting
+		err := s.db.Model(&updated).
+			Clauses(clause.Returning{Columns: []clause.Column{{Name: "cs_rotator_index"}}}).
+			Where("id = ?", settings.ID).
+			UpdateColumn("cs_rotator_index", gorm.Expr("cs_rotator_index + 1")).Error
+		if err == nil {
+			// updated holds the POST-increment value; (-1) gives a 0-based cursor.
+			idx := int((updated.CSRotatorIndex - 1) % int64(len(contacts)))
+			if idx < 0 {
+				idx += len(contacts)
+			}
+			return contacts[idx].Phone, contacts[idx].Name
+		}
+		// Increment failed (shouldn't happen) — degrade to first contact.
+		return contacts[0].Phone, contacts[0].Name
+	default:
+		return contacts[0].Phone, contacts[0].Name
+	}
 }
 
 // SimulatePayment settles an invoice WITHOUT a real gateway/bank transfer, for testers

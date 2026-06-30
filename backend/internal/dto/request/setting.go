@@ -81,7 +81,7 @@ type UpdateSettingRequest struct {
 	// Donor greeting + CS rotator
 	DonorGreeting *string `json:"donor_greeting" validate:"omitempty,max=1000"`
 	CSContacts    *string `json:"cs_contacts" validate:"omitempty,max=4000"`
-	CSRotatorMode *string `json:"cs_rotator_mode" validate:"omitempty,oneof=default rotator"`
+	CSRotatorMode *string `json:"cs_rotator_mode" validate:"omitempty,oneof=default rotator least"`
 
 	// Social proof
 	SocialProofEnabled *bool   `json:"social_proof_enabled"`

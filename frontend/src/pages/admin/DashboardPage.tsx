@@ -588,7 +588,7 @@ function LeadsSection({ onOpen }: any) {
                   <th className="py-2.5 font-semibold text-center w-20">Payment</th>
                   <th className="py-2.5 font-semibold">Status</th>
                   <th className="py-2.5 font-semibold text-right">Date</th>
-                  <th className="pr-5 py-2.5 font-semibold text-right w-28">Action</th>
+                  <th className="pr-5 py-2.5 font-semibold text-right w-32">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -631,12 +631,16 @@ function LeadsSection({ onOpen }: any) {
                       </td>
                       <td className="py-3 text-right text-xs text-mute whitespace-nowrap">{shortDate(r.date)}</td>
                       <td className="pr-5 py-3">
-                        <div className="flex items-center gap-1 justify-end">
-                          <button title="Tandai berkualitas" disabled={busy} onClick={() => setQuality(r, r.leadQuality === 'berkualitas' ? '' : 'berkualitas')}
-                            className={`h-8 w-8 shrink-0 rounded-md inline-flex items-center justify-center hover:bg-emerald-50 disabled:opacity-40 ${r.leadQuality === 'berkualitas' ? 'text-emerald-600 bg-emerald-50' : 'text-mute hover:text-emerald-600'}`}><Icon name="check" size={16}/></button>
-                          <button title="Tandai invalid" disabled={busy} onClick={() => setQuality(r, r.leadQuality === 'invalid' ? '' : 'invalid')}
-                            className={`h-8 w-8 shrink-0 rounded-md inline-flex items-center justify-center hover:bg-rose-50 disabled:opacity-40 ${r.leadQuality === 'invalid' ? 'text-rose-600 bg-rose-50' : 'text-mute hover:text-rose-600'}`}><Icon name="close" size={16}/></button>
-                          <button title="Detail" onClick={() => onOpen && onOpen(r)} className="h-8 w-8 shrink-0 rounded-md inline-flex items-center justify-center hover:bg-bg2 text-mute hover:text-ink"><Icon name="eye" size={16}/></button>
+                        <div className="flex items-center gap-2 justify-end">
+                          {/* Quality tagging as ONE segmented control (joined pill) so it
+                              reads as a single "set quality" widget, not loose icons. */}
+                          <div className="inline-flex shrink-0 rounded-lg border border-line overflow-hidden">
+                            <button title="Tandai berkualitas" disabled={busy} onClick={() => setQuality(r, r.leadQuality === 'berkualitas' ? '' : 'berkualitas')}
+                              className={`h-8 w-8 inline-flex items-center justify-center disabled:opacity-40 ${r.leadQuality === 'berkualitas' ? 'bg-emerald-500 text-white' : 'text-mute hover:bg-emerald-50 hover:text-emerald-600'}`}><Icon name="check" size={15}/></button>
+                            <button title="Tandai invalid" disabled={busy} onClick={() => setQuality(r, r.leadQuality === 'invalid' ? '' : 'invalid')}
+                              className={`h-8 w-8 inline-flex items-center justify-center border-l border-line disabled:opacity-40 ${r.leadQuality === 'invalid' ? 'bg-rose-500 text-white' : 'text-mute hover:bg-rose-50 hover:text-rose-600'}`}><Icon name="close" size={15}/></button>
+                          </div>
+                          <button title="Lihat detail" onClick={() => onOpen && onOpen(r)} className="h-8 w-8 shrink-0 rounded-lg border border-line inline-flex items-center justify-center text-mute hover:bg-bg2 hover:text-ink"><Icon name="eye" size={15}/></button>
                         </div>
                       </td>
                     </tr>

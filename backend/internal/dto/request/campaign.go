@@ -45,8 +45,10 @@ type UpdateCampaignRequest struct {
 	Target           *int64     `json:"target"`
 	DurationDays     *int       `json:"duration_days"`
 	CategoryID       *uuid.UUID `json:"category_id"`
-	Unlimited        bool       `json:"unlimited"`
-	Featured         bool       `json:"featured"`
+	// Tri-state: nil = field absent in the PUT body → leave unchanged. A plain bool
+	// would decode an omitted key to false and silently clear the flag on every edit.
+	Unlimited        *bool      `json:"unlimited"`
+	Featured         *bool      `json:"featured"`
 	Status           string     `json:"status" validate:"omitempty,oneof=Draft Berjalan Running Published Selesai Ditolak Menunggu Pending Aktif Nonaktif Ended"`
 	LocationName     string     `json:"location_name"`
 	LocationGmaps    string     `json:"location_gmaps"`

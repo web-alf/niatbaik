@@ -66,6 +66,14 @@ func main() {
 	e.HideBanner = true
 	e.Validator = validator.New()
 
+	// Trust ONLY nginx's X-Real-IP (set to $remote_addr on every proxied request) for
+	// client IP. Without this, echo's default RealIP() reads the client-supplied
+	// X-Forwarded-For leftmost value, which an attacker can spoof to mint a fresh
+	// rate-limit bucket per request (defeating the login/reset throttle) and to poison
+	// login-history logs. nginx APPENDS to XFF, so XFF can't be trusted here; X-Real-IP
+	// is the single edge-set value.
+	e.IPExtractor = echo.ExtractIPFromRealIPHeader()
+
 	// Cap request bodies to prevent memory-exhaustion DoS. File uploads have a
 	// stricter per-file limit enforced in the upload service; this is the outer guard.
 	e.Use(echoMiddleware.BodyLimit("12M"))

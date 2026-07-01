@@ -166,8 +166,16 @@ func (s *AuthService) RefreshToken(refreshToken string) (*response.TokenResponse
 		}
 	}
 
+	// Sign the new access token with the LIVE DB role and reject a deleted user, so the
+	// refresh path is self-sufficient rather than relying solely on the JWTMiddleware to
+	// scrub a stale/elevated role. Fail-closed: if the user is gone, refresh fails.
+	var u model.User
+	if err := s.db.Model(&model.User{}).Select("role").First(&u, "id = ?", claims.UserID).Error; err != nil {
+		return nil, errors.New("invalid or expired refresh token")
+	}
+
 	accessToken, err := jwtpkg.GenerateAccessToken(
-		claims.UserID, claims.Email, claims.Role,
+		claims.UserID, claims.Email, u.Role,
 		s.cfg.JWTSecret, s.cfg.JWTExpiry,
 	)
 	if err != nil {
@@ -285,9 +293,14 @@ func (s *AuthService) ResetPassword(req *request.ResetPasswordRequest) error {
 	result := s.db.Model(&model.User{}).
 		Where("email = ? AND reset_token = ? AND reset_token_expiry > ?", req.Email, req.Token, time.Now()).
 		Updates(map[string]interface{}{
-			"password":           hashed,
-			"reset_token":        "",
-			"reset_token_expiry": nil,
+			"password":            hashed,
+			"reset_token":         "",
+			"reset_token_expiry":  nil,
+			// Invalidate every access/refresh token issued before this reset: the JWT
+			// middleware rejects tokens whose IssuedAt predates password_changed_at, so a
+			// thief holding a still-valid refresh token can't keep minting access tokens
+			// after the victim resets their password.
+			"password_changed_at": time.Now(),
 		})
 	if result.Error != nil {
 		return result.Error

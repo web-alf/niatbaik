@@ -21,6 +21,9 @@ type User struct {
 	UserCoverImage     string         `gorm:"size:255" json:"user_cover_image"`
 	Address            string         `gorm:"size:500" json:"address"`
 	Bio                string         `gorm:"type:text" json:"bio"`
+	// PasswordChangedAt marks the last credential change. The JWT middleware rejects any
+	// token issued before this time, so a password reset revokes all outstanding tokens.
+	PasswordChangedAt *time.Time `json:"-"`
 
 	// Organization fields
 	OrgStatus  string `gorm:"size:20" json:"org_status"`

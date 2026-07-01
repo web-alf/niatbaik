@@ -116,12 +116,10 @@ func (s *CampaignService) Update(id uuid.UUID, req *request.UpdateCampaignReques
 	}
 
 	campaignID := c.ID
+	// Include soft-deleted rows (plain unique index reserves their slug) but allow this
+	// campaign to keep its own slug.
 	uniqueExceptSelf := func(candidate string) bool {
-		found, findErr := s.campaignRepo.FindBySlug(candidate)
-		if findErr != nil {
-			return false
-		}
-		return found.ID != campaignID
+		return s.campaignRepo.SlugExistsExceptID(candidate, campaignID)
 	}
 
 	// A user-edited slug wins; otherwise re-derive from the (possibly new) title.
@@ -234,8 +232,15 @@ func (s *CampaignService) Update(id uuid.UUID, req *request.UpdateCampaignReques
 	if c.MinDonation > 0 && c.MaxDonation > 0 && c.MinDonation > c.MaxDonation {
 		return nil, errors.New("donasi minimal tidak boleh lebih besar dari donasi maksimal")
 	}
-	c.Unlimited = req.Unlimited
-	c.Featured = req.Featured
+	// Tri-state: only apply when the client actually sent the field (nil = absent →
+	// leave unchanged). Previously plain bools here silently cleared Featured/Unlimited
+	// on every edit because the editor omits them from the payload.
+	if req.Unlimited != nil {
+		c.Unlimited = *req.Unlimited
+	}
+	if req.Featured != nil {
+		c.Featured = *req.Featured
+	}
 
 	if err := s.campaignRepo.Update(c); err != nil {
 		return nil, err

@@ -54,12 +54,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // logging out and back in. Skip the initial value (mount already fetched me()) and
   // only run while a session exists. The backend now authorizes off the DB role too
   // (JWTMiddleware), so this keeps the UI (sidebar/guards) in step with that.
+  //
+  // THROTTLED to at most once per 60s: adminRev bumps on EVERY server mutation (each
+  // ride a ~13-request refreshAdmin fan-out), but a user's own role/profile changes
+  // rarely — refetching me() on every bump was pure waste on the hot path.
   const adminRev = useDataStore((s) => s.adminRev);
   const prevRevRef = useRef(adminRev);
+  const lastMeRef = useRef(0);
   useEffect(() => {
     if (adminRev === prevRevRef.current) return; // no advance (initial mount)
     prevRevRef.current = adminRev;
     if (!api.getToken || !api.getToken()) return;
+    const now = Date.now();
+    if (now - lastMeRef.current < 60_000) return;
+    lastMeRef.current = now;
     api.me().then((res) => { if (res?.data) setUser(res.data); }).catch(() => { /* 401 handled by api.ts */ });
   }, [adminRev]);
 

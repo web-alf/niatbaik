@@ -183,7 +183,20 @@ func (r *CampaignRepo) CountByStatus() (map[string]int64, error) {
 
 func (r *CampaignRepo) SlugExists(slug string) bool {
 	var count int64
-	r.db.Model(&model.Campaign{}).Where("slug = ?", slug).Count(&count)
+	// Unscoped: the slug unique index is plain (no deleted_at predicate), so a
+	// soft-deleted campaign still reserves its slug in the DB. Counting only live rows
+	// would report the slug free, then the INSERT collides with the index and surfaces
+	// an opaque 500. Include soft-deleted rows so the slug generator bumps the suffix.
+	r.db.Unscoped().Model(&model.Campaign{}).Where("slug = ?", slug).Count(&count)
+	return count > 0
+}
+
+// SlugExistsExceptID reports whether ANY campaign (incl. soft-deleted, per the plain
+// unique index) other than the given id holds this slug. Used by the update path so a
+// campaign keeps its own slug while still avoiding collisions with dead rows.
+func (r *CampaignRepo) SlugExistsExceptID(slug string, id uuid.UUID) bool {
+	var count int64
+	r.db.Unscoped().Model(&model.Campaign{}).Where("slug = ? AND id <> ?", slug, id).Count(&count)
 	return count > 0
 }
 

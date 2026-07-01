@@ -52,15 +52,23 @@ func JWTMiddleware(secret string, revokedRepo *repository.RevokedTokenRepo, user
 				}
 			}
 
-			// Authoritative role: overwrite the token's (possibly stale) role with the
-			// live DB value so a role change takes effect immediately. A lookup error
-			// means the user is gone/unreadable → reject rather than trust the token.
+			// Authoritative role + credential-change check, from the DB source-of-truth.
+			// Fail OPEN on a lookup error: the JWT signature is already verified, so the
+			// token's own role is trustworthy — a transient DB blip (timeout, pool
+			// exhaustion) must not 401 a valid admin mid-session (that bounces them to
+			// /login and wipes cached data). On a SUCCESSFUL read we do enforce:
+			//   (a) the live role overwrites the token's (possibly stale) role, so a role
+			//       change takes effect on the next request without re-login;
+			//   (b) any token issued before the user's last password change is rejected,
+			//       so a password reset revokes all outstanding access/refresh tokens.
 			if userRepo != nil {
-				role, err := userRepo.RoleByID(claims.UserID)
-				if err != nil {
-					return c.JSON(http.StatusUnauthorized, map[string]string{"message": "unable to verify account"})
+				if snap, err := userRepo.AuthByID(claims.UserID); err == nil {
+					claims.Role = snap.Role
+					if snap.PasswordChangedAt != nil && claims.IssuedAt != nil &&
+						claims.IssuedAt.Time.Before(*snap.PasswordChangedAt) {
+						return c.JSON(http.StatusUnauthorized, map[string]string{"message": "token invalidated by password change"})
+					}
 				}
-				claims.Role = role
 			}
 
 			c.Set("user", claims)

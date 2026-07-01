@@ -6,7 +6,7 @@ import { useDataStore } from '@/store/data';
 import { useAuth } from '@/context/AuthContext';
 import { fmtIDR, fmtIDRShort, fmtNum, paymentMethods, isAutoConfirmMethod } from '@/lib/format';
 import { campaignBgStyle } from '@/lib/mappers';
-import { getDateRange, DEFAULT_RANGE } from '@/lib/date';
+import { useSharedDateRange } from '@/lib/date';
 import { exportCSV, exportExcel, filterByRange } from '@/lib/export';
 import { Card, StatCard, Badge, StatusBadge, Progress, Btn, SearchInput, Select, LineChart, Donut, PageHeader, Tabs, SourcePill, Icon, DateRangePill } from '@/components';
 import AdvertiserPage from '@/pages/admin/AdvertiserPage';
@@ -46,7 +46,7 @@ export default function DashboardPage() {
   // Live KPI stats overlay (snake_case from API) with seed fallback.
   const S = dashboardStats || {};
 
-  const [range, setRange] = useState(getDateRange() || DEFAULT_RANGE);
+  const [range, setRange] = useSharedDateRange();
   // Daily-donations chart range (in days). Wired to the 7/30/90 tab below.
   const [chartDays, setChartDays] = useState(30);
   const tw = TW;
@@ -480,9 +480,9 @@ function LeadsSection({ onOpen }: any) {
   const urlCampaign = sp.get('campaign') || '';
 
   const [campaignId, setCampaignId] = useState(urlCampaign);
-  const [range, setRange] = useState(getDateRange() || DEFAULT_RANGE);
+  const [range, setRange] = useSharedDateRange();
   const [q, setQ] = useState('');
-  const [busyId, setBusyId] = useState<string>('');
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const PAGE = 10;
 
@@ -520,6 +520,7 @@ function LeadsSection({ onOpen }: any) {
   const clearCampaign = () => { setCampaignId(''); if (urlCampaign) { sp.delete('campaign'); setSp(sp, { replace: true }); } };
 
   const togglePayment = async (lead: any) => {
+    if (!lead.uuid) { showToast('UUID invoice tidak tersedia'); return; }
     // Turning a PAID lead back to unpaid does NOT reverse the campaign/commission
     // bookkeeping (the backend credits on the paid path only) — warn before doing it.
     if (lead.isPaid && !confirm(`Tandai "${lead.id}" sebagai BELUM dibayar?\n\nCatatan: saldo campaign & komisi fundraiser yang sudah tercatat TIDAK otomatis dikoreksi.`)) return;
@@ -529,17 +530,18 @@ function LeadsSection({ onOpen }: any) {
       showToast(lead.isPaid ? 'Ditandai belum dibayar' : 'Ditandai lunas');
       await refreshInvoices();
     } catch (e: any) { showToast('Gagal: ' + (e?.message || '')); }
-    finally { setBusyId(''); }
+    finally { setBusyId(null); }
   };
 
   const setQuality = async (lead: any, quality: string) => {
+    if (!lead.uuid) { showToast('UUID invoice tidak tersedia'); return; }
     setBusyId(lead.uuid);
     try {
       await api.updateInvoiceQuality(lead.uuid, quality);
       showToast(quality === 'berkualitas' ? 'Ditandai berkualitas' : quality === 'invalid' ? 'Ditandai invalid' : 'Tag dihapus');
       await refreshInvoices();
     } catch (e: any) { showToast('Gagal: ' + (e?.message || '')); }
-    finally { setBusyId(''); }
+    finally { setBusyId(null); }
   };
 
   return (

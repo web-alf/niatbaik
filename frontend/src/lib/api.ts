@@ -138,7 +138,13 @@ export const api = {
     const hadToken = !!authToken;
     try {
       const res = await fetch(API_BASE + path, opts);
-      const data = await res.json();
+      // Parse the body defensively: nginx emits NON-JSON bodies for 429 (rate limit) /
+      // 413 (too large) / 5xx, so calling res.json() unconditionally would throw a
+      // SyntaxError and mask the real status as a generic connection error — and skip
+      // the 401 session-expiry recovery below. Drive control flow off res.status, which
+      // is always present.
+      let data: any = null;
+      try { data = await res.json(); } catch { /* non-JSON body (nginx 429/413/HTML) */ }
       if (!res.ok) {
         // A 401 on an authenticated request means the session expired/was revoked.
         // Clear the dead token and signal the app to return to login. (A 401 with no
@@ -147,7 +153,10 @@ export const api = {
           this.clearToken();
           try { window.dispatchEvent(new CustomEvent('nb-session-expired')); } catch { /* ignore */ }
         }
-        throw { status: res.status, message: data.message || 'Error' } as ApiError;
+        const msg = res.status === 429
+          ? 'Terlalu banyak permintaan. Coba lagi sebentar.'
+          : (data?.message || `Error ${res.status}`);
+        throw { status: res.status, message: msg } as ApiError;
       }
       return data as ApiResponse<T>;
     } catch (err) {

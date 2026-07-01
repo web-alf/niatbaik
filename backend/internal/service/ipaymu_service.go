@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -138,12 +139,12 @@ func (s *IpaymuService) CreatePayment(invoice *model.Invoice, redirectURL string
 	return &p, nil
 }
 
-// VerifyCallback authenticates an inbound iPaymu notify. iPaymu's callback does not
-// carry a body-HMAC the way the outbound request does; it posts the merchant `va`.
-// We require that va to match our configured VA (fail-closed when unset). The real
-// settlement guards remain in HandleWebhook: the reference must match an UNPAID
-// invoice and the posted total must cover it, so a forged callback can't credit an
-// arbitrary amount. Exact scheme should be confirmed against the iPaymu sandbox.
+// VerifyCallback does a CHEAP pre-filter on the posted merchant `va`. This is NOT
+// authentication on its own — the VA is not a secret (it is printed on the payment
+// page and sent as an outbound header), so a matching VA only weeds out obviously
+// unrelated posts. The real, unforgeable authentication happens in HandleWebhook via
+// verifyTransaction(), which re-asks iPaymu about the transaction using our secret
+// API key. Fail-closed when the VA is unset.
 func (s *IpaymuService) VerifyCallback(cbVA string) bool {
 	va, _, _ := s.getCredentials()
 	va = strings.TrimSpace(va)
@@ -153,10 +154,76 @@ func (s *IpaymuService) VerifyCallback(cbVA string) bool {
 	return strings.TrimSpace(cbVA) == va
 }
 
-// HandleWebhook settles a donation from a verified iPaymu callback. Caller MUST have
-// verified the Signature header first.
+// ipaymuTxnStatus is the subset of iPaymu's transaction-check response we use.
+type ipaymuTxnStatus struct {
+	Status int `json:"Status"`
+	Data   struct {
+		// StatusCode: iPaymu uses "1"/"berhasil" for a successful (paid) transaction.
+		StatusCode  interface{} `json:"StatusCode"`
+		Status      interface{} `json:"Status"`
+		StatusDesc  string      `json:"StatusDesc"`
+		Amount      interface{} `json:"Amount"`
+		ReferenceID string      `json:"ReferenceId"`
+	} `json:"Data"`
+}
+
+// verifyTransaction re-queries iPaymu for the authoritative status of a transaction,
+// signing the request with our secret API key (the same proven scheme signRequest uses
+// for CreatePayment). Because the response comes from iPaymu over a request an attacker
+// cannot forge (they don't have the API key), this is the real authentication for an
+// inbound callback — the pushed payload is treated as an untrusted hint only.
+//
+// Returns (paid, error). A non-nil error means we could NOT confirm settlement and the
+// caller MUST NOT credit the invoice (fail-closed).
+func (s *IpaymuService) verifyTransaction(trxID string) (bool, error) {
+	trxID = strings.TrimSpace(trxID)
+	if trxID == "" {
+		return false, fmt.Errorf("ipaymu verify: empty transaction id")
+	}
+	va, apiKey, baseURL := s.getCredentials()
+	if va == "" || apiKey == "" {
+		return false, fmt.Errorf("ipaymu verify: credentials not configured")
+	}
+
+	body, err := json.Marshal(map[string]interface{}{"transactionId": trxID})
+	if err != nil {
+		return false, err
+	}
+	req, err := http.NewRequest("POST", baseURL+"/api/v2/transaction", bytes.NewReader(body))
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("signature", s.signRequest("POST", va, body, apiKey))
+	req.Header.Set("va", va)
+	req.Header.Set("timestamp", time.Now().Format("20060102150405"))
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("ipaymu verify request failed: %w", err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		return false, fmt.Errorf("ipaymu verify API error %d: %s", resp.StatusCode, string(raw))
+	}
+
+	var st ipaymuTxnStatus
+	if err := json.Unmarshal(raw, &st); err != nil {
+		return false, fmt.Errorf("ipaymu verify decode: %w (body=%s)", err, string(raw))
+	}
+	code := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", st.Data.StatusCode)))
+	desc := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", st.Data.Status)) + " " + st.Data.StatusDesc)
+	paid := code == "1" || strings.Contains(desc, "berhasil") || strings.Contains(desc, "success") || strings.Contains(desc, "paid")
+	return paid, nil
+}
+
+// HandleWebhook settles a donation from an iPaymu callback. It re-verifies the
+// transaction against iPaymu (verifyTransaction) using our secret key BEFORE crediting,
+// so a forged callback cannot settle an unpaid invoice.
 func (s *IpaymuService) HandleWebhook(payload IpaymuCallback) error {
-	// iPaymu reports "berhasil" (and sometimes "berhasil"/"success") for paid.
+	// iPaymu reports "berhasil" (and sometimes "success"/"paid") for paid.
 	st := strings.ToLower(strings.TrimSpace(payload.Status))
 	if st != "berhasil" && st != "success" && st != "paid" {
 		return nil
@@ -180,14 +247,26 @@ func (s *IpaymuService) HandleWebhook(payload IpaymuCallback) error {
 		}
 	}
 
+	// AUTHENTICATION: re-ask iPaymu (signed with our secret key) whether this transaction
+	// actually settled. The pushed `va`/`status` are not trusted for this — only the
+	// server-to-server confirmation is. Fail-closed on any error.
+	confirmed, err := s.verifyTransaction(payload.TrxID)
+	if err != nil {
+		return fmt.Errorf("ipaymu verify failed for %s: %w", ref, err)
+	}
+	if !confirmed {
+		return fmt.Errorf("ipaymu transaction %s not confirmed paid by gateway", ref)
+	}
+
 	inv, err := s.invoiceRepo.FindUnpaidByInvoiceNumber(ref)
 	if err != nil {
 		return fmt.Errorf("invoice not found: %w", err)
 	}
 
-	// Amount-tampering guard: require the posted total to cover the invoice.
-	if paid := parseInt64(payload.Total); paid > 0 && paid < inv.Total {
-		return fmt.Errorf("ipaymu amount mismatch for %s: received %d, expected %d", ref, paid, inv.Total)
+	// Amount-tampering guard, fail-closed: a missing/zero/non-numeric total must NOT pass.
+	paid, perr := strconv.ParseInt(strings.TrimSpace(payload.Total), 10, 64)
+	if perr != nil || paid <= 0 || paid < inv.Total {
+		return fmt.Errorf("ipaymu amount mismatch for %s: raw=%q parsed=%d expected=%d", ref, payload.Total, paid, inv.Total)
 	}
 
 	if err := s.paymentSvc.ProcessPayment(inv); err != nil {
@@ -222,6 +301,8 @@ func webhookURL(redirectURL, gateway string) string {
 	return origin + "/api/webhooks/" + gateway
 }
 
+// parseInt64 extracts the leading integer value from a numeric string, ignoring any
+// non-digit characters. Still used by the Duitku callback amount check.
 func parseInt64(s string) int64 {
 	var n int64
 	for _, c := range strings.TrimSpace(s) {

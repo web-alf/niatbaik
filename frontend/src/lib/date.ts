@@ -3,6 +3,8 @@
 // get/set pair (views that don't pass a setter still read the latest via getDateRange
 // and the 'nb-range-change' event the DateRangePill broadcasts).
 
+import { useState, useEffect } from 'react';
+
 export interface DateRange { start: Date | null; end: Date | null }
 
 export const MONTHS_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -25,11 +27,35 @@ export function formatRangeLabel(start: Date | null, end: Date | null) {
   return `${fmtDate(start)} – ${fmtDate(end)}`;
 }
 
-export const DEFAULT_RANGE: DateRange = { start: new Date(2026, 4, 1), end: new Date(2026, 4, 31) };
+// Default to the CURRENT month (start-of-month → today), derived at load — never a fixed
+// literal. A hardcoded month silently hides all data outside it on the Dashboard, Leads,
+// and Campaign Earnings until the user changes the pill.
+const _defaultRange = (): DateRange => {
+  const now = new Date();
+  return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now };
+};
+export const DEFAULT_RANGE: DateRange = _defaultRange();
 
-let _currentRange: DateRange = { ...DEFAULT_RANGE };
+let _currentRange: DateRange = _defaultRange();
 export const getDateRange = (): DateRange => _currentRange;
 export const setDateRange = (r: DateRange) => { _currentRange = r; };
+
+// Shared date-range hook: seeds from the module range and stays in sync via the
+// 'nb-range-change' event the DateRangePill already broadcasts. Multiple pills on one
+// page (e.g. the Dashboard header pill + the Leads pill) previously each held isolated
+// local state, so changing one left the others showing a different window. Both now use
+// this hook and move together.
+export function useSharedDateRange(): [DateRange, (r: DateRange) => void] {
+  const [range, setRange] = useState<DateRange>(() => getDateRange() || DEFAULT_RANGE);
+  useEffect(() => {
+    const h = (e: Event) => setRange((e as CustomEvent<DateRange>).detail);
+    window.addEventListener('nb-range-change', h);
+    return () => window.removeEventListener('nb-range-change', h);
+  }, []);
+  // Setter mirrors the pill's own handler so calling it directly also broadcasts.
+  const set = (r: DateRange) => { setDateRange(r); window.dispatchEvent(new CustomEvent('nb-range-change', { detail: r })); };
+  return [range, set];
+}
 
 export const rangeStamp = (r: DateRange | null) => {
   if (!r || !r.start) return 'all';

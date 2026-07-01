@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/pkg/pagination"
 	"github.com/google/uuid"
@@ -45,17 +47,22 @@ func (r *UserRepo) FindByID(id uuid.UUID) (*model.User, error) {
 	return &u, nil
 }
 
-// RoleByID returns just the current role for a user. The JWT middleware calls this on
-// every authenticated request so authorization uses the DB source-of-truth rather than
-// the role baked into the token at login — an admin role change then takes effect on the
-// next request instead of only after the user logs out and back in. An error (e.g. the
-// user was deleted) means the token no longer authorizes.
-func (r *UserRepo) RoleByID(id uuid.UUID) (string, error) {
+// AuthSnapshot is the per-request authorization state the JWT middleware reads from the
+// DB source-of-truth: the live role and the last credential-change time.
+type AuthSnapshot struct {
+	Role              string
+	PasswordChangedAt *time.Time
+}
+
+// AuthByID returns the live role + password_changed_at for a user in one query. Used by
+// the JWT middleware to (a) authorize against the current role and (b) reject tokens
+// issued before the last password change.
+func (r *UserRepo) AuthByID(id uuid.UUID) (*AuthSnapshot, error) {
 	var u model.User
-	if err := r.db.Model(&model.User{}).Select("role").First(&u, "id = ?", id).Error; err != nil {
-		return "", err
+	if err := r.db.Model(&model.User{}).Select("role", "password_changed_at").First(&u, "id = ?", id).Error; err != nil {
+		return nil, err
 	}
-	return u.Role, nil
+	return &AuthSnapshot{Role: u.Role, PasswordChangedAt: u.PasswordChangedAt}, nil
 }
 
 func (r *UserRepo) FindByEmail(email string) (*model.User, error) {

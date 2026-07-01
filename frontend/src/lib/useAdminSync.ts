@@ -12,13 +12,22 @@ export function useAdminSync(load: () => void | Promise<void>) {
   const loadRef = useRef(load);
   loadRef.current = load;
 
-  // Re-run the page's load whenever the admin revision advances (cross-device sync).
-  useEffect(() => { loadRef.current(); /* eslint-disable-next-line */ }, [rev]);
+  // Re-run the page's load whenever the admin revision ADVANCES (cross-device sync).
+  // Skip the initial mount run: a [rev]-dep effect always fires once on mount, which
+  // duplicated the page's own mount load. The page owns its initial fetch; this hook
+  // only reacts to subsequent revision bumps.
+  const firstRef = useRef(true);
+  useEffect(() => {
+    if (firstRef.current) { firstRef.current = false; return; }
+    loadRef.current(); /* eslint-disable-next-line */
+  }, [rev]);
 
   // Also refresh when the tab regains focus (covers the case where the long-poll was
-  // paused while hidden and the change happened on another device).
+  // paused while hidden and the change happened on another device). Guard on !hidden so
+  // the focus + visibilitychange pair doesn't double-fire, and a tab going HIDDEN
+  // doesn't trigger a wasted load.
   useEffect(() => {
-    const onFocus = () => { loadRef.current(); };
+    const onFocus = () => { if (!document.hidden) loadRef.current(); };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onFocus);
     return () => {

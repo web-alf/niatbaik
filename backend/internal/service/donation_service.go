@@ -147,6 +147,13 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 		if pmID, err := uuid.Parse(rawID); err == nil && s.paymentMethodRepo != nil {
 			if pm, err := s.paymentMethodRepo.FindByID(pmID); err == nil {
 				chosenMethod = pm
+				// A real payment_methods row is a MANUAL bank/e-wallet account the admin
+				// added (it carries a bank number, not a hosted-gateway channel). Derive a
+				// gateway hint so resolveGateway honors that choice instead of falling
+				// through to the FlipEnabled default — which would zero the unique code and
+				// silently redirect the donor to Flip, ignoring the account they picked.
+				clientGatewayHint = "manual"
+				channelKey = "manual"
 			}
 		} else {
 			// Synthetic id: "<gateway>-<channelKey>" or "manual-bank-<i>".

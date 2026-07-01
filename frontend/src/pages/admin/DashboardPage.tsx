@@ -438,7 +438,7 @@ function TxnTable({
         </thead>
         <tbody>
           {rows.map((r: any, i: any) => (
-            <tr key={r.id} className={`border-b border-line last:border-0 hover:bg-bg2/60 cursor-pointer ${stripe(i)} ${autoCls(r)}`} onClick={() => onOpen && onOpen(r)}>
+            <tr key={r.id} className={`border-b border-line last:border-0 cursor-pointer ${stripe(i)} ${autoCls(r)}`} onClick={() => onOpen && onOpen(r)}>
               <td className={`px-5 ${padY} font-mono font-semibold text-brand-600`} style={accentStyle}>{r.id}</td>
               {showDonatur && <td className={padY}>{(anonymizeAll || r.anon) ? <span className="italic text-mute">Hamba Allah</span> : r.donor}</td>}
               {showCampaign && <td className={`${padY} max-w-[240px] truncate text-ink/90`}>{r.campaign}</td>}
@@ -590,7 +590,7 @@ function LeadsSection({ onOpen }: any) {
                   const wa = waLink(r.whatsapp);
                   const busy = busyId === r.uuid;
                   return (
-                    <tr key={r.uuid || r.id} className="border-b border-line last:border-0 hover:bg-bg2/40">
+                    <tr key={r.uuid || r.id} className="border-b border-line last:border-0">
                       <td className="px-5 py-3 text-mute">{(page - 1) * PAGE + i + 1}</td>
                       <td className="py-3">{r.anon ? <span className="italic text-mute">Hamba Allah</span> : (r.donor || '—')}</td>
                       <td className="py-3">
@@ -612,19 +612,19 @@ function LeadsSection({ onOpen }: any) {
                       </td>
                       <td className="py-3">
                         {r.leadQuality === 'berkualitas'
-                          ? <Badge tone="ok">berkualitas</Badge>
+                          ? <Badge tone="ok">Berkualitas</Badge>
                           : r.leadQuality === 'invalid'
-                          ? <Badge tone="bad">invalid</Badge>
-                          : <span className="text-xs text-mute italic">belum ditandai</span>}
+                          ? <Badge tone="bad">Invalid</Badge>
+                          : <Badge tone="slate">Belum ditandai</Badge>}
                       </td>
-                      <td className="py-3 text-right text-xs text-mute">{r.date}</td>
+                      <td className="py-3 text-right text-xs text-mute whitespace-nowrap">{r.date}</td>
                       <td className="pr-5 py-3 text-right">
-                        <div className="inline-flex items-center gap-1">
+                        <div className="inline-flex items-center gap-1 justify-end">
                           <button title="Tandai berkualitas" disabled={busy} onClick={() => setQuality(r, r.leadQuality === 'berkualitas' ? '' : 'berkualitas')}
-                            className={`h-8 w-8 rounded-md hover:bg-emerald-50 disabled:opacity-40 ${r.leadQuality === 'berkualitas' ? 'text-emerald-600' : 'text-mute hover:text-emerald-600'}`}><Icon name="check" size={16}/></button>
+                            className={`h-8 w-8 shrink-0 rounded-md inline-flex items-center justify-center hover:bg-emerald-50 disabled:opacity-40 ${r.leadQuality === 'berkualitas' ? 'text-emerald-600 bg-emerald-50' : 'text-mute hover:text-emerald-600'}`}><Icon name="check" size={16}/></button>
                           <button title="Tandai invalid" disabled={busy} onClick={() => setQuality(r, r.leadQuality === 'invalid' ? '' : 'invalid')}
-                            className={`h-8 w-8 rounded-md hover:bg-rose-50 disabled:opacity-40 ${r.leadQuality === 'invalid' ? 'text-rose-600' : 'text-mute hover:text-rose-600'}`}><Icon name="close" size={16}/></button>
-                          <button title="Detail" onClick={() => onOpen && onOpen(r)} className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink"><Icon name="eye" size={16}/></button>
+                            className={`h-8 w-8 shrink-0 rounded-md inline-flex items-center justify-center hover:bg-rose-50 disabled:opacity-40 ${r.leadQuality === 'invalid' ? 'text-rose-600 bg-rose-50' : 'text-mute hover:text-rose-600'}`}><Icon name="close" size={16}/></button>
+                          <button title="Detail" onClick={() => onOpen && onOpen(r)} className="h-8 w-8 shrink-0 rounded-md inline-flex items-center justify-center hover:bg-bg2 text-mute hover:text-ink"><Icon name="eye" size={16}/></button>
                         </div>
                       </td>
                     </tr>

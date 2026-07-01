@@ -247,6 +247,11 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
   name: 'nb_data',
   version: DATA_STORE_VERSION,
   storage: createJSONStorage(() => localStorage),
+  // Version bumps intentionally DISCARD the old cache (each bump narrowed which slices
+  // are persisted, dropping PII). Provide an explicit migrate so zustand doesn't warn
+  // "no migrate function provided" — we return nothing, letting defaults seed and the
+  // background refreshAll repopulate.
+  migrate: () => ({} as any),
   // Persist DATA slices only — never the control flags. ready/loading/adminRev stay at
   // their defaults on reload so the background refreshAll still fires (rehydrated data
   // paints instantly, then gets refreshed). Actions aren't serializable and are skipped.

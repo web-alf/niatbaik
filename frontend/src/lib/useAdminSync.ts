@@ -12,13 +12,10 @@ export function useAdminSync(load: () => void | Promise<void>) {
   const loadRef = useRef(load);
   loadRef.current = load;
 
-  // Re-run the page's load whenever the admin revision ADVANCES (cross-device sync).
-  // Skip the initial mount run: a [rev]-dep effect always fires once on mount, which
-  // duplicated the page's own mount load. The page owns its initial fetch; this hook
-  // only reacts to subsequent revision bumps.
-  const firstRef = useRef(true);
+  // Run on mount AND whenever the admin revision advances. Several pages (Notifications,
+  // Trash) rely on this as their ONLY initial load, so the mount run must fire — do not
+  // skip it. Pages that ALSO have their own mount fetch just do one harmless extra load.
   useEffect(() => {
-    if (firstRef.current) { firstRef.current = false; return; }
     loadRef.current(); /* eslint-disable-next-line */
   }, [rev]);
 

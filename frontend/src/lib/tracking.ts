@@ -4,7 +4,20 @@
 import type { Campaign, Settings } from '@/types/api';
 
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id'];
+// Ad click-IDs captured from the landing URL alongside utm_*. These are what let Meta /
+// TikTok attribute a server-side (CAPI/Events API) conversion back to the paid click.
+const CLICK_KEYS = ['fbclid', 'ttclid', 'gclid'];
 const STORE_KEY = 'nb_utm';
+
+// readCookie returns a browser cookie value (or ''). Used for the Meta _fbc/_fbp and
+// TikTok _ttp cookies the pixels set — these are the correctly-formatted click/browser
+// ids the Conversions/Events APIs expect.
+function readCookie(name: string): string {
+  try {
+    const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.$?*|{}()[\]\\/+^]/g, '\\$&') + '=([^;]*)'));
+    return m ? decodeURIComponent(m[1]) : '';
+  } catch { return ''; }
+}
 
 // _loadedIds tracks every pixel/container id initialized this page load so GLOBAL
 // pixels (initPixels) and a campaign's OWN pixels COEXIST — add the campaign id
@@ -86,21 +99,25 @@ function parseConversion(raw: unknown): any {
 
 // fireConversion fires the per-campaign conversion event for a funnel phase
 // (phase ∈ {'submit','success'}) to every configured platform. Never throws.
-export function fireConversion(c: Campaign | null | undefined, phase: 'submit' | 'success', value: number) {
+export function fireConversion(c: Campaign | null | undefined, phase: 'submit' | 'success', value: number, eventId?: string) {
   try {
     const cfg = parseConversion(c && c.conversion_config);
     const val = Number(value) || 0;
     const payload = { value: val, currency: 'IDR', content_name: (c && c.title) || '' };
+    // Dedup id (invoice number) for the 'success'/Purchase event so the browser pixel and
+    // the server CAPI/Events API event collapse into ONE conversion instead of two.
+    const fbOpts = eventId ? { eventID: eventId } : undefined;
+    const ttOpts = eventId ? { event_id: eventId } : undefined;
 
     pushDL(phase === 'success' ? 'donation_success' : 'donation_submit', {
       ...payload, campaign_slug: (c && (c.slug || c.id)) || '',
     });
 
     const metaEvt = cfg.meta && cfg.meta.enabled && cfg.meta.events && cfg.meta.events[phase];
-    if (window.fbq && metaEvt) window.fbq('track', metaEvt, payload);
+    if (window.fbq && metaEvt) fbOpts ? window.fbq('track', metaEvt, payload, fbOpts) : window.fbq('track', metaEvt, payload);
 
     const ttEvt = cfg.tiktok && cfg.tiktok.enabled && cfg.tiktok.events && cfg.tiktok.events[phase];
-    if (window.ttq && ttEvt) window.ttq.track(ttEvt, payload);
+    if (window.ttq && ttEvt) ttOpts ? window.ttq.track(ttEvt, payload, ttOpts) : window.ttq.track(ttEvt, payload);
 
     const gads = cfg.gads;
     const label = gads && gads.enabled && gads.labels && gads.labels[phase];
@@ -116,7 +133,7 @@ export function fireConversion(c: Campaign | null | undefined, phase: 'submit' |
     // reports a conversion to whatever global pixels loaded. No submit fallback —
     // InitiateCheckout/AddPaymentInfo already fire, so it would double-count.
     if (phase === 'success' && !metaEvt && !ttEvt && !(gads && gads.enabled)) {
-      track('Purchase', payload);
+      track('Purchase', payload, eventId);
     }
   } catch { /* conversion fire must never break the donation UX */ }
 }
@@ -126,9 +143,11 @@ export function fireConversion(c: Campaign | null | undefined, phase: 'submit' |
 export function captureUTM() {
   try {
     const params = new URLSearchParams(window.location.search);
-    const found: Record<string, string> = {};
-    let any = false;
-    UTM_KEYS.forEach((k) => {
+    // Merge into any already-captured values so a later in-app navigation without the
+    // query string doesn't wipe the landing attribution.
+    const found: Record<string, string> = getUTM();
+    let any = Object.keys(found).length > 0;
+    [...UTM_KEYS, ...CLICK_KEYS].forEach((k) => {
       const v = params.get(k);
       if (v) { found[k] = v; any = true; }
     });
@@ -136,11 +155,21 @@ export function captureUTM() {
   } catch { /* sessionStorage unavailable — attribution silently absent */ }
 }
 
-// getUTM returns the captured utm params (or {}). Merged into the donation body.
+// getUTM returns the captured utm_* + click-id params (or {}). Merged into the donation
+// body. Also reads the live Meta/TikTok pixel cookies (_fbc/_fbp/_ttp) at call time so the
+// server-side CAPI/Events API can forward correctly-formatted click/browser ids — these
+// cookies are set by the pixels after they load, so they may not exist at landing.
 export function getUTM(): Record<string, string> {
-  try {
-    return JSON.parse(sessionStorage.getItem(STORE_KEY) || '{}');
-  } catch { return {}; }
+  let stored: Record<string, string> = {};
+  try { stored = JSON.parse(sessionStorage.getItem(STORE_KEY) || '{}'); } catch { /* ignore */ }
+  const fbc = readCookie('_fbc');
+  const fbp = readCookie('_fbp');
+  const ttp = readCookie('_ttp');
+  // fbclid stored → build fbc fallback handled server-side; prefer the real _fbc cookie.
+  if (fbc) stored.fbclid = fbc;           // _fbc is already fb.1.<ts>.<fbclid>
+  if (fbp) stored.fbp = fbp;
+  if (ttp) stored.ttp = ttp;
+  return stored;
 }
 
 // pushDL pushes a semantic event onto dataLayer so GTM can read it via a Custom
@@ -154,11 +183,14 @@ function pushDL(event: string, payload: Record<string, unknown> = {}) {
 }
 
 // track fires a client-side event to every configured pixel AND the GTM dataLayer.
-export function track(name: string, payload: Record<string, unknown> = {}) {
+// When eventId is given (the invoice number for Purchase), it's passed as Meta's eventID
+// and TikTok's event_id so the browser event DEDUPS against the server-side CAPI/Events
+// API event that carries the same id — otherwise the same conversion is counted twice.
+export function track(name: string, payload: Record<string, unknown> = {}, eventId?: string) {
   try {
-    if (window.fbq) window.fbq('track', name, payload);
+    if (window.fbq) eventId ? window.fbq('track', name, payload, { eventID: eventId }) : window.fbq('track', name, payload);
     if (window.gtag) window.gtag('event', name, payload);
-    if (window.ttq) window.ttq.track(name, payload);
+    if (window.ttq) eventId ? window.ttq.track(name, payload, { event_id: eventId }) : window.ttq.track(name, payload);
   } catch { /* pixel fire must never break the UX */ }
   pushDL(name, payload);
 }

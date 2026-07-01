@@ -54,7 +54,15 @@ type Invoice struct {
 	UTMTerm     string `gorm:"size:100" json:"utm_term"`
 	UTMID       string `gorm:"size:100" json:"utm_id"`
 	ClickID     string `gorm:"size:255" json:"click_id"`
-	CSNote      string `gorm:"type:text" json:"cs_note"`
+	// Ad click-IDs + browser cookies captured on the landing page, forwarded to Meta CAPI
+	// (fbc/fbp) and TikTok Events API (ttclid/ttp) so a settled donation is attributable to
+	// the ad that drove it. Without these the server conversions carry only hashed PII and
+	// the dashboards can't tie them to a click.
+	Fbclid string `gorm:"size:255" json:"fbclid"`
+	Fbp    string `gorm:"size:255" json:"fbp"`
+	Ttclid string `gorm:"size:255" json:"ttclid"`
+	Ttp    string `gorm:"size:255" json:"ttp"`
+	CSNote string `gorm:"type:text" json:"cs_note"`
 
 	// LeadQuality is a manual CS/admin tag on the lead (invoice), independent of payment
 	// status. Empty = unclassified. Values: "berkualitas" | "invalid".

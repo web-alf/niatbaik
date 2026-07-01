@@ -12,7 +12,7 @@ declare global {
     ttq?: {
       load: (id: string, opts?: unknown) => void;
       page: () => void;
-      track: (name: string, payload?: unknown) => void;
+      track: (name: string, payload?: unknown, opts?: unknown) => void;
       [k: string]: unknown;
     };
   }

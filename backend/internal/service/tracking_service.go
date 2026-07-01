@@ -20,8 +20,10 @@ import (
 
 // metaCAPIURL / tiktokEAPIURL are overridable in tests; default to the real endpoints.
 var (
-	metaCAPIURL    = "https://graph.facebook.com/v18.0"
-	tiktokEAPIURL  = "https://business.tiktok.com/open_api/v1.3"
+	metaCAPIURL = "https://graph.facebook.com/v18.0"
+	// Events API host is business-api.tiktok.com — business.tiktok.com is the console UI
+	// and does NOT serve the API (requests redirect/fail), so no server event lands.
+	tiktokEAPIURL = "https://business-api.tiktok.com/open_api/v1.3"
 )
 
 // dispatchLogger is the subset of TrackingRepo the dispatch methods need. Defined as
@@ -78,6 +80,21 @@ func dedupEventID(invoiceNumber string) string {
 	return invoiceNumber
 }
 
+// metaFbc returns the Meta `fbc` click-id parameter. If the value already looks like a
+// fully-formed fbc cookie (fb.1.<ts>.<fbclid>, captured from the browser's _fbc cookie),
+// it's returned as-is; otherwise a raw fbclid query param is wrapped into that format.
+// Empty in → empty out (so no fbc key is sent for organic traffic).
+func metaFbc(v string) string {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return ""
+	}
+	if strings.HasPrefix(v, "fb.") {
+		return v
+	}
+	return fmt.Sprintf("fb.1.%d.%s", time.Now().UnixMilli(), v)
+}
+
 // sendMetaCAPI posts a Purchase event to the Meta Conversions API for the given paid
 // invoice. No-op unless CAPI is enabled and both pixel id + access token are set.
 // PII (email/phone) is SHA-256 hashed. The event_id is the invoice number so Meta
@@ -97,6 +114,15 @@ func (s *TrackingService) sendMetaCAPI(settings *model.Setting, inv *model.Invoi
 	if phone := normalizePhoneE164(inv.DonorPhone); phone != "" {
 		userData["ph"] = []string{sha256Hex(phone)}
 	}
+	// Click-level attribution: fbc/fbp are NOT hashed (Meta matches them raw). Prefer the
+	// browser _fbc cookie (already in Meta's fb.1.<ts>.<fbclid> form); fall back to building
+	// fbc from the raw fbclid query param.
+	if inv.Fbp != "" {
+		userData["fbp"] = inv.Fbp
+	}
+	if fbc := metaFbc(inv.Fbclid); fbc != "" {
+		userData["fbc"] = fbc
+	}
 
 	payload := map[string]interface{}{
 		"data": []map[string]interface{}{{
@@ -107,7 +133,10 @@ func (s *TrackingService) sendMetaCAPI(settings *model.Setting, inv *model.Invoi
 			"user_data":     userData,
 			"custom_data": map[string]interface{}{
 				"currency": "IDR",
-				"value":    float64(inv.Total) / 100.0,
+				// IDR has no minor unit and Invoice.Total is stored in WHOLE rupiah, so send
+				// it as-is. Dividing by 100 reported every conversion at 1/100th its value
+				// and broke ROAS / value-based bidding in the dashboard.
+				"value": float64(inv.Total),
 			},
 		}},
 	}
@@ -197,6 +226,14 @@ func (s *TrackingService) sendTiktokEAPI(settings *model.Setting, inv *model.Inv
 	if phone := normalizePhoneE164(inv.DonorPhone); phone != "" {
 		user["phone"] = map[string]string{"sha256": sha256Hex(phone)}
 	}
+	// Click-level attribution (raw, not hashed): ttclid from the ad click, ttp from the
+	// TikTok pixel cookie.
+	if inv.Ttclid != "" {
+		user["ttclid"] = inv.Ttclid
+	}
+	if inv.Ttp != "" {
+		user["ttp"] = inv.Ttp
+	}
 
 	payload := map[string]interface{}{
 		"event_code": "complete_payment",
@@ -206,7 +243,8 @@ func (s *TrackingService) sendTiktokEAPI(settings *model.Setting, inv *model.Inv
 		"user":       user,
 		"properties": map[string]interface{}{
 			"currency": "IDR",
-			"value":    float64(inv.Total) / 100.0,
+			// Whole-rupiah, no minor unit — send as-is (dividing by 100 under-reported 100x).
+			"value": float64(inv.Total),
 		},
 	}
 	if settings.TiktokTestEventCode != "" {

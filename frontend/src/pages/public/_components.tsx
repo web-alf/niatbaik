@@ -1853,7 +1853,9 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
   useEffect(() => {
     if (isPaid && !successFiredRef.current) {
       successFiredRef.current = true;
-      try { NBTracking.fireConversion(c, 'success', subtotal); } catch {}
+      // Pass the invoice number as the dedup event_id so this browser Purchase collapses
+      // with the server-side CAPI/Events API Purchase (same id) — one conversion, not two.
+      try { NBTracking.fireConversion(c, 'success', subtotal, invoice.invoice_number); } catch {}
     }
   }, [isPaid]);
 

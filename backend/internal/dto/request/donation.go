@@ -21,6 +21,12 @@ type CreateDonationRequest struct {
 	UTMContent    string `json:"utm_content"`
 	UTMTerm       string `json:"utm_term"`
 	UTMID         string `json:"utm_id"`
+	// Ad click-IDs + pixel cookies captured on the landing page, forwarded to Meta CAPI /
+	// TikTok Events API for click-level attribution of the settled donation.
+	Fbclid string `json:"fbclid"`
+	Fbp    string `json:"fbp"`
+	Ttclid string `json:"ttclid"`
+	Ttp    string `json:"ttp"`
 	// ReferralCode is the referring fundraiser's user ID, captured from a
 	// ?ref=<user_id> share link on the public donation page. When it resolves to a
 	// real fundraiser, the invoice is tagged so the commission payout in

@@ -6,7 +6,7 @@ import { useDataStore } from '@/store/data';
 import { useAuth } from '@/context/AuthContext';
 import { fmtIDR, fmtIDRShort, fmtNum, paymentMethods, isAutoConfirmMethod } from '@/lib/format';
 import { campaignBgStyle } from '@/lib/mappers';
-import { useSharedDateRange } from '@/lib/date';
+import { useSharedDateRange, parseTxnDate, fmtDate } from '@/lib/date';
 import { exportCSV, exportExcel, filterByRange } from '@/lib/export';
 import { Card, StatCard, Badge, StatusBadge, Progress, Btn, SearchInput, Select, LineChart, Donut, PageHeader, Tabs, SourcePill, Icon, DateRangePill } from '@/components';
 import AdvertiserPage from '@/pages/admin/AdvertiserPage';
@@ -15,6 +15,12 @@ import AdvertiserPage from '@/pages/admin/AdvertiserPage';
 const waLink = (phone: string) => {
   const d = (phone || '').replace(/[^0-9]/g, '').replace(/^0/, '62');
   return d ? `https://wa.me/${d}` : '';
+};
+
+// Compact date for tables: raw ISO → "1 Jul 2026" (falls back to the raw string).
+const shortDate = (v: unknown) => {
+  const d = parseTxnDate(v);
+  return d ? fmtDate(d) : (typeof v === 'string' ? v.slice(0, 10) : '');
 };
 
 // Dashboard view - varies per role
@@ -457,7 +463,7 @@ function TxnTable({
                   )}
                 </div>
               </td>}
-              {showTanggal && <td className={`pr-5 ${padY} text-right text-xs text-mute`}>{r.date}</td>}
+              {showTanggal && <td className={`pr-5 ${padY} text-right text-xs text-mute whitespace-nowrap`}>{shortDate(r.date)}</td>}
             </tr>
           ))}
         </tbody>
@@ -574,15 +580,15 @@ function LeadsSection({ onOpen }: any) {
             <table className="w-full min-w-[860px] text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wider text-mute border-y border-line bg-bg2/60">
-                  <th className="px-5 py-2.5 font-semibold">No</th>
+                  <th className="px-5 py-2.5 font-semibold w-10">No</th>
                   <th className="py-2.5 font-semibold">Nama Donatur</th>
                   <th className="py-2.5 font-semibold">Whatsapp</th>
-                  <th className="py-2.5 font-semibold">Donasi</th>
+                  <th className="py-2.5 font-semibold text-right">Donasi</th>
                   <th className="py-2.5 font-semibold">Program</th>
-                  <th className="py-2.5 font-semibold text-center">Payment</th>
+                  <th className="py-2.5 font-semibold text-center w-20">Payment</th>
                   <th className="py-2.5 font-semibold">Status</th>
                   <th className="py-2.5 font-semibold text-right">Date</th>
-                  <th className="pr-5 py-2.5 font-semibold text-right">Action</th>
+                  <th className="pr-5 py-2.5 font-semibold text-right w-28">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -590,18 +596,24 @@ function LeadsSection({ onOpen }: any) {
                   const wa = waLink(r.whatsapp);
                   const busy = busyId === r.uuid;
                   return (
-                    <tr key={r.uuid || r.id} className="border-b border-line last:border-0">
+                    <tr key={r.uuid || r.id} className="border-b border-line last:border-0 align-middle">
                       <td className="px-5 py-3 text-mute">{(page - 1) * PAGE + i + 1}</td>
-                      <td className="py-3">{r.anon ? <span className="italic text-mute">Hamba Allah</span> : (r.donor || '—')}</td>
                       <td className="py-3">
+                        <div className="max-w-[160px] truncate" title={r.anon ? 'Hamba Allah' : (r.donor || '')}>
+                          {r.anon ? <span className="italic text-mute">Hamba Allah</span> : (r.donor || '—')}
+                        </div>
+                      </td>
+                      <td className="py-3 whitespace-nowrap">
                         {r.whatsapp ? (
                           <a href={wa} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-emerald-600 font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
                             <Icon name="wa" size={13}/> {r.whatsapp}
                           </a>
                         ) : <span className="text-mute">—</span>}
                       </td>
-                      <td className="py-3 font-semibold text-ink">{fmtIDR(r.amount)}</td>
-                      <td className="py-3 max-w-[200px] truncate text-ink/90">{r.campaign || '—'}</td>
+                      <td className="py-3 font-semibold text-ink text-right whitespace-nowrap">{fmtIDR(r.amount)}</td>
+                      <td className="py-3">
+                        <div className="max-w-[180px] truncate text-ink/90" title={r.campaign || ''}>{r.campaign || '—'}</div>
+                      </td>
                       <td className="py-3 text-center">
                         <button
                           onClick={() => togglePayment(r)} disabled={busy}
@@ -610,16 +622,16 @@ function LeadsSection({ onOpen }: any) {
                           <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${r.isPaid ? 'translate-x-5' : 'translate-x-0.5'}`}/>
                         </button>
                       </td>
-                      <td className="py-3">
+                      <td className="py-3 whitespace-nowrap">
                         {r.leadQuality === 'berkualitas'
-                          ? <Badge tone="ok">Berkualitas</Badge>
+                          ? <Badge tone="ok" size="sm">Berkualitas</Badge>
                           : r.leadQuality === 'invalid'
-                          ? <Badge tone="bad">Invalid</Badge>
-                          : <Badge tone="slate">Belum ditandai</Badge>}
+                          ? <Badge tone="bad" size="sm">Invalid</Badge>
+                          : <Badge tone="slate" size="sm">Belum ditandai</Badge>}
                       </td>
-                      <td className="py-3 text-right text-xs text-mute whitespace-nowrap">{r.date}</td>
-                      <td className="pr-5 py-3 text-right">
-                        <div className="inline-flex items-center gap-1 justify-end">
+                      <td className="py-3 text-right text-xs text-mute whitespace-nowrap">{shortDate(r.date)}</td>
+                      <td className="pr-5 py-3">
+                        <div className="flex items-center gap-1 justify-end">
                           <button title="Tandai berkualitas" disabled={busy} onClick={() => setQuality(r, r.leadQuality === 'berkualitas' ? '' : 'berkualitas')}
                             className={`h-8 w-8 shrink-0 rounded-md inline-flex items-center justify-center hover:bg-emerald-50 disabled:opacity-40 ${r.leadQuality === 'berkualitas' ? 'text-emerald-600 bg-emerald-50' : 'text-mute hover:text-emerald-600'}`}><Icon name="check" size={16}/></button>
                           <button title="Tandai invalid" disabled={busy} onClick={() => setQuality(r, r.leadQuality === 'invalid' ? '' : 'invalid')}

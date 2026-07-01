@@ -112,7 +112,7 @@ func (s *IpaymuService) CreatePayment(invoice *model.Invoice, redirectURL string
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("signature", s.signRequest("POST", va, body, apiKey))
 	req.Header.Set("va", va)
-	req.Header.Set("timestamp", fmt.Sprintf("%d", time.Now().Unix()))
+	req.Header.Set("timestamp", time.Now().Format("20060102150405")) // iPaymu expects YmdHis
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)

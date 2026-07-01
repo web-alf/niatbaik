@@ -147,19 +147,26 @@ func (s *DuitkuService) CreatePayment(invoice *model.Invoice, redirectURL string
 	return &d, nil
 }
 
-// VerifySignature constant-time-compares the inbound Signature against the expected
-// callback signature (callback key as the secret; falls back to the API key).
+// VerifySignature constant-time-compares the inbound callback Signature. Duitku's POP
+// callback signs with md5(merchantCode + amount + merchantOrderId + API_KEY) — the
+// merchant API key, per Duitku's official SDK — NOT a separate callback key. We accept
+// a match against the API key first; if a distinct callback key is configured we also
+// accept that (some setups differ), so the API key is the canonical secret.
 func (s *DuitkuService) VerifySignature(cb DuitkuCallback) bool {
 	merchant, apiKey, callbackKey, _ := s.getCredentials()
-	secret := callbackKey
-	if secret == "" {
-		secret = apiKey
-	}
-	if secret == "" || cb.Signature == "" {
+	if cb.Signature == "" {
 		return false
 	}
-	want := s.signCallback(merchant, cb.Amount, cb.MerchantOrderID, secret)
-	return subtle.ConstantTimeCompare([]byte(want), []byte(cb.Signature)) == 1
+	for _, secret := range []string{apiKey, callbackKey} {
+		if secret == "" {
+			continue
+		}
+		want := s.signCallback(merchant, cb.Amount, cb.MerchantOrderID, secret)
+		if subtle.ConstantTimeCompare([]byte(want), []byte(cb.Signature)) == 1 {
+			return true
+		}
+	}
+	return false
 }
 
 // HandleWebhook settles a donation from a verified Duitku callback. Caller MUST have

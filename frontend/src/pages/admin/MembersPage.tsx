@@ -4,7 +4,7 @@ import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { exportCSV } from '@/lib/export';
 import { useAdminSync } from '@/lib/useAdminSync';
-import { Card, PageHeader, Tabs, Btn, SearchInput, RoleBadge, StatusBadge, Modal, Icon } from '@/components';
+import { Card, PageHeader, Tabs, Btn, SearchInput, RoleBadge, Modal, Icon } from '@/components';
 
 const mapUser = (u: any) => ({
   id: u.id,
@@ -12,8 +12,6 @@ const mapUser = (u: any) => ({
   email: u.email,
   phone: u.phone,
   role: ((r) => r === 'Cs' ? 'CS' : r)((u.role || 'user').charAt(0).toUpperCase() + (u.role || 'user').slice(1)),
-  status: u.verification_status === 'verified' ? 'active' : (u.verification_status || 'pending'),
-  verificationStatus: u.verification_status || 'unverified', // raw value, for the status toggle
   lastLogin: u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : 'Belum pernah',
   joined: u.created_at ? new Date(u.created_at).toLocaleDateString('id-ID') : '-',
 });
@@ -28,10 +26,9 @@ export default function MembersPage() {
   const [editing, setEditing] = useState<any>(null);
   const [confirmDel, setConfirmDel] = useState<any>(null);
 
-  const [addForm, setAddForm] = useState<any>({ name:'', email:'', phone:'', role:'admin', password:'', verificationStatus:'verified' });
+  const [addForm, setAddForm] = useState<any>({ name:'', email:'', phone:'', role:'admin', password:'' });
   const [addErrors, setAddErrors] = useState<any>({});
   const [addLoading, setAddLoading] = useState(false);
-  const [togglingId, setTogglingId] = useState<any>(null);
 
   const load = async () => {
     setLoading(true);
@@ -47,8 +44,8 @@ export default function MembersPage() {
   useAdminSync(load);
 
   useEffect(() => {
-    if (editing) setAddForm({ name: editing.name, email: editing.email, phone: editing.phone || '', role: editing.role.toLowerCase(), password: '', verificationStatus: editing.verificationStatus || 'unverified' });
-    else setAddForm({ name:'', email:'', phone:'', role:'admin', password:'', verificationStatus:'verified' });
+    if (editing) setAddForm({ name: editing.name, email: editing.email, phone: editing.phone || '', role: editing.role.toLowerCase(), password: '' });
+    else setAddForm({ name:'', email:'', phone:'', role:'admin', password:'' });
     setAddErrors({});
   }, [editing, showAdd]);
 
@@ -74,31 +71,16 @@ export default function MembersPage() {
     setAddLoading(true);
     try {
       if (editing) {
-        await api.updateUser(editing.id, { name: addForm.name, email: addForm.email, phone: addForm.phone, role: addForm.role, verification_status: addForm.verificationStatus });
+        await api.updateUser(editing.id, { name: addForm.name, email: addForm.email, phone: addForm.phone, role: addForm.role });
         showToast('User berhasil diupdate');
       } else {
-        await api.createUser({ name: addForm.name, email: addForm.email, phone: addForm.phone, role: addForm.role, password: addForm.password, verification_status: addForm.verificationStatus });
+        await api.createUser({ name: addForm.name, email: addForm.email, phone: addForm.phone, role: addForm.role, password: addForm.password });
         showToast('User berhasil ditambahkan');
       }
       setShowAdd(false); setEditing(null);
       load();
     } catch (err: any) { showToast('Gagal: ' + (err?.message || '')); }
     setAddLoading(false);
-  };
-
-  // Quick activate/deactivate from the row — verified ('active') <-> unverified.
-  const toggleStatus = async (m: any) => {
-    const next = m.verificationStatus === 'verified' ? 'unverified' : 'verified';
-    setTogglingId(m.id);
-    try {
-      await api.updateUser(m.id, { verification_status: next });
-      showToast(next === 'verified' ? `${m.name} diaktifkan` : `${m.name} dinonaktifkan`);
-      await load();
-    } catch (err: any) {
-      showToast('Gagal: ' + (err?.message || ''));
-    } finally {
-      setTogglingId(null);
-    }
   };
 
   const handleDeleteUser = async () => {
@@ -117,7 +99,7 @@ export default function MembersPage() {
         subtitle="Tim NIATBAIK.ORG · Admin, CS, dan Advertiser."
         actions={<>
           <Btn variant="outline" tone="ink" icon="download" onClick={() => {
-            const rows = filtered.map(m => ({ nama: m.name, email: m.email, role: m.role, status: m.status, last_login: m.lastLogin }));
+            const rows = filtered.map(m => ({ nama: m.name, email: m.email, role: m.role, last_login: m.lastLogin }));
             exportCSV(rows, 'niatbaik_users');
             showToast(rows.length + ' user diekspor');
           }}>Export</Btn>
@@ -143,16 +125,15 @@ export default function MembersPage() {
             <tr className="text-left text-xs uppercase tracking-wider text-mute border-b border-line bg-bg2/60">
               <th className="px-5 py-3 font-semibold">User</th>
               <th className="py-3 font-semibold">Role</th>
-              <th className="py-3 font-semibold">Status</th>
               <th className="py-3 font-semibold">Last Login</th>
               <th className="pr-5 py-3 font-semibold text-right">Aksi</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="px-5 py-10 text-center text-mute">Memuat data…</td></tr>
+              <tr><td colSpan={4} className="px-5 py-10 text-center text-mute">Memuat data…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={5} className="px-5 py-10 text-center text-mute">Tidak ada user ditemukan.</td></tr>
+              <tr><td colSpan={4} className="px-5 py-10 text-center text-mute">Tidak ada user ditemukan.</td></tr>
             ) : filtered.map((m) => (
               <tr key={m.id} className="border-b border-line last:border-0">
                 <td className="px-5 py-3">
@@ -167,14 +148,10 @@ export default function MembersPage() {
                   </div>
                 </td>
                 <td className="py-3"><RoleBadge role={m.role}/></td>
-                <td className="py-3"><StatusBadge status={m.status}/></td>
                 <td className="py-3 text-mute">{m.lastLogin}</td>
                 <td className="pr-5 py-3 text-right">
                   <div className="inline-flex items-center gap-1">
                     <button title="Edit user" className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink" onClick={() => { setEditing(m); setShowAdd(true); }}><Icon name="edit" size={16}/></button>
-                    <button title={m.verificationStatus === 'verified' ? 'Nonaktifkan user' : 'Aktifkan user'} disabled={togglingId === m.id}
-                      className={`h-8 w-8 rounded-md hover:bg-bg2 disabled:opacity-40 ${m.verificationStatus === 'verified' ? 'text-emerald-600 hover:text-slate-500' : 'text-mute hover:text-emerald-600'}`}
-                      onClick={() => toggleStatus(m)}><Icon name={m.verificationStatus === 'verified' ? 'shield' : 'check'} size={16}/></button>
                     <button title="Hapus user" className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-rose-600" onClick={() => setConfirmDel(m)}><Icon name="trash" size={16}/></button>
                   </div>
                 </td>
@@ -278,18 +255,6 @@ export default function MembersPage() {
               <div className="text-[10px] text-mute mt-1">Detail login dikirim ke email user (jika SMTP aktif)</div>
             </div>
           )}
-          <div>
-            <label className="text-xs font-semibold text-mute">Status akun</label>
-            <div className="mt-1 grid grid-cols-2 gap-2">
-              {[{ v:'verified', l:'Aktif' }, { v:'unverified', l:'Nonaktif' }].map((s) => (
-                <button key={s.v} type="button" onClick={() => setAddForm({...addForm, verificationStatus: s.v})}
-                  className={`py-2 rounded-lg border text-sm font-bold ${addForm.verificationStatus === s.v ? (s.v === 'verified' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-400 bg-slate-50 text-slate-600') : 'border-line hover:bg-bg2'}`}>
-                  {s.l}
-                </button>
-              ))}
-            </div>
-            <div className="text-[10px] text-mute mt-1">Aktif = user terverifikasi & bisa login penuh. Bisa juga aktif otomatis lewat verifikasi email.</div>
-          </div>
         </div>
       </Modal>
 

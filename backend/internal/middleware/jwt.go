@@ -12,7 +12,15 @@ import (
 // JWTMiddleware validates the bearer token's signature/expiry and rejects tokens
 // whose JTI has been revoked (logout). The revokedRepo may be nil, in which case
 // the denylist check is skipped (revocation disabled).
-func JWTMiddleware(secret string, revokedRepo *repository.RevokedTokenRepo) echo.MiddlewareFunc {
+//
+// It also re-reads the user's role from the DB (via userRepo) and overwrites the
+// role carried in the token, so authorization always reflects the current role — an
+// admin changing a user's role takes effect on the user's next request instead of
+// only after they log out and back in (the role was previously baked into the JWT at
+// login and never refreshed). If the user no longer exists, the token stops
+// authorizing (a deleted user is locked out immediately). userRepo may be nil, in
+// which case the token's role is used as-is (authoritative-role check disabled).
+func JWTMiddleware(secret string, revokedRepo *repository.RevokedTokenRepo, userRepo *repository.UserRepo) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			auth := c.Request().Header.Get("Authorization")
@@ -42,6 +50,17 @@ func JWTMiddleware(secret string, revokedRepo *repository.RevokedTokenRepo) echo
 				if revoked {
 					return c.JSON(http.StatusUnauthorized, map[string]string{"message": "token has been revoked"})
 				}
+			}
+
+			// Authoritative role: overwrite the token's (possibly stale) role with the
+			// live DB value so a role change takes effect immediately. A lookup error
+			// means the user is gone/unreadable → reject rather than trust the token.
+			if userRepo != nil {
+				role, err := userRepo.RoleByID(claims.UserID)
+				if err != nil {
+					return c.JSON(http.StatusUnauthorized, map[string]string{"message": "unable to verify account"})
+				}
+				claims.Role = role
 			}
 
 			c.Set("user", claims)

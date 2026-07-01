@@ -41,6 +41,13 @@ func (h *InvoiceHandler) List(c echo.Context) error {
 		query = query.Where("payment_method_name = ?", method)
 	}
 
+	// Filter by campaign (leads-per-campaign view)
+	if cid := c.QueryParam("campaign_id"); cid != "" {
+		if id, err := uuid.Parse(cid); err == nil {
+			query = query.Where("campaign_id = ?", id)
+		}
+	}
+
 	// Filter by date range
 	if from := c.QueryParam("from"); from != "" {
 		if t, err := time.Parse("2006-01-02", from); err == nil {
@@ -176,4 +183,32 @@ func (h *InvoiceHandler) AddNote(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "note added"))
+}
+
+// UpdateQuality sets the manual lead-quality tag (berkualitas/invalid, or empty to clear)
+// on an invoice. Single-column write; does not touch payment/bookkeeping state.
+func (h *InvoiceHandler) UpdateQuality(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid invoice id"))
+	}
+
+	var req request.UpdateInvoiceQualityRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
+	}
+	if err := c.Validate(req); err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse(response.ValidationMessage(err)))
+	}
+
+	result := h.db.Model(&model.Invoice{}).Where("id = ?", id).
+		Update("lead_quality", req.Quality)
+	if result.Error != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to update quality"))
+	}
+	if result.RowsAffected == 0 {
+		return c.JSON(http.StatusNotFound, response.ErrorResponse("invoice not found"))
+	}
+
+	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "lead quality updated"))
 }

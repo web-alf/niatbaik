@@ -56,7 +56,7 @@ interface DataState {
   ready: boolean;
   loading: boolean;
   // adminRev increments every time refreshAdmin() finishes. Pages that fetch admin
-  // data independently (withdrawals, verifications, members, notifications, trash)
+  // data independently (withdrawals, members, notifications, trash)
   // subscribe to it to re-fetch when another device/session mutates shared data —
   // the RealtimeProvider long-poll bumps it via refreshAdmin on a revision change.
   adminRev: number;

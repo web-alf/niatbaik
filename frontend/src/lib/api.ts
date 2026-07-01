@@ -229,6 +229,7 @@ export const api = {
   invoice(id: string | number) { return this.get<any>('/invoices/' + id); },
   updateInvoiceStatus(id: string | number, status: string) { return this.put('/invoices/' + id + '/status', { status }); },
   addInvoiceNote(id: string | number, note: string) { return this.put('/invoices/' + id + '/note', { note }); },
+  updateInvoiceQuality(id: string | number, quality: string) { return this.put('/invoices/' + id + '/quality', { quality }); },
 
   // Analytics
   analyticsOverview() { return this.get<any>('/analytics/overview'); },
@@ -268,11 +269,6 @@ export const api = {
   withdrawals() { return this.get<any[]>('/withdrawals'); },
   approveWithdrawal(id: string | number) { return this.post('/withdrawals/' + id + '/approve'); },
   rejectWithdrawal(id: string | number) { return this.post('/withdrawals/' + id + '/reject'); },
-
-  // Verifications (KYC)
-  verifications() { return this.get<any[]>('/verifications'); },
-  approveVerification(id: string | number) { return this.post('/verifications/' + id + '/approve'); },
-  rejectVerification(id: string | number) { return this.post('/verifications/' + id + '/reject'); },
 
   // Cekat Ai (AI CS)
   cekatAiStatus() { return this.get<any>('/cs/cekat-ai/status'); },

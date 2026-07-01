@@ -31,7 +31,6 @@ var allowedSortColumns = map[string]bool{
 	"paid_at":             true,
 	"invoice_number":      true,
 	"donor_name":          true,
-	"verification_status": true,
 	"role":                true,
 }
 

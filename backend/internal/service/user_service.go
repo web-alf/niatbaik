@@ -33,17 +33,11 @@ func (s *UserService) Create(req *request.CreateUserRequest) (*model.User, error
 		return nil, err
 	}
 
-	// Admin-created staff are active immediately unless the admin says otherwise.
-	status := req.VerificationStatus
-	if status == "" {
-		status = "verified"
-	}
 	u := model.User{
-		Name:               req.Name,
-		Email:              req.Email,
-		Password:           hashed,
-		Role:               req.Role,
-		VerificationStatus: status,
+		Name:     req.Name,
+		Email:    req.Email,
+		Password: hashed,
+		Role:     req.Role,
 	}
 	if req.Phone != "" {
 		u.Phone = &req.Phone
@@ -121,9 +115,6 @@ func (s *UserService) Update(id uuid.UUID, req *request.UpdateUserRequest) (*mod
 	}
 	if req.Role != "" {
 		u.Role = req.Role
-	}
-	if req.VerificationStatus != "" {
-		u.VerificationStatus = req.VerificationStatus
 	}
 
 	if err := s.userRepo.Update(u); err != nil {

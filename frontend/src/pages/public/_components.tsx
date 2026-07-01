@@ -1908,6 +1908,7 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
     try { navigator.clipboard.writeText(String(text)); setCopied(key); setTimeout(() => setCopied(''), 1500); } catch {}
   };
   void checking;
+  void checkNow; // Cek Status button disabled (commented out); keep handler + auto-poller warm.
 
   // ---- Success terminal state: once paid, replace ALL pay instructions with a clear
   // "done" screen so a donor who just paid isn't still staring at QR / VA / transfer
@@ -2102,36 +2103,39 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
 
       {!isPaid && pollTimedOut && (
         <div className="mt-4 rounded-xl bg-rose-50 border border-rose-100 p-3 text-xs text-rose-700 leading-relaxed">
-          Status belum otomatis terverifikasi. Jika Anda sudah membayar, tekan <b>Cek Status Pembayaran</b> di bawah atau konfirmasi ke CS via WhatsApp — kami akan bantu verifikasi manual.
+          Status belum otomatis terverifikasi. Jika Anda sudah membayar, konfirmasi ke CS via WhatsApp — kami akan bantu verifikasi manual.
         </div>
       )}
 
+      {/* 'Cek Status Pembayaran' dinonaktifkan sementara — verifikasi manual dialihkan ke
+          konfirmasi WhatsApp di bawah. Auto-poller (useEffect) tetap jalan di background.
       <PrimaryBtn size="md" className="w-full mt-4" onClick={checkNow} disabled={checking}>
         <Icon name="check" size={16}/> {checking ? 'Memeriksa…' : 'Cek Status Pembayaran'}
       </PrimaryBtn>
+      */}
       {(() => {
-        // Use the SAME CS assigned to this invoice (server rotator) — identical to the
-        // success screen, sticky across reload. Fall back to whatsapp_admin for legacy invoices.
+        // Konfirmasi ke WhatsApp — CTA utama pada layar pending (Cek Status dinonaktifkan).
+        // Pakai CS yang di-assign ke invoice ini (server rotator), sticky lintas reload;
+        // fallback ke whatsapp_admin untuk invoice lama.
         const fallback = (psPublic && psPublic.whatsapp_admin) || '';
         const num = normalizeWa((assignedCs && assignedCs.phone) || fallback);
         if (!num) return null;
-        const label = assignedCs && assignedCs.name ? `Saya sudah bayar — konfirmasi ke ${assignedCs.name}` : 'Saya sudah bayar (konfirmasi via WhatsApp)';
+        const label = assignedCs && assignedCs.name ? `Konfirmasi ke WhatsApp (${assignedCs.name})` : 'Konfirmasi ke WhatsApp';
         const msg = encodeURIComponent(`Halo admin, saya sudah donasi. Invoice: ${invoice.invoice_number}, nominal: ${fmtIDR(total)}. Mohon konfirmasi.`);
         const waHref = `https://wa.me/${num}?text=${msg}`;
         return (
           <>
-            {/* AI-first CS: when Cekat Ai is enabled, offer the AI chat; WhatsApp stays as
-                the human fallback (also used automatically when the AI hands off). */}
+            <a href={waHref} target="_blank" rel="noopener noreferrer"
+               className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-emerald-500 text-white hover:bg-emerald-600">
+              <Icon name="wa" size={16}/> {label}
+            </a>
+            {/* AI-first CS: bila Cekat Ai aktif, tawarkan chat AI sebagai opsi sekunder. */}
             {psPublic?.cekat_ai_enabled && (
               <button onClick={() => setCsChatOpen(true)}
-                className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-brand-600 text-white hover:bg-brand-700">
+                className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-white border-2 border-brand-500 text-brand-600 hover:bg-brand-50">
                 <Icon name="sparkle" size={16}/> Tanya CS (AI)
               </button>
             )}
-            <a href={waHref} target="_blank" rel="noopener noreferrer"
-               className={`mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold ${psPublic?.cekat_ai_enabled ? 'bg-white border-2 border-emerald-500 text-emerald-600 hover:bg-emerald-50' : 'bg-emerald-500 text-white hover:bg-emerald-600'}`}>
-              <Icon name="wa" size={16}/> {label}
-            </a>
             {csChatOpen && <CekatChatModal onClose={() => setCsChatOpen(false)} waHref={waHref} invoiceNumber={invoice.invoice_number} campaignTitle={c?.title}/>}
           </>
         );

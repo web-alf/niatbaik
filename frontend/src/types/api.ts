@@ -71,6 +71,8 @@ export interface Invoice {
   amount: number;
   method: string;
   status: 'Paid' | 'Pending' | 'Failed' | string;
+  isPaid: boolean;
+  leadQuality: 'berkualitas' | 'invalid' | '';
   date: string;
   utm: InvoiceUTM;
   whatsapp: string;

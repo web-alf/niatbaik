@@ -22,6 +22,7 @@ type InvoiceResponse struct {
 	PaymentMethod string     `json:"payment_method"`
 	Message       string     `json:"message"`
 	CSNote        string     `json:"cs_note"`
+	LeadQuality   string     `json:"lead_quality"`
 	CSPhone       string     `json:"cs_phone"`
 	CSName        string     `json:"cs_name"`
 	QRUrl         string     `json:"qr_url"`
@@ -79,6 +80,7 @@ func ToInvoiceResponse(inv *model.Invoice) InvoiceResponse {
 		PaymentMethod: pm,
 		Message:       message,
 		CSNote:        inv.CSNote,
+		LeadQuality:   inv.LeadQuality,
 		CSPhone:       inv.CSPhone,
 		CSName:        inv.CSName,
 		QRUrl:         inv.QrURL,

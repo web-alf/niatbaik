@@ -56,6 +56,10 @@ type Invoice struct {
 	ClickID     string `gorm:"size:255" json:"click_id"`
 	CSNote      string `gorm:"type:text" json:"cs_note"`
 
+	// LeadQuality is a manual CS/admin tag on the lead (invoice), independent of payment
+	// status. Empty = unclassified. Values: "berkualitas" | "invalid".
+	LeadQuality string `gorm:"size:20;default:''" json:"lead_quality"`
+
 	// CS contact assigned to this donation at creation time (WhatsApp rotator). Stored
 	// on the invoice so the donor sees the SAME number on every screen + after reload,
 	// and so admin can see which CS handled which donation. Phone is normalized (digits,

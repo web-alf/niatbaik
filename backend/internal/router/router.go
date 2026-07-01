@@ -22,7 +22,6 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	settingRepo := repository.NewSettingRepo(db)
 	statsRepo := repository.NewStatsRepo(db)
 	withdrawalRepo := repository.NewWithdrawalRepo(db)
-	verificationRepo := repository.NewVerificationRepo(db)
 	trashRepo := repository.NewTrashRepo(db)
 	notificationRepo := repository.NewNotificationRepo(db)
 	activityRepo := repository.NewActivityRepo(db)
@@ -51,7 +50,6 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	userService := service.NewUserService(userRepo, settingRepo)
 	analyticsService := service.NewAnalyticsService(statsRepo, adCostRepo)
 	withdrawalService := service.NewWithdrawalService(db, withdrawalRepo)
-	verificationService := service.NewVerificationService(verificationRepo, userRepo)
 	settingService := service.NewSettingService(settingRepo)
 	trashService := service.NewTrashService(trashRepo)
 	notificationService := service.NewNotificationService(notificationRepo)
@@ -73,7 +71,6 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
 	settingHandler := handler.NewSettingHandler(settingService, mootaService)
 	withdrawalHandler := handler.NewWithdrawalHandler(withdrawalService, withdrawalRepo)
-	verificationHandler := handler.NewVerificationHandler(verificationService, verificationRepo)
 	trashHandler := handler.NewTrashHandler(trashService)
 	invoiceHandler := handler.NewInvoiceHandler(db, paymentService, paymentStatusRepo)
 	fundraiserHandler := handler.NewFundraiserHandler(fundraiserRepo, commissionRepo)
@@ -140,7 +137,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 
 	// Protected routes (require JWT)
 	protected := api.Group("")
-	protected.Use(middleware.JWTMiddleware(cfg.JWTSecret, revokedTokenRepo))
+	protected.Use(middleware.JWTMiddleware(cfg.JWTSecret, revokedTokenRepo, userRepo))
 
 	// Realtime long-poll (any authenticated dashboard user).
 	protected.GET("/events", eventsHandler.Poll)
@@ -218,10 +215,6 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	admin.POST("/withdrawals/:id/approve", withdrawalHandler.Approve)
 	admin.POST("/withdrawals/:id/reject", withdrawalHandler.Reject)
 
-	admin.GET("/verifications", verificationHandler.List)
-	admin.POST("/verifications/:id/approve", verificationHandler.Approve)
-	admin.POST("/verifications/:id/reject", verificationHandler.Reject)
-
 	admin.GET("/trash", trashHandler.List)
 	admin.POST("/trash/:type/:id/restore", trashHandler.Restore)
 	admin.DELETE("/trash/:type/:id", trashHandler.PermanentDelete)
@@ -234,6 +227,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	cs.GET("/invoices/:id", invoiceHandler.GetDetail)
 	cs.PUT("/invoices/:id/status", invoiceHandler.UpdateStatus)
 	cs.PUT("/invoices/:id/note", invoiceHandler.AddNote)
+	cs.PUT("/invoices/:id/quality", invoiceHandler.UpdateQuality)
 
 	// Fundraiser management is operational — admin + cs (the FE route and nav both
 	// allow CS; keeping it admin-only made the page 403 silently for CS).

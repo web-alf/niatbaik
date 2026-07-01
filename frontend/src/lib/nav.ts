@@ -26,7 +26,6 @@ export const NAV: NavItem[] = [
   { key: 'inbox',         label: 'CS Inbox',         icon: 'inbox',      path: '/inbox',         roles: ['Admin', 'CS'] },
   { key: 'fundraiser',    label: 'Fundraiser',       icon: 'handshake',  path: '/fundraiser',    roles: ['Admin', 'CS'] },
   { key: 'withdrawals',   label: 'Penarikan Dana',   icon: 'wallet',     path: '/withdrawals',   roles: ['Admin'] },
-  { key: 'verifications', label: 'Verifikasi KYC',   icon: 'shield',     path: '/verifications', roles: ['Admin'] },
   { key: 'members',       label: 'Members / User',   icon: 'users',      path: '/members',       roles: ['Admin'] },
   { key: 'gateways',      label: 'Payment Gateways', icon: 'creditcard', path: '/gateways',      roles: ['Admin'] },
   { key: 'notifications', label: 'Notification',     icon: 'bell',       path: '/notifications', roles: ['Admin', 'CS', 'Advertiser'] },

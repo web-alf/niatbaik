@@ -36,7 +36,6 @@ func Migrate(db *gorm.DB) error {
 		&model.LoginHistory{},
 		&model.FundraiserClick{},
 		&model.Commission{},
-		&model.VerificationDetail{},
 		&model.CampaignUpdate{},
 		&model.CampaignFund{},
 		&model.Invoice{},
@@ -54,6 +53,12 @@ func Migrate(db *gorm.DB) error {
 	if err != nil {
 		return fmt.Errorf("auto-migration failed: %w", err)
 	}
+
+	// KYC/verification feature removed: drop its table and the users.verification_status
+	// column. Idempotent (IF EXISTS) so it's safe on fresh DBs and re-runs. AutoMigrate
+	// never drops columns/tables on its own, so this is required to actually reclaim them.
+	db.Exec(`DROP TABLE IF EXISTS verification_details`)
+	db.Exec(`ALTER TABLE users DROP COLUMN IF EXISTS verification_status`)
 
 	log.Println("Database migrations completed")
 	return nil

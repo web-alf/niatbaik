@@ -92,7 +92,6 @@ func seedAdmin(db *gorm.DB) error {
 		Email:              "admin@niatbaik.org",
 		Password:           string(hash),
 		Role:               "admin",
-		VerificationStatus: "verified",
 		EmailVerifiedAt:    &now,
 	}
 
@@ -141,7 +140,6 @@ func seedDemoStaff(db *gorm.DB) error {
 			Email:              s.Email,
 			Password:           string(hash),
 			Role:               s.Role,
-			VerificationStatus: "verified",
 			EmailVerifiedAt:    &now,
 		}
 		if err := db.Create(&u).Error; err != nil {

@@ -20,7 +20,6 @@ type User struct {
 	Image              string         `gorm:"size:255" json:"image"`
 	UserCoverImage     string         `gorm:"size:255" json:"user_cover_image"`
 	Address            string         `gorm:"size:500" json:"address"`
-	VerificationStatus string         `gorm:"size:20;default:'unverified'" json:"verification_status"` // unverified, pending, verified, rejected
 	Bio                string         `gorm:"type:text" json:"bio"`
 
 	// Organization fields
@@ -64,7 +63,6 @@ type User struct {
 	Campaigns          []Campaign         `gorm:"foreignKey:UserID" json:"campaigns,omitempty"`
 	Invoices           []Invoice          `gorm:"foreignKey:UserID" json:"invoices,omitempty"`
 	Withdrawals        []Withdrawal       `gorm:"foreignKey:UserID" json:"withdrawals,omitempty"`
-	VerificationDetail *VerificationDetail `gorm:"foreignKey:UserID" json:"verification_detail,omitempty"`
 	LoginHistories     []LoginHistory     `gorm:"foreignKey:UserID" json:"login_histories,omitempty"`
 }
 
@@ -72,4 +70,3 @@ func (u *User) IsAdmin() bool       { return u.Role == "admin" }
 func (u *User) IsCS() bool          { return u.Role == "cs" }
 func (u *User) IsAdvertiser() bool  { return u.Role == "advertiser" }
 func (u *User) IsFundraiser() bool  { return u.Role == "fundraiser" }
-func (u *User) IsVerified() bool    { return u.VerificationStatus == "verified" }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { api } from '@/lib/api';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { useAuth } from '@/context/AuthContext';
@@ -9,6 +10,12 @@ import { getDateRange, DEFAULT_RANGE } from '@/lib/date';
 import { exportCSV, exportExcel, filterByRange } from '@/lib/export';
 import { Card, StatCard, Badge, StatusBadge, Progress, Btn, SearchInput, Select, LineChart, Donut, PageHeader, Tabs, SourcePill, Icon, DateRangePill } from '@/components';
 import AdvertiserPage from '@/pages/admin/AdvertiserPage';
+
+// wa.me deep-link from an Indonesian number (0xxx → 62xxx, strip non-digits).
+const waLink = (phone: string) => {
+  const d = (phone || '').replace(/[^0-9]/g, '').replace(/^0/, '62');
+  return d ? `https://wa.me/${d}` : '';
+};
 
 // Dashboard view - varies per role
 // Hardcoded table tweaks (the design-tool Tweaks panel is dropped in production).
@@ -299,6 +306,10 @@ export default function DashboardPage() {
         )}
       </Card>
 
+      {/* Leads — funnel view (all invoices) with per-lead payment toggle + quality tag,
+          filterable by campaign & date. Campaign hero-click deep-links here via ?campaign=. */}
+      <LeadsSection onOpen={openInvoice} />
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <Card className="p-5">
           <div className="flex items-center justify-between mb-3">
@@ -452,5 +463,186 @@ function TxnTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+// ----- Leads table (funnel view over all invoices) -----
+// Columns: No | Nama Donatur | Whatsapp | Donasi | Program | Payment (toggle) | Status
+// (berkualitas/invalid) | Date | Action. Filterable by campaign + date. Reads ?campaign=<id>
+// from the URL so a campaign hero-click in /campaigns deep-links here pre-filtered.
+function LeadsSection({ onOpen }: any) {
+  const showToast = useUiStore((s) => s.showToast);
+  const leads = useDataStore((s) => s.transactions);
+  const campaigns = useDataStore((s) => s.campaigns);
+  const paymentStatuses = useDataStore((s) => s.paymentStatuses);
+  const refreshInvoices = useDataStore((s) => s.refreshInvoices);
+  const [sp, setSp] = useSearchParams();
+  const urlCampaign = sp.get('campaign') || '';
+
+  const [campaignId, setCampaignId] = useState(urlCampaign);
+  const [range, setRange] = useState(getDateRange() || DEFAULT_RANGE);
+  const [q, setQ] = useState('');
+  const [busyId, setBusyId] = useState<string>('');
+  const [page, setPage] = useState(1);
+  const PAGE = 10;
+
+  // Keep the campaign filter in sync when the URL param changes (deep-link click).
+  useEffect(() => { setCampaignId(urlCampaign); }, [urlCampaign]);
+
+  // Resolve the paid / unpaid status codes from the admin-managed master list, so the
+  // payment toggle sends a real status the backend recognizes (falls back to sensible
+  // defaults if the list hasn't loaded).
+  const paidCode = useMemo(() => (paymentStatuses.find((s: any) => s.is_paid)?.code) || 'Terbayar', [paymentStatuses]);
+  const unpaidCode = useMemo(() => (paymentStatuses.find((s: any) => !s.is_paid)?.code) || 'Menunggu Pembayaran', [paymentStatuses]);
+
+  const campaignOptions = useMemo(() => ([
+    { value: '', label: 'Semua campaign' },
+    ...campaigns.map((c: any) => ({ value: String(c.id), label: c.title })),
+  ]), [campaigns]);
+  const campaignTitle = campaigns.find((c: any) => String(c.id) === campaignId)?.title;
+
+  const filtered = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    const inRange = filterByRange(leads as any[], range);
+    return inRange.filter((t: any) => {
+      if (campaignId && String(t.campaignId) !== campaignId) return false;
+      if (!query) return true;
+      const donor = t.anon ? 'hamba allah' : (t.donor || '').toLowerCase();
+      return donor.includes(query) || (t.whatsapp || '').toLowerCase().includes(query)
+        || (t.campaign || '').toLowerCase().includes(query) || (t.id || '').toLowerCase().includes(query);
+    });
+  }, [leads, range, campaignId, q]);
+
+  useEffect(() => { setPage(1); }, [campaignId, range, q]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE));
+  const paged = filtered.slice((page - 1) * PAGE, page * PAGE);
+
+  const clearCampaign = () => { setCampaignId(''); if (urlCampaign) { sp.delete('campaign'); setSp(sp, { replace: true }); } };
+
+  const togglePayment = async (lead: any) => {
+    // Turning a PAID lead back to unpaid does NOT reverse the campaign/commission
+    // bookkeeping (the backend credits on the paid path only) — warn before doing it.
+    if (lead.isPaid && !confirm(`Tandai "${lead.id}" sebagai BELUM dibayar?\n\nCatatan: saldo campaign & komisi fundraiser yang sudah tercatat TIDAK otomatis dikoreksi.`)) return;
+    setBusyId(lead.uuid);
+    try {
+      await api.updateInvoiceStatus(lead.uuid, lead.isPaid ? unpaidCode : paidCode);
+      showToast(lead.isPaid ? 'Ditandai belum dibayar' : 'Ditandai lunas');
+      await refreshInvoices();
+    } catch (e: any) { showToast('Gagal: ' + (e?.message || '')); }
+    finally { setBusyId(''); }
+  };
+
+  const setQuality = async (lead: any, quality: string) => {
+    setBusyId(lead.uuid);
+    try {
+      await api.updateInvoiceQuality(lead.uuid, quality);
+      showToast(quality === 'berkualitas' ? 'Ditandai berkualitas' : quality === 'invalid' ? 'Ditandai invalid' : 'Tag dihapus');
+      await refreshInvoices();
+    } catch (e: any) { showToast('Gagal: ' + (e?.message || '')); }
+    finally { setBusyId(''); }
+  };
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-mute">Leads</div>
+          <div className="mt-1 font-bold text-ink flex items-center gap-2 flex-wrap">
+            <span>Daftar Lead Donasi</span>
+            {campaignId && campaignTitle && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-[11px] font-bold">
+                {campaignTitle}
+                <button onClick={clearCampaign} title="Hapus filter campaign" className="hover:text-brand-900"><Icon name="close" size={12}/></button>
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
+          <SearchInput placeholder="Cari donatur / WA / invoice…" className="w-full sm:w-56" value={q} onChange={setQ}/>
+          <Select value={campaignId} onChange={setCampaignId} icon="megaphone" options={campaignOptions} className="w-full sm:w-52"/>
+          <DateRangePill value={range} onChange={setRange}/>
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="py-12 text-center text-sm text-mute">Tidak ada lead yang cocok dengan filter.</div>
+      ) : (
+        <>
+          <div className="overflow-x-auto -mx-5">
+            <table className="w-full min-w-[860px] text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wider text-mute border-y border-line bg-bg2/60">
+                  <th className="px-5 py-2.5 font-semibold">No</th>
+                  <th className="py-2.5 font-semibold">Nama Donatur</th>
+                  <th className="py-2.5 font-semibold">Whatsapp</th>
+                  <th className="py-2.5 font-semibold">Donasi</th>
+                  <th className="py-2.5 font-semibold">Program</th>
+                  <th className="py-2.5 font-semibold text-center">Payment</th>
+                  <th className="py-2.5 font-semibold">Status</th>
+                  <th className="py-2.5 font-semibold text-right">Date</th>
+                  <th className="pr-5 py-2.5 font-semibold text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paged.map((r: any, i: number) => {
+                  const wa = waLink(r.whatsapp);
+                  const busy = busyId === r.uuid;
+                  return (
+                    <tr key={r.uuid || r.id} className="border-b border-line last:border-0 hover:bg-bg2/40">
+                      <td className="px-5 py-3 text-mute">{(page - 1) * PAGE + i + 1}</td>
+                      <td className="py-3">{r.anon ? <span className="italic text-mute">Hamba Allah</span> : (r.donor || '—')}</td>
+                      <td className="py-3">
+                        {r.whatsapp ? (
+                          <a href={wa} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-emerald-600 font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
+                            <Icon name="wa" size={13}/> {r.whatsapp}
+                          </a>
+                        ) : <span className="text-mute">—</span>}
+                      </td>
+                      <td className="py-3 font-semibold text-ink">{fmtIDR(r.amount)}</td>
+                      <td className="py-3 max-w-[200px] truncate text-ink/90">{r.campaign || '—'}</td>
+                      <td className="py-3 text-center">
+                        <button
+                          onClick={() => togglePayment(r)} disabled={busy}
+                          title={r.isPaid ? 'Lunas — klik untuk tandai belum bayar' : 'Belum bayar — klik untuk tandai lunas'}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${r.isPaid ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                          <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${r.isPaid ? 'translate-x-5' : 'translate-x-0.5'}`}/>
+                        </button>
+                      </td>
+                      <td className="py-3">
+                        {r.leadQuality === 'berkualitas'
+                          ? <Badge tone="ok">berkualitas</Badge>
+                          : r.leadQuality === 'invalid'
+                          ? <Badge tone="bad">invalid</Badge>
+                          : <span className="text-xs text-mute italic">belum ditandai</span>}
+                      </td>
+                      <td className="py-3 text-right text-xs text-mute">{r.date}</td>
+                      <td className="pr-5 py-3 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          <button title="Tandai berkualitas" disabled={busy} onClick={() => setQuality(r, r.leadQuality === 'berkualitas' ? '' : 'berkualitas')}
+                            className={`h-8 w-8 rounded-md hover:bg-emerald-50 disabled:opacity-40 ${r.leadQuality === 'berkualitas' ? 'text-emerald-600' : 'text-mute hover:text-emerald-600'}`}><Icon name="check" size={16}/></button>
+                          <button title="Tandai invalid" disabled={busy} onClick={() => setQuality(r, r.leadQuality === 'invalid' ? '' : 'invalid')}
+                            className={`h-8 w-8 rounded-md hover:bg-rose-50 disabled:opacity-40 ${r.leadQuality === 'invalid' ? 'text-rose-600' : 'text-mute hover:text-rose-600'}`}><Icon name="close" size={16}/></button>
+                          <button title="Detail" onClick={() => onOpen && onOpen(r)} className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink"><Icon name="eye" size={16}/></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 mt-3 text-xs">
+            <span className="text-mute">{fmtNum(filtered.length)} lead</span>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="h-8 px-2.5 rounded-lg border border-line bg-white disabled:opacity-40 font-semibold">‹</button>
+                <span className="px-2 font-semibold text-ink">Hal {page} / {totalPages}</span>
+                <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="h-8 px-2.5 rounded-lg border border-line bg-white disabled:opacity-40 font-semibold">›</button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </Card>
   );
 }

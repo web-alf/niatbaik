@@ -20,7 +20,6 @@ type UserResponse struct {
 	Phone              string    `json:"phone"`
 	Role               string    `json:"role"`
 	Image              string     `json:"image"`
-	VerificationStatus string     `json:"verification_status"`
 	LastLoginAt        *time.Time `json:"last_login_at"`
 	CreatedAt          time.Time  `json:"created_at"`
 }

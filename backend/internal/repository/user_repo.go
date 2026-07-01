@@ -15,7 +15,7 @@ func NewUserRepo(db *gorm.DB) *UserRepo {
 	return &UserRepo{db: db}
 }
 
-func (r *UserRepo) FindAll(params pagination.PaginationParams, role, status, search string) ([]model.User, int64, error) {
+func (r *UserRepo) FindAll(params pagination.PaginationParams, role, search string) ([]model.User, int64, error) {
 	var users []model.User
 	var total int64
 
@@ -23,9 +23,6 @@ func (r *UserRepo) FindAll(params pagination.PaginationParams, role, status, sea
 
 	if role != "" {
 		q = q.Where("role = ?", role)
-	}
-	if status != "" {
-		q = q.Where("verification_status = ?", status)
 	}
 	if search != "" {
 		q = q.Where("name ILIKE ? OR email ILIKE ?", "%"+search+"%", "%"+search+"%")
@@ -41,11 +38,24 @@ func (r *UserRepo) FindAll(params pagination.PaginationParams, role, status, sea
 
 func (r *UserRepo) FindByID(id uuid.UUID) (*model.User, error) {
 	var u model.User
-	err := r.db.Preload("VerificationDetail").First(&u, "id = ?", id).Error
+	err := r.db.First(&u, "id = ?", id).Error
 	if err != nil {
 		return nil, err
 	}
 	return &u, nil
+}
+
+// RoleByID returns just the current role for a user. The JWT middleware calls this on
+// every authenticated request so authorization uses the DB source-of-truth rather than
+// the role baked into the token at login — an admin role change then takes effect on the
+// next request instead of only after the user logs out and back in. An error (e.g. the
+// user was deleted) means the token no longer authorizes.
+func (r *UserRepo) RoleByID(id uuid.UUID) (string, error) {
+	var u model.User
+	if err := r.db.Model(&model.User{}).Select("role").First(&u, "id = ?", id).Error; err != nil {
+		return "", err
+	}
+	return u.Role, nil
 }
 
 func (r *UserRepo) FindByEmail(email string) (*model.User, error) {

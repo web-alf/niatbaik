@@ -24,10 +24,9 @@ func NewUserHandler(svc *service.UserService, repo *repository.UserRepo) *UserHa
 func (h *UserHandler) List(c echo.Context) error {
 	params := pagination.GetPaginationParams(c)
 	role := c.QueryParam("role")
-	status := c.QueryParam("status")
 	search := c.QueryParam("search")
 
-	users, total, err := h.userRepo.FindAll(params, role, status, search)
+	users, total, err := h.userRepo.FindAll(params, role, search)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch users"))
 	}

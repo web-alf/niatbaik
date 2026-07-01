@@ -31,6 +31,8 @@ export default function CampaignsPage() {
   const navigate = useNavigate();
   const goCreate = () => { navigate('/campaigns/new'); };
   const goEdit = (c: any) => { navigate('/campaigns/' + c.id + '/edit'); };
+  // Clicking a campaign's hero/thumbnail opens the dashboard with leads pre-filtered to it.
+  const goLeads = (c: any) => { navigate('/dashboard?campaign=' + c.id); };
   // Detail preview modal state (formerly app-level setCampaignDetail).
   const [campaignDetail, setCampaignDetail] = useState<any>(null);
   // Live campaigns when API loaded them; else seed. Normalize backend status → design labels.
@@ -105,7 +107,7 @@ export default function CampaignsPage() {
 
       {view === 'cards' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((c: any) => <CampaignCard key={c.id} c={c} onOpen={() => setCampaignDetail(c)} onEdit={() => goEdit(c)} onDelete={async () => {
+          {filtered.map((c: any) => <CampaignCard key={c.id} c={c} onLeads={() => goLeads(c)} onOpen={() => setCampaignDetail(c)} onEdit={() => goEdit(c)} onDelete={async () => {
             if (!confirm('Hapus campaign "' + c.title + '"? Campaign akan dipindah ke Trash.')) return;
             try {
               await api.deleteCampaign(c.id);
@@ -134,13 +136,15 @@ export default function CampaignsPage() {
                 <tr key={c.id} className="border-b border-line last:border-0 hover:bg-bg2/60">
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-14 rounded-md overflow-hidden shrink-0 bg-bg2" style={c.img ? {} : {background:c.thumb}}>
+                      <button type="button" onClick={() => goLeads(c)} title="Lihat leads campaign ini di dashboard"
+                        className="h-10 w-14 rounded-md overflow-hidden shrink-0 bg-bg2 relative group focus:outline-none focus:ring-2 focus:ring-brand-600/40" style={c.img ? {} : {background:c.thumb}}>
                         {c.img ? (
                           <img src={mediaUrl ? mediaUrl(c.img) : c.img} alt={c.title||''} className="h-full w-full object-cover" onError={(e: any)=>{e.target.style.display='none';}}/>
                         ) : (
                           <div className="h-full flex items-center justify-center text-white/90"><Icon name={c.icon} size={16}/></div>
                         )}
-                      </div>
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="chart" size={14} className="text-white"/></span>
+                      </button>
                       <div>
                         <div className="font-semibold text-ink leading-tight">{c.title}</div>
                         <div className="text-xs text-mute mt-0.5">{c.category} · {c.daysLeft} hari lagi</div>
@@ -181,10 +185,18 @@ export default function CampaignsPage() {
   );
 }
 
-function CampaignCard({ c, onOpen, onEdit, onDelete }: any) {
+function CampaignCard({ c, onLeads, onOpen, onEdit, onDelete }: any) {
   return (
     <Card className="overflow-hidden hover:shadow-pop transition-shadow group">
-      <div className="aspect-[16/9]"><CampaignThumb c={c} className="h-full"/></div>
+      <button type="button" onClick={onLeads} title="Lihat leads campaign ini di dashboard"
+        className="block w-full aspect-[16/9] relative focus:outline-none focus:ring-2 focus:ring-brand-600/40">
+        <CampaignThumb c={c} className="h-full"/>
+        <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors opacity-0 group-hover:opacity-100">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 text-ink text-xs font-bold shadow">
+            <Icon name="chart" size={14}/> Lihat Leads
+          </span>
+        </span>
+      </button>
       <div className="p-4">
         <div className="font-bold text-ink leading-snug line-clamp-2 min-h-[2.6rem]">{c.title}</div>
         <div className="mt-3 flex items-baseline justify-between text-sm">

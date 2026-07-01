@@ -348,7 +348,6 @@ func userToResponse(u *model.User) *response.UserResponse {
 		Phone:              phone,
 		Role:               u.Role,
 		Image:              u.Image,
-		VerificationStatus: u.VerificationStatus,
 		LastLoginAt:        u.LastLoginAt,
 		CreatedAt:          u.CreatedAt,
 	}

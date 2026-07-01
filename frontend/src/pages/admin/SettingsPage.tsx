@@ -83,8 +83,18 @@ export default function SettingsPage() {
       setSettings((prev: any) => ({ ...(prev || {}), ...patch }));
       try {
         const fresh = await api.settings();
-        if (fresh?.data) setSettings(fresh.data);
+        if (fresh?.data) {
+          setSettings(fresh.data);
+          // Propagate to the global store so other views (e.g. Gateways) and the
+          // admin-scoped `settings` slice reflect the save without a reload.
+          useDataStore.setState({ settings: fresh.data });
+        }
       } catch { /* optimistic state is already correct enough */ }
+      // Gateway enable-flags / payment methods also feed the PUBLIC donation form, which
+      // reads publicSettings + paymentMethodsPublic (loaded once at public boot, refreshed
+      // only by refreshPublic — the admin long-poll never touches them). Without this a
+      // gateway toggled here didn't reach an open public tab until a full reload.
+      try { await useDataStore.getState().refreshPublic(); } catch { /* non-fatal */ }
       showToast('Pengaturan berhasil disimpan');
       return true;
     } catch (e: any) { showToast('Gagal menyimpan: ' + (e?.message || '')); return false; }

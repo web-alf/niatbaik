@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { toDesignRole, firstPathForRole } from '@/lib/nav';
 import { useUiStore } from '@/store/ui';
+import { useDataStore } from '@/store/data';
 import type { Role, User } from '@/types/api';
 
 interface AuthValue {
@@ -46,6 +47,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthLoading(false);
     }
   }, []);
+
+  // Live role refresh. adminRev bumps whenever refreshAdmin() runs (RealtimeProvider's
+  // long-poll fires it on any server-side change, from any device). Re-fetch me() so a
+  // role/profile change an admin just made takes effect WITHOUT the user manually
+  // logging out and back in. Skip the initial value (mount already fetched me()) and
+  // only run while a session exists. The backend now authorizes off the DB role too
+  // (JWTMiddleware), so this keeps the UI (sidebar/guards) in step with that.
+  const adminRev = useDataStore((s) => s.adminRev);
+  const prevRevRef = useRef(adminRev);
+  useEffect(() => {
+    if (adminRev === prevRevRef.current) return; // no advance (initial mount)
+    prevRevRef.current = adminRev;
+    if (!api.getToken || !api.getToken()) return;
+    api.me().then((res) => { if (res?.data) setUser(res.data); }).catch(() => { /* 401 handled by api.ts */ });
+  }, [adminRev]);
 
   // 401 on an authenticated request → token cleared in api.ts, which fires
   // nb-session-expired. Drop back to login instead of a silently-failing dashboard.

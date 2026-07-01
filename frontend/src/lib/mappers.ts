@@ -101,6 +101,8 @@ export function mapInvoice(inv: any): Invoice {
     amount: inv.amount ?? inv.total ?? 0,
     method: inv.payment_method || inv.method || '',
     status,
+    isPaid: inv.is_paid ?? (status === 'Paid'),
+    leadQuality: inv.lead_quality ?? inv.leadQuality ?? '',
     date: inv.paid_at || inv.created_at || inv.date || '',
     utm: {
       source:   inv.utm_source   ?? inv.utm?.source   ?? '',

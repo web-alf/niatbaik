@@ -27,6 +27,7 @@ type CreateDonationRequest struct {
 	Fbp    string `json:"fbp"`
 	Ttclid string `json:"ttclid"`
 	Ttp    string `json:"ttp"`
+	Gclid  string `json:"gclid"`
 	// ReferralCode is the referring fundraiser's user ID, captured from a
 	// ?ref=<user_id> share link on the public donation page. When it resolves to a
 	// real fundraiser, the invoice is tagged so the commission payout in

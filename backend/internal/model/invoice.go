@@ -62,6 +62,7 @@ type Invoice struct {
 	Fbp    string `gorm:"size:255" json:"fbp"`
 	Ttclid string `gorm:"size:255" json:"ttclid"`
 	Ttp    string `gorm:"size:255" json:"ttp"`
+	Gclid  string `gorm:"size:255" json:"gclid"`
 	CSNote string `gorm:"type:text" json:"cs_note"`
 
 	// LeadQuality is a manual CS/admin tag on the lead (invoice), independent of payment

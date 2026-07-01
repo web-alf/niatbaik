@@ -16,6 +16,7 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/config"
 	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/internal/repository"
+	"github.com/google/uuid"
 )
 
 // metaCAPIURL / tiktokEAPIURL are overridable in tests; default to the real endpoints.
@@ -24,6 +25,7 @@ var (
 	// Events API host is business-api.tiktok.com — business.tiktok.com is the console UI
 	// and does NOT serve the API (requests redirect/fail), so no server event lands.
 	tiktokEAPIURL = "https://business-api.tiktok.com/open_api/v1.3"
+	ga4MPURL      = "https://www.google-analytics.com/mp/collect"
 )
 
 // dispatchLogger is the subset of TrackingRepo the dispatch methods need. Defined as
@@ -80,6 +82,43 @@ func dedupEventID(invoiceNumber string) string {
 	return invoiceNumber
 }
 
+// metaCreds holds the resolved Meta pixel id + CAPI token + test-event code for one
+// dispatch: the invoice's campaign overrides the global settings when it has its own.
+type metaCreds struct {
+	pixelID   string
+	token     string
+	testEvent string
+	source    string // "campaign" or "global" (for the dispatch log / debugging)
+}
+
+// campaignPixelConfig is the shape of Campaign.PixelConfig JSON authored by the campaign
+// editor: {"capi":true,"token":"EAA...","test_event":"TEST123","events":{...}}.
+type campaignPixelConfig struct {
+	Capi      bool   `json:"capi"`
+	Token     string `json:"token"`
+	TestEvent string `json:"test_event"`
+}
+
+// resolveMetaCreds picks per-campaign Meta CAPI credentials when the invoice's campaign
+// has its own pixel id + a valid CAPI block in PixelConfig; otherwise falls back to the
+// global settings. Returns ok=false when neither is usable (dispatch skipped).
+func resolveMetaCreds(settings *model.Setting, inv *model.Invoice) (metaCreds, bool) {
+	// Campaign override: requires a preloaded campaign (ID != nil), its own pixel id, and
+	// a PixelConfig with capi:true + a token. Per-campaign server dispatch does NOT require
+	// the global MetaCAPIEnabled toggle.
+	if inv.Campaign.ID != uuid.Nil && inv.Campaign.MetaPixelID != "" && inv.Campaign.PixelConfig != "" {
+		var pc campaignPixelConfig
+		if json.Unmarshal([]byte(inv.Campaign.PixelConfig), &pc) == nil && pc.Capi && strings.TrimSpace(pc.Token) != "" {
+			return metaCreds{pixelID: inv.Campaign.MetaPixelID, token: pc.Token, testEvent: pc.TestEvent, source: "campaign"}, true
+		}
+	}
+	// Global fallback: gated by the global enable toggle + creds.
+	if settings != nil && settings.MetaCAPIEnabled && settings.MetaPixelID != "" && settings.MetaCAPIToken != "" {
+		return metaCreds{pixelID: settings.MetaPixelID, token: settings.MetaCAPIToken, testEvent: settings.MetaTestEventCode, source: "global"}, true
+	}
+	return metaCreds{}, false
+}
+
 // metaFbc returns the Meta `fbc` click-id parameter. If the value already looks like a
 // fully-formed fbc cookie (fb.1.<ts>.<fbclid>, captured from the browser's _fbc cookie),
 // it's returned as-is; otherwise a raw fbclid query param is wrapped into that format.
@@ -100,10 +139,12 @@ func metaFbc(v string) string {
 // PII (email/phone) is SHA-256 hashed. The event_id is the invoice number so Meta
 // dedups retries. Errors are caught and logged as a failed dispatch — never returned.
 func (s *TrackingService) sendMetaCAPI(settings *model.Setting, inv *model.Invoice) {
-	if settings == nil || !settings.MetaCAPIEnabled || settings.MetaPixelID == "" || settings.MetaCAPIToken == "" {
+	if s.repo == nil {
 		return
 	}
-	if s.repo == nil {
+	// Per-campaign pixel/token override with global fallback (skips if neither usable).
+	creds, ok := resolveMetaCreds(settings, inv)
+	if !ok {
 		return
 	}
 
@@ -140,12 +181,12 @@ func (s *TrackingService) sendMetaCAPI(settings *model.Setting, inv *model.Invoi
 			},
 		}},
 	}
-	if settings.MetaTestEventCode != "" {
-		payload["test_event_code"] = settings.MetaTestEventCode
+	if creds.testEvent != "" {
+		payload["test_event_code"] = creds.testEvent
 	}
 
 	body, _ := json.Marshal(payload)
-	url := fmt.Sprintf("%s/%s/events?access_token=%s", metaCAPIURL, settings.MetaPixelID, settings.MetaCAPIToken)
+	url := fmt.Sprintf("%s/%s/events?access_token=%s", metaCAPIURL, creds.pixelID, creds.token)
 
 	dispatchLog := &model.TrackingDispatchLog{
 		Platform:  "meta",
@@ -264,6 +305,39 @@ func (s *TrackingService) sendTiktokEAPI(settings *model.Setting, inv *model.Inv
 	s.httpPostWithHeader(url, body, "Access-Token", settings.TiktokAccessToken, lg)
 }
 
+// sendGA4MP posts a server-side "purchase" event to GA4 via the Measurement Protocol.
+// GA4 dedups against the browser gtag purchase by transaction_id (= invoice number), and
+// (once the GA4 property is linked to Google Ads and the purchase key-event imported) the
+// conversion flows through to Google Ads — a lightweight server path without the full
+// Google Ads API OAuth. Skips unless both the measurement id and MP api_secret are set.
+func (s *TrackingService) sendGA4MP(settings *model.Setting, inv *model.Invoice) {
+	if settings == nil || settings.GA4MeasurementID == "" || settings.GA4APISecret == "" || s.repo == nil {
+		return
+	}
+	payload := map[string]interface{}{
+		// No _ga client id server-side; the invoice number is a stable pseudo client id and
+		// doubles as the transaction_id for dedup.
+		"client_id": inv.InvoiceNumber,
+		"events": []map[string]interface{}{{
+			"name": "purchase",
+			"params": map[string]interface{}{
+				"transaction_id": inv.InvoiceNumber,
+				"value":          float64(inv.Total),
+				"currency":       "IDR",
+			},
+		}},
+	}
+	body, _ := json.Marshal(payload)
+	url := fmt.Sprintf("%s?measurement_id=%s&api_secret=%s", ga4MPURL, settings.GA4MeasurementID, settings.GA4APISecret)
+	lg := &model.TrackingDispatchLog{
+		Platform:  "ga4",
+		EventName: "purchase",
+		EventID:   dedupEventID(inv.InvoiceNumber),
+		InvoiceID: &inv.ID,
+	}
+	s.httpPost(url, body, lg)
+}
+
 // httpPostWithHeader is like httpPost but adds one extra header (TikTok token).
 func (s *TrackingService) httpPostWithHeader(url string, body []byte, hdrKey, hdrVal string, lg *model.TrackingDispatchLog) {
 	client := &http.Client{Timeout: 5 * time.Second}
@@ -320,13 +394,19 @@ func (s *TrackingService) SendConversions(inv *model.Invoice) {
 		fn()
 	}
 
-	if settings.MetaCAPIEnabled && settings.MetaPixelID != "" && settings.MetaCAPIToken != "" {
+	// Meta fires when EITHER the global CAPI is configured OR the invoice's campaign has
+	// its own pixel+token (per-campaign override doesn't need the global toggle).
+	if _, ok := resolveMetaCreds(settings, inv); ok {
 		wg.Add(1)
 		go run("meta", func() { s.sendMetaCAPI(settings, inv) })
 	}
 	if settings.TiktokEAPIEnabled && settings.TiktokPixelID != "" && settings.TiktokAccessToken != "" {
 		wg.Add(1)
 		go run("tiktok", func() { s.sendTiktokEAPI(settings, inv) })
+	}
+	if settings.GA4MeasurementID != "" && settings.GA4APISecret != "" {
+		wg.Add(1)
+		go run("ga4", func() { s.sendGA4MP(settings, inv) })
 	}
 	wg.Wait()
 }

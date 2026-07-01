@@ -1444,6 +1444,7 @@ function TrackingPanel({ settings, onSave }: any) {
     setTokenSet({
       meta: !!settings.meta_capi_token_set,
       tiktok: !!settings.tiktok_access_token_set,
+      ga4: !!settings.ga4_api_secret_set,
     });
   }, [settings]);
 
@@ -1513,6 +1514,7 @@ function TrackingPanel({ settings, onSave }: any) {
           {[
             { tokenKey:'meta_capi_token', testKey:'meta_test_event_code', label:'Meta CAPI Access Token', placeholder:'EAAG…', saved: tokenSet.meta },
             { tokenKey:'tiktok_access_token', testKey:'tiktok_test_event_code', label:'TikTok Events API Token', placeholder:'tt…', saved: tokenSet.tiktok },
+            { tokenKey:'ga4_api_secret', testKey:'', label:'GA4 Measurement Protocol Secret', placeholder:'dari GA4 → Data Streams → MP API secrets', saved: tokenSet.ga4 },
           ].map((c) => (
             <div key={c.tokenKey} className="mb-3">
               <label className="text-xs font-semibold text-mute flex items-center gap-1.5">
@@ -1530,12 +1532,14 @@ function TrackingPanel({ settings, onSave }: any) {
                   {showToken[c.tokenKey] ? 'Sembunyikan' : 'Lihat'}
                 </button>
               </div>
-              <input
-                type="text"
-                className="field mt-2 font-mono text-xs"
-                placeholder={`${c.label} — Test Event Code (sandbox)`}
-                onChange={(e) => setPixelIds((prev: any) => ({ ...prev, [c.testKey]: e.target.value }))}
-              />
+              {c.testKey && (
+                <input
+                  type="text"
+                  className="field mt-2 font-mono text-xs"
+                  placeholder={`${c.label} — Test Event Code (sandbox)`}
+                  onChange={(e) => setPixelIds((prev: any) => ({ ...prev, [c.testKey]: e.target.value }))}
+                />
+              )}
             </div>
           ))}
         </div>
@@ -1571,6 +1575,7 @@ function TrackingPanel({ settings, onSave }: any) {
             gtm_id: pixelIds['Google Tag Manager'] || '',
             google_ads_conversion_id: pixelIds['Google Ads Conversion'] || '',
             ga4_measurement_id: pixelIds['Google Analytics 4'] || '',
+            ga4_api_secret: pixelIds.ga4_api_secret || undefined,
             tiktok_pixel_id: pixelIds['TikTok Pixel'] || '',
             tiktok_access_token: pixelIds.tiktok_access_token || undefined,
             tiktok_test_event_code: pixelIds.tiktok_test_event_code || undefined,

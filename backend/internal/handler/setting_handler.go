@@ -37,6 +37,7 @@ func (h *SettingHandler) Get(c echo.Context) error {
 		CekatAIConfigured    bool `json:"cekat_ai_configured"`
 		MetaCAPITokenSet     bool `json:"meta_capi_token_set"`
 		TiktokAccessTokenSet bool `json:"tiktok_access_token_set"`
+		GA4APISecretSet      bool `json:"ga4_api_secret_set"`
 	}
 
 	resp := SettingWithGateway{
@@ -49,6 +50,7 @@ func (h *SettingHandler) Get(c echo.Context) error {
 		CekatAIConfigured:    setting.CekatAIKey != "" && setting.CekatAIEndpoint != "",
 		MetaCAPITokenSet:     setting.MetaCAPIToken != "",
 		TiktokAccessTokenSet: setting.TiktokAccessToken != "",
+		GA4APISecretSet:      setting.GA4APISecret != "",
 	}
 
 	return c.JSON(http.StatusOK, response.SuccessResponse(resp, "success"))

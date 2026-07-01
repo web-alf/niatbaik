@@ -288,6 +288,9 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	if req.TiktokTestEventCode != nil {
 		setting.TiktokTestEventCode = *req.TiktokTestEventCode
 	}
+	if req.GA4APISecret != nil {
+		setting.GA4APISecret = *req.GA4APISecret
+	}
 	if req.MootaSignatureEnabled != nil {
 		setting.MootaSignatureEnabled = *req.MootaSignatureEnabled
 	}

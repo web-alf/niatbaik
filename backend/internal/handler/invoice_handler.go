@@ -128,7 +128,10 @@ func (h *InvoiceHandler) UpdateStatus(c echo.Context) error {
 	}
 
 	var invoice model.Invoice
-	if err := h.db.First(&invoice, "id = ?", id).Error; err != nil {
+	// Preload Campaign so an admin marking this invoice paid still gets per-campaign
+	// server-side conversion dispatch (SendConversions reads inv.Campaign for the
+	// campaign's own pixel/token); without it the campaign would be zero-valued.
+	if err := h.db.Preload("Campaign").First(&invoice, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.JSON(http.StatusNotFound, response.ErrorResponse("invoice not found"))
 		}

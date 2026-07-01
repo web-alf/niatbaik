@@ -123,6 +123,7 @@ type UpdateSettingRequest struct {
 	MetaTestEventCode   *string `json:"meta_test_event_code"`
 	TiktokAccessToken   *string `json:"tiktok_access_token"`
 	TiktokTestEventCode *string `json:"tiktok_test_event_code"`
+	GA4APISecret        *string `json:"ga4_api_secret"`
 	LookerStudioEmbed     *string `json:"looker_studio_embed" validate:"omitempty,max=65536"`
 	EventTrackingConfig   *string `json:"event_tracking_config" validate:"omitempty,max=65536"`
 

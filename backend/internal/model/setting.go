@@ -158,6 +158,11 @@ type Setting struct {
 	MetaTestEventCode   string `gorm:"size:100" json:"meta_test_event_code"`
 	TiktokAccessToken   string `gorm:"type:text" json:"-"`
 	TiktokTestEventCode string `gorm:"size:100" json:"tiktok_test_event_code"`
+	// GA4 Measurement Protocol secret (GA4 Admin → Data Streams → MP API secrets). With
+	// GA4MeasurementID it lets the server post a purchase event to GA4 (dedup via
+	// transaction_id = invoice number), which GA4 can forward to Google Ads as a
+	// conversion — a lightweight server-side path without the full Google Ads API OAuth.
+	GA4APISecret string `gorm:"type:text" json:"-"`
 
 	// Moota / Flip detail
 	MootaEndpoint         string `gorm:"size:255" json:"moota_endpoint"`

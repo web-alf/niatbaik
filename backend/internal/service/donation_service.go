@@ -235,6 +235,7 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 				Fbp:               req.Fbp,
 				Ttclid:            req.Ttclid,
 				Ttp:               req.Ttp,
+				Gclid:             req.Gclid,
 			}
 			lastErr = tx.Create(&invoice).Error
 			if lastErr == nil {

@@ -45,10 +45,12 @@ type WebhookHandler struct {
 	mootaService  *service.MootaService
 	flipService   *service.FlipService
 	xenditService *service.XenditService
+	ipaymuService *service.IpaymuService
+	duitkuService *service.DuitkuService
 }
 
-func NewWebhookHandler(mootaService *service.MootaService, flipService *service.FlipService, xenditService *service.XenditService) *WebhookHandler {
-	return &WebhookHandler{mootaService: mootaService, flipService: flipService, xenditService: xenditService}
+func NewWebhookHandler(mootaService *service.MootaService, flipService *service.FlipService, xenditService *service.XenditService, ipaymuService *service.IpaymuService, duitkuService *service.DuitkuService) *WebhookHandler {
+	return &WebhookHandler{mootaService: mootaService, flipService: flipService, xenditService: xenditService, ipaymuService: ipaymuService, duitkuService: duitkuService}
 }
 
 func (h *WebhookHandler) HandleMoota(c echo.Context) error {
@@ -181,6 +183,81 @@ func (h *WebhookHandler) HandleXendit(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+// HandleIpaymu settles a donation from an iPaymu notify callback. iPaymu POSTs the
+// transaction status as form-urlencoded; we authenticate by matching the posted `va`
+// against the configured merchant VA (settlement is further guarded in HandleWebhook
+// by requiring an UNPAID invoice + amount coverage). Exact scheme: verify on sandbox.
+func (h *WebhookHandler) HandleIpaymu(c echo.Context) error {
+	if h.ipaymuService == nil {
+		return c.JSON(http.StatusServiceUnavailable, response.ErrorResponse("ipaymu not configured"))
+	}
+	if err := c.Request().ParseForm(); err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("Invalid payload"))
+	}
+	form := c.Request().PostForm
+	// Empty-body reachability ping — ack so the URL registers.
+	if len(form) == 0 {
+		return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "note": "reachability ok"})
+	}
+	va := firstNonEmpty(form.Get("va"), c.Request().Header.Get("va"))
+	if !h.ipaymuService.VerifyCallback(va) {
+		return c.JSON(http.StatusUnauthorized, response.ErrorResponse("Invalid callback (va mismatch)"))
+	}
+	payload := service.IpaymuCallback{
+		TrxID:     firstNonEmpty(form.Get("trx_id"), form.Get("transaction_id")),
+		Status:    firstNonEmpty(form.Get("status"), form.Get("status_code")),
+		Reference: firstNonEmpty(form.Get("reference_id"), form.Get("reference")),
+		Total:     firstNonEmpty(form.Get("amount"), form.Get("total")),
+	}
+	if err := h.ipaymuService.HandleWebhook(payload); err != nil {
+		log.Printf("[ipaymu-webhook] settle failed for ref=%q: %v", payload.Reference, err)
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+// HandleDuitku settles a donation from a Duitku callback. Duitku POSTs the notification
+// as form-urlencoded (NOT JSON) and signs it md5(merchantCode+amount+merchantOrderId+key).
+func (h *WebhookHandler) HandleDuitku(c echo.Context) error {
+	if h.duitkuService == nil {
+		return c.JSON(http.StatusServiceUnavailable, response.ErrorResponse("duitku not configured"))
+	}
+	if err := c.Request().ParseForm(); err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("Invalid payload"))
+	}
+	form := c.Request().PostForm
+	if len(form) == 0 {
+		return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "note": "reachability ok"})
+	}
+	payload := service.DuitkuCallback{
+		MerchantCode:    form.Get("merchantCode"),
+		Amount:          form.Get("amount"),
+		MerchantOrderID: form.Get("merchantOrderId"),
+		Reference:       form.Get("reference"),
+		ResultCode:      form.Get("resultCode"),
+		Signature:       form.Get("signature"),
+	}
+	if !h.duitkuService.VerifySignature(payload) {
+		log.Printf("[duitku-webhook] signature mismatch for order=%q", payload.MerchantOrderID)
+		return c.JSON(http.StatusUnauthorized, response.ErrorResponse("Invalid signature"))
+	}
+	if err := h.duitkuService.HandleWebhook(payload); err != nil {
+		log.Printf("[duitku-webhook] settle failed for order=%q: %v", payload.MerchantOrderID, err)
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+// firstNonEmpty returns the first non-blank argument.
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // logMootaInbound dumps inbound Moota webhook metadata to the server log so we can

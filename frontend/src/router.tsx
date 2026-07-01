@@ -26,6 +26,7 @@ import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
 
 import DashboardPage from '@/pages/admin/DashboardPage';
 import CampaignsPage from '@/pages/admin/CampaignsPage';
+import CampaignEarningsPage from '@/pages/admin/CampaignEarningsPage';
 import CampaignEditorPage from '@/pages/admin/CampaignEditorPage';
 import AnalyticsPage from '@/pages/admin/AnalyticsPage';
 import AdvertiserPage from '@/pages/admin/AdvertiserPage';
@@ -82,6 +83,7 @@ export const router = createBrowserRouter([
             children: [
               { path: '/dashboard', element: <DashboardPage /> },
               { path: '/campaigns', element: <CampaignsPage /> },
+              { path: '/earnings', element: <CampaignEarningsPage /> },
               { path: '/campaigns/new', element: <RequireRole roles={['Admin', 'CS']}><CampaignEditorPage /></RequireRole> },
               { path: '/campaigns/:id/edit', element: <RequireRole roles={['Admin', 'CS']}><CampaignEditorPage /></RequireRole> },
               { path: '/analytics', element: <RequireRole roles={['Admin', 'Advertiser']}><AnalyticsRoute /></RequireRole> },

@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { useUiStore } from '@/store/ui';
+import { useAdminSync } from '@/lib/useAdminSync';
 import { Card, PageHeader, Tabs, SearchInput, Select, Icon, Badge, Btn, Modal } from '@/components';
 
 export default function TrashPage() {
@@ -49,7 +50,7 @@ export default function TrashPage() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useAdminSync(load);
 
   const tones: Record<string, string> = {
     brand: 'bg-brand-50 text-brand-600',

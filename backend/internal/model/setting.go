@@ -62,6 +62,34 @@ type Setting struct {
 	XenditEnabled       bool   `gorm:"default:false" json:"xendit_enabled"`
 	XenditMode          string `gorm:"size:20;default:'sandbox'" json:"xendit_mode"`
 
+	// Payment gateway — iPaymu (hosted payment page / VA). Secrets are TEXT (not
+	// varchar) per the same overflow lesson. iPaymu signs callbacks with a Signature
+	// the merchant generates; we verify on the inbound webhook.
+	IpaymuEnabled bool   `gorm:"default:false" json:"ipaymu_enabled"`
+	IpaymuMode    string `gorm:"size:20;default:'sandbox'" json:"ipaymu_mode"`
+	IpaymuVA      string `gorm:"size:50" json:"ipaymu_va"`
+	IpaymuAPIKey  string `gorm:"type:text" json:"-"`
+	IpaymuBaseURL string `gorm:"size:255;default:'https://my.ipaymu.co.id'" json:"ipaymu_base_url"`
+
+	// Payment gateway — Duitku (hosted redirect / VA). Merchant code + API key for
+	// create-transaction; callback key verifies the return webhook signature.
+	DuitkuEnabled    bool   `gorm:"default:false" json:"duitku_enabled"`
+	DuitkuMode       string `gorm:"size:20;default:'sandbox'" json:"duitku_mode"`
+	DuitkuMerchant   string `gorm:"size:50" json:"duitku_merchant"`
+	DuitkuAPIKey     string `gorm:"type:text" json:"-"`
+	DuitkuCallbackKey string `gorm:"type:text" json:"-"`
+	DuitkuBaseURL    string `gorm:"size:255;default:'https://passport.duitku.com'" json:"duitku_base_url"`
+
+	// CS Cekat Ai (generic AI CS) — AI-first donor support with human-WA fallback.
+	// Endpoint + key + system prompt drive a server-side chat-completion proxy so the
+	// key never reaches the browser. When disabled, the donor CS flow uses the WA
+	// rotator (CS manusia) directly.
+	CekatAIEnabled    bool   `gorm:"default:false" json:"cekat_ai_enabled"`
+	CekatAIEndpoint   string `gorm:"size:255" json:"cekat_ai_endpoint"`
+	CekatAIKey        string `gorm:"type:text" json:"-"`
+	CekatAIModel      string `gorm:"size:100" json:"cekat_ai_model"`
+	CekatAISystemPrompt string `gorm:"type:text" json:"cekat_ai_system_prompt"`
+
 	// SMTP
 	SMTPHost     string `gorm:"size:255" json:"smtp_host"`
 	SMTPEmail    string `gorm:"size:255" json:"smtp_email"`

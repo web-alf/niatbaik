@@ -1675,6 +1675,7 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
   const [invoice, setInvoiceState] = useState(invoiceProp);
   const [status, setStatus] = useState(invoiceProp.status || 'Menunggu Pembayaran');
   const [checking, setChecking] = useState(false);
+  const [csChatOpen, setCsChatOpen] = useState(false);
   const [copied, setCopied] = useState('');
   const [pollTimedOut, setPollTimedOut] = useState(false);
   const [simulating, setSimulating] = useState(false);
@@ -2116,11 +2117,23 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
         if (!num) return null;
         const label = assignedCs && assignedCs.name ? `Saya sudah bayar — konfirmasi ke ${assignedCs.name}` : 'Saya sudah bayar (konfirmasi via WhatsApp)';
         const msg = encodeURIComponent(`Halo admin, saya sudah donasi. Invoice: ${invoice.invoice_number}, nominal: ${fmtIDR(total)}. Mohon konfirmasi.`);
+        const waHref = `https://wa.me/${num}?text=${msg}`;
         return (
-          <a href={`https://wa.me/${num}?text=${msg}`} target="_blank" rel="noopener noreferrer"
-             className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-emerald-500 text-white hover:bg-emerald-600">
-            <Icon name="wa" size={16}/> {label}
-          </a>
+          <>
+            {/* AI-first CS: when Cekat Ai is enabled, offer the AI chat; WhatsApp stays as
+                the human fallback (also used automatically when the AI hands off). */}
+            {psPublic?.cekat_ai_enabled && (
+              <button onClick={() => setCsChatOpen(true)}
+                className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-brand-600 text-white hover:bg-brand-700">
+                <Icon name="sparkle" size={16}/> Tanya CS (AI)
+              </button>
+            )}
+            <a href={waHref} target="_blank" rel="noopener noreferrer"
+               className={`mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold ${psPublic?.cekat_ai_enabled ? 'bg-white border-2 border-emerald-500 text-emerald-600 hover:bg-emerald-50' : 'bg-emerald-500 text-white hover:bg-emerald-600'}`}>
+              <Icon name="wa" size={16}/> {label}
+            </a>
+            {csChatOpen && <CekatChatModal onClose={() => setCsChatOpen(false)} waHref={waHref} invoiceNumber={invoice.invoice_number} campaignTitle={c?.title}/>}
+          </>
         );
       })()}
       <button onClick={onReset} className="mt-2 w-full text-xs font-semibold text-mute hover:text-ink">Kembali ke campaign</button>
@@ -2238,6 +2251,80 @@ function CampaignFAQ() {
           <div className="px-3 pb-3 text-sm text-ink/80">{f.a}</div>
         </details>
       ))}
+    </div>
+  );
+}
+
+// CekatChatModal — AI-first donor CS chat. Calls POST /cs/chat; on handoff=true (AI
+// unavailable, misconfigured, or the donor asked for a human) it surfaces the WhatsApp
+// CS button so the conversation continues with a human. Pre-seeds context with the
+// invoice number so the AI can help with payment confirmation.
+function CekatChatModal({ onClose, waHref, invoiceNumber, campaignTitle }: any) {
+  const [messages, setMessages] = useState<any[]>(() => ([
+    { role: 'assistant', content: `Halo! Saya CS virtual NIATBAIK.ORG 🙏 Ada yang bisa saya bantu soal donasi Anda${invoiceNumber ? ` (invoice ${invoiceNumber})` : ''}?` },
+  ]));
+  const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
+  const [handoff, setHandoff] = useState(false);
+  const scrollRef = useRef<any>(null);
+
+  useEffect(() => { try { scrollRef.current?.scrollTo({ top: 999999, behavior: 'smooth' }); } catch {} }, [messages, sending]);
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text || sending) return;
+    setInput('');
+    const history = messages.filter((m) => m.role === 'user' || m.role === 'assistant').slice(-10);
+    setMessages((prev) => [...prev, { role: 'user', content: text }]);
+    setSending(true);
+    try {
+      const res: any = await api.csChat(text, history);
+      const data = res?.data || res || {};
+      if (data.handoff) {
+        setHandoff(true);
+        setMessages((prev) => [...prev, { role: 'assistant', content: data.reply || 'Baik, saya sambungkan ke CS kami via WhatsApp ya 🙏' }]);
+      } else {
+        setMessages((prev) => [...prev, { role: 'assistant', content: data.reply || '...' }]);
+      }
+    } catch {
+      setHandoff(true);
+      setMessages((prev) => [...prev, { role: 'assistant', content: 'Maaf, koneksi CS AI sedang bermasalah. Silakan lanjut ke CS kami via WhatsApp 🙏' }]);
+    }
+    setSending(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4" onClick={onClose}>
+      <div className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl flex flex-col max-h-[80vh]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-line">
+          <div className="h-8 w-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center"><Icon name="sparkle" size={16}/></div>
+          <div className="flex-1">
+            <div className="font-bold text-ink text-sm leading-tight">CS Virtual</div>
+            <div className="text-[11px] text-mute">{campaignTitle ? campaignTitle.slice(0, 40) : 'NIATBAIK.ORG'}</div>
+          </div>
+          <button onClick={onClose} className="h-8 w-8 rounded-md hover:bg-bg2 text-mute flex items-center justify-center"><Icon name="close" size={16}/></button>
+        </div>
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2.5">
+          {messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm ${m.role === 'user' ? 'bg-brand-600 text-white rounded-br-md' : 'bg-bg2 text-ink rounded-bl-md'}`}>{m.content}</div>
+            </div>
+          ))}
+          {sending && <div className="flex justify-start"><div className="px-3 py-2 rounded-2xl rounded-bl-md bg-bg2 text-mute text-sm">mengetik…</div></div>}
+        </div>
+        {handoff && waHref && waHref !== '#' && (
+          <a href={waHref} target="_blank" rel="noopener noreferrer" className="mx-4 mb-2 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-500 text-white hover:bg-emerald-600">
+            <Icon name="wa" size={16}/> Lanjut ke CS WhatsApp
+          </a>
+        )}
+        <div className="flex items-center gap-2 p-3 border-t border-line">
+          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') send(); }}
+            placeholder="Tulis pesan…" className="flex-1 px-3 py-2 rounded-xl border border-line bg-white text-sm outline-none focus:border-brand-600"/>
+          <button onClick={send} disabled={sending || !input.trim()} className="h-10 w-10 rounded-xl bg-brand-600 text-white flex items-center justify-center disabled:opacity-40 hover:bg-brand-700">
+            <Icon name="send" size={16}/>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

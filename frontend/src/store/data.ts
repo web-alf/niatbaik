@@ -55,6 +55,11 @@ interface DataState {
   totals: Totals;
   ready: boolean;
   loading: boolean;
+  // adminRev increments every time refreshAdmin() finishes. Pages that fetch admin
+  // data independently (withdrawals, verifications, members, notifications, trash)
+  // subscribe to it to re-fetch when another device/session mutates shared data —
+  // the RealtimeProvider long-poll bumps it via refreshAdmin on a revision change.
+  adminRev: number;
 }
 
 interface DataActions {
@@ -82,7 +87,7 @@ export const useDataStore = create<DataState & DataActions>((set, get) => ({
   trafficSources: null, analyticsOverview: null, analyticsCampaigns: null, analyticsUtm: null,
   analyticsTraffic: null, analyticsFunnel: null, dataStudio: null, adCosts: null,
   totals: EMPTY_TOTALS,
-  ready: false, loading: false,
+  ready: false, loading: false, adminRev: 0,
 
   // = loadApiData
   async refreshPublic() {
@@ -163,7 +168,10 @@ export const useDataStore = create<DataState & DataActions>((set, get) => ({
         ...(Array.isArray(d.users) ? d.users.map((u: any) => ({ ...u, type: 'user' })) : []),
       ];
     }
-    set(patch);
+    // Bump adminRev so pages fetching admin data independently re-run their loads —
+    // this is what makes a change on device A appear on device B without a manual
+    // reload (the RealtimeProvider long-poll calls refreshAdmin on a revision change).
+    set({ ...patch, adminRev: (get().adminRev || 0) + 1 });
   },
 
   async refreshInvoices() {

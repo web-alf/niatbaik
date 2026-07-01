@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
 	"github.com/anrdart/niatbaik-api/internal/middleware"
@@ -75,5 +76,34 @@ func (h *DashboardHandler) GetRecentTransactions(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch recent transactions"))
 	}
 
+	return c.JSON(http.StatusOK, response.SuccessResponse(data, "success"))
+}
+
+// GetCampaignEarnings returns per-campaign earnings within an optional date window.
+// Query params from/to are RFC3339 or YYYY-MM-DD; empty = all-time.
+func (h *DashboardHandler) GetCampaignEarnings(c echo.Context) error {
+	parse := func(q string, endOfDay bool) time.Time {
+		q = c.QueryParam(q)
+		if q == "" {
+			return time.Time{}
+		}
+		if t, err := time.Parse(time.RFC3339, q); err == nil {
+			return t
+		}
+		if t, err := time.Parse("2006-01-02", q); err == nil {
+			if endOfDay {
+				return t.Add(24*time.Hour - time.Second)
+			}
+			return t
+		}
+		return time.Time{}
+	}
+	from := parse("from", false)
+	to := parse("to", true)
+
+	data, err := h.service.GetCampaignEarnings(from, to)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch campaign earnings"))
+	}
 	return c.JSON(http.StatusOK, response.SuccessResponse(data, "success"))
 }

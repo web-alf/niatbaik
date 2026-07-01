@@ -1,6 +1,8 @@
 package service
 
 import (
+	"time"
+
 	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/internal/repository"
 )
@@ -51,4 +53,8 @@ func (s *DashboardService) GetRecentTransactions(limit int) ([]model.Invoice, er
 		limit = 10
 	}
 	return s.statsRepo.GetRecentTransactions(limit)
+}
+
+func (s *DashboardService) GetCampaignEarnings(from, to time.Time) ([]repository.CampaignEarning, error) {
+	return s.statsRepo.GetCampaignEarnings(from, to)
 }

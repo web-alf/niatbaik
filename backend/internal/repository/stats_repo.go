@@ -58,6 +58,23 @@ type CampaignPerf struct {
 	Revenue    int64  `json:"revenue"`
 }
 
+// CampaignEarning is a per-campaign earnings row for the campaign-earnings report,
+// scoped to a date window (donations created within [from,to]). Leads = invoices
+// created in the window; Donations/Donors/Revenue = the paid subset of those.
+type CampaignEarning struct {
+	CampaignID  string `json:"campaign_id"`
+	Title       string `json:"title"`
+	Slug        string `json:"slug"`
+	Image       string `json:"image"`
+	Status      string `json:"status"`
+	Target      int64  `json:"target"`
+	TotalRaised int64  `json:"total_raised"` // all-time, for the progress bar
+	Leads       int64  `json:"leads"`
+	Donations   int64  `json:"donations"`
+	Donors      int64  `json:"donors"`
+	Revenue     int64  `json:"revenue"` // settled rupiah within the window
+}
+
 type UTMEntry struct {
 	Source   string `json:"source"`
 	Medium   string `json:"medium"`
@@ -192,6 +209,60 @@ func (r *StatsRepo) GetCampaignPerformance() ([]CampaignPerf, error) {
 	return results, err
 }
 
+// GetCampaignEarnings returns per-campaign earnings scoped to a date window on the
+// invoice's created_at. Leads = invoices created in [from,to]; Donations/Donors/Revenue
+// = the paid subset. TotalRaised is all-time (drives the progress bar). Empty from/to
+// means all-time. Ordered by windowed revenue desc.
+func (r *StatsRepo) GetCampaignEarnings(from, to time.Time) ([]CampaignEarning, error) {
+	var results []CampaignEarning
+
+	hasFrom := !from.IsZero()
+	hasTo := !to.IsZero()
+	// Build the windowed sub-query filter once, reused for leads/donations/donors/revenue.
+	win := func(alias string) (string, []interface{}) {
+		clause := "invoices.campaign_id = campaigns.id"
+		args := []interface{}{}
+		if hasFrom {
+			clause += " AND invoices.created_at >= ?"
+			args = append(args, from)
+		}
+		if hasTo {
+			clause += " AND invoices.created_at <= ?"
+			args = append(args, to)
+		}
+		_ = alias
+		return clause, args
+	}
+	leadWhere, leadArgs := win("l")
+	paidWhere, paidArgs := win("p")
+
+	sel := `
+		campaigns.id as campaign_id,
+		campaigns.title,
+		campaigns.slug,
+		campaigns.image,
+		campaigns.status,
+		campaigns.target,
+		campaigns.total_raised,
+		(SELECT COUNT(*) FROM invoices WHERE ` + leadWhere + `) as leads,
+		(SELECT COUNT(*) FROM invoices WHERE ` + paidWhere + ` AND invoices.is_paid = true) as donations,
+		(SELECT COUNT(DISTINCT invoices.donor_phone) FROM invoices WHERE ` + paidWhere + ` AND invoices.is_paid = true) as donors,
+		(SELECT COALESCE(SUM(invoices.total),0) FROM invoices WHERE ` + paidWhere + ` AND invoices.is_paid = true) as revenue
+	`
+	// Args order must match the ? placeholders in sel: leads, donations, donors, revenue.
+	args := []interface{}{}
+	args = append(args, leadArgs...)
+	args = append(args, paidArgs...)
+	args = append(args, paidArgs...)
+	args = append(args, paidArgs...)
+
+	err := r.db.Model(&model.Campaign{}).
+		Select(sel, args...).
+		Order("revenue desc").
+		Scan(&results).Error
+	return results, err
+}
+
 func (r *StatsRepo) GetUTMTracking() ([]UTMEntry, error) {
 	var results []UTMEntry
 
@@ -206,9 +277,11 @@ func (r *StatsRepo) GetUTMTracking() ([]UTMEntry, error) {
 
 func (r *StatsRepo) GetRecentTransactions(limit int) ([]model.Invoice, error) {
 	var invoices []model.Invoice
+	// Include leads (unpaid/pending invoices), not only settled ones — a new lead must
+	// appear in "Transaksi Terbaru" the moment it comes in. Order by most-recent activity
+	// (paid_at when settled, else created_at) so paid + pending interleave chronologically.
 	err := r.db.Preload("Campaign").Preload("User").
-		Where("is_paid = ?", true).
-		Order("paid_at desc").
+		Order("COALESCE(paid_at, created_at) desc").
 		Limit(limit).
 		Find(&invoices).Error
 	return invoices, err

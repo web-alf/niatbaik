@@ -20,6 +20,7 @@ export interface NavItem {
 export const NAV: NavItem[] = [
   { key: 'dashboard',     label: 'Dashboard',        icon: 'home',       path: '/dashboard',     roles: ['Admin', 'CS', 'Advertiser'] },
   { key: 'campaigns',     label: 'Campaigns',        icon: 'megaphone',  path: '/campaigns',     roles: ['Admin', 'CS', 'Advertiser'] },
+  { key: 'earnings',      label: 'Perolehan Campaign', icon: 'wallet',   path: '/earnings',      roles: ['Admin', 'CS', 'Advertiser'] },
   { key: 'analytics',     label: 'Analytics',        icon: 'chart',      path: '/analytics',     roles: ['Admin', 'Advertiser'] },
   { key: 'data-studio',   label: 'Data Studio',      icon: 'sparkle',    path: '/data-studio',   roles: ['Admin', 'Advertiser'] },
   { key: 'inbox',         label: 'CS Inbox',         icon: 'inbox',      path: '/inbox',         roles: ['Admin', 'CS'] },
@@ -27,7 +28,7 @@ export const NAV: NavItem[] = [
   { key: 'withdrawals',   label: 'Penarikan Dana',   icon: 'wallet',     path: '/withdrawals',   roles: ['Admin'] },
   { key: 'verifications', label: 'Verifikasi KYC',   icon: 'shield',     path: '/verifications', roles: ['Admin'] },
   { key: 'members',       label: 'Members / User',   icon: 'users',      path: '/members',       roles: ['Admin'] },
-  { key: 'gateways',      label: 'Payment Gateways', icon: 'creditcard', path: '/gateways',      roles: ['Admin'], disabled: true, disabledHint: 'Dinonaktifkan — fokus Transfer Manual' },
+  { key: 'gateways',      label: 'Payment Gateways', icon: 'creditcard', path: '/gateways',      roles: ['Admin'] },
   { key: 'notifications', label: 'Notification',     icon: 'bell',       path: '/notifications', roles: ['Admin', 'CS', 'Advertiser'] },
   { key: 'trash',         label: 'Trash',            icon: 'trash',      path: '/trash',         roles: ['Admin'] },
 ];

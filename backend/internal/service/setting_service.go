@@ -182,6 +182,18 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	if req.XenditCallbackToken != "" {
 		setting.XenditCallbackToken = req.XenditCallbackToken
 	}
+	if req.IpaymuAPIKey != "" {
+		setting.IpaymuAPIKey = req.IpaymuAPIKey
+	}
+	if req.DuitkuAPIKey != "" {
+		setting.DuitkuAPIKey = req.DuitkuAPIKey
+	}
+	if req.DuitkuCallbackKey != "" {
+		setting.DuitkuCallbackKey = req.DuitkuCallbackKey
+	}
+	if req.CekatAIKey != "" {
+		setting.CekatAIKey = req.CekatAIKey
+	}
 
 	// Numeric + boolean tri-state fields (nil = absent = skip).
 	if req.AdminFee != nil {
@@ -211,6 +223,26 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	if req.MootaGatewayEnabled != nil {
 		setting.MootaGatewayEnabled = *req.MootaGatewayEnabled
 	}
+	// iPaymu / Duitku / Cekat Ai gates + non-secret config (tri-state pointers → nil-guard
+	// so a save from an unrelated settings panel never flips the flag off).
+	if req.IpaymuEnabled != nil {
+		setting.IpaymuEnabled = *req.IpaymuEnabled
+	}
+	set(&setting.IpaymuMode, req.IpaymuMode)
+	set(&setting.IpaymuVA, req.IpaymuVA)
+	set(&setting.IpaymuBaseURL, req.IpaymuBaseURL)
+	if req.DuitkuEnabled != nil {
+		setting.DuitkuEnabled = *req.DuitkuEnabled
+	}
+	set(&setting.DuitkuMode, req.DuitkuMode)
+	set(&setting.DuitkuMerchant, req.DuitkuMerchant)
+	set(&setting.DuitkuBaseURL, req.DuitkuBaseURL)
+	if req.CekatAIEnabled != nil {
+		setting.CekatAIEnabled = *req.CekatAIEnabled
+	}
+	set(&setting.CekatAIEndpoint, req.CekatAIEndpoint)
+	set(&setting.CekatAIModel, req.CekatAIModel)
+	set(&setting.CekatAISystemPrompt, req.CekatAISystemPrompt)
 	if req.BorderRadius != nil {
 		setting.BorderRadius = *req.BorderRadius
 	}

@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
+import { useAdminSync } from '@/lib/useAdminSync';
 import { Card, PageHeader, Tabs, Btn, Icon } from '@/components';
 
 export default function NotificationsPage() {
@@ -38,22 +39,21 @@ export default function NotificationsPage() {
     type: n.type || 'system',
   });
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await api.notifications();
-        // Backend wraps the list: { notifications: [...], unread_count }. Tolerate a
-        // bare array too. Fields are is_read (not read_at) and subtitle (not body).
-        const data: any = res?.data;
-        const arr = Array.isArray(data?.notifications) ? data.notifications : (Array.isArray(data) ? data : []);
-        setItems(arr.map(mapNotif));
-      } catch {
-        const fb = useDataStore.getState().notifications as any[];
-        setItems(Array.isArray(fb) ? fb.map(mapNotif) : []);
-      }
-      setLoading(false);
-    })();
-  }, []);
+  const load = async () => {
+    try {
+      const res = await api.notifications();
+      // Backend wraps the list: { notifications: [...], unread_count }. Tolerate a
+      // bare array too. Fields are is_read (not read_at) and subtitle (not body).
+      const data: any = res?.data;
+      const arr = Array.isArray(data?.notifications) ? data.notifications : (Array.isArray(data) ? data : []);
+      setItems(arr.map(mapNotif));
+    } catch {
+      const fb = useDataStore.getState().notifications as any[];
+      setItems(Array.isArray(fb) ? fb.map(mapNotif) : []);
+    }
+    setLoading(false);
+  };
+  useAdminSync(load);
 
   const tones: Record<string, string> = {
     ok: 'bg-emerald-50 text-emerald-600',

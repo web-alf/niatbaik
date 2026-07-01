@@ -3,6 +3,7 @@ import { api } from '@/lib/api';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { exportCSV } from '@/lib/export';
+import { useAdminSync } from '@/lib/useAdminSync';
 import { Card, PageHeader, Tabs, Btn, SearchInput, RoleBadge, StatusBadge, Modal, Icon } from '@/components';
 
 const mapUser = (u: any) => ({
@@ -43,7 +44,7 @@ export default function MembersPage() {
     }
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useAdminSync(load);
 
   useEffect(() => {
     if (editing) setAddForm({ name: editing.name, email: editing.email, phone: editing.phone || '', role: editing.role.toLowerCase(), password: '', verificationStatus: editing.verificationStatus || 'unverified' });

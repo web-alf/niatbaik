@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { api, mediaUrl } from '@/lib/api';
 import { fmtNum } from '@/lib/format';
 import { useUiStore } from '@/store/ui';
+import { useAdminSync } from '@/lib/useAdminSync';
 import { Card, PageHeader, StatCard, Btn, Modal, Badge, Icon } from '@/components';
 
 // Verifications (KYC) admin — review pending identity submissions and approve/reject.
@@ -27,7 +28,7 @@ export default function VerificationsPage() {
     }
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useAdminSync(load);
 
   const doAction = async () => {
     if (!confirm) return;

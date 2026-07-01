@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { fmtIDR, fmtNum } from '@/lib/format';
 import { useUiStore } from '@/store/ui';
+import { useAdminSync } from '@/lib/useAdminSync';
 import { Card, PageHeader, Tabs, StatCard, Btn, Modal, Badge, Icon } from '@/components';
 
 // Withdrawals admin — approve/reject fundraiser & campaign-owner payout requests.
@@ -30,7 +31,7 @@ export default function WithdrawalsPage() {
     }
     setLoading(false);
   };
-  useEffect(() => { load(); }, []);
+  useAdminSync(load);
 
   const isPending = (s: string) => s === 'Dalam Antrian' || s === 'Menunggu';
   const counts = useMemo(() => ({

@@ -63,6 +63,28 @@ type UpdateSettingRequest struct {
 	XenditEnabled       *bool   `json:"xendit_enabled"`
 	XenditMode          *string `json:"xendit_mode" validate:"omitempty,oneof=sandbox production"`
 
+	// iPaymu (api key is a secret → blank = keep)
+	IpaymuEnabled *bool   `json:"ipaymu_enabled"`
+	IpaymuMode    *string `json:"ipaymu_mode" validate:"omitempty,oneof=sandbox production"`
+	IpaymuVA      *string `json:"ipaymu_va" validate:"omitempty,max=50"`
+	IpaymuAPIKey  string  `json:"ipaymu_api_key"`
+	IpaymuBaseURL *string `json:"ipaymu_base_url" validate:"omitempty,max=255"`
+
+	// Duitku (api key + callback key are secrets → blank = keep)
+	DuitkuEnabled    *bool  `json:"duitku_enabled"`
+	DuitkuMode       *string `json:"duitku_mode" validate:"omitempty,oneof=sandbox production"`
+	DuitkuMerchant   *string `json:"duitku_merchant" validate:"omitempty,max=50"`
+	DuitkuAPIKey     string  `json:"duitku_api_key"`
+	DuitkuCallbackKey string `json:"duitku_callback_key"`
+	DuitkuBaseURL    *string `json:"duitku_base_url" validate:"omitempty,max=255"`
+
+	// Cekat Ai (api key is a secret → blank = keep)
+	CekatAIEnabled      *bool  `json:"cekat_ai_enabled"`
+	CekatAIEndpoint     *string `json:"cekat_ai_endpoint" validate:"omitempty,max=255"`
+	CekatAIKey          string  `json:"cekat_ai_key"`
+	CekatAIModel        *string `json:"cekat_ai_model" validate:"omitempty,max=100"`
+	CekatAISystemPrompt *string `json:"cekat_ai_system_prompt"`
+
 	// Theme extended
 	FontFamily          *string `json:"font_family"`
 	BorderRadius        *int    `json:"border_radius"`

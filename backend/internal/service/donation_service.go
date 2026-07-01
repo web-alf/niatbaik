@@ -29,6 +29,8 @@ type DonationService struct {
 	flipService       *FlipService
 	mootaService      *MootaService
 	xenditService     *XenditService
+	ipaymuService     *IpaymuService
+	duitkuService     *DuitkuService
 	paymentSvc        *PaymentService
 }
 
@@ -43,6 +45,8 @@ func NewDonationService(
 	flipService *FlipService,
 	mootaService *MootaService,
 	xenditService *XenditService,
+	ipaymuService *IpaymuService,
+	duitkuService *DuitkuService,
 	paymentSvc *PaymentService,
 ) *DonationService {
 	return &DonationService{
@@ -56,6 +60,8 @@ func NewDonationService(
 		flipService:       flipService,
 		mootaService:      mootaService,
 		xenditService:     xenditService,
+		ipaymuService:     ipaymuService,
+		duitkuService:     duitkuService,
 		paymentSvc:        paymentSvc,
 	}
 }
@@ -311,6 +317,46 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 				log.Printf("[donation] failed to persist Xendit invoice details for %s: %v", invoice.InvoiceNumber, err)
 			}
 		} else if errMsg := s.degradeToManual(&invoice, settingsForPay, "Xendit CreateInvoice", xErr); errMsg != "" {
+			return nil, fmt.Errorf("%s", errMsg)
+		}
+
+	case "ipaymu":
+		if s.ipaymuService == nil {
+			if errMsg := s.degradeToManual(&invoice, settingsForPay, "iPaymu gateway unavailable", fmt.Errorf("ipaymuService nil")); errMsg != "" {
+				return nil, fmt.Errorf("%s", errMsg)
+			}
+			break
+		}
+		pinv, pErr := s.ipaymuService.CreatePayment(&invoice, redirectURL)
+		if pErr == nil && pinv != nil {
+			invoice.PayCode = pinv.Data.TrxID
+			invoice.QrURL = pinv.Data.URL
+			invoice.URLAlternative = pinv.Data.URL
+			invoice.TypePayment = "iPaymu"
+			if err := s.invoiceRepo.Update(&invoice); err != nil {
+				log.Printf("[donation] failed to persist iPaymu payment details for %s: %v", invoice.InvoiceNumber, err)
+			}
+		} else if errMsg := s.degradeToManual(&invoice, settingsForPay, "iPaymu CreatePayment", pErr); errMsg != "" {
+			return nil, fmt.Errorf("%s", errMsg)
+		}
+
+	case "duitku":
+		if s.duitkuService == nil {
+			if errMsg := s.degradeToManual(&invoice, settingsForPay, "Duitku gateway unavailable", fmt.Errorf("duitkuService nil")); errMsg != "" {
+				return nil, fmt.Errorf("%s", errMsg)
+			}
+			break
+		}
+		dinv, dErr := s.duitkuService.CreatePayment(&invoice, redirectURL)
+		if dErr == nil && dinv != nil {
+			invoice.PayCode = dinv.Reference
+			invoice.QrURL = dinv.PaymentURL
+			invoice.URLAlternative = dinv.PaymentURL
+			invoice.TypePayment = "Duitku"
+			if err := s.invoiceRepo.Update(&invoice); err != nil {
+				log.Printf("[donation] failed to persist Duitku payment details for %s: %v", invoice.InvoiceNumber, err)
+			}
+		} else if errMsg := s.degradeToManual(&invoice, settingsForPay, "Duitku CreatePayment", dErr); errMsg != "" {
 			return nil, fmt.Errorf("%s", errMsg)
 		}
 
@@ -580,6 +626,10 @@ func parseSyntheticMethodID(id string) (gatewayHint, channelKey string) {
 		return "moota", strings.TrimPrefix(id, "moota-")
 	case strings.HasPrefix(id, "xendit-"):
 		return "xendit", strings.TrimPrefix(id, "xendit-")
+	case strings.HasPrefix(id, "ipaymu-"):
+		return "ipaymu", strings.TrimPrefix(id, "ipaymu-")
+	case strings.HasPrefix(id, "duitku-"):
+		return "duitku", strings.TrimPrefix(id, "duitku-")
 	}
 	return "", ""
 }
@@ -597,6 +647,12 @@ func (s *DonationService) resolveGateway(settings *model.Setting, channelKey, cl
 		return "manual"
 	}
 	if gw == "xendit" && s.xenditService == nil {
+		return "manual"
+	}
+	if gw == "ipaymu" && s.ipaymuService == nil {
+		return "manual"
+	}
+	if gw == "duitku" && s.duitkuService == nil {
 		return "manual"
 	}
 	return gw
@@ -648,6 +704,16 @@ func ResolveChannelGateway(settings *model.Setting, channelKey, clientGatewayHin
 		if settings == nil || !settings.XenditEnabled || strings.TrimSpace(settings.XenditSecretKey) == "" {
 			return "manual"
 		}
+	case "ipaymu":
+		if settings == nil || !settings.IpaymuEnabled ||
+			strings.TrimSpace(settings.IpaymuVA) == "" || strings.TrimSpace(settings.IpaymuAPIKey) == "" {
+			return "manual"
+		}
+	case "duitku":
+		if settings == nil || !settings.DuitkuEnabled ||
+			strings.TrimSpace(settings.DuitkuMerchant) == "" || strings.TrimSpace(settings.DuitkuAPIKey) == "" {
+			return "manual"
+		}
 	}
 	return gw
 }
@@ -663,7 +729,7 @@ func lookupChannelGateway(cfgJSON, key string) string {
 		return ""
 	}
 	g := strings.ToLower(strings.TrimSpace(m[key]))
-	if g == "flip" || g == "moota" || g == "xendit" || g == "manual" {
+	if g == "flip" || g == "moota" || g == "xendit" || g == "ipaymu" || g == "duitku" || g == "manual" {
 		return g
 	}
 	return ""

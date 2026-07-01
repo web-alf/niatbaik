@@ -439,6 +439,8 @@ const GATEWAY_OPTIONS = [
   { value: 'flip', label: 'Flip' },
   { value: 'moota', label: 'Moota' },
   { value: 'xendit', label: 'Xendit' },
+  { value: 'ipaymu', label: 'iPaymu' },
+  { value: 'duitku', label: 'Duitku' },
   { value: 'manual', label: 'Manual' },
 ];
 
@@ -534,6 +536,8 @@ function PaymentPanel({ settings, onSave }: any) {
   const flipConfigured = !!(settings?.flip_configured);
   const mootaConfigured = !!(settings?.moota_configured);
   const xenditConfigured = !!(settings?.xendit_configured);
+  const ipaymuConfigured = !!(settings?.ipaymu_configured);
+  const duitkuConfigured = !!(settings?.duitku_configured);
 
   // ---- Umum / Kode Unik ----
   const [ucMode, setUcMode] = useState(settings?.unique_code_mode || 'range');
@@ -584,6 +588,21 @@ function PaymentPanel({ settings, onSave }: any) {
   const [xenditMode, setXenditMode] = useState(settings?.xendit_mode || 'sandbox');
   const [xenditSecret, setXenditSecret] = useState('');     // secret: blank = keep
   const [xenditToken, setXenditToken] = useState('');       // secret (callback token): blank = keep
+
+  // ---- iPaymu ----
+  const [ipaymuEnabled, setIpaymuEnabled] = useState(settings?.ipaymu_enabled ?? false);
+  const [ipaymuMode, setIpaymuMode] = useState(settings?.ipaymu_mode || 'sandbox');
+  const [ipaymuVA, setIpaymuVA] = useState(settings?.ipaymu_va || '');
+  const [ipaymuKey, setIpaymuKey] = useState('');           // secret: blank = keep
+  const [ipaymuBase, setIpaymuBase] = useState(settings?.ipaymu_base_url || '');
+
+  // ---- Duitku ----
+  const [duitkuEnabled, setDuitkuEnabled] = useState(settings?.duitku_enabled ?? false);
+  const [duitkuMode, setDuitkuMode] = useState(settings?.duitku_mode || 'sandbox');
+  const [duitkuMerchant, setDuitkuMerchant] = useState(settings?.duitku_merchant || '');
+  const [duitkuKey, setDuitkuKey] = useState('');           // secret: blank = keep
+  const [duitkuCbKey, setDuitkuCbKey] = useState('');       // secret: blank = keep
+  const [duitkuBase, setDuitkuBase] = useState(settings?.duitku_base_url || '');
 
   // ---- Public-form display styles (global) ----
   const [formDisplayStyle, setFormDisplayStyle] = useState(settings?.form_display_style || 'normal');
@@ -674,11 +693,24 @@ function PaymentPanel({ settings, onSave }: any) {
     if (s.moota_date_range != null) setMootaRange(s.moota_date_range);
     if (s.moota_gateway_enabled != null) setMootaGwEnabled(s.moota_gateway_enabled);
     setMootaGwAccount(s.moota_gateway_account_id || '');
+
+    if (s.ipaymu_enabled != null) setIpaymuEnabled(s.ipaymu_enabled);
+    setIpaymuMode(s.ipaymu_mode || 'sandbox');
+    setIpaymuVA(s.ipaymu_va || '');
+    setIpaymuBase(s.ipaymu_base_url || '');
+
+    if (s.duitku_enabled != null) setDuitkuEnabled(s.duitku_enabled);
+    setDuitkuMode(s.duitku_mode || 'sandbox');
+    setDuitkuMerchant(s.duitku_merchant || '');
+    setDuitkuBase(s.duitku_base_url || '');
   }, [settings]);
 
   const callbackHint = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/flip`;
-  const mootaWebhook = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/moota`;
-  const xenditWebhook = `${(typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org')}/api/webhooks/xendit`;
+  const gwBase = (typeof window !== 'undefined' && window.location ? window.location.origin : 'https://donasi.niatbaik.org');
+  const mootaWebhook = `${gwBase}/api/webhooks/moota`;
+  const xenditWebhook = `${gwBase}/api/webhooks/xendit`;
+  const ipaymuWebhook = `${gwBase}/api/webhooks/ipaymu`;
+  const duitkuWebhook = `${gwBase}/api/webhooks/duitku`;
 
   const saveGeneral = () => {
     // Sanitize the structured bank rows (drop blank-name rows; normalize numbers).
@@ -776,6 +808,35 @@ function PaymentPanel({ settings, onSave }: any) {
     return onSave(patch).then((ok: any) => { if (ok) { setMootaKey(''); setMootaSecret(''); clearPDirty('moota'); } return ok; });
   };
 
+  const saveIpaymu = () => {
+    if (ipaymuEnabled && !ipaymuConfigured && (!ipaymuKey.trim() || !ipaymuVA.trim())) {
+      showToastSafe('Isi VA + API Key iPaymu untuk mengaktifkan iPaymu'); return;
+    }
+    const patch: any = {
+      ipaymu_enabled: ipaymuEnabled,
+      ipaymu_mode: ipaymuMode,
+      ipaymu_va: ipaymuVA.trim(),
+      ipaymu_base_url: ipaymuBase.trim(),
+    };
+    if (ipaymuKey.trim()) patch.ipaymu_api_key = ipaymuKey.trim();
+    return onSave(patch).then((ok: any) => { if (ok) { setIpaymuKey(''); clearPDirty('ipaymu'); } return ok; });
+  };
+
+  const saveDuitku = () => {
+    if (duitkuEnabled && !duitkuConfigured && (!duitkuKey.trim() || !duitkuMerchant.trim())) {
+      showToastSafe('Isi Merchant Code + API Key Duitku untuk mengaktifkan Duitku'); return;
+    }
+    const patch: any = {
+      duitku_enabled: duitkuEnabled,
+      duitku_mode: duitkuMode,
+      duitku_merchant: duitkuMerchant.trim(),
+      duitku_base_url: duitkuBase.trim(),
+    };
+    if (duitkuKey.trim()) patch.duitku_api_key = duitkuKey.trim();
+    if (duitkuCbKey.trim()) patch.duitku_callback_key = duitkuCbKey.trim();
+    return onSave(patch).then((ok: any) => { if (ok) { setDuitkuKey(''); setDuitkuCbKey(''); clearPDirty('duitku'); } return ok; });
+  };
+
   const copy = (t: string) => { try { navigator.clipboard?.writeText(t); showToastSafe('Disalin'); } catch {} };
 
   // Is there ANY payable path? Flip (effectively enabled: toggle on AND either already
@@ -783,6 +844,24 @@ function PaymentPanel({ settings, onSave }: any) {
   // name). With neither, donors see no way to pay → donations are UNPAYABLE. This drives
   // a persistent warning banner and blocks the two saves that could create the dead state.
   const flipEffective = flipEnabled && (flipConfigured || !!flipSecret.trim());
+
+  // Per-gateway color/status metadata for the routing matrix legend + color-coded rows.
+  const GATEWAY_META: Record<string, { dot: string; cls: string }> = {
+    flip:   { dot: 'bg-orange-500', cls: 'border-orange-200 bg-orange-50 text-orange-700' },
+    moota:  { dot: 'bg-sky-500',    cls: 'border-sky-200 bg-sky-50 text-sky-700' },
+    xendit: { dot: 'bg-indigo-500', cls: 'border-indigo-200 bg-indigo-50 text-indigo-700' },
+    ipaymu: { dot: 'bg-emerald-500',cls: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+    duitku: { dot: 'bg-violet-500', cls: 'border-violet-200 bg-violet-50 text-violet-700' },
+    manual: { dot: 'bg-slate-400',  cls: 'border-line bg-white text-ink' },
+  };
+  const GATEWAY_STATUS = [
+    { key: 'flip',   label: 'Flip',   on: flipEnabled && flipConfigured,     cls: 'bg-orange-50 text-orange-700 border-orange-200',  dot: 'bg-orange-500' },
+    { key: 'moota',  label: 'Moota',  on: mootaGwEnabled && mootaConfigured, cls: 'bg-sky-50 text-sky-700 border-sky-200',           dot: 'bg-sky-500' },
+    { key: 'xendit', label: 'Xendit', on: xenditEnabled && xenditConfigured, cls: 'bg-indigo-50 text-indigo-700 border-indigo-200',   dot: 'bg-indigo-500' },
+    { key: 'ipaymu', label: 'iPaymu', on: ipaymuEnabled && ipaymuConfigured, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200',dot: 'bg-emerald-500' },
+    { key: 'duitku', label: 'Duitku', on: duitkuEnabled && duitkuConfigured, cls: 'bg-violet-50 text-violet-700 border-violet-200',    dot: 'bg-violet-500' },
+    { key: 'manual', label: 'Manual', on: true,                              cls: 'bg-slate-100 text-slate-700 border-slate-200',     dot: 'bg-slate-500' },
+  ];
   // Payable manual path = at least one configured account NUMBER to transfer to.
   // Read from the live structured manualBanks rows (the new editor only writes there;
   // the legacy single bankNumber is derived from row 0 on save, so checking bankNumber
@@ -800,10 +879,10 @@ function PaymentPanel({ settings, onSave }: any) {
           (isi kredensial) <b>atau</b> isi rekening bank manual (No. Rekening + Nama Bank di tab General).
         </div>
       )}
-      <div className="flex gap-2 mb-8 flex-wrap">
-        {[{v:'general', l:'General'},{v:'flip', l:'Flip'},{v:'xendit', l:'Xendit'},{v:'moota', l:'Moota'}].map((t) => (
+      <div className="flex gap-2 mb-8 overflow-x-auto pb-1">
+        {[{v:'general', l:'General'},{v:'flip', l:'Flip'},{v:'xendit', l:'Xendit'},{v:'moota', l:'Moota'},{v:'ipaymu', l:'iPaymu'},{v:'duitku', l:'Duitku'}].map((t) => (
           <button key={t.v} onClick={() => switchPTab(t.v)}
-            className={`px-6 py-2.5 text-sm font-semibold rounded-md transition-colors ${pTab===t.v ? 'bg-brand-600 text-white' : 'bg-transparent text-ink/70 hover:bg-bg2'}`}>
+            className={`px-5 py-2.5 text-sm font-semibold rounded-md transition-colors whitespace-nowrap shrink-0 ${pTab===t.v ? 'bg-brand-600 text-white' : 'bg-transparent text-ink/70 hover:bg-bg2'}`}>
             {t.l}
           </button>
         ))}
@@ -889,36 +968,68 @@ function PaymentPanel({ settings, onSave }: any) {
             <div className="text-[11px] text-mute mt-3">Transfer manual direkonsiliasi otomatis via Moota (cek mutasi) bila aktif, atau dikonfirmasi manual oleh CS.</div>
           </div>
 
-          {/* ===== Routing Pembayaran (per-channel gateway matrix) ===== */}
+          {/* ===== Routing Pembayaran (per-channel gateway matrix, redesigned) ===== */}
           <div>
             <label className="text-sm font-bold text-ink mb-1 block">Routing Pembayaran</label>
             <div className="text-[11px] text-mute mb-3 leading-relaxed">
-              Tentukan gateway yang menyelesaikan tiap metode. <b>Flip</b> = hosted page (VA), <b>Moota</b> = hosted page (VA/QRIS via Winpay), <b>Manual</b> = transfer ke rekening + rekonsiliasi Moota.
-              Gateway yang kredensialnya belum lengkap otomatis turun ke <b>Manual</b> di sisi donatur.
+              Tentukan gateway yang menyelesaikan tiap metode. Gateway yang belum aktif / kredensialnya belum lengkap otomatis turun ke <b>Manual</b> di sisi donatur.
             </div>
+
+            {/* Gateway status legend — quick glance which are live */}
+            <div className="flex flex-wrap gap-2 mb-3">
+              {GATEWAY_STATUS.map((g) => (
+                <span key={g.key} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${g.on ? g.cls : 'bg-bg2 text-mute border-line'}`}>
+                  <span className={`h-2 w-2 rounded-full ${g.on ? g.dot : 'bg-slate-300'}`}/>
+                  {g.label}
+                  <span className="opacity-70 font-semibold">{g.key === 'manual' ? '· selalu aktif' : g.on ? '· aktif' : '· off'}</span>
+                </span>
+              ))}
+            </div>
+
             <div className="rounded-xl border border-line overflow-hidden">
-              <div className="grid grid-cols-[1fr_auto] gap-2 bg-bg2 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-mute">
-                <span>Metode</span><span>Settle via</span>
-              </div>
               {Object.entries(FLIP_CHANNELS).map(([typeKey, channels]: any) => (
                 <div key={typeKey}>
-                  <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-mute bg-white">{typeKey === 'va' ? 'Virtual Account' : typeKey === 'instant' ? 'Instan (QRIS / e-wallet)' : 'Transfer'}</div>
-                  {channels.map((ch: any) => (
-                    <div key={ch.key} className="grid grid-cols-[1fr_auto] items-center gap-2 px-3 py-1.5 border-t border-line/60">
-                      <span className="text-sm text-ink">{ch.name}</span>
-                      <select
-                        value={routing[ch.key] || 'manual'}
-                        onChange={(e) => setRouting((prev: any) => ({ ...prev, [ch.key]: e.target.value }))}
-                        className="text-xs font-semibold rounded-lg border border-line bg-white px-2 py-1.5 text-ink focus:border-brand-600 focus:ring-0">
-                        {GATEWAY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                      </select>
-                    </div>
-                  ))}
+                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-mute bg-bg2 border-t border-line first:border-t-0">
+                    {typeKey === 'va' ? 'Virtual Account' : typeKey === 'instant' ? 'Instan (QRIS / e-wallet)' : 'Transfer'}
+                  </div>
+                  <div className="divide-y divide-line/60">
+                    {channels.map((ch: any) => {
+                      const gw = routing[ch.key] || 'manual';
+                      const meta = GATEWAY_META[gw] || GATEWAY_META.manual;
+                      const live = gw === 'manual' || (GATEWAY_STATUS.find((g) => g.key === gw)?.on ?? false);
+                      return (
+                        <div key={ch.key} className="grid grid-cols-[1fr_auto] items-center gap-2 px-3 py-2">
+                          <span className="text-sm text-ink flex items-center gap-2">
+                            <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`}/>
+                            {ch.name}
+                            {!live && <span className="text-[10px] text-amber-600 font-semibold">→ manual</span>}
+                          </span>
+                          <select
+                            value={gw}
+                            onChange={(e) => setRouting((prev: any) => ({ ...prev, [ch.key]: e.target.value }))}
+                            className={`text-xs font-bold rounded-lg border px-2.5 py-1.5 focus:ring-0 focus:border-brand-600 ${meta.cls}`}>
+                            {GATEWAY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
-            <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-[11px] text-amber-700 leading-relaxed">
-              <b>Catatan Flip (VA-only):</b> Flip hanya menampilkan metode yang aktif di dashboard merchant Flip-mu. Agar benar-benar VA-only, nonaktifkan QRIS &amp; e-wallet di dashboard Flip juga — pengaturan di sini hanya mengatur daftar di situs NiatBaik.
+
+            {/* Bulk apply-all helper */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-[11px] text-mute font-semibold">Set semua metode ke:</span>
+              {GATEWAY_OPTIONS.map((o) => (
+                <button key={o.value} type="button"
+                  onClick={() => { const out: any = {}; Object.values(FLIP_CHANNELS).flat().forEach((ch: any) => { out[ch.key] = o.value; }); setRouting(out); markPDirty(); }}
+                  className="px-2.5 py-1 rounded-md border border-line text-[11px] font-bold text-ink hover:bg-bg2">{o.label}</button>
+              ))}
+            </div>
+
+            <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-[11px] text-amber-700 leading-relaxed">
+              <b>Catatan gateway hosted:</b> Flip/Xendit/iPaymu/Duitku hanya menampilkan metode yang aktif di dashboard merchant masing-masing. Pengaturan di sini hanya menentukan gateway mana yang memproses tiap channel di situs NiatBaik.
             </div>
           </div>
 
@@ -1160,6 +1271,85 @@ function PaymentPanel({ settings, onSave }: any) {
           )}
         </div>
         <div className="flex mt-8"><SaveButton onClick={saveMoota}>Update Moota</SaveButton></div>
+        </div>
+      )}
+
+      {pTab === 'ipaymu' && (
+        <div onChangeCapture={markPDirty}>
+        <div className="space-y-8">
+          <div className="flex items-center justify-between rounded-xl border border-line p-3">
+            <div><div className="text-sm font-bold text-ink">Aktifkan iPaymu</div><div className="text-xs text-mute">Gateway pembayaran hosted (VA, QRIS, e-wallet, retail). Daftar di <a href="https://my.ipaymu.com" target="_blank" rel="noopener noreferrer" className="text-brand-600 font-semibold hover:underline">my.ipaymu.com</a></div></div>
+            <Toggle value={ipaymuEnabled} onChange={setIpaymuEnabled}/>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Mode</label>
+            <div className="text-[11px] text-mute mb-2">Sandbox pakai <code>https://sandbox.ipaymu.co.id</code>, LIVE pakai <code>https://my.ipaymu.co.id</code> (isi di Base URL).</div>
+            <div className="flex items-center gap-4">
+              {[{v:'sandbox',l:'Sandbox'},{v:'production',l:'LIVE (Production)'}].map((o) => (
+                <button key={o.v} onClick={() => setIpaymuMode(o.v)}
+                  className={`px-8 py-2.5 rounded-lg border text-sm font-bold transition-colors ${ipaymuMode===o.v ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:bg-bg2'}`}>{o.l}</button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">VA (Nomor Virtual Account iPaymu)</label>
+            <input className="field mt-1 font-mono" value={ipaymuVA} onChange={(e) => setIpaymuVA(e.target.value)} placeholder="Contoh: 0000001234567890"/>
+          </div>
+          <SecretInput label="iPaymu API Key" value={ipaymuKey} onChange={setIpaymuKey} configured={ipaymuConfigured} placeholder="API Key dari dashboard iPaymu"/>
+          <div>
+            <label className="text-xs font-semibold text-mute">Base URL (opsional)</label>
+            <input className="field mt-1 font-mono" value={ipaymuBase} onChange={(e) => setIpaymuBase(e.target.value)} placeholder="https://my.ipaymu.co.id"/>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-ink mb-1 block">URL Callback / Notify (set di dashboard iPaymu)</label>
+            <div className="flex items-center gap-2 rounded-lg border border-line bg-bg2 px-3 py-2 max-w-md">
+              <span className="flex-1 min-w-0 truncate text-xs font-mono text-mute">{ipaymuWebhook}</span>
+              <button type="button" onClick={() => copy(ipaymuWebhook)} className="text-xs font-bold text-brand-600 hover:underline shrink-0">Salin</button>
+            </div>
+            <div className="text-[11px] text-mute mt-2 leading-relaxed">Untuk merutekan channel ke iPaymu, atur di tab <b>General → Routing Pembayaran</b>.</div>
+          </div>
+        </div>
+        <div className="flex mt-8"><SaveButton onClick={saveIpaymu}>Update iPaymu</SaveButton></div>
+        </div>
+      )}
+
+      {pTab === 'duitku' && (
+        <div onChangeCapture={markPDirty}>
+        <div className="space-y-8">
+          <div className="flex items-center justify-between rounded-xl border border-line p-3">
+            <div><div className="text-sm font-bold text-ink">Aktifkan Duitku</div><div className="text-xs text-mute">Gateway pembayaran hosted (VA, QRIS, e-wallet, retail, paylater). Daftar di <a href="https://dashboard.duitku.com" target="_blank" rel="noopener noreferrer" className="text-brand-600 font-semibold hover:underline">dashboard.duitku.com</a></div></div>
+            <Toggle value={duitkuEnabled} onChange={setDuitkuEnabled}/>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Mode</label>
+            <div className="text-[11px] text-mute mb-2">Sandbox pakai <code>https://sandbox.duitku.com</code>, LIVE pakai <code>https://passport.duitku.com</code> (isi di Base URL).</div>
+            <div className="flex items-center gap-4">
+              {[{v:'sandbox',l:'Sandbox'},{v:'production',l:'LIVE (Production)'}].map((o) => (
+                <button key={o.v} onClick={() => setDuitkuMode(o.v)}
+                  className={`px-8 py-2.5 rounded-lg border text-sm font-bold transition-colors ${duitkuMode===o.v ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:bg-bg2'}`}>{o.l}</button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Merchant Code</label>
+            <input className="field mt-1 font-mono" value={duitkuMerchant} onChange={(e) => setDuitkuMerchant(e.target.value)} placeholder="Contoh: DXXXX"/>
+          </div>
+          <SecretInput label="Duitku API Key" value={duitkuKey} onChange={setDuitkuKey} configured={duitkuConfigured} placeholder="API Key dari dashboard Duitku"/>
+          <SecretInput label="Duitku Callback Key (opsional)" value={duitkuCbKey} onChange={setDuitkuCbKey} configured={duitkuConfigured} placeholder="Kosongkan untuk pakai API Key sebagai verifikasi"/>
+          <div>
+            <label className="text-xs font-semibold text-mute">Base URL (opsional)</label>
+            <input className="field mt-1 font-mono" value={duitkuBase} onChange={(e) => setDuitkuBase(e.target.value)} placeholder="https://passport.duitku.com"/>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-ink mb-1 block">URL Callback (set di dashboard Duitku → Project → Callback URL)</label>
+            <div className="flex items-center gap-2 rounded-lg border border-line bg-bg2 px-3 py-2 max-w-md">
+              <span className="flex-1 min-w-0 truncate text-xs font-mono text-mute">{duitkuWebhook}</span>
+              <button type="button" onClick={() => copy(duitkuWebhook)} className="text-xs font-bold text-brand-600 hover:underline shrink-0">Salin</button>
+            </div>
+            <div className="text-[11px] text-mute mt-2 leading-relaxed">Untuk merutekan channel ke Duitku, atur di tab <b>General → Routing Pembayaran</b>.</div>
+          </div>
+        </div>
+        <div className="flex mt-8"><SaveButton onClick={saveDuitku}>Update Duitku</SaveButton></div>
         </div>
       )}
     </Section>
@@ -1830,6 +2020,20 @@ function GeneralPanel({ settings, onSave }: any) {
     try { const p = typeof v === 'string' && v ? JSON.parse(v) : v; return Array.isArray(p) ? p : []; } catch { return []; }
   };
   const [csContacts, setCsContacts] = useState<any>(() => parseCsContacts(settings?.cs_contacts));
+  // CS Cekat Ai (AI-first, human fallback). Secret key blank = keep.
+  const [cekatEnabled, setCekatEnabled] = useState(settings?.cekat_ai_enabled ?? false);
+  const [cekatEndpoint, setCekatEndpoint] = useState(settings?.cekat_ai_endpoint || '');
+  const [cekatModel, setCekatModel] = useState(settings?.cekat_ai_model || '');
+  const [cekatPrompt, setCekatPrompt] = useState(settings?.cekat_ai_system_prompt || '');
+  const [cekatKey, setCekatKey] = useState('');
+  const cekatConfigured = !!(settings?.cekat_ai_configured);
+  const [cekatTesting, setCekatTesting] = useState(false);
+  const testCekat = async () => {
+    setCekatTesting(true);
+    try { await api.cekatAiTest(); showToast('Koneksi Cekat Ai berhasil ✓'); }
+    catch (e: any) { showToast('Tes gagal: ' + (e?.message || 'cek endpoint & API key')); }
+    setCekatTesting(false);
+  };
   useEffect(() => {
     if (settings?.site_name) setSiteName(settings.site_name);
     if (settings?.domain) setDomain(settings.domain);
@@ -1847,6 +2051,10 @@ function GeneralPanel({ settings, onSave }: any) {
     if (settings?.donor_greeting != null) setDonorGreeting(settings.donor_greeting);
     if (settings?.cs_rotator_mode) setCsMode(settings.cs_rotator_mode);
     if (settings?.cs_contacts != null) setCsContacts(parseCsContacts(settings.cs_contacts));
+    if (settings?.cekat_ai_enabled != null) setCekatEnabled(settings.cekat_ai_enabled);
+    setCekatEndpoint(settings?.cekat_ai_endpoint || '');
+    setCekatModel(settings?.cekat_ai_model || '');
+    setCekatPrompt(settings?.cekat_ai_system_prompt || '');
   }, [settings]);
   return (
     <>
@@ -1970,6 +2178,48 @@ function GeneralPanel({ settings, onSave }: any) {
                 className="text-xs font-bold text-brand-600 hover:underline">+ Tambah nomor CS</button>
             </div>
           </div>
+
+          {/* CS Cekat Ai — AI-first, fallback ke CS manusia (nomor WA di atas) */}
+          <div className="pt-4 mt-2 border-t border-line">
+            <div className="flex items-center justify-between rounded-xl border border-line p-3">
+              <div>
+                <div className="text-sm font-bold text-ink flex items-center gap-2"><Icon name="sparkle" size={15} className="text-brand-600"/> CS Cekat Ai (AI)</div>
+                <div className="text-xs text-mute mt-0.5">AI menjawab donatur lebih dulu; bila AI gagal atau donatur minta bicara dengan manusia, otomatis dialihkan ke CS WhatsApp di atas.</div>
+              </div>
+              <Toggle value={cekatEnabled} onChange={setCekatEnabled}/>
+            </div>
+            {cekatEnabled && (
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className="text-xs font-semibold text-mute">Endpoint API (OpenAI-compatible chat completions)</label>
+                  <input className="field mt-1 font-mono" value={cekatEndpoint} onChange={(e) => setCekatEndpoint(e.target.value)} placeholder="https://api.cekat.ai/v1  atau  https://api.openai.com/v1"/>
+                  <div className="text-[11px] text-mute mt-1">Boleh base URL (otomatis ditambah <code>/v1/chat/completions</code>) atau URL lengkap.</div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-mute">Model</label>
+                    <input className="field mt-1 font-mono" value={cekatModel} onChange={(e) => setCekatModel(e.target.value)} placeholder="gpt-4o-mini"/>
+                  </div>
+                  <SecretInput label="API Key" value={cekatKey} onChange={setCekatKey} configured={cekatConfigured} placeholder="Bearer key"/>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-mute">System Prompt (persona CS)</label>
+                  <textarea className="field mt-1" rows={3} value={cekatPrompt} onChange={(e) => setCekatPrompt(e.target.value)}
+                    placeholder="Anda CS ramah NIATBAIK.ORG. Jawab singkat, sopan, bahasa Indonesia. Bantu soal cara donasi, konfirmasi pembayaran, status donasi."/>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={testCekat} disabled={cekatTesting}
+                    className="px-3 py-1.5 rounded-lg border border-brand-200 bg-white text-xs font-bold text-brand-600 hover:bg-brand-50 disabled:opacity-50">
+                    {cekatTesting ? 'Menguji…' : 'Tes Koneksi'}
+                  </button>
+                  <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold ${cekatConfigured ? 'text-emerald-600' : 'text-mute'}`}>
+                    <span className={`h-2 w-2 rounded-full ${cekatConfigured ? 'bg-emerald-500' : 'bg-slate-300'}`}/>
+                    {cekatConfigured ? 'Terkonfigurasi' : 'Belum ada API key'}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </Section>
       <Section title="Maintenance Mode" sub="Aktifkan untuk menutup akses publik sementara saat update besar.">
@@ -1983,9 +2233,14 @@ function GeneralPanel({ settings, onSave }: any) {
             cs_contacts: JSON.stringify(csContacts
               .map((x: any) => ({ phone: (x.phone || '').replace(/[^0-9]/g, ''), name: (x.name || '').trim() }))
               .filter((x: any) => x.phone.length >= 8 && x.phone.length <= 15)),
+            cekat_ai_enabled: cekatEnabled,
+            cekat_ai_endpoint: cekatEndpoint.trim(),
+            cekat_ai_model: cekatModel.trim(),
+            cekat_ai_system_prompt: cekatPrompt,
           };
           if (smtpPassword) patch.smtp_password = smtpPassword;
-          return onSave(patch);
+          if (cekatKey.trim()) patch.cekat_ai_key = cekatKey.trim();
+          return onSave(patch).then((ok: any) => { if (ok) setCekatKey(''); return ok; });
         }}>Simpan Perubahan</SaveButton>
       </div>
     </>

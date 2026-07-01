@@ -43,7 +43,9 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	mootaService := service.NewMootaService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
 	flipService := service.NewFlipService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
 	xenditService := service.NewXenditService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
-	donationService := service.NewDonationService(db, cfg, invoiceRepo, campaignRepo, donationRepo, settingRepo, paymentMethodRepo, flipService, mootaService, xenditService, paymentService)
+	ipaymuService := service.NewIpaymuService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
+	duitkuService := service.NewDuitkuService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
+	donationService := service.NewDonationService(db, cfg, invoiceRepo, campaignRepo, donationRepo, settingRepo, paymentMethodRepo, flipService, mootaService, xenditService, ipaymuService, duitkuService, paymentService)
 	dashboardService := service.NewDashboardService(statsRepo)
 	campaignService := service.NewCampaignService(campaignRepo, categoryRepo)
 	userService := service.NewUserService(userRepo, settingRepo)
@@ -58,12 +60,13 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	adCostService := service.NewAdCostService(adCostRepo)
 	paymentMethodService := service.NewPaymentMethodService(paymentMethodRepo)
 	dataStudioService := service.NewDataStudioService(dataStudioRepo)
+	cekatAIService := service.NewCekatAIService(settingRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
 	publicHandler := handler.NewPublicHandler(campaignRepo, categoryRepo, settingRepo, invoiceRepo, donationRepo, paymentMethodRepo, cfg)
 	donationHandler := handler.NewDonationHandler(donationService)
-	webhookHandler := handler.NewWebhookHandler(mootaService, flipService, xenditService)
+	webhookHandler := handler.NewWebhookHandler(mootaService, flipService, xenditService, ipaymuService, duitkuService)
 	dashboardHandler := handler.NewDashboardHandler(dashboardService)
 	adminCampaignHandler := handler.NewAdminCampaignHandler(campaignService, campaignRepo)
 	userHandler := handler.NewUserHandler(userService, userRepo)
@@ -81,6 +84,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	paymentMethodHandler := handler.NewPaymentMethodHandler(paymentMethodService)
 	paymentStatusHandler := handler.NewPaymentStatusHandler(paymentStatusRepo)
 	dataStudioHandler := handler.NewDataStudioHandler(dataStudioService)
+	cekatAIHandler := handler.NewCekatAIHandler(cekatAIService)
 	trackingHandler := handler.NewTrackingHandler(settingRepo, trackingRepo)
 
 	// Realtime change notifier: a global revision is bumped after every successful
@@ -106,6 +110,8 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	api.GET("/stats", publicHandler.GetPublicStats)
 	api.POST("/donations", donationHandler.CreateDonation)
 	api.GET("/donations/:invoice", donationHandler.GetPaymentStatus)
+	// Public AI-CS chat (Cekat Ai). AI-first; returns handoff=true → route to human WA CS.
+	api.POST("/cs/chat", cekatAIHandler.Chat)
 
 	// Sandbox-only: simulate a successful payment so testers can advance QRIS / VA /
 	// manual invoices to a paid state (Flip has a hosted link; the others don't). Mounted
@@ -118,6 +124,8 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	api.POST("/webhooks/moota", webhookHandler.HandleMoota)
 	api.POST("/webhooks/flip", webhookHandler.HandleFlip)
 	api.POST("/webhooks/xendit", webhookHandler.HandleXendit)
+	api.POST("/webhooks/ipaymu", webhookHandler.HandleIpaymu)
+	api.POST("/webhooks/duitku", webhookHandler.HandleDuitku)
 
 	// Auth routes. Credential-guessing surfaces (login/forgot/reset) get a tight
 	// per-IP rate limit to blunt brute-force and reset-spam; register is also
@@ -167,6 +175,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	dashboard.GET("/chart/payment-methods", dashboardHandler.GetPaymentMethodChart)
 	dashboard.GET("/chart/traffic-sources", dashboardHandler.GetTrafficSourceChart)
 	dashboard.GET("/recent-transactions", dashboardHandler.GetRecentTransactions)
+	dashboard.GET("/campaign-earnings", dashboardHandler.GetCampaignEarnings)
 
 	// Admin routes
 	admin := protected.Group("")
@@ -192,6 +201,8 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	admin.PUT("/settings", settingHandler.Update)
 	admin.POST("/settings/test-email", settingHandler.TestEmail)
 	admin.GET("/settings/moota-balance", settingHandler.GetMootaBalance)
+	admin.GET("/cs/cekat-ai/status", cekatAIHandler.Status)
+	admin.POST("/cs/cekat-ai/test", cekatAIHandler.Test)
 	admin.GET("/settings/moota-accounts", settingHandler.GetMootaGatewayAccounts)
 
 	admin.GET("/admin/payment-methods", paymentMethodHandler.List)

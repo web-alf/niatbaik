@@ -209,6 +209,7 @@ export const api = {
   paymentMethodChart() { return this.get<any>('/dashboard/chart/payment-methods'); },
   trafficSourceChart() { return this.get<any>('/dashboard/chart/traffic-sources'); },
   recentTransactions(limit = 10) { return this.get<any[]>('/dashboard/recent-transactions?limit=' + limit); },
+  campaignEarnings(params = '') { return this.get<any[]>('/dashboard/campaign-earnings' + (params ? '?' + params : '')); },
 
   // Admin campaigns
   adminCampaigns(params = '') { return this.get<any[]>('/admin/campaigns' + (params ? '?' + params : '')); },
@@ -272,6 +273,11 @@ export const api = {
   verifications() { return this.get<any[]>('/verifications'); },
   approveVerification(id: string | number) { return this.post('/verifications/' + id + '/approve'); },
   rejectVerification(id: string | number) { return this.post('/verifications/' + id + '/reject'); },
+
+  // Cekat Ai (AI CS)
+  cekatAiStatus() { return this.get<any>('/cs/cekat-ai/status'); },
+  cekatAiTest() { return this.post<any>('/cs/cekat-ai/test'); },
+  csChat(message: string, history: any[] = []) { return this.post<any>('/cs/chat', { message, history }); },
 
   // Trash
   trash() { return this.get<any[]>('/trash'); },

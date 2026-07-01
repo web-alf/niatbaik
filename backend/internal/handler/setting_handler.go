@@ -32,6 +32,9 @@ func (h *SettingHandler) Get(c echo.Context) error {
 		MootaConfigured      bool `json:"moota_configured"`
 		FlipConfigured       bool `json:"flip_configured"`
 		XenditConfigured     bool `json:"xendit_configured"`
+		IpaymuConfigured     bool `json:"ipaymu_configured"`
+		DuitkuConfigured     bool `json:"duitku_configured"`
+		CekatAIConfigured    bool `json:"cekat_ai_configured"`
 		MetaCAPITokenSet     bool `json:"meta_capi_token_set"`
 		TiktokAccessTokenSet bool `json:"tiktok_access_token_set"`
 	}
@@ -41,6 +44,9 @@ func (h *SettingHandler) Get(c echo.Context) error {
 		MootaConfigured:      setting.MootaAPIKey != "",
 		FlipConfigured:       setting.FlipSecretKey != "",
 		XenditConfigured:     setting.XenditSecretKey != "",
+		IpaymuConfigured:     setting.IpaymuAPIKey != "" && setting.IpaymuVA != "",
+		DuitkuConfigured:     setting.DuitkuAPIKey != "" && setting.DuitkuMerchant != "",
+		CekatAIConfigured:    setting.CekatAIKey != "" && setting.CekatAIEndpoint != "",
 		MetaCAPITokenSet:     setting.MetaCAPIToken != "",
 		TiktokAccessTokenSet: setting.TiktokAccessToken != "",
 	}

@@ -175,6 +175,7 @@ func (h *PublicHandler) GetPublicSettings(c echo.Context) error {
 		"donor_greeting":  settings.DonorGreeting,
 		"cs_contacts":     settings.CSContacts,
 		"cs_rotator_mode": settings.CSRotatorMode,
+		"cekat_ai_enabled": settings.CekatAIEnabled && settings.CekatAIEndpoint != "" && settings.CekatAIKey != "",
 		// Manual bank-transfer destination (shown on the confirmation page when Flip
 		// is off). Public, non-secret — it's the org's donation account.
 		"bank_name":         settings.BankName,
@@ -187,6 +188,9 @@ func (h *PublicHandler) GetPublicSettings(c echo.Context) error {
 		// invoice like a Flip redirect.
 		"payment_channel_gateways": settings.PaymentChannelGateways,
 		"moota_gateway_enabled":    settings.MootaGatewayEnabled,
+		"xendit_enabled":           settings.XenditEnabled,
+		"ipaymu_enabled":           settings.IpaymuEnabled,
+		"duitku_enabled":           settings.DuitkuEnabled,
 		// Method-type titles/active flags so the public form can label groups the way
 		// the admin configured (non-secret config; flip_code_config stays admin-only).
 		"payment_method_types": settings.PaymentMethodTypes,

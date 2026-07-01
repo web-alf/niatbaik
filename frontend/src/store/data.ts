@@ -24,7 +24,9 @@ const safe = async <X>(fn: () => Promise<X>): Promise<X | null> => {
 // Bump on any breaking change to a persisted slice's shape. A version mismatch makes
 // zustand/persist DROP the stale cache on load instead of hydrating incompatible data —
 // so a deploy that changes a field can't leave ghost data in users' browsers.
-const DATA_STORE_VERSION = 1;
+// v2: dropped donor-PII slices (transactions, notifications) from the persisted set —
+// the bump purges any v1 cache that still holds them.
+const DATA_STORE_VERSION = 2;
 
 interface Totals {
   raised: number; donors: number; tx: number; activeCampaigns: number; totalCampaigns: number;
@@ -245,10 +247,15 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
   // Persist DATA slices only — never the control flags. ready/loading/adminRev stay at
   // their defaults on reload so the background refreshAll still fires (rehydrated data
   // paints instantly, then gets refreshed). Actions aren't serializable and are skipped.
+  //
+  // DONOR PII IS DELIBERATELY EXCLUDED: `transactions` (donor name/phone/email) and
+  // `notifications` (subtitles like "Donasi Dari : <name>") are NOT persisted, so donor
+  // personal data never lands in localStorage. Those two slices come back on the first
+  // background refresh (they start empty on reload). Only aggregates/config are cached.
   partialize: (s) => ({
     campaigns: s.campaigns, categories: s.categories, publicSettings: s.publicSettings,
     paymentMethodsPublic: s.paymentMethodsPublic, paymentStatuses: s.paymentStatuses,
-    transactions: s.transactions, notifications: s.notifications, fundraisers: s.fundraisers,
+    fundraisers: s.fundraisers,
     users: s.users, settings: s.settings, profile: s.profile, trash: s.trash,
     paymentMethodsList: s.paymentMethodsList, dailyDonations: s.dailyDonations,
     dashboardStats: s.dashboardStats, paymentBreakdown: s.paymentBreakdown,

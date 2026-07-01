@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { toDesignRole, firstPathForRole } from '@/lib/nav';
 import { useUiStore } from '@/store/ui';
-import { useDataStore } from '@/store/data';
+import { useDataStore, clearPersistedData } from '@/store/data';
 import type { Role, User } from '@/types/api';
 
 interface AuthValue {
@@ -70,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onExpired = () => {
       setUser(null);
+      clearPersistedData(); // don't leave cached admin PII for the next user on this browser
       useUiStore.getState().showToast('Sesi berakhir. Silakan masuk kembali.');
       navRef.current('/login');
     };
@@ -85,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     api.logout && api.logout();
     setUser(null);
+    clearPersistedData(); // drop cached donor/admin data so it isn't readable after logout
     try { localStorage.removeItem('niatbaik_session'); } catch { /* ignore legacy */ }
     navigate('/');
   };

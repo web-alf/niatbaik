@@ -7,6 +7,7 @@
 // actions/effects (e.g. the realtime poll). A getState() snapshot read in render
 // would silently stop updating on the next poll.
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { api } from '@/lib/api';
 import { mapCampaign, mapInvoice, mapFundraiser, applyThemeColor, setPaymentStatusRef } from '@/lib/mappers';
 import { NBTracking } from '@/lib/tracking';
@@ -19,6 +20,11 @@ import type {
 const safe = async <X>(fn: () => Promise<X>): Promise<X | null> => {
   try { return await fn(); } catch { return null; }
 };
+
+// Bump on any breaking change to a persisted slice's shape. A version mismatch makes
+// zustand/persist DROP the stale cache on load instead of hydrating incompatible data —
+// so a deploy that changes a field can't leave ghost data in users' browsers.
+const DATA_STORE_VERSION = 1;
 
 interface Totals {
   raised: number; donors: number; tx: number; activeCampaigns: number; totalCampaigns: number;
@@ -80,7 +86,7 @@ const EMPTY_TOTALS: Totals = {
   fundraiser: 0, leads: 0, convRate: 0, today: 0, month: 0,
 };
 
-export const useDataStore = create<DataState & DataActions>((set, get) => ({
+export const useDataStore = create<DataState & DataActions>()(persist((set, get) => ({
   campaigns: [], categories: [], publicSettings: null, paymentMethodsPublic: [], paymentStatuses: [],
   transactions: [], notifications: [], fundraisers: [], users: [], settings: null, profile: null,
   trash: [], paymentMethodsList: [], dailyDonations: [], dashboardStats: null, paymentBreakdown: null,
@@ -232,4 +238,34 @@ export const useDataStore = create<DataState & DataActions>((set, get) => ({
 
   setCategories(c) { set({ categories: c }); },
   setPaymentStatuses(s) { setPaymentStatusRef(s); set({ paymentStatuses: s }); },
+}), {
+  name: 'nb_data',
+  version: DATA_STORE_VERSION,
+  storage: createJSONStorage(() => localStorage),
+  // Persist DATA slices only — never the control flags. ready/loading/adminRev stay at
+  // their defaults on reload so the background refreshAll still fires (rehydrated data
+  // paints instantly, then gets refreshed). Actions aren't serializable and are skipped.
+  partialize: (s) => ({
+    campaigns: s.campaigns, categories: s.categories, publicSettings: s.publicSettings,
+    paymentMethodsPublic: s.paymentMethodsPublic, paymentStatuses: s.paymentStatuses,
+    transactions: s.transactions, notifications: s.notifications, fundraisers: s.fundraisers,
+    users: s.users, settings: s.settings, profile: s.profile, trash: s.trash,
+    paymentMethodsList: s.paymentMethodsList, dailyDonations: s.dailyDonations,
+    dashboardStats: s.dashboardStats, paymentBreakdown: s.paymentBreakdown,
+    trafficSources: s.trafficSources, analyticsOverview: s.analyticsOverview,
+    analyticsCampaigns: s.analyticsCampaigns, analyticsUtm: s.analyticsUtm,
+    analyticsTraffic: s.analyticsTraffic, analyticsFunnel: s.analyticsFunnel,
+    dataStudio: s.dataStudio, adCosts: s.adCosts, totals: s.totals,
+  }),
+  // On rehydrate, re-prime mapInvoice's status ref from the cached list so invoice
+  // status labels are correct before the first live refresh completes.
+  onRehydrateStorage: () => (state) => {
+    if (state?.paymentStatuses?.length) setPaymentStatusRef(state.paymentStatuses);
+  },
 }));
+
+// Wipe the persisted cache — call on logout / session expiry so the next user on a shared
+// browser can't read the previous admin's cached donor PII (names, phones, amounts).
+export const clearPersistedData = () => {
+  try { useDataStore.persist.clearStorage(); } catch { /* ignore */ }
+};

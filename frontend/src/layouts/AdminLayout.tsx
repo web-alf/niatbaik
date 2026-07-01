@@ -6,6 +6,7 @@ import { Icon, Logo, InvoiceModal, Toast, ErrorBoundary } from '@/components';
 import { NAV, SECONDARY_NAV, ROLE_META } from '@/lib/nav';
 import { useAuth } from '@/context/AuthContext';
 import { useUiStore } from '@/store/ui';
+import { useDataStore } from '@/store/data';
 import { RealtimeProvider } from '@/context/RealtimeProvider';
 import { api } from '@/lib/api';
 
@@ -323,6 +324,15 @@ export function AdminLayout() {
 
   // Close the mobile sidebar on route change.
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
+
+  // Boot admin data on entry. RealtimeProvider's long-poll only calls refreshAdmin() when
+  // the server revision CHANGES — on a fresh load / deep-link straight to an admin route it
+  // just seeds the revision and waits, so the panel would sit empty until the next server
+  // mutation. Kick a full authed refresh once when the session is present.
+  useEffect(() => {
+    if (!user) return;
+    useDataStore.getState().refreshAll(true);
+  }, [!!user]);
 
   return (
     <RealtimeProvider enabled={!!user}>

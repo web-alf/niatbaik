@@ -24,9 +24,10 @@ const safe = async <X>(fn: () => Promise<X>): Promise<X | null> => {
 // Bump on any breaking change to a persisted slice's shape. A version mismatch makes
 // zustand/persist DROP the stale cache on load instead of hydrating incompatible data —
 // so a deploy that changes a field can't leave ghost data in users' browsers.
-// v2: dropped donor-PII slices (transactions, notifications) from the persisted set —
-// the bump purges any v1 cache that still holds them.
-const DATA_STORE_VERSION = 2;
+// v2: dropped donor-PII slices (transactions, notifications) from the persisted set.
+// v3: also dropped staff/fundraiser PII (users, fundraisers). Each bump purges any
+// older cache that still holds the now-excluded slices.
+const DATA_STORE_VERSION = 3;
 
 interface Totals {
   raised: number; donors: number; tx: number; activeCampaigns: number; totalCampaigns: number;
@@ -248,15 +249,15 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
   // their defaults on reload so the background refreshAll still fires (rehydrated data
   // paints instantly, then gets refreshed). Actions aren't serializable and are skipped.
   //
-  // DONOR PII IS DELIBERATELY EXCLUDED: `transactions` (donor name/phone/email) and
-  // `notifications` (subtitles like "Donasi Dari : <name>") are NOT persisted, so donor
-  // personal data never lands in localStorage. Those two slices come back on the first
-  // background refresh (they start empty on reload). Only aggregates/config are cached.
+  // PII IS DELIBERATELY EXCLUDED: `transactions` (donor name/phone/email),
+  // `notifications` (subtitles like "Donasi Dari : <name>"), `users` (staff name/email/
+  // phone) and `fundraisers` (fundraiser name/email) are NOT persisted, so no personal
+  // data lands in localStorage. Those slices come back on the first background refresh
+  // (they start empty on reload). Only aggregates/config are cached.
   partialize: (s) => ({
     campaigns: s.campaigns, categories: s.categories, publicSettings: s.publicSettings,
     paymentMethodsPublic: s.paymentMethodsPublic, paymentStatuses: s.paymentStatuses,
-    fundraisers: s.fundraisers,
-    users: s.users, settings: s.settings, profile: s.profile, trash: s.trash,
+    settings: s.settings, profile: s.profile, trash: s.trash,
     paymentMethodsList: s.paymentMethodsList, dailyDonations: s.dailyDonations,
     dashboardStats: s.dashboardStats, paymentBreakdown: s.paymentBreakdown,
     trafficSources: s.trafficSources, analyticsOverview: s.analyticsOverview,

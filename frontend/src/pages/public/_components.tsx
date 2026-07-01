@@ -1426,6 +1426,19 @@ function NominalSelect({ c, presets, amount, setAmount }: any) {
 // = a single <select> with grouped <optgroup>s. Both call setPaymentMethod with the SAME
 // method OBJECT so downstream routing (synthetic-id gateway resolution, fee note) is
 // unchanged. `grouped` is {TYPE: [method,...]} or null (no API methods → string fallback).
+// Human-friendly heading for a payment-method group key. Manual bank accounts carry
+// type "va" (a back-compat default in donorPaymentMethods), but to the donor these are
+// plain bank transfers, not virtual accounts — so show "Transfer Bank", not "VA".
+const PAY_GROUP_LABEL: Record<string, string> = {
+  VA: 'Transfer Bank',
+  BANK_TRANSFER: 'Transfer Bank',
+  BANK: 'Transfer Bank',
+  MANUAL: 'Transfer Bank',
+  QRIS: 'QRIS',
+  EWALLET: 'E-Wallet',
+};
+const payGroupLabel = (key: string) => PAY_GROUP_LABEL[String(key).toUpperCase()] || key;
+
 function PaymentSelector({ grouped, paymentMethod, setPaymentMethod, isSelected, style, fieldCls }: any) {
   // Flatten grouped methods so the dropdown can resolve a picked id back to its object.
   const flat = useMemo(() => {
@@ -1446,7 +1459,7 @@ function PaymentSelector({ grouped, paymentMethod, setPaymentMethod, isSelected,
           }}>
           <option value="" disabled>— Pilih metode pembayaran —</option>
           {Object.entries(grouped).map(([type, list]: any) => (
-            <optgroup key={type} label={type}>
+            <optgroup key={type} label={payGroupLabel(type)}>
               {list.map((m: any) => <option key={m.id} value={m.id}>{m.bank_name}</option>)}
             </optgroup>
           ))}
@@ -1470,7 +1483,7 @@ function PaymentSelector({ grouped, paymentMethod, setPaymentMethod, isSelected,
       <div className="space-y-3">
         {Object.entries(grouped).map(([type, list]: any) => (
           <div key={type}>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-mute mb-1.5">{type}</div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-mute mb-1.5">{payGroupLabel(type)}</div>
             <div className="grid grid-cols-3 gap-2">
               {list.map((m: any) => (
                 <button key={m.id} onClick={() => setPaymentMethod(m)}

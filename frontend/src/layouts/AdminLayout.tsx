@@ -328,11 +328,17 @@ export function AdminLayout() {
   // Boot admin data on entry. RealtimeProvider's long-poll only calls refreshAdmin() when
   // the server revision CHANGES — on a fresh load / deep-link straight to an admin route it
   // just seeds the revision and waits, so the panel would sit empty until the next server
-  // mutation. Kick a full authed refresh once when the session is present.
+  // mutation. Fire the authed refresh straight off the stored TOKEN (not the resolved user)
+  // so it runs in parallel with api.me() instead of waiting a round-trip for it — a hard
+  // reload of /dashboard then costs one batch of requests, not three serial ones. Guard so
+  // it only fires once per load.
+  const bootedRef = useRef(false);
   useEffect(() => {
-    if (!user) return;
+    if (bootedRef.current) return;
+    if (!(api.getToken && api.getToken())) return;
+    bootedRef.current = true;
     useDataStore.getState().refreshAll(true);
-  }, [!!user]);
+  }, []);
 
   return (
     <RealtimeProvider enabled={!!user}>

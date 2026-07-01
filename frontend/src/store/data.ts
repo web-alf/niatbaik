@@ -216,14 +216,17 @@ export const useDataStore = create<DataState & DataActions>((set, get) => ({
   },
 
   // = refreshAllData
+  // Public and admin batches run CONCURRENTLY (not public-then-admin) so a hard reload of
+  // an admin route pays one round-trip, not two. refreshAdmin maps invoices with the
+  // payment-status ref that refreshPublic sets; the map has a static fallback + is_paid,
+  // so the brief ordering race is benign (a realtime tick re-maps anyway).
   async refreshAll(isLoggedIn: boolean) {
     set({ loading: true });
-    await get().refreshPublic();
+    const tasks = [get().refreshPublic()];
     if (isLoggedIn) {
-      await Promise.all([
-        get().refreshAdmin(), get().refreshAnalytics(), get().refreshDataStudio(),
-      ]);
+      tasks.push(get().refreshAdmin(), get().refreshAnalytics(), get().refreshDataStudio());
     }
+    await Promise.all(tasks);
     set({ loading: false, ready: true });
   },
 

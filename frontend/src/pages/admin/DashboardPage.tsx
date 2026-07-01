@@ -588,7 +588,7 @@ function LeadsSection({ onOpen }: any) {
                   <th className="py-2.5 font-semibold text-center w-20">Payment</th>
                   <th className="py-2.5 font-semibold">Status</th>
                   <th className="py-2.5 font-semibold text-right">Date</th>
-                  <th className="pr-5 py-2.5 font-semibold text-right w-32">Action</th>
+                  <th className="pl-8 pr-5 py-2.5 font-semibold text-right w-36">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -630,7 +630,7 @@ function LeadsSection({ onOpen }: any) {
                           : <Badge tone="slate" size="sm">Belum ditandai</Badge>}
                       </td>
                       <td className="py-3 text-right text-xs text-mute whitespace-nowrap">{shortDate(r.date)}</td>
-                      <td className="pr-5 py-3">
+                      <td className="pl-8 pr-5 py-3">
                         <div className="flex items-center gap-2 justify-end">
                           {/* Quality tagging as ONE segmented control (joined pill) so it
                               reads as a single "set quality" widget, not loose icons. */}

@@ -37,6 +37,7 @@ type InvoiceResponse struct {
 	UTMMedium     string     `json:"utm_medium"`
 	UTMCampaign   string     `json:"utm_campaign"`
 	UTMContent    string     `json:"utm_content"`
+	UTMTerm       string     `json:"utm_term"`
 	UTMID         string     `json:"utm_id"`
 	ClickID       string     `json:"click_id"`
 	PaidAt        *time.Time `json:"paid_at"`
@@ -92,6 +93,7 @@ func ToInvoiceResponse(inv *model.Invoice) InvoiceResponse {
 		UTMMedium:     inv.UTMMedium,
 		UTMCampaign:   inv.UTMCampaign,
 		UTMContent:    inv.UTMContent,
+		UTMTerm:       inv.UTMTerm,
 		UTMID:         inv.UTMID,
 		ClickID:       inv.ClickID,
 		PaidAt:        inv.PaidAt,

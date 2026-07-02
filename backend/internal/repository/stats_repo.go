@@ -79,6 +79,8 @@ type UTMEntry struct {
 	Source   string `json:"source"`
 	Medium   string `json:"medium"`
 	Campaign string `json:"campaign"`
+	Content  string `json:"content"`
+	Term     string `json:"term"`
 	Sessions int64  `json:"sessions"`
 }
 
@@ -275,9 +277,9 @@ func (r *StatsRepo) GetUTMTracking() ([]UTMEntry, error) {
 	var results []UTMEntry
 
 	err := r.db.Model(&model.Invoice{}).
-		Where("utm_source != '' OR utm_medium != '' OR utm_campaign != ''").
-		Select("utm_source as source, utm_medium as medium, utm_campaign as campaign, COUNT(*) as sessions").
-		Group("utm_source, utm_medium, utm_campaign").
+		Where("utm_source != '' OR utm_medium != '' OR utm_campaign != '' OR utm_content != '' OR utm_term != ''").
+		Select("utm_source as source, utm_medium as medium, utm_campaign as campaign, utm_content as content, utm_term as term, COUNT(*) as sessions").
+		Group("utm_source, utm_medium, utm_campaign, utm_content, utm_term").
 		Order("sessions desc").
 		Scan(&results).Error
 	return results, err

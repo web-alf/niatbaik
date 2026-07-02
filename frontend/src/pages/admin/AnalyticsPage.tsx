@@ -46,6 +46,8 @@ export default function AnalyticsPage() {
     { f: 'utm_source',   vals: distinct('source'),   tone: 'brand' },
     { f: 'utm_medium',   vals: distinct('medium'),   tone: 'sky' },
     { f: 'utm_campaign', vals: distinct('campaign'), tone: 'ok' },
+    { f: 'utm_content',  vals: distinct('content'),  tone: 'warn' },
+    { f: 'utm_term',     vals: distinct('term'),     tone: 'purple' },
   ];
 
   const ov = useDataStore((s) => s.analyticsOverview) || {};

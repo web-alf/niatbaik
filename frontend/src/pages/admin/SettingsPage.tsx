@@ -6,6 +6,64 @@ import { useDataStore } from '@/store/data';
 import { applyThemeColor } from '@/lib/mappers';
 import { Card, PageHeader, Icon, Toggle, Select, Btn, Progress, Badge, StatusBadge, Modal } from '@/components';
 
+// PixelBrandLogo renders the official brand mark for each tracking integration, so the
+// Pixel & Tracking cards show real logos (Meta / Google / GA4 / TikTok / Looker) instead
+// of generic glyphs in colored squares. Inline SVG (no network) with brand colors.
+function PixelBrandLogo({ brand, size = 24 }: { brand: string; size?: number }) {
+  const s = { width: size, height: size, display: 'block' } as const;
+  switch (brand) {
+    case 'meta':
+      return (
+        <svg viewBox="0 0 36 36" style={s} aria-label="Meta">
+          <defs><linearGradient id="pl-meta" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#0064E1"/><stop offset="1" stopColor="#0082FB"/></linearGradient></defs>
+          <path fill="url(#pl-meta)" d="M6.9 12.6c1.2-1.9 2.9-3.3 4.9-3.3 2.2 0 3.9 1.5 5.6 4.1.9-1.3 2.4-4.1 5.6-4.1 3.4 0 6.1 3.5 6.1 8.6 0 3.6-1.6 6.4-4.3 6.4-2.2 0-3.5-1.6-5-4-.5-.8-1-1.7-1.6-2.7-.7 1.2-1.2 2-1.6 2.7-1.5 2.4-2.8 4-5 4-2.7 0-4.3-2.8-4.3-6.5 0-1.9.4-3.6 1.1-4.9l-1.5-.3zm4.7 2c-1 0-1.9 1.5-1.9 3.6 0 2 .8 3.2 1.8 3.2.9 0 1.6-.7 2.9-2.8-.4-.7-.8-1.4-1.2-2-.6-1-1.1-1.6-1.6-2zm12.8 0c-.5.4-1 1-1.6 2-.4.6-.8 1.3-1.2 2 1.3 2.1 2 2.8 2.9 2.8 1 0 1.8-1.2 1.8-3.2 0-2.1-.9-3.6-1.9-3.6z"/>
+        </svg>
+      );
+    case 'tiktok':
+      return (
+        <svg viewBox="0 0 32 32" style={s} aria-label="TikTok">
+          <path fill="#25F4EE" d="M22.1 6.2c.9 1 2.1 1.7 3.5 1.9v2.3c-1.3-.1-2.5-.5-3.6-1.2v6.9c0 3.6-2.9 6.5-6.5 6.5-1.4 0-2.7-.4-3.7-1.2 1.2 1.3 2.9 2 4.7 2 3.6 0 6.5-2.9 6.5-6.5V10c1.1.7 2.3 1.1 3.6 1.2V8.1c-1.4-.2-2.6-.9-3.5-1.9z"/>
+          <path fill="#FE2C55" d="M13.8 12.6v2.4c-.4-.1-.9-.2-1.3-.2-2.2 0-4 1.8-4 4 0 1.5.9 2.9 2.2 3.5-1.6-.5-2.8-2-2.8-3.8 0-2.2 1.8-4 4-4 .6 0 1.2.1 1.7.3z"/>
+          <path fill="#000" d="M20.4 4.5c-.9-1-1.5-2.3-1.5-3.5h-3.4v13.8c0 1.4-1.1 2.5-2.5 2.5-.9 0-1.7-.5-2.2-1.2-1.3-.6-2.2-2-2.2-3.5 0-2.2 1.8-4 4-4 .4 0 .9.1 1.3.2v-2.4c-.5-.2-1.1-.3-1.7-.3-3.6 0-6.5 2.9-6.5 6.5 0 2.3 1.2 4.3 3 5.4 1 .8 2.3 1.2 3.7 1.2 3.6 0 6.5-2.9 6.5-6.5V8.1c1.1.7 2.3 1.1 3.6 1.2V6c-1.4-.2-2.6-.6-3.6-1.5z"/>
+        </svg>
+      );
+    case 'gtm':
+      return (
+        <svg viewBox="0 0 48 48" style={s} aria-label="Google Tag Manager">
+          <path fill="#8AB4F8" d="M27.5 43.6L4.4 20.5a5.4 5.4 0 010-7.6l8-8 30.7 30.7-8 8a5.4 5.4 0 01-7.6 0z"/>
+          <path fill="#4285F4" d="M20.5 4.4a5.4 5.4 0 017.6 0l15.5 15.5a5.4 5.4 0 010 7.6L27.6 43.5 20 35.9 32 24 12.5 12.4z"/>
+          <circle cx="24" cy="38" r="4.3" fill="#246FDB"/>
+        </svg>
+      );
+    case 'googleads':
+      return (
+        <svg viewBox="0 0 48 48" style={s} aria-label="Google Ads">
+          <path fill="#FBBC04" d="M6 32.5L18.5 10.8a5 5 0 018.7 5L14.7 37.5A5 5 0 016 32.5z"/>
+          <path fill="#4285F4" d="M42 32.5L29.5 10.8a5 5 0 00-8.7 5l12.5 21.7a5 5 0 008.7-5z"/>
+          <circle cx="10.4" cy="37.6" r="5" fill="#34A853"/>
+        </svg>
+      );
+    case 'ga4':
+      return (
+        <svg viewBox="0 0 48 48" style={s} aria-label="Google Analytics 4">
+          <path fill="#F9AB00" d="M31 8.5A6.5 6.5 0 0144 8.5v31a6.5 6.5 0 01-13 .3V8.5z"/>
+          <path fill="#E37400" d="M17.5 24a6.5 6.5 0 116.5 6.5H24A6.5 6.5 0 0117.5 24z"/>
+          <circle cx="10.5" cy="39.5" r="6" fill="#E37400"/>
+        </svg>
+      );
+    case 'looker':
+      return (
+        <svg viewBox="0 0 48 48" style={s} aria-label="Looker Studio">
+          <path fill="#4285F4" d="M6 30a4 4 0 004 4h4V22h-4a4 4 0 00-4 4v4z"/>
+          <path fill="#669DF6" d="M20 34h4a4 4 0 004-4V16a4 4 0 00-8 0v18z"/>
+          <path fill="#AECBFA" d="M34 34h4a4 4 0 004-4V10a4 4 0 00-8 0v24z"/>
+        </svg>
+      );
+    default:
+      return <Icon name="pixel" size={size} />;
+  }
+}
+
 // parseArr parses a settings value that may be an array OR an object (both stored as a
 // JSON string in the backend TEXT column). It previously accepted ONLY arrays, so the
 // object-shaped configs (payment_channel_gateways {channel:gateway}, payment_method_types,
@@ -1390,14 +1448,14 @@ function TrackingPanel({ settings, onSave }: any) {
   // No demo IDs — each input is driven by real saved state (pixelIds, loaded from
   // settings below). Status starts neutral until a real ID is entered.
   const pixels = [
-    { name:'Meta Pixel',            status:'not', icon:'pixel',  color:'bg-[#1877F2]' },
-    { name:'Meta Conversions API',  status:'not', icon:'shield', color:'bg-[#1877F2]' },
-    { name:'Google Tag Manager',    status:'not', icon:'code',   color:'bg-emerald-600' },
-    { name:'Google Ads Conversion', status:'not', icon:'target', color:'bg-emerald-600' },
-    { name:'Google Analytics 4',    status:'not', icon:'chart',  color:'bg-amber-500' },
-    { name:'TikTok Pixel',          status:'not', icon:'pixel',  color:'bg-black' },
-    { name:'TikTok Events API',     status:'not', icon:'shield', color:'bg-black' },
-    { name:'Looker Studio (Data Studio)', status:'not', icon:'chart', color:'bg-[#4285F4]' },
+    { name:'Meta Pixel',            status:'not', brand:'meta' },
+    { name:'Meta Conversions API',  status:'not', brand:'meta' },
+    { name:'Google Tag Manager',    status:'not', brand:'gtm' },
+    { name:'Google Ads Conversion', status:'not', brand:'googleads' },
+    { name:'Google Analytics 4',    status:'not', brand:'ga4' },
+    { name:'TikTok Pixel',          status:'not', brand:'tiktok' },
+    { name:'TikTok Events API',     status:'not', brand:'tiktok' },
+    { name:'Looker Studio (Data Studio)', status:'not', brand:'looker' },
   ];
   const events = ['PageView','ViewContent','InitiateCheckout','AddPaymentInfo','Lead','CompleteDonation','Purchase'];
   // Real verification of pixel events happens in each platform's official debug tool
@@ -1482,7 +1540,7 @@ function TrackingPanel({ settings, onSave }: any) {
           {pixels.map((p) => (
             <div key={p.name} className="rounded-xl border border-line p-4">
               <div className="flex items-start gap-3">
-                <div className={`h-10 w-10 rounded-lg ${p.color} text-white flex items-center justify-center`}><Icon name={p.icon} size={18}/></div>
+                <div className="h-10 w-10 rounded-lg bg-white border border-line flex items-center justify-center overflow-hidden shrink-0"><PixelBrandLogo brand={p.brand} size={24}/></div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <div className="font-bold text-ink">{p.name}</div>

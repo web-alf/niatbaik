@@ -29,6 +29,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	commissionRepo := repository.NewCommissionRepo(db)
 	adCostRepo := repository.NewAdCostRepo(db)
 	paymentMethodRepo := repository.NewPaymentMethodRepo(db)
+	pageVisitRepo := repository.NewPageVisitRepo(db)
 	dataStudioRepo := repository.NewDataStudioRepo(db)
 	revokedTokenRepo := repository.NewRevokedTokenRepo(db)
 	paymentStatusRepo := repository.NewPaymentStatusRepo(db)
@@ -48,7 +49,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	dashboardService := service.NewDashboardService(statsRepo)
 	campaignService := service.NewCampaignService(campaignRepo, categoryRepo)
 	userService := service.NewUserService(userRepo, settingRepo)
-	analyticsService := service.NewAnalyticsService(statsRepo, adCostRepo)
+	analyticsService := service.NewAnalyticsService(statsRepo, adCostRepo, pageVisitRepo)
 	withdrawalService := service.NewWithdrawalService(db, withdrawalRepo)
 	settingService := service.NewSettingService(settingRepo)
 	trashService := service.NewTrashService(trashRepo)
@@ -62,7 +63,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
-	publicHandler := handler.NewPublicHandler(campaignRepo, categoryRepo, settingRepo, invoiceRepo, donationRepo, paymentMethodRepo, cfg)
+	publicHandler := handler.NewPublicHandler(campaignRepo, categoryRepo, settingRepo, invoiceRepo, donationRepo, paymentMethodRepo, pageVisitRepo, cfg)
 	donationHandler := handler.NewDonationHandler(donationService)
 	webhookHandler := handler.NewWebhookHandler(mootaService, flipService, xenditService, ipaymuService, duitkuService)
 	dashboardHandler := handler.NewDashboardHandler(dashboardService)
@@ -105,6 +106,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	api.GET("/payment-methods/public", publicHandler.ListPaymentMethods)
 	api.GET("/payment-statuses", paymentStatusHandler.List)
 	api.GET("/stats", publicHandler.GetPublicStats)
+	api.POST("/track/visit", publicHandler.TrackVisit)
 	api.POST("/donations", donationHandler.CreateDonation)
 	api.GET("/donations/:invoice", donationHandler.GetPaymentStatus)
 	// Public AI-CS chat (Cekat Ai). AI-first; returns handoff=true → route to human WA CS.

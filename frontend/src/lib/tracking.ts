@@ -155,6 +155,26 @@ export function captureUTM() {
   } catch { /* sessionStorage unavailable — attribution silently absent */ }
 }
 
+// trackVisit records a public page view server-side (POST /api/track/visit) so the
+// analytics "visits" figure reflects REAL traffic, not a proxy off paid invoices. Uses
+// sendBeacon (non-blocking, survives navigation) with a fetch keepalive fallback. Fired
+// once per page load from the public layout. campaignSlug optional (landing has none).
+let _visitSent = false;
+export function trackVisit(campaignSlug?: string) {
+  if (_visitSent) return;
+  _visitSent = true;
+  try {
+    const utm = getUTM();
+    const body = JSON.stringify({ campaign_slug: campaignSlug || '', utm_source: utm.utm_source || '' });
+    const url = '/api/track/visit';
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+    } else {
+      fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+    }
+  } catch { /* visit tracking must never break the page */ }
+}
+
 // getUTM returns the captured utm_* + click-id params (or {}). Merged into the donation
 // body. Also reads the live Meta/TikTok pixel cookies (_fbc/_fbp/_ttp) at call time so the
 // server-side CAPI/Events API can forward correctly-formatted click/browser ids — these
@@ -239,4 +259,4 @@ function injectTtq(pixelId: string) {
   /* eslint-enable */
 }
 
-export const NBTracking = { initPixels, initCampaignPixels, fireConversion, captureUTM, getUTM, track };
+export const NBTracking = { initPixels, initCampaignPixels, fireConversion, captureUTM, getUTM, track, trackVisit };

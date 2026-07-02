@@ -5,12 +5,13 @@ import (
 )
 
 type AnalyticsService struct {
-	statsRepo   *repository.StatsRepo
-	adCostRepo  *repository.AdCostRepo
+	statsRepo     *repository.StatsRepo
+	adCostRepo    *repository.AdCostRepo
+	pageVisitRepo *repository.PageVisitRepo
 }
 
-func NewAnalyticsService(statsRepo *repository.StatsRepo, adCostRepo *repository.AdCostRepo) *AnalyticsService {
-	return &AnalyticsService{statsRepo: statsRepo, adCostRepo: adCostRepo}
+func NewAnalyticsService(statsRepo *repository.StatsRepo, adCostRepo *repository.AdCostRepo, pageVisitRepo *repository.PageVisitRepo) *AnalyticsService {
+	return &AnalyticsService{statsRepo: statsRepo, adCostRepo: adCostRepo, pageVisitRepo: pageVisitRepo}
 }
 
 type AnalyticsOverview struct {
@@ -48,7 +49,14 @@ func (s *AnalyticsService) GetOverview() (*AnalyticsOverview, error) {
 		}
 	}
 
+	// Real page visits when the beacon has recorded any; fall back to the legacy
+	// leads*3 estimate only while no visits exist yet (fresh deploy).
 	visitors := stats.TotalLeads * 3
+	if s.pageVisitRepo != nil {
+		if v, err := s.pageVisitRepo.TotalVisits(); err == nil && v > 0 {
+			visitors = v
+		}
+	}
 	ov := &AnalyticsOverview{
 		TotalRaised:       stats.TotalRaised,
 		TotalTransactions: stats.TotalTransactions,

@@ -3,6 +3,7 @@ import { api, mediaUrl } from '@/lib/api';
 import { fmtIDRShort } from '@/lib/format';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
+import { applyThemeColor } from '@/lib/mappers';
 import { Card, PageHeader, Icon, Toggle, Select, Btn, Progress, Badge, StatusBadge, Modal } from '@/components';
 
 // parseArr parses a settings value that may be an array OR an object (both stored as a
@@ -187,16 +188,11 @@ function ThemesPanel({ settings, onSave }: any) {
   useEffect(() => { if (settings?.font_family) setFontFamily(settings.font_family); }, [settings]);
   useEffect(() => { if (settings?.button_style) setButtonStyle(settings.button_style); }, [settings]);
   useEffect(() => { const l = settings?.logo || settings?.logo_url; if (l) setLogoSrc(l); }, [settings]);
-  const applyTheme = (c: any) => {
-    try {
-      const root = document.documentElement;
-      root.style.setProperty('--nb-brand', c);
-      let el = document.getElementById('nb-theme-vars');
-      if (!el) { el = document.createElement('style'); el.id = 'nb-theme-vars'; document.head.appendChild(el); }
-      el.textContent = `.text-brand-600{color:${c} !important}.bg-brand-600{background-color:${c} !important}.border-brand-600{border-color:${c} !important}.hover\\:bg-brand-700:hover{background-color:${c} !important}`;
-    } catch {}
-  };
-  useEffect(() => { if (settings?.primary_color) applyTheme(settings.primary_color); }, [settings]);
+  // Delegate to the shared applyThemeColor (mappers) so the admin preview uses the SAME
+  // full-ramp override as the public site — previously this local copy only overrode -600
+  // and a separate Secondary "Apply" hijacked the primary vars.
+  const applyTheme = (primary?: any, secondary?: any) => applyThemeColor(primary || undefined, secondary || undefined);
+  useEffect(() => { if (settings?.primary_color || settings?.secondary_color) applyTheme(settings.primary_color, settings.secondary_color); }, [settings]);
   const handleLogoUpload = async () => {
     const f = logoRef.current?.files?.[0];
     if (!f) return;
@@ -246,7 +242,7 @@ function ThemesPanel({ settings, onSave }: any) {
               <div className="mt-1 flex items-center gap-2">
                 <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-10 w-10 rounded-lg border border-line cursor-pointer"/>
                 <input value={color} onChange={(e) => setColor(e.target.value)} className="field font-mono"/>
-                <Btn size="sm" variant="outline" tone="ink" onClick={() => { applyTheme(color); showToast('Warna diterapkan ke seluruh web'); }}>Apply</Btn>
+                <Btn size="sm" variant="outline" tone="ink" onClick={() => { applyTheme(color, secondaryColor); showToast('Warna diterapkan ke seluruh web'); }}>Apply</Btn>
               </div>
             </div>
             <div>
@@ -254,7 +250,7 @@ function ThemesPanel({ settings, onSave }: any) {
               <div className="mt-1 flex items-center gap-2">
                 <input type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="h-10 w-10 rounded-lg border border-line cursor-pointer"/>
                 <input value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="field font-mono"/>
-                <Btn size="sm" variant="outline" tone="ink" onClick={() => { applyTheme(secondaryColor); showToast('Warna sekunder diterapkan'); }}>Apply</Btn>
+                <Btn size="sm" variant="outline" tone="ink" onClick={() => { applyTheme(color, secondaryColor); showToast('Warna sekunder diterapkan'); }}>Apply</Btn>
               </div>
             </div>
             <div>
@@ -298,7 +294,7 @@ function ThemesPanel({ settings, onSave }: any) {
       </Section>
 
       <div className="flex justify-end mt-4">
-        <SaveButton onClick={() => { applyTheme(color); return onSave({ primary_color: color, secondary_color: secondaryColor, border_radius: radius, logo: logoSrc === DEFAULT_LOGO ? '' : logoSrc, font_family: fontFamily, button_style: buttonStyle }); }}>Simpan Perubahan</SaveButton>
+        <SaveButton onClick={() => { applyTheme(color, secondaryColor); return onSave({ primary_color: color, secondary_color: secondaryColor, border_radius: radius, logo: logoSrc === DEFAULT_LOGO ? '' : logoSrc, font_family: fontFamily, button_style: buttonStyle }); }}>Simpan Perubahan</SaveButton>
       </div>
     </>
   );

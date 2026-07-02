@@ -12,6 +12,7 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/repository"
 	"github.com/anrdart/niatbaik-api/internal/service"
 	"github.com/anrdart/niatbaik-api/pkg/pagination"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -30,6 +31,7 @@ type PublicHandler struct {
 	invoiceRepo       *repository.InvoiceRepo
 	donationRepo      *repository.DonationRepo
 	paymentMethodRepo *repository.PaymentMethodRepo
+	pageVisitRepo     *repository.PageVisitRepo
 	cfg               *config.Config
 }
 
@@ -40,6 +42,7 @@ func NewPublicHandler(
 	invoiceRepo *repository.InvoiceRepo,
 	donationRepo *repository.DonationRepo,
 	paymentMethodRepo *repository.PaymentMethodRepo,
+	pageVisitRepo *repository.PageVisitRepo,
 	cfg *config.Config,
 ) *PublicHandler {
 	return &PublicHandler{
@@ -49,8 +52,35 @@ func NewPublicHandler(
 		invoiceRepo:       invoiceRepo,
 		donationRepo:      donationRepo,
 		paymentMethodRepo: paymentMethodRepo,
+		pageVisitRepo:     pageVisitRepo,
 		cfg:               cfg,
 	}
+}
+
+// TrackVisit records a public page view (landing or campaign) as a daily per-utm_source
+// counter — the real "visits" signal for the analytics traffic breakdown. Unauthed,
+// cheap, fire-and-forget from a sendBeacon; always returns 204 so a client never blocks
+// or sees an error. utm_source defaults to "direct" when absent.
+func (h *PublicHandler) TrackVisit(c echo.Context) error {
+	var body struct {
+		CampaignSlug string `json:"campaign_slug"`
+		UTMSource    string `json:"utm_source"`
+	}
+	_ = c.Bind(&body) // tolerate empty/garbage body — visit tracking must never 4xx a beacon
+	src := body.UTMSource
+	if src == "" {
+		src = "direct"
+	}
+	var campaignID *uuid.UUID
+	if body.CampaignSlug != "" {
+		if camp, err := h.campaignRepo.FindBySlugOrID(body.CampaignSlug); err == nil && camp != nil {
+			campaignID = &camp.ID
+		}
+	}
+	if h.pageVisitRepo != nil {
+		_ = h.pageVisitRepo.Record(campaignID, src)
+	}
+	return c.NoContent(http.StatusNoContent)
 }
 
 func (h *PublicHandler) ListCampaigns(c echo.Context) error {
@@ -94,14 +124,20 @@ func (h *PublicHandler) GetCampaign(c echo.Context) error {
 	for _, d := range donations {
 		name := d.DonorName
 		isAnon := false
+		// Donor's prayer/message ("doa"). Suppressed for anonymous donations so an
+		// "Anonim" entry never carries an identifying free-text note.
+		msg := ""
 		if d.Invoice.IsAnonymous {
 			name = "Anonim"
 			isAnon = true
+		} else if d.Invoice.Message != nil {
+			msg = *d.Invoice.Message
 		}
 		donors = append(donors, response.CampaignDonor{
 			Name:        name,
 			Amount:      d.Amount,
 			IsAnonymous: isAnon,
+			Message:     msg,
 			CreatedAt:   d.CreatedAt,
 		})
 	}

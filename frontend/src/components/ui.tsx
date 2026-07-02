@@ -83,8 +83,8 @@ export const StatusBadge = ({ status, size }: any) => {
 };
 
 export const RoleBadge = ({ role }: any) => {
-  const map: Record<string, string> = { Admin: 'brand', CS: 'sky', Advertiser: 'purple' };
-  return <Badge tone={map[role]}>{role}</Badge>;
+  const map: Record<string, string> = { Admin: 'brand', CS: 'sky', Advertiser: 'purple', Fundraiser: 'ok' };
+  return <Badge tone={map[role] || 'slate'}>{role}</Badge>;
 };
 
 export const Progress = ({ value, max, height = 'h-2', showLabel = false, tone = 'brand' }: any) => {

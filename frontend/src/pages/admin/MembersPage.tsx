@@ -114,6 +114,7 @@ export default function MembersPage() {
             { value:'Admin',        label:'Admin',      count: members.filter(m=>m.role==='Admin').length },
             { value:'CS',           label:'CS',         count: members.filter(m=>m.role==='CS').length },
             { value:'Advertiser',   label:'Advertiser', count: members.filter(m=>m.role==='Advertiser').length },
+            { value:'Fundraiser',   label:'Fundraiser', count: members.filter(m=>m.role==='Fundraiser').length },
           ]}/>
           <div className="ml-auto w-full sm:w-auto"><SearchInput placeholder="Cari nama / email…" value={q} onChange={setQ} className="w-full sm:w-64"/></div>
         </div>
@@ -138,7 +139,7 @@ export default function MembersPage() {
               <tr key={m.id} className="border-b border-line last:border-0">
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-3">
-                    <div className={`h-9 w-9 rounded-full text-white font-bold text-xs flex items-center justify-center ${m.role==='Admin' ? 'bg-brand-600' : m.role==='CS' ? 'bg-sky2-500' : 'bg-violet-600'}`}>
+                    <div className={`h-9 w-9 rounded-full text-white font-bold text-xs flex items-center justify-center ${m.role==='Admin' ? 'bg-brand-600' : m.role==='CS' ? 'bg-sky2-500' : m.role==='Fundraiser' ? 'bg-emerald-600' : 'bg-violet-600'}`}>
                       {m.name.split(' ').map((s: any)=>s[0]).join('').slice(0,2)}
                     </div>
                     <div>
@@ -238,8 +239,8 @@ export default function MembersPage() {
           </div>
           <div>
             <label className="text-xs font-semibold text-mute">Role</label>
-            <div className="mt-1 grid grid-cols-3 gap-2">
-              {['admin','cs','advertiser'].map((r) => (
+            <div className="mt-1 grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {['admin','cs','advertiser','fundraiser'].map((r) => (
                 <button key={r} type="button" onClick={() => setAddForm({...addForm, role: r})}
                   className={`py-2 rounded-lg border text-sm font-bold ${addForm.role === r ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line hover:bg-bg2'}`}>
                   {r === 'cs' ? 'CS' : r.charAt(0).toUpperCase() + r.slice(1)}

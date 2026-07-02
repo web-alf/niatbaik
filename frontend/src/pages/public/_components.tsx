@@ -9,6 +9,7 @@ import { api, mediaUrl, sanitizeHTML } from '@/lib/api';
 import { NBTracking } from '@/lib/tracking';
 import { Icon } from '@/components';
 import { useDataStore } from '@/store/data';
+import { useAuth } from '@/context/AuthContext';
 
 export const getCampaigns = (): any[] => {
   const list = useDataStore.getState().campaigns;
@@ -151,6 +152,8 @@ export function Navbar({ onNav, onHome }: any) {
   const [open, setOpen] = useState(false);
   const [dark, toggleDark] = usePublicDark();
   const navigate = useNavigate();
+  // Admin-uploaded logo (Settings → Branding) with the static asset as fallback.
+  const navLogo = useDataStore((s) => s.publicSettings)?.logo;
   const links = [
     { l:'Campaign', h:'#campaigns' },
     { l:'Bagaimana?', h:'#how' },
@@ -171,7 +174,7 @@ export function Navbar({ onNav, onHome }: any) {
     <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-line">
       <div className="max-w-7xl mx-auto px-4 lg:px-6 h-16 flex items-center gap-4">
         <button onClick={() => onNav('home')} className="flex items-center">
-          <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-8"/>
+          <img src={navLogo ? mediaUrl(navLogo) : '/assets/logo-niatbaik.png'} alt="NIATBAIK.ORG" className="h-8"/>
         </button>
         <nav className="hidden lg:flex items-center gap-1 ml-6">
           {links.map((l) => (
@@ -546,7 +549,7 @@ export function Footer() {
           {/* Logo on a white chip so its real brand colors stay correct on the dark footer
               (the old invert/brightness hack washed the navy wordmark out). */}
           <div className="inline-flex items-center rounded-xl bg-white px-3 py-2 shadow-sm">
-            <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-7"/>
+            <img src={publicSettings?.logo ? mediaUrl(publicSettings.logo) : '/assets/logo-niatbaik.png'} alt="NIATBAIK.ORG" className="h-7"/>
           </div>
           <p className="mt-4 text-sm text-white/70 max-w-sm leading-relaxed">Platform donasi & crowdfunding terpercaya. Salurkan zakat, sedekah, wakaf, dan donasi kemanusiaan dengan mudah.</p>
           {kontakHref && (
@@ -1071,7 +1074,7 @@ export function CampaignPage({ c: listItem, onNav }: any) {
                 </div>
 
                 <div className="mt-5">
-                  {tab === 'story' && <CampaignStory c={c}/>}
+                  {tab === 'story' && <><CampaignStory c={c}/><FundraiserCTA c={c}/></>}
                   {tab === 'updates' && <CampaignUpdates updates={updates}/>}
                   {tab === 'donors' && <CampaignDonors donors={recentDonors}/>}
                   {tab === 'faq' && <CampaignFAQ/>}
@@ -1174,10 +1177,14 @@ function itemImg(image: any) {
 // to the item's price.
 function ItemSelect({ c, kind, items, amount, setAmount, customInput }: any) {
   const heading = kind === 'qurban' ? 'Pilih hewan qurban' : kind === 'zfitrah' ? 'Pilih paket zakat fitrah' : 'Pilih paket donasi';
-  // Track the chosen item by IDENTITY, not by price — two items can share a price, and
-  // matching on amount===price would highlight ALL of them at once.
+  // Track the chosen item by IDENTITY (two items can share a price) and a quantity — the
+  // donor buys N units and the donation amount = price × qty. selectedKey='' = none.
   const [selectedKey, setSelectedKey] = useState('');
+  const [qty, setQty] = useState(1);
   void c;
+  const MAX_QTY = 99;
+  const choose = (key: string, price: number) => { setSelectedKey(key); setQty(1); setAmount(price); };
+  const setUnits = (price: number, n: number) => { const q = Math.max(1, Math.min(MAX_QTY, n)); setQty(q); setAmount(price * q); };
   return (
     <div>
       <div className="text-xs font-bold uppercase tracking-wider text-mute mb-2">{heading}</div>
@@ -1185,26 +1192,44 @@ function ItemSelect({ c, kind, items, amount, setAmount, customInput }: any) {
         {items.map((it: any, i: number) => {
           const price = Number(it.price) || 0;
           const key = it.id || String(i);
-          const selected = selectedKey === key && amount === price && price > 0;
+          const selected = selectedKey === key && price > 0;
           const img = itemImg(it.image);
           const sub = kind === 'qurban'
             ? [it.animal_type, it.share && it.share !== '1' ? `Patungan ${it.share}` : (it.share === '1' ? 'Full' : ''), it.weight].filter(Boolean).join(' · ')
             : (it.desc || '');
           return (
-            <button key={key} onClick={() => { setSelectedKey(key); setAmount(price); }}
+            <div key={key}
               className={`w-full flex items-center gap-3 p-2.5 rounded-2xl border-2 text-left transition-all ${selected ? 'border-brand-600 bg-brand-50 shadow-card' : 'border-line bg-white hover:border-brand-200'}`}>
-              <div className="shrink-0 h-16 w-16 rounded-xl overflow-hidden bg-bg2 flex items-center justify-center">
-                {img ? <img src={img} alt="" className="h-full w-full object-cover" onError={(e: any)=>{e.target.style.display='none';}}/> : <Icon name="heart" size={22} className="text-brand-300"/>}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="font-bold text-ink leading-tight truncate">{it.name || 'Paket'}</div>
-                {sub && <div className="text-[11px] text-mute truncate">{sub}</div>}
-                <div className="text-sm font-extrabold text-brand-600 mt-0.5">{fmtIDR(price)}</div>
-              </div>
-              <span className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-extrabold border-2 ${selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-brand-200 text-brand-600'}`}>
-                {selected ? 'Dipilih ✓' : 'Pilih'}
-              </span>
-            </button>
+              {/* Left content = the selector (click to pick this item). */}
+              <button type="button" onClick={() => choose(key, price)} className="flex items-center gap-3 min-w-0 flex-1 text-left">
+                <div className="shrink-0 h-16 w-16 rounded-xl overflow-hidden bg-bg2 flex items-center justify-center">
+                  {img ? <img src={img} alt="" className="h-full w-full object-cover" onError={(e: any)=>{e.target.style.display='none';}}/> : <Icon name="heart" size={22} className="text-brand-300"/>}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-ink leading-tight truncate">{it.name || 'Paket'}</div>
+                  {sub && <div className="text-[11px] text-mute truncate">{sub}</div>}
+                  <div className="text-sm font-extrabold text-brand-600 mt-0.5">{fmtIDR(price)}</div>
+                  {selected && qty > 1 && (
+                    <div className="text-[11px] text-mute mt-0.5">{qty} × {fmtIDR(price)} = <b className="text-ink">{fmtIDR(price * qty)}</b></div>
+                  )}
+                </div>
+              </button>
+              {/* Right = 'Pilih' pill (unselected) OR a −/+ quantity stepper (selected). */}
+              {selected ? (
+                <div className="shrink-0 inline-flex items-center rounded-lg border-2 border-brand-600 overflow-hidden">
+                  <button type="button" onClick={() => setUnits(price, qty - 1)} disabled={qty <= 1}
+                    className="h-8 w-8 inline-flex items-center justify-center text-brand-600 font-extrabold disabled:opacity-40 hover:bg-brand-50">−</button>
+                  <span className="w-8 text-center text-sm font-extrabold text-ink tabular-nums">{qty}</span>
+                  <button type="button" onClick={() => setUnits(price, qty + 1)} disabled={qty >= MAX_QTY}
+                    className="h-8 w-8 inline-flex items-center justify-center text-brand-600 font-extrabold disabled:opacity-40 hover:bg-brand-50">+</button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => choose(key, price)}
+                  className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-extrabold border-2 border-brand-200 text-brand-600 hover:bg-brand-50">
+                  Pilih
+                </button>
+              )}
+            </div>
           );
         })}
       </div>
@@ -2160,6 +2185,36 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
       <div className="mt-4 pt-4 border-t border-line text-center text-[11px] text-mute leading-relaxed">
         Setelah pembayaran, status diperbarui otomatis. Bila perlu, admin / CS kami akan mengkonfirmasi donasi Anda via WhatsApp & email.
       </div>
+    </div>
+  );
+}
+
+// FundraiserCTA shows a "Jadi Fundraiser" share panel UNDER the campaign story — but only
+// to a logged-in user whose RAW backend role is 'fundraiser' (toDesignRole collapses
+// unknown roles to Admin, so we must read user.role directly). It surfaces the existing
+// referral share link (/c/<slug>?ref=<user_id>) that the public form + backend already
+// understand; no new API. Non-fundraisers see nothing.
+function FundraiserCTA({ c }: any) {
+  const { user } = useAuth();
+  const [copied, setCopied] = useState(false);
+  const isFundraiser = String((user as any)?.role || '').toLowerCase() === 'fundraiser';
+  if (!isFundraiser || !c) return null;
+  const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'https://donasi.niatbaik.org';
+  const link = `${origin}/c/${c.slug || c.id}?ref=${(user as any).id}`;
+  const waText = encodeURIComponent(`Bantu sebarkan campaign "${c.title}" 🙏\nDonasi lewat tautan ini: ${link}`);
+  const copy = () => { try { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {} };
+  return (
+    <div className="mt-6 rounded-2xl border-2 border-emerald-200 bg-emerald-50/60 p-5">
+      <div className="flex items-center gap-2 text-emerald-700 font-bold"><Icon name="handshake" size={18}/> Jadi Fundraiser Campaign Ini</div>
+      <div className="text-sm text-ink/80 mt-1 leading-relaxed">Bagikan tautan khusus Anda — setiap donasi yang masuk lewat tautan ini tercatat sebagai kontribusi Anda. Barakallahu fiikum 🤝</div>
+      <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2">
+        <span className="flex-1 min-w-0 truncate text-xs font-mono text-mute">{link}</span>
+        <button onClick={copy} className="shrink-0 text-xs font-bold text-emerald-700 hover:underline">{copied ? 'Tersalin ✓' : 'Salin'}</button>
+      </div>
+      <a href={`https://wa.me/?text=${waText}`} target="_blank" rel="noopener noreferrer"
+        className="mt-2 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-500 text-white hover:bg-emerald-600">
+        <Icon name="wa" size={16}/> Bagikan ke WhatsApp
+      </a>
     </div>
   );
 }

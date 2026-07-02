@@ -122,7 +122,9 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
     if (categoriesRes?.data) patch.categories = categoriesRes.data;
     if (pubSettingsRes?.data) {
       patch.publicSettings = pubSettingsRes.data;
-      if (pubSettingsRes.data.primary_color) applyThemeColor(pubSettingsRes.data.primary_color);
+      if (pubSettingsRes.data.primary_color || pubSettingsRes.data.secondary_color) {
+        applyThemeColor(pubSettingsRes.data.primary_color, pubSettingsRes.data.secondary_color);
+      }
       // Tracking: capture UTM from the landing URL + inject configured pixels. Both
       // are safe no-ops when nothing is configured and must never break data load.
       try { NBTracking.captureUTM(); NBTracking.initPixels(pubSettingsRes.data); } catch { /* ignore */ }

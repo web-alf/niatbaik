@@ -151,12 +151,36 @@ export function mapFundraiser(f: any): any {
   };
 }
 
-// applyThemeColor injects CSS so the whole site reflects the saved brand color.
-export function applyThemeColor(color: string) {
-  if (!color) return;
+// applyThemeColor injects CSS so the whole site reflects the saved brand colors. It must
+// cover the FULL brand ramp actually used across the public pages (500/600/700/800 for
+// text/bg/border/ring + the 700 hover), not just -600 — otherwise a changed primary only
+// repaints a few elements and looks "reset". `secondary` overrides the sky2/cyan accent
+// ramp used for secondary buttons/badges. Either arg may be empty (that ramp untouched).
+export function applyThemeColor(color?: string, secondary?: string) {
   try {
     let el = document.getElementById('nb-theme-vars');
     if (!el) { el = document.createElement('style'); el.id = 'nb-theme-vars'; document.head.appendChild(el); }
-    el.textContent = `.text-brand-600{color:${color} !important}.bg-brand-600{background-color:${color} !important}.border-brand-600{border-color:${color} !important}.ring-brand-600{--tw-ring-color:${color} !important}.hover\\:bg-brand-700:hover{background-color:${color} !important}`;
+    const rules: string[] = [];
+    if (color) {
+      const shades = ['500', '600', '700', '800'];
+      shades.forEach((s) => {
+        rules.push(`.text-brand-${s}{color:${color} !important}`);
+        rules.push(`.bg-brand-${s}{background-color:${color} !important}`);
+        rules.push(`.border-brand-${s}{border-color:${color} !important}`);
+      });
+      rules.push(`.ring-brand-600{--tw-ring-color:${color} !important}`);
+      rules.push(`.hover\\:bg-brand-700:hover{background-color:${color} !important}`);
+      rules.push(`.hover\\:text-brand-700:hover{color:${color} !important}`);
+      document.documentElement.style.setProperty('--nb-brand', color);
+    }
+    if (secondary) {
+      ['400', '500', '600'].forEach((s) => {
+        rules.push(`.text-sky2-${s}{color:${secondary} !important}`);
+        rules.push(`.bg-sky2-${s}{background-color:${secondary} !important}`);
+        rules.push(`.border-sky2-${s}{border-color:${secondary} !important}`);
+      });
+      document.documentElement.style.setProperty('--nb-secondary', secondary);
+    }
+    el.textContent = rules.join('');
   } catch { /* ignore */ }
 }

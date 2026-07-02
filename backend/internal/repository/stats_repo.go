@@ -174,17 +174,25 @@ func (r *StatsRepo) GetPaymentMethodBreakdown() ([]PaymentBreakdown, error) {
 func (r *StatsRepo) GetTrafficSources() ([]TrafficSource, error) {
 	var results []TrafficSource
 
+	// leads = invoices created per source; donations/revenue = the paid subset. visits now
+	// come from the REAL page_visits counters (LEFT JOIN by utm_source) instead of the old
+	// COUNT(*)-of-invoices proxy; fall back to the lead count only when a source has no
+	// recorded visits yet, so the number is never smaller than leads (a lead implies a hit).
 	err := r.db.Model(&model.Invoice{}).
-		Where("utm_source != ''").
+		Joins(`LEFT JOIN (
+			SELECT utm_source, COALESCE(SUM(count),0) AS v
+			FROM page_visits GROUP BY utm_source
+		) pv ON pv.utm_source = invoices.utm_source`).
+		Where("invoices.utm_source != ''").
 		Select(`
-			utm_source as source,
-			utm_source as name,
-			COUNT(*) as visits,
+			invoices.utm_source as source,
+			invoices.utm_source as name,
+			GREATEST(COALESCE(MAX(pv.v),0), COUNT(*)) as visits,
 			COUNT(*) as leads,
-			SUM(CASE WHEN is_paid = true THEN 1 ELSE 0 END) as donations,
-			COALESCE(SUM(CASE WHEN is_paid = true THEN total ELSE 0 END), 0) as revenue
+			SUM(CASE WHEN invoices.is_paid = true THEN 1 ELSE 0 END) as donations,
+			COALESCE(SUM(CASE WHEN invoices.is_paid = true THEN invoices.total ELSE 0 END), 0) as revenue
 		`).
-		Group("utm_source").
+		Group("invoices.utm_source").
 		Order("donations desc").
 		Scan(&results).Error
 	return results, err

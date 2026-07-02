@@ -91,6 +91,7 @@ type CampaignDonor struct {
 	Name        string    `json:"name"`
 	Amount      int64     `json:"amount"`
 	IsAnonymous bool      `json:"is_anonymous"`
+	Message     string    `json:"message"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 

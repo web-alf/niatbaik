@@ -44,6 +44,7 @@ export default function DashboardPage() {
   const dailyDonationsRaw = useDataStore((s) => s.dailyDonations);
   const dashboardStats = useDataStore((s) => s.dashboardStats);
   const trafficSources = useDataStore((s) => s.trafficSources);
+  const paymentBreakdown = useDataStore((s) => s.paymentBreakdown);
   const txns = transactions;
   const campaignSeed = campaigns;
   // dailyDonations may be [{amount,...}] (API) or [number] (seed) — normalize to numbers.
@@ -51,6 +52,27 @@ export default function DashboardPage() {
   const dailyDonations = dailyRaw.map((d: any) => typeof d === 'object' ? (d.amount || 0) : d);
   // Live KPI stats overlay (snake_case from API) with seed fallback.
   const S = dashboardStats || {};
+
+  // Real donut: donations grouped per payment method (api.paymentMethodChart → store
+  // paymentBreakdown = [{method,count,total,percentage}]). Falls back to a small mock
+  // only when there's no data yet, so a fresh DB still renders something instead of NaN.
+  const PM_COLORS = ['#2E4191', '#38B6FF', '#16A34A', '#F59E0B', '#DC2626', '#94A3B8'];
+  const pmRows = (Array.isArray(paymentBreakdown) && paymentBreakdown.length)
+    ? paymentBreakdown.map((p: any, i: number) => ({
+        label: p.method || 'Lainnya',
+        n: p.total || 0,
+        pct: Math.round(p.percentage || 0),
+        color: PM_COLORS[i % PM_COLORS.length],
+      }))
+    : [
+        { label: 'QRIS', n: 4820, pct: 38, color: PM_COLORS[0] },
+        { label: 'Bank Transfer', n: 3210, pct: 25, color: PM_COLORS[1] },
+        { label: 'GoPay', n: 2104, pct: 17, color: PM_COLORS[2] },
+        { label: 'OVO', n: 1480, pct: 12, color: PM_COLORS[3] },
+        { label: 'Dana', n: 840, pct: 7, color: PM_COLORS[4] },
+        { label: 'Lainnya', n: 612, pct: 1, color: PM_COLORS[5] },
+      ];
+  const pmIsReal = Array.isArray(paymentBreakdown) && paymentBreakdown.length > 0;
 
   const [range, setRange] = useSharedDateRange();
   // Daily-donations chart range (in days). Wired to the 7/30/90 tab below.
@@ -204,37 +226,18 @@ export default function DashboardPage() {
           <div className="flex items-start justify-between mb-3">
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider text-mute">Donasi per Payment Method</div>
-              <div className="mt-1 text-xl font-bold text-ink">Mei 2026</div>
+              <div className="mt-1 text-xl font-bold text-ink">{pmIsReal ? 'Data Terkini' : 'Contoh Data'}</div>
             </div>
-            <button className="text-xs font-semibold text-brand-600 hover:underline flex items-center gap-1">
-              <Icon name="download" size={14}/> Unduh
-            </button>
           </div>
           <div className="flex items-center justify-center my-3">
-            <Donut size={170}
-              data={[
-                { value: 4820, color: '#2E4191' },
-                { value: 3210, color: '#38B6FF' },
-                { value: 2104, color: '#16A34A' },
-                { value: 1480, color: '#F59E0B' },
-                { value:  840, color: '#DC2626' },
-                { value:  612, color: '#94A3B8' },
-              ]}
-            />
+            <Donut size={170} data={pmRows.map((p) => ({ value: p.n, color: p.color }))}/>
           </div>
           <div className="space-y-2 mt-2">
-            {[
-              { label:'QRIS', n: 4820, pct: 38, color:'#2E4191' },
-              { label:'Bank Transfer (VA)', n: 3210, pct: 25, color:'#38B6FF' },
-              { label:'GoPay', n: 2104, pct: 17, color:'#16A34A' },
-              { label:'OVO',   n: 1480, pct: 12, color:'#F59E0B' },
-              { label:'Dana',  n:  840, pct: 7, color:'#DC2626' },
-              { label:'Lainnya', n: 612, pct: 1, color:'#94A3B8' },
-            ].map((p) => (
+            {pmRows.map((p) => (
               <div key={p.label} className="flex items-center gap-2 text-xs">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: p.color }}/>
                 <span className="flex-1 text-ink font-medium">{p.label}</span>
-                <span className="text-mute">{fmtNum(p.n)}</span>
+                <span className="text-mute">{fmtIDRShort(p.n)}</span>
                 <span className="w-10 text-right font-bold text-ink">{p.pct}%</span>
               </div>
             ))}

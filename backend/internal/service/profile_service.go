@@ -52,6 +52,12 @@ func (s *ProfileService) UpdateProfile(userID uuid.UUID, req *request.UpdateProf
 	if req.Bio != "" {
 		updates["bio"] = req.Bio
 	}
+	// Avatar: pointer field, so nil = leave unchanged, "" = clear, value = set. This is
+	// the path returned by /uploads/image (persisted on the api-uploads volume), NOT a
+	// base64 blob — so it survives reload and doesn't bloat the row.
+	if req.Image != nil {
+		updates["image"] = *req.Image
+	}
 	if len(updates) == 0 {
 		return nil
 	}

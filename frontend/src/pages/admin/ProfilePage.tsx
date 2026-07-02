@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { api } from '@/lib/api';
+import { api, mediaUrl } from '@/lib/api';
 import { fmtNum } from '@/lib/format';
 import { useUiStore } from '@/store/ui';
 import { useAuth } from '@/context/AuthContext';
@@ -52,17 +52,22 @@ export default function ProfilePage() {
   const display = {
     name:   meBase.name,
     email:  meBase.email,
-    wa:     meBase.wa     || fb.wa,
-    avatar: meBase.avatar || null,
+    wa:     meBase.wa     || meBase.phone || fb.wa,
+    // Avatar comes from user.image (the persisted /uploads path from /auth/me), resolved
+    // through mediaUrl. Older code read a non-existent `avatar` key, so it never showed.
+    avatar: meBase.image ? mediaUrl(meBase.image) : null,
     joined: meBase.joined || fb.joined,
     initial: meBase.initial,
   };
 
   // -------- Edit state --------
   const [editing, setEditing] = useState(false);
-  const [form, setForm]       = useState<any>({ name: display.name, email: display.email, wa: display.wa, avatar: display.avatar });
+  // form.avatar = display URL (for the <img> preview); form.imagePath = the RAW stored
+  // value we send to the server (/uploads/<uuid>.ext or '' to clear).
+  const [form, setForm]       = useState<any>({ name: display.name, email: display.email, wa: display.wa, avatar: display.avatar, imagePath: meBase.image || '' });
   const [errors, setErrors]   = useState<any>({});
   const [saving, setSaving]   = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [activityLog, setActivityLog] = useState<any[]>([]);
   const [loginHistory, setLoginHistory] = useState<any[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -101,7 +106,7 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (!editing) setForm({ name: display.name, email: display.email, wa: display.wa, avatar: display.avatar });
+    if (!editing) setForm({ name: display.name, email: display.email, wa: display.wa, avatar: display.avatar, imagePath: meBase.image || '' });
     // eslint-disable-next-line
   }, [editing, user?.email]);
 
@@ -122,36 +127,47 @@ export default function ProfilePage() {
   const save = async () => {
     if (!validate()) { showToast('Periksa kembali isian Anda'); return; }
     setSaving(true);
-    const patch = {
-      name:    form.name.trim(),
-      email:   form.email.trim(),
-      wa:      form.wa.trim(),
-      avatar:  form.avatar,
-      initial: initialsFrom(form.name),
-    };
     try {
-      await api?.updateProfile?.({ name: patch.name, email: patch.email, phone: patch.wa, avatar: patch.avatar });
-    } catch (e) { /* offline: optimistic only */ }
-    updateUser(patch);
-    setSaving(false);
-    setEditing(false);
-    showToast('Profil berhasil disimpan');
+      // Persist server-side. `image` is the raw /uploads path (backend column), NOT the
+      // display URL. Then re-read /auth/me so the local user reflects what was saved.
+      await api?.updateProfile?.({ name: form.name.trim(), email: form.email.trim(), phone: form.wa.trim(), image: form.imagePath || '' });
+      try {
+        const me: any = await api.me();
+        if (me?.data) updateUser(me.data);
+      } catch { updateUser({ name: form.name.trim(), email: form.email.trim(), phone: form.wa.trim(), image: form.imagePath || '' }); }
+      showToast('Profil berhasil disimpan');
+      setEditing(false);
+    } catch {
+      showToast('Gagal menyimpan profil');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const cancel = () => {
-    setForm({ name: display.name, email: display.email, wa: display.wa, avatar: display.avatar });
+    setForm({ name: display.name, email: display.email, wa: display.wa, avatar: display.avatar, imagePath: meBase.image || '' });
     setErrors({});
     setEditing(false);
   };
 
-  // Avatar upload (data URL)
-  const pickAvatar = (file: any) => {
+  // Avatar upload — send the file to /uploads/image (persisted on the api-uploads
+  // volume) and keep the returned path, instead of stuffing a base64 data-URL into the
+  // user row (which was never even persisted before, so the photo vanished on reload).
+  const pickAvatar = async (file: any) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) { showToast('File harus berupa gambar'); return; }
     if (file.size > 2 * 1024 * 1024)     { showToast('Ukuran maks 2 MB'); return; }
-    const reader = new FileReader();
-    reader.onload = (e: any) => setForm((f: any) => ({ ...f, avatar: e.target.result }));
-    reader.readAsDataURL(file);
+    setAvatarUploading(true);
+    try {
+      const res: any = await api.uploadImage(file);
+      const path = res?.url || (res?.filename ? '/uploads/' + res.filename : '');
+      if (!path) throw new Error('no url');
+      setForm((f: any) => ({ ...f, imagePath: path, avatar: mediaUrl(path) }));
+    } catch {
+      showToast('Gagal mengunggah gambar');
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   // -------- Password state --------
@@ -222,13 +238,13 @@ export default function ProfilePage() {
             {editing && (
               <>
                 <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => pickAvatar(e.target.files?.[0])}/>
-                <button onClick={() => fileRef.current?.click()}
-                  className="absolute -bottom-1 -right-1 h-9 w-9 rounded-full bg-brand-600 hover:bg-brand-700 text-white border-4 border-white shadow-pop flex items-center justify-center transition-colors"
+                <button onClick={() => fileRef.current?.click()} disabled={avatarUploading}
+                  className="absolute -bottom-1 -right-1 h-9 w-9 rounded-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white border-4 border-white shadow-pop flex items-center justify-center transition-colors"
                   title="Ganti foto">
-                  <Icon name="upload" size={14}/>
+                  <Icon name="upload" size={14} className={avatarUploading ? 'animate-pulse' : ''}/>
                 </button>
                 {form.avatar && (
-                  <button onClick={() => setForm({ ...form, avatar: null })}
+                  <button onClick={() => setForm({ ...form, avatar: null, imagePath: '' })}
                     className="absolute -top-1 -right-1 h-7 w-7 rounded-full bg-rose-500 hover:bg-rose-600 text-white border-2 border-white shadow flex items-center justify-center"
                     title="Hapus foto">
                     <Icon name="close" size={12} strokeWidth={2.4}/>

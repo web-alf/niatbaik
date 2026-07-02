@@ -1,3 +1,4 @@
+
 // Realtime auto-refresh via long-poll on /api/events. Ported from app.jsx.
 // While enabled (logged in), holds a long-poll; when the server's data revision
 // advances (any mutation), refetches admin data. The store update fans out to

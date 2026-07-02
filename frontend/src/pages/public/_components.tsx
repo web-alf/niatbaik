@@ -1933,7 +1933,7 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
   // tick won't double-navigate.
   const goWaNow = () => {
     // Contact: donor clicked "Konfirmasi ke WhatsApp" / "Buka WhatsApp sekarang".
-    try { NBTracking.track('Contact', { content_name: (c && c.title) || '', value: subtotal, currency: 'IDR' }); } catch {}
+    try { NBTracking.track('Contact', { content_name: (c && c.title) || '', value: subtotal, currency: 'IDR' }, invoice.invoice_number); } catch {}
     if (successWaHref) { waRedirectedRef.current = true; window.location.href = successWaHref; }
   };
   // Cancel the auto-redirect and go back to the campaign ("Lewati"). Clear the interval

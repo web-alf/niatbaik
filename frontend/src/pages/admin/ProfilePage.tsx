@@ -160,7 +160,10 @@ export default function ProfilePage() {
     setAvatarUploading(true);
     try {
       const res: any = await api.uploadImage(file);
-      const path = res?.url || (res?.filename ? '/uploads/' + res.filename : '');
+      // Backend wraps the payload in the {success,message,data} envelope, so the path is
+      // at res.data.url (every other caller reads it that way). Reading res.url alone left
+      // path empty → "Gagal mengunggah gambar" even though the upload actually succeeded.
+      const path = res?.data?.url || res?.url || (res?.data?.filename ? '/uploads/' + res.data.filename : '');
       if (!path) throw new Error('no url');
       setForm((f: any) => ({ ...f, imagePath: path, avatar: mediaUrl(path) }));
     } catch {

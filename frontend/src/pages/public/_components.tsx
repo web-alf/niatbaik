@@ -852,6 +852,11 @@ export function CampaignPage({ c: listItem, onNav }: any) {
   useEffect(() => {
     let cancelled = false;
     if (!slug) return;
+    // Scroll to top on open / campaign switch. React Router keeps the previous scroll
+    // offset on SPA nav, so opening a campaign from a scrolled landing page (or after the
+    // async detail fetch grows the page) otherwise lands the donor at the footer.
+    try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch {}
+    try { window.scrollTo(0, 0); } catch {}
     setDetail(null); // reset when switching campaigns so stale detail isn't shown
     (async () => {
       try {
@@ -1021,7 +1026,7 @@ export function CampaignPage({ c: listItem, onNav }: any) {
       {/* Sub-bar under the shared navbar: breadcrumb back (left) + share (top-right). The
           main home navigation lives in the Navbar above; this keeps the campaign-scoped
           "kembali" + the Bagikan button close to the content. */}
-      <section className="bg-bg2 border-b border-line">
+      <section className="bg-white/90 backdrop-blur border-b border-line sticky top-0 z-30 lg:static lg:bg-bg2">
         <div className="max-w-7xl mx-auto px-4 lg:px-6 py-3 flex items-center justify-between gap-3">
           <button onClick={() => onNav('home')} className="inline-flex items-center gap-1.5 text-sm font-semibold text-mute hover:text-ink">
             <Icon name="chevronL" size={16}/> Kembali ke beranda
@@ -1045,10 +1050,17 @@ export function CampaignPage({ c: listItem, onNav }: any) {
                   <span className="px-2.5 py-1 rounded-md bg-white/95 text-[11px] font-bold text-ink">{c.category}</span>
                   <span className="px-2.5 py-1 rounded-md bg-emerald-600 text-[11px] font-bold text-white inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse"/>LIVE</span>
                 </div>
-                <div className="absolute bottom-4 left-4 right-4 text-white">
+                {/* Title overlay only on desktop — on phones it crowds the 16/9 photo. */}
+                <div className="hidden lg:block absolute bottom-4 left-4 right-4 text-white">
                   <div className="text-xs font-semibold uppercase opacity-90">Yayasan Niat Baik · Terverifikasi</div>
                   <h1 className="mt-1 text-2xl lg:text-4xl font-extrabold leading-tight">{c.title}</h1>
                 </div>
+              </div>
+
+              {/* Mobile title: below the image, on white — readable, not cramped. */}
+              <div className="lg:hidden mt-3">
+                <div className="text-[11px] font-semibold uppercase text-mute">Yayasan Niat Baik · Terverifikasi</div>
+                <h1 className="mt-1 text-xl font-extrabold leading-snug text-ink">{c.title}</h1>
               </div>
 
               <div className="mt-5 rounded-2xl bg-white border border-line p-5 lg:p-6">
@@ -1145,7 +1157,8 @@ export function CampaignPage({ c: listItem, onNav }: any) {
       )}
 
       <SocialPopup/>
-      {view === 'content' && <StickyCTA label="Donasi Sekarang" onClick={() => setView('form')}/>}
+      {/* Sticky "Donasi Sekarang" bar removed per feedback — donors use the CTA on the
+          donation card; the compensating bottom padding was reduced accordingly. */}
 
       <Footer/>
     </>

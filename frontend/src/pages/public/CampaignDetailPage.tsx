@@ -45,8 +45,13 @@ export default function CampaignDetailPage() {
   // Same navbar as the landing page (consistent header across the public site). The logo /
   // 'home' action + section links return to the landing route via onBack; the Donasi button
   // routes through onNav('campaign') like everywhere else.
+  // Desktop-only global header. On mobile the campaign page shows its own compact
+  // sub-bar with a "Kembali ke beranda" back button, so the global Navbar is hidden to
+  // give the campaign content the full small screen (per feedback).
   const Header = (
-    <Navbar onNav={(name: any) => { if (name === 'home') onBack(); }} onHome={onBack}/>
+    <div className="hidden lg:block">
+      <Navbar onNav={(name: any) => { if (name === 'home') onBack(); }} onHome={onBack}/>
+    </div>
   );
 
   if (state === 'loading') {
@@ -111,7 +116,7 @@ export default function CampaignDetailPage() {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {Header}
-      <main className="flex-1 pb-24 lg:pb-0">
+      <main className="flex-1 pb-8 lg:pb-0">
         <CampaignPage c={resolved} onNav={(name: any) => { if (name === 'home') onBack(); }}/>
       </main>
       <SocialPopup/>

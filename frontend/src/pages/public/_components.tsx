@@ -936,6 +936,9 @@ export function CampaignPage({ c: listItem, onNav }: any) {
   ];
 
   const handleSubmit = async () => {
+    // Lead: the donor pressed the donate / "Lanjut ke Pembayaran" button. Fires on the
+    // click itself (Meta standard Lead) — distinct from InitiateCheckout (form opened).
+    try { NBTracking.track('Lead', { content_name: c.title, value: Number(amount) || 0, currency: 'IDR' }); } catch { /* pixel never blocks submit */ }
     // Client-side validation mirrors the server rules so the donor gets immediate,
     // Indonesian feedback (the flowchart's "Form valid? Tidak → Pesan error" path)
     // instead of a round-trip + generic error. Errors render INLINE under each field
@@ -989,6 +992,10 @@ export function CampaignPage({ c: listItem, onNav }: any) {
         // Fire the per-campaign "submit" conversion (Berdu's click-trigger equivalent):
         // donor completed the form and an invoice was created. value = actual nominal.
         try { NBTracking.fireConversion(c, 'submit', Number(amount) || 0); } catch {}
+        // Standard Meta/TikTok "Lead": the donor pressed the donate/checkout button and a
+        // lead (invoice) was created. Fired explicitly (not only via per-campaign config)
+        // so Lead always lands; event_id = invoice number for CAPI dedup.
+        try { NBTracking.track('Lead', { content_name: c.title, value: Number(amount) || 0, currency: 'IDR' }, res.data.invoice_number); } catch {}
         // HOSTED GATEWAY (Flip / Moota / Xendit): the donor pays on the gateway's own
         // hosted page (we only get a redirect URL — VA/QRIS can't be rendered inline). Go
         // STRAIGHT there instead of showing an intermediate confirmation page that just
@@ -1924,7 +1931,11 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
 
   // Donor takes control: open WA immediately ("Buka sekarang") — sets the ref so the timer
   // tick won't double-navigate.
-  const goWaNow = () => { if (successWaHref) { waRedirectedRef.current = true; window.location.href = successWaHref; } };
+  const goWaNow = () => {
+    // Contact: donor clicked "Konfirmasi ke WhatsApp" / "Buka WhatsApp sekarang".
+    try { NBTracking.track('Contact', { content_name: (c && c.title) || '', value: subtotal, currency: 'IDR' }); } catch {}
+    if (successWaHref) { waRedirectedRef.current = true; window.location.href = successWaHref; }
+  };
   // Cancel the auto-redirect and go back to the campaign ("Lewati"). Clear the interval
   // directly (don't rely on onReset triggering unmount) and stop the countdown so the UI
   // never flashes "0 detik".
@@ -2180,6 +2191,7 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
         return (
           <>
             <a href={waHref} target="_blank" rel="noopener noreferrer"
+               onClick={() => { try { NBTracking.track('Contact', { content_name: c?.title, value: invoice?.amount || 0, currency: 'IDR' }, invoice?.invoice_number); } catch {} }}
                className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold bg-emerald-500 text-white hover:bg-emerald-600">
               <Icon name="wa" size={16}/> {label}
             </a>

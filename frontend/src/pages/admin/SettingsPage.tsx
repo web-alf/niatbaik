@@ -238,8 +238,9 @@ function ThemesPanel({ settings, onSave }: any) {
   const [fontFamily, setFontFamily] = useState(settings?.font_family || 'plus-jakarta');
   const [buttonStyle, setButtonStyle] = useState(settings?.button_style || 'Solid');
   const logoRef = useRef<any>(null);
-  const DEFAULT_LOGO = 'assets/logo.png';
-  const [logoSrc, setLogoSrc] = useState(settings?.logo || settings?.logo_url || DEFAULT_LOGO);
+  // No bundled default logo — the platform logo is whatever the admin uploads here
+  // (empty = show the neutral placeholder). logoSrc holds the saved upload path or ''.
+  const [logoSrc, setLogoSrc] = useState(settings?.logo || settings?.logo_url || '');
   useEffect(() => { if (settings?.primary_color) setColor(settings.primary_color); }, [settings]);
   useEffect(() => { if (settings?.secondary_color) setSecondaryColor(settings.secondary_color); }, [settings]);
   useEffect(() => { if (settings?.border_radius != null) setRadius(settings.border_radius); }, [settings]);
@@ -283,11 +284,13 @@ function ThemesPanel({ settings, onSave }: any) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="rounded-xl border border-dashed border-line bg-bg2 p-6 flex items-center justify-center min-h-[140px]">
             <div className="text-center">
-              <img src={logoSrc || DEFAULT_LOGO} alt="logo" className="mx-auto h-12"/>
+              {logoSrc
+                ? <img src={mediaUrl(logoSrc)} alt="logo" className="mx-auto h-12"/>
+                : <div className="mx-auto h-12 flex items-center justify-center text-mute text-xs">Belum ada logo</div>}
               <input ref={logoRef} type="file" accept="image/png,image/svg+xml" className="hidden" onChange={handleLogoUpload}/>
               <div className="mt-3 flex items-center justify-center gap-2">
                 <Btn size="sm" variant="outline" tone="ink" icon="upload" onClick={() => logoRef.current?.click()}>Upload Logo</Btn>
-                {logoSrc && logoSrc !== DEFAULT_LOGO && (
+                {logoSrc && (
                   <Btn size="sm" variant="outline" tone="ink" icon="trash" onClick={() => { setLogoSrc(''); showToast('Logo dihapus. Klik Simpan untuk menerapkan.'); }}>Hapus</Btn>
                 )}
               </div>
@@ -352,7 +355,7 @@ function ThemesPanel({ settings, onSave }: any) {
       </Section>
 
       <div className="flex justify-end mt-4">
-        <SaveButton onClick={() => { applyTheme(color, secondaryColor); return onSave({ primary_color: color, secondary_color: secondaryColor, border_radius: radius, logo: logoSrc === DEFAULT_LOGO ? '' : logoSrc, font_family: fontFamily, button_style: buttonStyle }); }}>Simpan Perubahan</SaveButton>
+        <SaveButton onClick={() => { applyTheme(color, secondaryColor); return onSave({ primary_color: color, secondary_color: secondaryColor, border_radius: radius, logo: logoSrc, font_family: fontFamily, button_style: buttonStyle }); }}>Simpan Perubahan</SaveButton>
       </div>
     </>
   );

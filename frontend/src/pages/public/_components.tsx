@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { fmtIDR, fmtIDRShort, fmtNum, NOMINAL_PRESETS } from '@/lib/format';
 import { api, mediaUrl, sanitizeHTML } from '@/lib/api';
 import { NBTracking } from '@/lib/tracking';
-import { Icon } from '@/components';
+import { Icon, Logo } from '@/components';
 import { useDataStore } from '@/store/data';
 import { useAuth } from '@/context/AuthContext';
 
@@ -174,7 +174,7 @@ export function Navbar({ onNav, onHome }: any) {
     <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-line">
       <div className="max-w-7xl mx-auto px-4 lg:px-6 h-16 flex items-center gap-4">
         <button onClick={() => onNav('home')} className="flex items-center">
-          <img src={navLogo ? mediaUrl(navLogo) : '/assets/logo-niatbaik.png'} alt="NIATBAIK.ORG" className="h-8"/>
+          {navLogo ? <img src={mediaUrl(navLogo)} alt="NIATBAIK.ORG" className="h-8"/> : <Logo size={32}/>}
         </button>
         <nav className="hidden lg:flex items-center gap-1 ml-6">
           {links.map((l) => (
@@ -549,7 +549,7 @@ export function Footer() {
           {/* Logo on a white chip so its real brand colors stay correct on the dark footer
               (the old invert/brightness hack washed the navy wordmark out). */}
           <div className="inline-flex items-center rounded-xl bg-white px-3 py-2 shadow-sm">
-            <img src={publicSettings?.logo ? mediaUrl(publicSettings.logo) : '/assets/logo-niatbaik.png'} alt="NIATBAIK.ORG" className="h-7"/>
+            {publicSettings?.logo ? <img src={mediaUrl(publicSettings.logo)} alt="NIATBAIK.ORG" className="h-7"/> : <Logo size={28}/>}
           </div>
           <p className="mt-4 text-sm text-white/70 max-w-sm leading-relaxed">Platform donasi & crowdfunding terpercaya. Salurkan zakat, sedekah, wakaf, dan donasi kemanusiaan dengan mudah.</p>
           {kontakHref && (

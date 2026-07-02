@@ -4,7 +4,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
-import { Icon } from '@/components';
+import { Icon, Logo } from '@/components';
 
 // Shared shell so both pages match the login look.
 function AuthShell({ title, subtitle, children, footer }: any) {
@@ -12,7 +12,7 @@ function AuthShell({ title, subtitle, children, footer }: any) {
     <div className="min-h-screen flex items-center justify-center p-6 bg-bg2 dark:bg-slate-950">
       <div className="w-full max-w-md">
         <div className="mb-6 flex justify-center">
-          <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-8"/>
+          <Logo size={32}/>
         </div>
         <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-card border border-line dark:border-slate-700 p-7">
           <h2 className="text-2xl font-extrabold text-ink dark:text-slate-100">{title}</h2>

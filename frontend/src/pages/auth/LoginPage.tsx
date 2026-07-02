@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { fmtIDRShort, fmtNum } from '@/lib/format';
-import { Icon } from '@/components';
+import { Icon, Logo } from '@/components';
 
 function LoginStats(){
   const [d, setD] = useState<any>(null);
@@ -99,7 +99,7 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="relative">
-          <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-9 brightness-200 invert"/>
+          <Logo size={36} light/>
         </div>
 
         {/* Main content — pushed to bottom */}
@@ -139,7 +139,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           {/* Mobile-only logo */}
           <div className="lg:hidden mb-6 flex justify-center">
-            <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-8"/>
+            <Logo size={32}/>
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-card border border-line dark:border-slate-700 p-7">

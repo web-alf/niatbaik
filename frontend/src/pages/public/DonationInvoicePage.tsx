@@ -5,7 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { mapCampaign } from '@/lib/mappers';
 import { NBTracking } from '@/lib/tracking';
-import { Icon } from '@/components';
+import { Icon, Logo } from '@/components';
 import { InvoiceConfirmation, Footer, usePublicDark } from './_components';
 
 export default function DonationInvoicePage() {
@@ -84,7 +84,7 @@ export default function DonationInvoicePage() {
           className="h-9 w-9 rounded-lg border border-line bg-white hover:bg-bg2 flex items-center justify-center text-ink">
           <Icon name={dark ? 'sun' : 'moon'} size={16}/>
         </button>
-        <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" className="h-7"/>
+        <Logo size={28}/>
       </div>
     </header>
   );

@@ -3,6 +3,7 @@ import { useMemo, type ReactNode, type CSSProperties } from 'react';
 import { Icon } from '@/components/Icon';
 import { fmtIDR, fmtIDRShort, fmtNum } from '@/lib/format';
 import { mediaUrl } from '@/lib/api';
+import { useDataStore } from '@/store/data';
 
 export const Card = ({ children, className = '', as: Tag = 'div', ...rest }: any) => (
   <Tag className={'bg-white rounded-2xl border border-line shadow-card ' + className} {...rest}>
@@ -482,10 +483,18 @@ export const SourcePill = ({ source }: any) => {
   return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${m.bg} ${m.tx}`}>{m.label}</span>;
 };
 
-export const Logo = ({ size = 28 }: { size?: number }) => (
-  <div className="flex items-center gap-2">
-    <img src="/assets/logo-niatbaik.png" alt="NIATBAIK.ORG" style={{ height: size }} className="block" />
-  </div>
-);
+// Logo renders the admin-uploaded logo (Settings → Branding, publicSettings.logo). No
+// bundled default image — when none is uploaded it falls back to a text wordmark so the
+// brand stays consistent with whatever is configured in Settings.
+export const Logo = ({ size = 28, light = false }: { size?: number; light?: boolean }) => {
+  const logo = useDataStore((s) => s.publicSettings)?.logo;
+  if (logo) return <img src={mediaUrl(logo)} alt="NIATBAIK.ORG" style={{ height: size }} className="block" />;
+  // `light` = wordmark for a dark background (e.g. the login side panel).
+  return (
+    <span className={`font-extrabold tracking-tight ${light ? 'text-white' : 'text-brand-600'}`} style={{ fontSize: size * 0.6 }}>
+      NIATBAIK<span className={light ? 'text-white/70' : 'text-ink'}>.ORG</span>
+    </span>
+  );
+};
 
 export type { CSSProperties, ReactNode };

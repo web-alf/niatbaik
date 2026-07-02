@@ -35,6 +35,7 @@ export interface Campaign {
   description: string;
   short_description: string;
   featured: boolean;
+  isUrgent: boolean;
   form_style: string;
   form_type: string;
   opt_nominal: string;

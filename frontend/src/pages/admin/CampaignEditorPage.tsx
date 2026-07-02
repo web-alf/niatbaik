@@ -175,6 +175,7 @@ function CampaignEditorForm({ campaign }: any) {
     fireEvent: (c?.meta_pixel_id || c?.tiktok_pixel_id || (c?.conversion_config && c.conversion_config.trim())) ? 'Custom' : 'Default',
     gtm: c?.gtm_id ? 'Custom' : 'Default',
     socialProof: 'Hide',
+    urgent: c?.is_urgent ? 'Show' : 'Hide',
     popupInfo: c?.popup_info ? 'Show' : 'Hide',
     waFlying: c?.wa_flying_button ? 'Custom' : 'Default',
     extLink: c?.external_link ? 'Custom' : 'Default',
@@ -365,6 +366,7 @@ function CampaignEditorForm({ campaign }: any) {
     // Advanced options
     payload.wa_notification = adv.wa === 'Custom';
     payload.followup_enabled = adv.followup === 'Custom';
+    payload.is_urgent = adv.urgent === 'Show';
     payload.popup_info = adv.popupInfo === 'Show';
     payload.wa_flying_button = adv.waFlying === 'Custom';
     payload.form_fields_config = JSON.stringify({ _custom: adv.form === 'Custom', anonim: formCustom.anonim, email: formCustom.email, comment: formCustom.comment, button1: formCustom.button1, button2: formCustom.button2 });
@@ -817,6 +819,7 @@ function CampaignEditorForm({ campaign }: any) {
                   )}
                 </div>
 
+                <AdvRadio label="Tandai Urgent (badge URGENT di publik)"  value={adv.urgent}       options={['Hide','Show']}      onChange={(v: any) => setAdv({...adv, urgent:v})}/>
                 <AdvRadio label="Social Proof"                         value={adv.socialProof}  options={['Hide','Show']}      onChange={(v: any) => setAdv({...adv, socialProof:v})}/>
                 <AdvRadio label="Popup Info (Form)"                    value={adv.popupInfo}    options={['Hide','Show']}      onChange={(v: any) => setAdv({...adv, popupInfo:v})}/>
                 {adv.popupInfo === 'Show' && (

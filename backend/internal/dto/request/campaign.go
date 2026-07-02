@@ -11,6 +11,7 @@ type CreateCampaignRequest struct {
 	CategoryID       *uuid.UUID `json:"category_id"`
 	Unlimited        bool       `json:"unlimited"`
 	Featured         bool       `json:"featured"`
+	IsUrgent         bool       `json:"is_urgent"`
 	LocationName     string     `json:"location_name"`
 	LocationGmaps    string     `json:"location_gmaps"`
 	FormType         string     `json:"form_type"`
@@ -49,6 +50,7 @@ type UpdateCampaignRequest struct {
 	// would decode an omitted key to false and silently clear the flag on every edit.
 	Unlimited        *bool      `json:"unlimited"`
 	Featured         *bool      `json:"featured"`
+	IsUrgent         *bool      `json:"is_urgent"`
 	Status           string     `json:"status" validate:"omitempty,oneof=Draft Berjalan Running Published Selesai Ditolak Menunggu Pending Aktif Nonaktif Ended"`
 	LocationName     string     `json:"location_name"`
 	LocationGmaps    string     `json:"location_gmaps"`

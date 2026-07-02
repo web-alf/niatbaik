@@ -58,6 +58,7 @@ func (s *CampaignService) Create(req *request.CreateCampaignRequest, userID uuid
 		Description:      req.Description,
 		Unlimited:        req.Unlimited,
 		Featured:         req.Featured,
+		IsUrgent:         req.IsUrgent,
 		LocationName:     req.LocationName,
 		LocationGmaps:    req.LocationGmaps,
 		FormType:         req.FormType,
@@ -240,6 +241,9 @@ func (s *CampaignService) Update(id uuid.UUID, req *request.UpdateCampaignReques
 	}
 	if req.Featured != nil {
 		c.Featured = *req.Featured
+	}
+	if req.IsUrgent != nil {
+		c.IsUrgent = *req.IsUrgent
 	}
 
 	if err := s.campaignRepo.Update(c); err != nil {

@@ -22,6 +22,7 @@ type CampaignListItem struct {
 	Category           string    `json:"category"`
 	ProgressPercentage float64   `json:"progress_percentage"`
 	Featured           bool      `json:"featured"`
+	IsUrgent           bool      `json:"is_urgent"`
 	Icon               string    `json:"icon"`
 	ThumbGradient      string    `json:"thumb_gradient"`
 	FormStyle          string    `json:"form_style"`
@@ -49,6 +50,7 @@ type CampaignDetail struct {
 	Category           string               `json:"category"`
 	ProgressPercentage float64              `json:"progress_percentage"`
 	Featured           bool                 `json:"featured"`
+	IsUrgent           bool                 `json:"is_urgent"`
 	Icon               string               `json:"icon"`
 	ThumbGradient      string               `json:"thumb_gradient"`
 	FormStyle          string               `json:"form_style"`
@@ -133,6 +135,7 @@ func ToCampaignListItem(c *model.Campaign, donorCount int64) CampaignListItem {
 		Category:           cat,
 		ProgressPercentage: c.ProgressPercentage(),
 		Featured:           c.Featured,
+		IsUrgent:           c.IsUrgent,
 		Icon:               c.Icon,
 		ThumbGradient:      c.ThumbGradient,
 		FormStyle:          c.FormStyle,
@@ -166,6 +169,7 @@ func ToCampaignDetail(c *model.Campaign, donorCount int64, donors []CampaignDono
 		Category:           cat,
 		ProgressPercentage: c.ProgressPercentage(),
 		Featured:           c.Featured,
+		IsUrgent:           c.IsUrgent,
 		Icon:               c.Icon,
 		ThumbGradient:      c.ThumbGradient,
 		FormStyle:          c.FormStyle,

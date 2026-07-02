@@ -23,6 +23,7 @@ export function mapCampaign(c: any): Campaign {
     description: c.description || c.short_description || '',
     short_description: c.short_description || '',
     featured: c.featured || false,
+    isUrgent: c.is_urgent ?? c.isUrgent ?? false,
     form_style: c.form_style || 'Card',
     form_type: c.form_type || 'donasi',
     opt_nominal: c.opt_nominal || '',

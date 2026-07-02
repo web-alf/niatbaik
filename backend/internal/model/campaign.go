@@ -22,6 +22,9 @@ type Campaign struct {
 	Image            string         `gorm:"size:255" json:"image"`
 	Status           string         `gorm:"size:50;default:'Berjalan'" json:"status"`
 	Featured         bool           `gorm:"default:false" json:"featured"`
+	// IsUrgent: admin-controlled "URGENT" badge on the public campaign card/hero. Replaces
+	// the old auto rule (daysLeft <= 10) so the badge is shown only when an admin opts in.
+	IsUrgent         bool           `gorm:"default:false" json:"is_urgent"`
 	PostedAt         *time.Time     `json:"posted_at"`
 	LastCheckedAt    *time.Time     `json:"last_checked_at"`
 	LocationName     string         `gorm:"size:255" json:"location_name"`

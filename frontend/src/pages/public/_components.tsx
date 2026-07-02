@@ -373,7 +373,7 @@ function PublicCampaignCard({ c, onNav }: any) {
         <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/35 to-transparent"/>
         <div className="absolute top-3 left-3 flex gap-1.5">
           <span className="px-2 py-0.5 rounded-md bg-white/95 text-[11px] font-bold text-ink">{c.category}</span>
-          {c.daysLeft <= 10 && <span className="px-2 py-0.5 rounded-md bg-rose-500 text-[11px] font-bold text-white">URGENT</span>}
+          {c.isUrgent && <span className="px-2 py-0.5 rounded-md bg-rose-500 text-[11px] font-bold text-white">URGENT</span>}
         </div>
         <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded-md bg-black/40 backdrop-blur text-[11px] font-bold text-white inline-flex items-center gap-1">
           <Icon name="calendar" size={11}/> {c.daysLeft} hari
@@ -1049,6 +1049,7 @@ export function CampaignPage({ c: listItem, onNav }: any) {
                 <div className="absolute top-4 left-4 flex gap-2">
                   <span className="px-2.5 py-1 rounded-md bg-white/95 text-[11px] font-bold text-ink">{c.category}</span>
                   <span className="px-2.5 py-1 rounded-md bg-emerald-600 text-[11px] font-bold text-white inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse"/>LIVE</span>
+                  {c.isUrgent && <span className="px-2.5 py-1 rounded-md bg-rose-500 text-[11px] font-bold text-white">URGENT</span>}
                 </div>
                 {/* Title overlay only on desktop — on phones it crowds the 16/9 photo. */}
                 <div className="hidden lg:block absolute bottom-4 left-4 right-4 text-white">

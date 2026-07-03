@@ -779,52 +779,19 @@ export function CampaignPage({ c: listItem, onNav }: any) {
   // amount they chose isn't silently dropped.
   const seededAmount = Number(listItem && listItem._seedAmount) || 0;
   const [view, setViewRaw] = useState(seededAmount > 0 ? 'form' : 'content'); // 'content' | 'form'
-  // Wrap setView to fire the InitiateCheckout pixel event when the donor opens the
-  // donation form — the one transition that matters for the funnel. (`c` + `amount`
-  // are declared below; the wrapper closes over them and runs only when called.)
-  const setView = (v: any) => {
-    if (v === 'form' && view !== 'form') {
-      // Funnel: click_donate (CTA pressed) → begin_checkout/InitiateCheckout (form shown).
-      try {
-        NBTracking.track('click_donate', { content_name: c.title, value: amount || 0, currency: 'IDR' });
-        NBTracking.track('begin_checkout', { content_name: c.title, value: amount || 0, currency: 'IDR' });
-        NBTracking.track('InitiateCheckout', { content_name: c.title, value: amount || 0, currency: 'IDR' });
-      } catch {}
-    }
-    setViewRaw(v);
-  };
+  // Opening the form fires NO pixel event by design: the Meta funnel is
+  // PageView → Lead (invoice created) → Contact (WA) → Purchase (paid). Firing
+  // InitiateCheckout/click_donate here just flooded the pixel (Meta Pixel Helper).
+  const setView = (v: any) => setViewRaw(v);
   const [tab, setTab] = useState('story');
   const [amount, setAmountRaw] = useState(seededAmount > 0 ? seededAmount : 100_000);
-  // Wrap setAmount to fire the funnel's select_amount step (debounced so dragging a
-  // custom-amount field doesn't spam pixels). Fires a semantic dataLayer event for GTM
-  // plus the standard AddToCart pixel event.
-  const amtTrackRef = useRef<any>(null);
-  const setAmount = (a: any) => {
-    setAmountRaw(a);
-    try {
-      if (amtTrackRef.current) clearTimeout(amtTrackRef.current);
-      const v = Number(a) || 0;
-      if (v <= 0) return; // skip zero/reset (e.g. ZakatCalc mount) — not a real pick
-      amtTrackRef.current = setTimeout(() => {
-        NBTracking.track('AddToCart', { content_name: c.title, value: v, currency: 'IDR' });
-        NBTracking.track('select_amount', { content_name: c.title, value: v, currency: 'IDR' });
-      }, 600);
-    } catch {}
-  };
+  // No pixel event on amount pick: filling the form is not a funnel step. Lead
+  // fires only once the invoice is created (see handleSubmit).
+  const setAmount = (a: any) => setAmountRaw(a);
 
   const [paymentMethod, setPaymentMethodRaw] = useState('QRIS');
-  // Wrap setPaymentMethod to fire AddPaymentInfo + select_payment once the donor picks
-  // how they'll pay (manual bank, etc.). De-duped: only fires on an actual change.
-  const setPaymentMethod = (m: any) => {
-    const changed = m !== paymentMethod;
-    setPaymentMethodRaw(m);
-    if (!changed) return;
-    try {
-      const label = typeof m === 'object' ? (m?.bank_name || m?.type || '') : m;
-      NBTracking.track('AddPaymentInfo', { content_name: c.title, value: amount, currency: 'IDR', payment_method: label });
-      NBTracking.track('select_payment', { content_name: c.title, value: amount, currency: 'IDR', payment_method: label });
-    } catch {}
-  };
+  // No pixel event on payment-method pick either — same reason as setAmount.
+  const setPaymentMethod = (m: any) => setPaymentMethodRaw(m);
   const [anon, setAnon] = useState(false);
   const [donor, setDonor] = useState<any>({ name:'', wa:'', email:'', message:'' });
   const [paid, setPaid] = useState(false);
@@ -837,7 +804,7 @@ export function CampaignPage({ c: listItem, onNav }: any) {
   // Track mount so a deferred setSubmitting (idempotency retry hold) doesn't fire on
   // an unmounted component if the donor navigates away during the 5s window.
   const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; if (amtTrackRef.current) clearTimeout(amtTrackRef.current); }, []);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   // The landing list only carries summary fields (short_description, no story /
   // donors / updates). Fetch the full detail by slug and merge it over the list
@@ -877,11 +844,11 @@ export function CampaignPage({ c: listItem, onNav }: any) {
           // Load this campaign's OWN pixels (Meta/TikTok/GTM/Google Ads) so per-campaign
           // "Fire Event" tracking actually fires — initPixels() only loaded the GLOBAL ones.
           try { NBTracking.initCampaignPixels(d); } catch {}
-          // ViewContent + view_campaign funnel event: a donor landed on a campaign page.
-          try {
-            NBTracking.track('ViewContent', { content_name: d.title || listItem.title, content_ids: [listItem.id], value: d.target_amount || 0, currency: 'IDR' });
-            NBTracking.track('view_campaign', { content_name: d.title || listItem.title, campaign_slug: d.slug || listItem.slug, value: d.target_amount || 0, currency: 'IDR' });
-          } catch {}
+          // No ViewContent/view_campaign here — landing on a campaign already fires the
+          // pixel's own PageView (injectFbq / initCampaignPixels). Firing extra standard
+          // events on top just duplicated the hit in Meta Pixel Helper (funnel: PageView →
+          // Lead → Contact → Purchase). GTM/dataLayer view tracking, if wanted, belongs in
+          // a GTM tag off the PageView, not a second pixel event.
         }
       } catch { /* keep list item as fallback */ }
     })();
@@ -988,13 +955,13 @@ export function CampaignPage({ c: listItem, onNav }: any) {
         ...NBTracking.getUTM(),
       });
       if (res?.data) {
-        // Fire the per-campaign "submit" conversion (Berdu's click-trigger equivalent):
-        // donor completed the form and an invoice was created. value = actual nominal.
-        try { NBTracking.fireConversion(c, 'submit', Number(amount) || 0); } catch {}
-        // Standard Meta/TikTok "Lead": the donor pressed the donate/checkout button and a
-        // lead (invoice) was created. Fired explicitly (not only via per-campaign config)
-        // so Lead always lands; event_id = invoice number for CAPI dedup.
-        try { NBTracking.track('Lead', { content_name: c.title, value: Number(amount) || 0, currency: 'IDR' }, res.data.invoice_number); } catch {}
+        // Lead = invoice created (donor pressed "Lanjut ke Pembayaran"). This is the ONLY
+        // page-2 pixel fire. It is admin-driven: the event name comes from the campaign's
+        // Fire Event → Submit setting (conversion_config.meta.events.submit, default
+        // "Lead"). A Default campaign with no config fires nothing here — exactly what the
+        // admin panel implies. event_id = invoice number so the browser event dedups
+        // against the server-side CAPI/Events API lead.
+        try { NBTracking.fireConversion(c, 'submit', Number(amount) || 0, res.data.invoice_number); } catch {}
         // HOSTED GATEWAY (Flip / Moota / Xendit): the donor pays on the gateway's own
         // hosted page (we only get a redirect URL — VA/QRIS can't be rendered inline). Go
         // STRAIGHT there instead of showing an intermediate confirmation page that just
@@ -1621,8 +1588,7 @@ export function DonationForm({ c, presets, amount, setAmount, donor, setDonor, a
   // NOTE: we deliberately do NOT auto-select the gateway method into state here. Routing is
   // guaranteed at submit time by CampaignPage's effectiveMethod = gatewayMethod || paymentMethod,
   // which always sends the gateway method's id when one exists. Mutating paymentMethod from an
-  // effect would (a) fire a false AddPaymentInfo (the wrapped setter tracks every call) for a
-  // choice the donor never made, and (b) couple two components' state for no functional gain.
+  // effect would couple two components' state for no functional gain.
 
   return (
     <div className="rounded-2xl bg-white border border-line shadow-card p-5 lg:p-6">

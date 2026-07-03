@@ -1,5 +1,6 @@
 // Shared UI primitives. Ported from components.jsx → named exports.
 import { useMemo, type ReactNode, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '@/components/Icon';
 import { fmtIDR, fmtIDRShort, fmtNum } from '@/lib/format';
 import { mediaUrl } from '@/lib/api';
@@ -321,14 +322,20 @@ export const UtmGrid = ({ utm = {}, editable = false, onChange }: any) => {
 export const Modal = ({ open, onClose, title, children, size = 'md', footer }: any) => {
   if (!open) return null;
   const sizes: Record<string, string> = { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-3xl', xl: 'max-w-5xl' };
-  // Overlay: centered on every screen (was top-aligned on mobile, which made a tall
-  // dialog like Edit User sink below the fold and force the admin to scroll). No outer
-  // overflow scroll — the body scrolls internally (flex-1 min-h-0) so the modal stays
-  // put in the viewport. No backdrop blur, just a dim overlay.
-  return (
+  // Portal to document.body: the admin content is wrapped in .fadeup, whose keyframe
+  // uses `transform`. A transformed ancestor becomes the containing block for any
+  // descendant `position: fixed`, so without the portal the overlay anchored to the
+  // content pane (right of the sidebar, below the topbar) instead of the viewport —
+  // the modal appeared centered in the body, not the screen. Rendering into body
+  // escapes that ancestor so `fixed inset-0` truly means the whole viewport.
+  //
+  // Overlay is transparent (per request): just an invisible full-screen click-catcher
+  // for click-outside-to-close. The card carries a strong shadow + ring so it still
+  // reads as elevated without a dim backdrop. Body scrolls internally (flex-1 min-h-0,
+  // max-h-[92vh]) so the dialog stays centered and never sinks below the fold.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onMouseDown={onClose}>
-      <div className="absolute inset-0 bg-ink/40" />
-      <div className={`relative bg-white rounded-2xl shadow-pop w-full ${sizes[size]} max-h-[92vh] flex flex-col`} onMouseDown={(e) => e.stopPropagation()}>
+      <div className={`relative bg-white rounded-2xl shadow-pop ring-1 ring-ink/10 w-full ${sizes[size]} max-h-[92vh] flex flex-col`} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
           <h3 className="font-bold text-ink">{title}</h3>
           <button onClick={onClose} className="h-8 w-8 rounded-lg hover:bg-bg2 flex items-center justify-center text-mute">
@@ -344,7 +351,8 @@ export const Modal = ({ open, onClose, title, children, size = 'md', footer }: a
             Btn share the row on phones. */}
         {footer && <div className="px-5 py-3 border-t border-line bg-bg2 rounded-b-2xl flex items-center gap-2 shrink-0 [&>*]:flex-1 sm:[&>*]:flex-none sm:justify-end">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 

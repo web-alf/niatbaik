@@ -126,12 +126,15 @@ export default function NotificationsPage() {
           <div className="p-8 text-center text-mute text-sm">Tidak ada notifikasi.</div>
         )}
         {!loading && filtered.map((n) => (
-          <div key={n.id} className={`flex items-start gap-3 p-4 hover:bg-bg2/60 cursor-pointer ${n.unread ? 'bg-bg2/30' : ''}`} onClick={() => handleClick(n)}>
+          <div key={n.id} className="flex items-start gap-3 p-4 cursor-pointer transition-colors hover:bg-ink/[0.03]" onClick={() => handleClick(n)}>
             <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${tones[n.tone]}`}><Icon name={n.icon} size={18} /></div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <div className="font-bold text-ink">{n.title}</div>
-                {n.unread && <span className="h-2 w-2 rounded-full bg-brand-600" />}
+                {/* Minimalist unread label — plain colored text, no background, so it
+                    reads the same in light and dark (the old bg-bg2/30 row tint fell
+                    back to a light/white fill in dark mode). */}
+                {n.unread && <span className="text-[10px] font-bold uppercase tracking-wide text-brand-600 shrink-0">Baru</span>}
               </div>
               {n.body && <div className="text-sm text-ink/80 mt-0.5">{n.body}</div>}
               <div className="text-xs text-mute mt-1">{n.when}</div>

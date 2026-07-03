@@ -9,8 +9,11 @@ type CreateUserRequest struct {
 }
 
 type UpdateUserRequest struct {
-	Name               string `json:"name"`
-	Email              string `json:"email" validate:"omitempty,email"`
-	Phone              string `json:"phone" validate:"omitempty,min=7,max=20"`
-	Role               string `json:"role" validate:"omitempty,oneof=admin cs advertiser user fundraiser"`
+	Name  string `json:"name"`
+	Email string `json:"email" validate:"omitempty,email"`
+	Phone string `json:"phone" validate:"omitempty,min=7,max=20"`
+	Role  string `json:"role" validate:"omitempty,oneof=admin cs advertiser user fundraiser"`
+	// Password: admin-set new password. Optional — empty means "leave unchanged".
+	// Validated only when present. bcrypt truncates >72 bytes.
+	Password string `json:"password" validate:"omitempty,min=8,max=72"`
 }

@@ -331,7 +331,10 @@ export const Modal = ({ open, onClose, title, children, size = 'md', footer }: a
             <Icon name="close" size={18} />
           </button>
         </div>
-        <div className="overflow-y-auto p-5">{children}</div>
+        {/* flex-1 min-h-0: without min-h-0 a flex child won't shrink below its content,
+            so on short viewports the body overflows max-h-[92vh] and clips the footer
+            instead of scrolling. min-h-0 lets it actually scroll. */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-5">{children}</div>
         {footer && <div className="px-5 py-3 border-t border-line bg-bg2 rounded-b-2xl flex items-center justify-end gap-2 shrink-0">{footer}</div>}
       </div>
     </div>

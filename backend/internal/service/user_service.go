@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/model"
@@ -115,6 +116,18 @@ func (s *UserService) Update(id uuid.UUID, req *request.UpdateUserRequest) (*mod
 	}
 	if req.Role != "" {
 		u.Role = req.Role
+	}
+	// Admin-set password change. Optional: only when a value is sent. Hash it and stamp
+	// PasswordChangedAt so the JWT middleware invalidates the user's existing sessions —
+	// forcing a re-login with the new credential.
+	if req.Password != "" {
+		hashed, err := hash.HashPassword(req.Password)
+		if err != nil {
+			return nil, err
+		}
+		u.Password = hashed
+		now := time.Now()
+		u.PasswordChangedAt = &now
 	}
 
 	if err := s.userRepo.Update(u); err != nil {

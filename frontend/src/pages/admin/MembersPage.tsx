@@ -29,6 +29,7 @@ export default function MembersPage() {
   const [addForm, setAddForm] = useState<any>({ name:'', email:'', phone:'', role:'admin', password:'' });
   const [addErrors, setAddErrors] = useState<any>({});
   const [addLoading, setAddLoading] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -47,6 +48,7 @@ export default function MembersPage() {
     if (editing) setAddForm({ name: editing.name, email: editing.email, phone: editing.phone || '', role: editing.role.toLowerCase(), password: '' });
     else setAddForm({ name:'', email:'', phone:'', role:'admin', password:'' });
     setAddErrors({});
+    setShowPwd(false);
   }, [editing, showAdd]);
 
   const filtered = useMemo(() => {
@@ -64,15 +66,21 @@ export default function MembersPage() {
     const e: any = {};
     if (!addForm.name.trim()) e.name = 'Nama wajib diisi';
     if (!addForm.email.trim()) e.email = 'Email wajib diisi';
+    // On create the password is required; on edit it's optional (blank = unchanged).
+    // Either way, if a value is present it must be ≥8 chars.
     if (!editing && !addForm.password.trim()) e.password = 'Password wajib diisi (min 8 karakter)';
-    if (!editing && addForm.password && addForm.password.length < 8) e.password = 'Password minimal 8 karakter';
+    if (addForm.password && addForm.password.length < 8) e.password = 'Password minimal 8 karakter';
     setAddErrors(e);
     if (Object.keys(e).length) return;
     setAddLoading(true);
     try {
       if (editing) {
-        await api.updateUser(editing.id, { name: addForm.name, email: addForm.email, phone: addForm.phone, role: addForm.role });
-        showToast('User berhasil diupdate');
+        const patch: any = { name: addForm.name, email: addForm.email, phone: addForm.phone, role: addForm.role };
+        // Only send password when the admin actually typed a new one — an empty field
+        // leaves the current password untouched (backend treats "" as unchanged).
+        if (addForm.password.trim()) patch.password = addForm.password;
+        await api.updateUser(editing.id, patch);
+        showToast(addForm.password.trim() ? 'User & password berhasil diupdate' : 'User berhasil diupdate');
       } else {
         await api.createUser({ name: addForm.name, email: addForm.email, phone: addForm.phone, role: addForm.role, password: addForm.password });
         showToast('User berhasil ditambahkan');
@@ -248,14 +256,23 @@ export default function MembersPage() {
               ))}
             </div>
           </div>
-          {!editing && (
-            <div>
-              <label className="text-xs font-semibold text-mute">Password</label>
-              <input type="password" className={`field mt-1 ${addErrors.password ? 'border-rose-500' : ''}`} value={addForm.password} onChange={(e) => setAddForm({...addForm, password: e.target.value})} placeholder="Min 8 karakter"/>
-              {addErrors.password && <div className="text-xs text-rose-500 mt-1">{addErrors.password}</div>}
-              <div className="text-[10px] text-mute mt-1">Detail login dikirim ke email user (jika SMTP aktif)</div>
+          <div>
+            <label className="text-xs font-semibold text-mute">
+              {editing ? 'Password baru' : 'Password'}
+              {editing && <span className="font-normal normal-case"> · opsional</span>}
+            </label>
+            <div className="relative mt-1">
+              <input type={showPwd ? 'text' : 'password'} className={`field pr-10 ${addErrors.password ? 'border-rose-500' : ''}`} value={addForm.password} onChange={(e) => setAddForm({...addForm, password: e.target.value})} placeholder={editing ? 'Kosongkan jika tidak diubah' : 'Min 8 karakter'}/>
+              <button type="button" onClick={() => setShowPwd(!showPwd)} aria-label={showPwd ? 'Sembunyikan' : 'Tampilkan'}
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-md hover:bg-bg2 flex items-center justify-center text-mute">
+                <Icon name="eye" size={14} className={showPwd ? 'text-brand-600' : ''}/>
+              </button>
             </div>
-          )}
+            {addErrors.password && <div className="text-xs text-rose-500 mt-1">{addErrors.password}</div>}
+            <div className="text-[10px] text-mute mt-1">
+              {editing ? 'Mengganti password akan mengeluarkan user dari sesi login yang aktif.' : 'Detail login dikirim ke email user (jika SMTP aktif)'}
+            </div>
+          </div>
         </div>
       </Modal>
 

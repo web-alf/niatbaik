@@ -335,7 +335,7 @@ export const Modal = ({ open, onClose, title, children, size = 'md', footer }: a
   // max-h-[92vh]) so the dialog stays centered and never sinks below the fold.
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onMouseDown={onClose}>
-      <div className={`relative bg-white rounded-2xl shadow-pop ring-1 ring-ink/10 w-full ${sizes[size]} max-h-[92vh] flex flex-col`} onMouseDown={(e) => e.stopPropagation()}>
+      <div className={`relative bg-white rounded-2xl shadow-pop ring-1 ring-ink/10 border border-line w-full ${sizes[size]} max-h-[92vh] flex flex-col`} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
           <h3 className="font-bold text-ink">{title}</h3>
           <button onClick={onClose} className="h-8 w-8 rounded-lg hover:bg-bg2 flex items-center justify-center text-mute">

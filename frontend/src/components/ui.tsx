@@ -321,9 +321,13 @@ export const UtmGrid = ({ utm = {}, editable = false, onChange }: any) => {
 export const Modal = ({ open, onClose, title, children, size = 'md', footer }: any) => {
   if (!open) return null;
   const sizes: Record<string, string> = { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-3xl', xl: 'max-w-5xl' };
+  // Overlay: centered on every screen (was top-aligned on mobile, which made a tall
+  // dialog like Edit User sink below the fold and force the admin to scroll). No outer
+  // overflow scroll — the body scrolls internally (flex-1 min-h-0) so the modal stays
+  // put in the viewport. No backdrop blur, just a dim overlay.
   return (
-    <div className="fixed inset-0 z-50 flex items-start pt-[5vh] lg:items-center lg:pt-0 justify-center p-4 overflow-y-auto" onMouseDown={onClose}>
-      <div className="absolute inset-0 bg-ink/40 backdrop-blur-sm" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onMouseDown={onClose}>
+      <div className="absolute inset-0 bg-ink/40" />
       <div className={`relative bg-white rounded-2xl shadow-pop w-full ${sizes[size]} max-h-[92vh] flex flex-col`} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
           <h3 className="font-bold text-ink">{title}</h3>

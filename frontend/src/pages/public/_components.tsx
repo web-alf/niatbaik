@@ -936,9 +936,8 @@ export function CampaignPage({ c: listItem, onNav }: any) {
   ];
 
   const handleSubmit = async () => {
-    // Lead: the donor pressed the donate / "Lanjut ke Pembayaran" button. Fires on the
-    // click itself (Meta standard Lead) — distinct from InitiateCheckout (form opened).
-    try { NBTracking.track('Lead', { content_name: c.title, value: Number(amount) || 0, currency: 'IDR' }); } catch { /* pixel never blocks submit */ }
+    // Lead fires AFTER invoice creation (see below) with event_id = invoice number for
+    // CAPI dedup — not here on raw click, which would double-count against that one.
     // Client-side validation mirrors the server rules so the donor gets immediate,
     // Indonesian feedback (the flowchart's "Form valid? Tidak → Pesan error" path)
     // instead of a round-trip + generic error. Errors render INLINE under each field

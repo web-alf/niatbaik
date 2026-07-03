@@ -335,7 +335,10 @@ export const Modal = ({ open, onClose, title, children, size = 'md', footer }: a
             so on short viewports the body overflows max-h-[92vh] and clips the footer
             instead of scrolling. min-h-0 lets it actually scroll. */}
         <div className="flex-1 min-h-0 overflow-y-auto p-5">{children}</div>
-        {footer && <div className="px-5 py-3 border-t border-line bg-bg2 rounded-b-2xl flex items-center justify-end gap-2 shrink-0">{footer}</div>}
+        {/* Footer: on mobile the actions stretch full-width (easier to tap, no cramped
+            right-huddle); from sm up they sit right-aligned. [&>*]:flex-1 makes each
+            Btn share the row on phones. */}
+        {footer && <div className="px-5 py-3 border-t border-line bg-bg2 rounded-b-2xl flex items-center gap-2 shrink-0 [&>*]:flex-1 sm:[&>*]:flex-none sm:justify-end">{footer}</div>}
       </div>
     </div>
   );

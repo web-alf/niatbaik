@@ -782,7 +782,13 @@ export function CampaignPage({ c: listItem, onNav }: any) {
   // Opening the form fires NO pixel event by design: the Meta funnel is
   // PageView → Lead (invoice created) → Contact (WA) → Purchase (paid). Firing
   // InitiateCheckout/click_donate here just flooded the pixel (Meta Pixel Helper).
-  const setView = (v: any) => setViewRaw(v);
+  // Scroll to top on every view switch: on mobile the sidebar CTA stacks BELOW the
+  // whole story, so tapping "Donasi Sekarang" while scrolled down would otherwise
+  // render the form at the same offset and land the donor at the footer.
+  const setView = (v: any) => {
+    setViewRaw(v);
+    try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch {}
+  };
   const [tab, setTab] = useState('story');
   const [amount, setAmountRaw] = useState(seededAmount > 0 ? seededAmount : 100_000);
   // No pixel event on amount pick: filling the form is not a funnel step. Lead
@@ -1035,6 +1041,28 @@ export function CampaignPage({ c: listItem, onNav }: any) {
               <div className="lg:hidden mt-3">
                 <div className="text-[11px] font-semibold uppercase text-mute">Yayasan Niat Baik · Terverifikasi</div>
                 <h1 className="mt-1 text-xl font-extrabold leading-snug text-ink">{c.title}</h1>
+              </div>
+
+              {/* Mobile-only top CTA: the full progress+donate card is in the sidebar,
+                  which on phones stacks BELOW the whole story. This compact block puts a
+                  donate button + progress within reach right under the title so donors
+                  don't have to scroll past the entire story to act. */}
+              <div className="lg:hidden mt-4 rounded-2xl bg-white border border-line shadow-card p-4">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-mute">Donasi terkumpul</div>
+                    <div className="mt-0.5 text-2xl font-extrabold text-brand-600 leading-none">{fmtIDR(c.raised)}</div>
+                    <div className="text-xs text-mute mt-0.5">dari target <b>{fmtIDR(c.target)}</b></div>
+                  </div>
+                  <div className="text-right text-xs">
+                    <div className="font-extrabold text-emerald-600 text-base leading-none">{c.target ? Math.round(c.raised / c.target * 100) : 0}%</div>
+                    <div className="text-mute mt-0.5">{c.daysLeft} hari lagi</div>
+                  </div>
+                </div>
+                <Progress value={c.raised} max={c.target} className="h-2 mt-3"/>
+                <PrimaryBtn size="lg" className="w-full mt-3" onClick={() => setView('form')}>
+                  <Icon name="heart" size={18}/> {ctaLabel}
+                </PrimaryBtn>
               </div>
 
               <div className="mt-5 rounded-2xl bg-white border border-line p-5 lg:p-6">

@@ -91,7 +91,7 @@ export interface User {
   phone?: string;
   role: Role | string;
   access?: string;
-  avatar?: string;
+  image?: string; // persisted /uploads avatar path from /auth/me (resolve via mediaUrl)
   [k: string]: unknown;
 }
 

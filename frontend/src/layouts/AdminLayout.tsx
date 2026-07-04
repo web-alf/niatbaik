@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { RealtimeProvider } from '@/context/RealtimeProvider';
-import { api } from '@/lib/api';
+import { api, mediaUrl } from '@/lib/api';
 
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { role } = useAuth();
@@ -113,10 +113,13 @@ function UserMenu() {
   }, [open]);
 
   const initials = (user.name || 'U').slice(0, 2).toUpperCase();
+  // Avatar is the persisted /uploads path from /auth/me under `image` (NOT `avatar` —
+  // the backend has no such field), resolved via mediaUrl exactly like ProfilePage.
+  const avatar = user.image ? mediaUrl(user.image) : null;
   return (
     <div className="relative" data-usermenu>
       <button onClick={() => setOpen(!open)} className="flex items-center gap-2.5 pl-1 pr-2.5 py-1 rounded-lg border border-line bg-white hover:bg-bg2 transition-colors">
-        {user.avatar ? <img src={user.avatar} alt={user.name} className="h-8 w-8 rounded-md object-cover" /> : (
+        {avatar ? <img src={avatar} alt={user.name} className="h-8 w-8 rounded-md object-cover" /> : (
           <div className={`h-8 w-8 rounded-md flex items-center justify-center text-white font-bold text-xs ${m.color}`}>{initials}</div>
         )}
         <div className="hidden sm:block text-left">
@@ -128,7 +131,7 @@ function UserMenu() {
       {open && (
         <div className="absolute right-0 mt-2 w-72 rounded-xl bg-white border border-line shadow-pop z-50 overflow-hidden">
           <div className={`px-4 py-3.5 ${m.light} flex items-center gap-3 border-b border-line`}>
-            {user.avatar ? <img src={user.avatar} alt={user.name} className="h-10 w-10 rounded-lg object-cover" /> : (
+            {avatar ? <img src={avatar} alt={user.name} className="h-10 w-10 rounded-lg object-cover" /> : (
               <div className={`h-10 w-10 rounded-lg ${m.color} text-white flex items-center justify-center font-bold text-sm`}>{initials}</div>
             )}
             <div className="min-w-0 flex-1">

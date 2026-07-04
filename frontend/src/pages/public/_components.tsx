@@ -271,8 +271,10 @@ export function Hero({ onNav }: any) {
 
 // -------- Logo strip (trust) --------
 // Official logos bundled as static assets (frontend/public/trust/, sourced from Wikimedia
-// Commons). Rendered grayscale, colorized on hover; if an image fails to load the item
-// falls back to the institution name so the strip never shows a broken image.
+// Commons). On hover-capable devices (desktop) logos are grayscale and colorize on hover;
+// touch devices (mobile/tablet) can't hover, so they show full color from the start.
+// If an image fails to load the item falls back to the institution name so the strip
+// never shows a broken image.
 const TRUST_LOGOS = [
   { name: 'Kementerian Sosial RI', src: '/trust/kemensos.svg' },
   { name: 'BAZNAS', src: '/trust/baznas.svg' },
@@ -296,7 +298,7 @@ export function TrustStrip() {
             {[...TRUST_LOGOS, ...TRUST_LOGOS].map((l, i) => (
               <div key={i} className="shrink-0 flex items-center px-6 py-3 rounded-lg bg-white border border-line" title={l.name}>
                 <img src={l.src} alt={l.name} loading="lazy"
-                  className="h-7 max-w-[130px] w-auto object-contain grayscale opacity-75 hover:grayscale-0 hover:opacity-100 transition duration-200"
+                  className="h-7 max-w-[130px] w-auto object-contain transition duration-200 [@media(hover:hover)]:grayscale [@media(hover:hover)]:opacity-75 [@media(hover:hover)]:hover:grayscale-0 [@media(hover:hover)]:hover:opacity-100"
                   onError={(e: any) => {
                     // Swap the broken image for the plain-text name (previous behavior).
                     const span = document.createElement('span');

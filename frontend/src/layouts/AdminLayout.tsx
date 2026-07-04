@@ -9,6 +9,7 @@ import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { RealtimeProvider } from '@/context/RealtimeProvider';
 import { api, mediaUrl } from '@/lib/api';
+import AdsGuidePage from '@/pages/admin/AdsGuidePage';
 
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { role } = useAuth();
@@ -365,10 +366,10 @@ export function AdminLayout() {
   );
 }
 
-// AdsGuide page module is heavy; lazy-mount only when first opened (filled in Task 6).
+// AdsGuide is a self-contained modal (renders null until open), so a plain static
+// mount is enough — the codebase ships one bundle, no route-level code-splitting.
 function AdsGuideMount({ open, onClose }: { open: boolean; onClose: () => void }) {
-  void open; void onClose;
-  return null;
+  return <AdsGuidePage open={open} onClose={onClose} />;
 }
 
 function GlobalToast() {

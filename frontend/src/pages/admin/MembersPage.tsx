@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { api } from '@/lib/api';
+import { api, mediaUrl } from '@/lib/api';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { exportCSV } from '@/lib/export';
@@ -12,6 +12,7 @@ const mapUser = (u: any) => ({
   name: u.name,
   email: u.email,
   phone: u.phone,
+  image: u.image || '',
   role: ((r) => r === 'Cs' ? 'CS' : r)((u.role || 'user').charAt(0).toUpperCase() + (u.role || 'user').slice(1)),
   lastLogin: u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : 'Belum pernah',
   joined: u.created_at ? new Date(u.created_at).toLocaleDateString('id-ID') : '-',
@@ -148,9 +149,14 @@ export default function MembersPage() {
               <tr key={m.id} className="border-b border-line last:border-0">
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-3">
-                    <div className={`h-9 w-9 rounded-full text-white font-bold text-xs flex items-center justify-center ${ROLE_META[m.role]?.color || (m.role==='Fundraiser' ? 'bg-emerald-600' : 'bg-slate-500')}`}>
-                      {m.name.split(' ').map((s: any)=>s[0]).join('').slice(0,2)}
-                    </div>
+                    {m.image ? (
+                      <img src={mediaUrl(m.image)} alt={m.name} className="h-9 w-9 rounded-full object-cover"
+                        onError={(e: any) => { e.target.style.display = 'none'; }}/>
+                    ) : (
+                      <div className={`h-9 w-9 rounded-full text-white font-bold text-xs flex items-center justify-center ${ROLE_META[m.role]?.color || (m.role==='Fundraiser' ? 'bg-emerald-600' : 'bg-slate-500')}`}>
+                        {m.name.split(' ').map((s: any)=>s[0]).join('').slice(0,2)}
+                      </div>
+                    )}
                     <div>
                       <div className="font-semibold text-ink">{m.name}</div>
                       <div className="text-xs text-mute">{m.email}</div>

@@ -24,6 +24,23 @@ type DashboardStats struct {
 	ConversionRate    float64 `json:"conversion_rate"`
 	TodayRaised       int64   `json:"today_raised"`
 	MonthRaised       int64   `json:"month_raised"`
+	// Period-over-period deltas as percentages (nil = no prior-period baseline, so the UI
+	// hides the badge instead of inventing a number). Raised/transactions/leads compare the
+	// last 7 days vs the 7 before; today vs yesterday; month vs same day-range last month.
+	DeltaRaisedPct   *float64 `json:"delta_raised_pct,omitempty"`
+	DeltaTxPct       *float64 `json:"delta_tx_pct,omitempty"`
+	DeltaLeadsPct    *float64 `json:"delta_leads_pct,omitempty"`
+	DeltaTodayPct    *float64 `json:"delta_today_pct,omitempty"`
+	DeltaMonthPct    *float64 `json:"delta_month_pct,omitempty"`
+}
+
+// pctDelta returns ((cur-prev)/prev)*100, or nil when prev is 0 (no baseline to compare).
+func pctDelta(cur, prev int64) *float64 {
+	if prev == 0 {
+		return nil
+	}
+	v := (float64(cur) - float64(prev)) / float64(prev) * 100
+	return &v
 }
 
 type DailyDonation struct {
@@ -130,6 +147,42 @@ func (r *StatsRepo) GetDashboardStats() (*DashboardStats, error) {
 		Where("is_paid = ? AND paid_at >= ?", true, monthStart).
 		Select("COALESCE(SUM(total), 0)").
 		Scan(&stats.MonthRaised)
+
+	// --- Period-over-period deltas (all real, computed from the same invoice table) ---
+	sumPaid := func(from, to time.Time) int64 {
+		var v int64
+		r.db.Model(&model.Invoice{}).
+			Where("is_paid = ? AND paid_at >= ? AND paid_at < ?", true, from, to).
+			Select("COALESCE(SUM(total), 0)").Scan(&v)
+		return v
+	}
+	countPaid := func(from, to time.Time) int64 {
+		var v int64
+		r.db.Model(&model.Invoice{}).
+			Where("is_paid = ? AND paid_at >= ? AND paid_at < ?", true, from, to).Count(&v)
+		return v
+	}
+	countLeads := func(from, to time.Time) int64 {
+		var v int64
+		r.db.Model(&model.Invoice{}).
+			Where("created_at >= ? AND created_at < ?", from, to).Count(&v)
+		return v
+	}
+
+	// last 7 days vs the 7 days before that
+	wk1Start, wk0Start := now.AddDate(0, 0, -7), now.AddDate(0, 0, -14)
+	stats.DeltaRaisedPct = pctDelta(sumPaid(wk1Start, now), sumPaid(wk0Start, wk1Start))
+	stats.DeltaTxPct = pctDelta(countPaid(wk1Start, now), countPaid(wk0Start, wk1Start))
+	stats.DeltaLeadsPct = pctDelta(countLeads(wk1Start, now), countLeads(wk0Start, wk1Start))
+
+	// today vs yesterday
+	yStart := todayStart.AddDate(0, 0, -1)
+	stats.DeltaTodayPct = pctDelta(stats.TodayRaised, sumPaid(yStart, todayStart))
+
+	// month-to-date vs the same day-range of the previous month
+	lastMonthStart := monthStart.AddDate(0, -1, 0)
+	lastMonthSameDay := lastMonthStart.AddDate(0, 0, now.Day()-1)
+	stats.DeltaMonthPct = pctDelta(stats.MonthRaised, sumPaid(lastMonthStart, lastMonthSameDay))
 
 	return stats, nil
 }

@@ -1765,7 +1765,10 @@ function SocialPanel({ settings, onSave }: any) {
   const [spInterval, setSpInterval] = useState(sp.interval || '8');
   const [spPosition, setSpPosition] = useState(sp.position ?? 2);
   const [spTemplate, setSpTemplate] = useState(sp.template || '{{nama}} baru saja berdonasi {{nominal}} untuk {{campaign}}');
-  const [spFallback, setSpFallback] = useState(sp.fallback || 'Hamba Allah, Rizky H., Siti N., Hamba Allah');
+  // Fallback names shown in the PUBLIC social-proof popup when no real recent donor is
+  // available. Default to the anonymized "Hamba Allah" only — never fabricated personal
+  // names (was 'Rizky H., Siti N.' etc., which read as real donors on the live site).
+  const [spFallback, setSpFallback] = useState(sp.fallback || 'Hamba Allah');
   useEffect(() => {
     const s = parseSP(settings?.social_proof_config);
     if (s && Object.keys(s).length) {
@@ -1833,11 +1836,9 @@ function SocialPanel({ settings, onSave }: any) {
   );
 }
 
-const DEFAULT_RULES = [
-  { c:'Bantuan Aira', pct:12 },
-  { c:'Sumur Bersih NTT', pct:10 },
-  { c:'Wakaf Quran', pct:8 },
-];
+// No seeded rules — per-campaign commission overrides start empty and are added from the
+// real campaign list below. (Was seeded with 3 fabricated campaign names that don't exist.)
+const DEFAULT_RULES: any[] = [];
 const parseObj = (v: any) => {
   if (v && typeof v === 'object' && !Array.isArray(v)) return v;
   if (typeof v === 'string' && v.trim()) { try { const p = JSON.parse(v); if (p && typeof p === 'object') return p; } catch {} }
@@ -1846,6 +1847,7 @@ const parseObj = (v: any) => {
 
 function FundraisingPanel({ settings, onSave }: any) {
   const showToast = useUiStore((s) => s.showToast);
+  const campaigns = useDataStore((s) => s.campaigns) || [];
   const fr = parseObj(settings?.fundraising_config);
   const [enabled, setEnabled] = useState(fr.enabled ?? true);
   const [autoCalc, setAutoCalc] = useState(fr.auto_calc ?? true);
@@ -1889,6 +1891,26 @@ function FundraisingPanel({ settings, onSave }: any) {
                   <button onClick={() => setRules((prev: any) => prev.filter((_: any, j: number) => j !== i))} className="text-mute hover:text-rose-600"><Icon name="trash" size={14}/></button>
                 </div>
               ))}
+              {(!Array.isArray(rules) || rules.length === 0) && (
+                <div className="text-xs text-mute">Belum ada aturan khusus. Tambahkan dari campaign nyata di bawah.</div>
+              )}
+            </div>
+            {/* Add a rule from the REAL campaign list (was seeded with fake campaign names). */}
+            <div className="mt-3">
+              <Select value="" onChange={(v: string) => {
+                if (!v) return;
+                setRules((prev: any) => {
+                  const arr = Array.isArray(prev) ? prev : [];
+                  if (arr.some((x: any) => x.c === v)) { showToast('Aturan untuk campaign ini sudah ada'); return arr; }
+                  const defPct = parseInt(String(commission).replace(/\D/g, ''), 10) || 0;
+                  return [...arr, { c: v, pct: defPct }];
+                });
+              }} options={[
+                { value:'', label:'+ Tambah aturan campaign…' },
+                ...campaigns
+                  .filter((c: any) => !(Array.isArray(rules) ? rules : []).some((x: any) => x.c === c.title))
+                  .map((c: any) => ({ value: c.title, label: c.title })),
+              ]}/>
             </div>
           </div>
         </div>

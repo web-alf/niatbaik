@@ -16,10 +16,11 @@ import (
 type AdminCampaignHandler struct {
 	service      *service.CampaignService
 	campaignRepo *repository.CampaignRepo
+	invoiceRepo  *repository.InvoiceRepo
 }
 
-func NewAdminCampaignHandler(svc *service.CampaignService, repo *repository.CampaignRepo) *AdminCampaignHandler {
-	return &AdminCampaignHandler{service: svc, campaignRepo: repo}
+func NewAdminCampaignHandler(svc *service.CampaignService, repo *repository.CampaignRepo, invoiceRepo *repository.InvoiceRepo) *AdminCampaignHandler {
+	return &AdminCampaignHandler{service: svc, campaignRepo: repo, invoiceRepo: invoiceRepo}
 }
 
 func (h *AdminCampaignHandler) List(c echo.Context) error {
@@ -27,13 +28,23 @@ func (h *AdminCampaignHandler) List(c echo.Context) error {
 	status := c.QueryParam("status")
 	search := c.QueryParam("search")
 
+	// FindAllLegacy returns ALL statuses (Draft/Pending/Ended/Ditolak too), unlike the
+	// public list which is live-only — so the admin table can actually see drafts. Return
+	// the list DTO (real donor counts + days-left) instead of raw models so the admin table
+	// matches the public list shape.
 	campaigns, total, err := h.campaignRepo.FindAllLegacy(params, status, search)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch campaigns"))
 	}
 
+	items := make([]response.CampaignListItem, 0, len(campaigns))
+	for i := range campaigns {
+		donorCount, _ := h.invoiceRepo.CountDonors(campaigns[i].ID)
+		items = append(items, response.ToCampaignListItem(&campaigns[i], donorCount))
+	}
+
 	p := pagination.Paginate(params, total)
-	return c.JSON(http.StatusOK, response.PaginatedResponse(campaigns, p))
+	return c.JSON(http.StatusOK, response.PaginatedResponse(items, p))
 }
 
 func (h *AdminCampaignHandler) Create(c echo.Context) error {

@@ -74,9 +74,9 @@ interface DataState {
 }
 
 interface DataActions {
-  refreshAll: (isLoggedIn: boolean) => Promise<void>;
+  refreshAll: (isLoggedIn: boolean, role?: string) => Promise<void>;
   refreshPublic: () => Promise<void>;
-  refreshAdmin: () => Promise<void>;
+  refreshAdmin: (role?: string) => Promise<void>;
   refreshInvoices: () => Promise<void>;
   refreshAnalytics: () => Promise<void>;
   refreshDataStudio: () => Promise<void>;
@@ -138,22 +138,29 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
   },
 
   // = loadAdminData + sibling loaders, batched into one set()
-  async refreshAdmin() {
+  // role gates the calls each staff role is actually allowed to make: firing admin-only
+  // (users/settings/paymentMethods/trash) and cs-only (invoices/fundraisers) reads for a
+  // CS/Advertiser session 403'd on every boot AND every realtime revision tick — swallowed
+  // by safe() but a wasteful storm that buried real auth failures. When role is undefined
+  // (initial boot, before api.me() resolves) we keep firing everything, as before.
+  async refreshAdmin(role?: string) {
+    const canAdmin = !role || role === 'Admin';
+    const canCS = !role || role === 'Admin' || role === 'CS';
     const [txRes, notifRes, fundraiserRes, usersRes, settingsRes, profileRes, invRes,
       chartRes, statsRes, pmChartRes, tsChartRes, pmListRes, trashRes] = await Promise.all([
       safe(() => api.recentTransactions(48)),
       safe(() => api.notifications()),
-      safe(() => api.fundraisers()),
-      safe(() => api.users('limit=500')),
-      safe(() => api.settings()),
+      canCS ? safe(() => api.fundraisers()) : Promise.resolve(null),
+      canAdmin ? safe(() => api.users('limit=500')) : Promise.resolve(null),
+      canAdmin ? safe(() => api.settings()) : Promise.resolve(null),
       safe(() => api.profile()),
-      safe(() => api.invoices('limit=500')),
+      canCS ? safe(() => api.invoices('limit=500')) : Promise.resolve(null),
       safe(() => api.dailyChart(30)),
       safe(() => api.dashboardStats()),
       safe(() => api.paymentMethodChart()),
       safe(() => api.trafficSourceChart()),
-      safe(() => api.paymentMethods()),
-      safe(() => api.trash()),
+      canAdmin ? safe(() => api.paymentMethods()) : Promise.resolve(null),
+      canAdmin ? safe(() => api.trash()) : Promise.resolve(null),
     ]);
     const patch: Partial<DataState> = {};
     // invoices('limit=500') is the fuller list; recentTransactions is the fallback.
@@ -233,11 +240,11 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
   // an admin route pays one round-trip, not two. refreshAdmin maps invoices with the
   // payment-status ref that refreshPublic sets; the map has a static fallback + is_paid,
   // so the brief ordering race is benign (a realtime tick re-maps anyway).
-  async refreshAll(isLoggedIn: boolean) {
+  async refreshAll(isLoggedIn: boolean, role?: string) {
     set({ loading: true });
     const tasks = [get().refreshPublic()];
     if (isLoggedIn) {
-      tasks.push(get().refreshAdmin(), get().refreshAnalytics(), get().refreshDataStudio());
+      tasks.push(get().refreshAdmin(role), get().refreshAnalytics(), get().refreshDataStudio());
     }
     await Promise.all(tasks);
     set({ loading: false, ready: true });

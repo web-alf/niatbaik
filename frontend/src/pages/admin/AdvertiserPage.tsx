@@ -220,33 +220,37 @@ export default function AdvertiserPage() {
         </Card>
       </div>
 
-      {/* Recommendations */}
+      {/* Top campaigns — ranked by real funds raised (was 3 canned "AI Insight" strings
+          mapped onto whatever campaigns[0..2] happened to be, in no meaningful order). */}
       <Card className="p-5">
         <div className="flex items-center justify-between mb-3">
-          <div className="font-bold text-ink flex items-center gap-2"><Icon name="sparkle" size={18} className="text-brand-600"/> Rekomendasi Campaign</div>
-          <Badge tone="brand">AI Insight</Badge>
+          <div className="font-bold text-ink flex items-center gap-2"><Icon name="sparkle" size={18} className="text-brand-600"/> Campaign Berperforma Teratas</div>
+          <Badge tone="brand">by Donasi</Badge>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {campaigns.length === 0 && (
             <div className="md:col-span-3 text-sm text-mute text-center py-6">Belum ada campaign untuk dianalisa.</div>
           )}
-          {[
-            { reason:'Campaign teratas · pertahankan performa', tone:'ok' },
-            { reason:'Campaign kedua · evaluasi optimasi', tone:'sky' },
-            { reason:'Campaign aktif · monitor ROAS', tone:'brand' },
-          ].map((meta, i) => campaigns[i] && ({ ...meta, c: campaigns[i] })).filter(Boolean).map((r: any, i: number) => (
-            <div key={i} className="rounded-xl border border-line p-4">
-              <div className="h-24 rounded-lg mb-3 overflow-hidden bg-bg2" style={campaignBgStyle ? campaignBgStyle(r.c) : { background: r.c.thumb }}>
-                {!(r.c && r.c.img) && <div className="h-full flex items-center justify-center text-white/90"><Icon name={r.c.icon || 'heart'} size={28}/></div>}
+          {[...campaigns]
+            .sort((a: any, b: any) => (b.raised || 0) - (a.raised || 0))
+            .slice(0, 3)
+            .map((c: any, i: number) => {
+              const pct = c.target ? Math.min(100, Math.round(((c.raised || 0) / c.target) * 100)) : 0;
+              const rank = ['Teratas', 'Kedua', 'Ketiga'][i];
+              return (
+            <div key={c.id || i} className="rounded-xl border border-line p-4">
+              <div className="h-24 rounded-lg mb-3 overflow-hidden bg-bg2" style={campaignBgStyle ? campaignBgStyle(c) : { background: c.thumb }}>
+                {!(c && c.img) && <div className="h-full flex items-center justify-center text-white/90"><Icon name={c.icon || 'heart'} size={28}/></div>}
               </div>
-              <div className="font-bold text-ink line-clamp-2 leading-tight">{r.c.title}</div>
-              <div className="mt-2 text-xs text-ink/80">{r.reason}</div>
+              <div className="font-bold text-ink line-clamp-2 leading-tight">{c.title}</div>
+              <div className="mt-2 text-xs text-ink/80">{fmtIDRShort(c.raised || 0)} terkumpul · {pct}% target</div>
               <div className="mt-3 flex items-center justify-between">
-                <Badge tone={r.tone}>Rekomendasi</Badge>
-                <a href={`/c/${r.c.slug}`} target="_blank" rel="noreferrer" className="text-xs font-semibold text-brand-600 hover:underline">Lihat detail →</a>
+                <Badge tone={i === 0 ? 'ok' : i === 1 ? 'sky' : 'brand'}>#{i + 1} {rank}</Badge>
+                <a href={`/c/${c.slug}`} target="_blank" rel="noreferrer" className="text-xs font-semibold text-brand-600 hover:underline">Lihat detail →</a>
               </div>
             </div>
-          ))}
+              );
+            })}
         </div>
       </Card>
 

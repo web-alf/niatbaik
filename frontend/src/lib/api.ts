@@ -227,6 +227,11 @@ export const api = {
   updateCampaign(id: string | number, data: unknown) { return this.put<any>('/admin/campaigns/' + id, data); },
   deleteCampaign(id: string | number) { return this.del('/admin/campaigns/' + id); },
 
+  // Per-campaign info updates (detail-page timeline)
+  campaignUpdates(id: string | number) { return this.get<any[]>('/admin/campaigns/' + id + '/updates'); },
+  createCampaignUpdate(id: string | number, data: unknown) { return this.post<any>('/admin/campaigns/' + id + '/updates', data); },
+  deleteCampaignUpdate(id: string | number, updateId: string | number) { return this.del('/admin/campaigns/' + id + '/updates/' + updateId); },
+
   // Users
   users(params = '') { return this.get<any[]>('/users' + (params ? '?' + params : '')); },
   createUser(data: unknown) { return this.post('/users', data); },

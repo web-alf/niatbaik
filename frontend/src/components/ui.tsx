@@ -39,7 +39,6 @@ export const StatCard = ({ icon, label, value, delta, deltaTone = 'up', accent =
             <Icon name={deltaTone === 'up' ? 'arrowUp' : 'arrowDown'} size={12} strokeWidth={2.4} />
             {delta}
           </span>
-          <span className="text-mute">vs minggu lalu</span>
         </div>
       )}
     </Card>

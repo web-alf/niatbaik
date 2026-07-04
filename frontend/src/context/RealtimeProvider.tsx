@@ -10,7 +10,7 @@ import { useDataStore } from '@/store/data';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function RealtimeProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
+export function RealtimeProvider({ enabled, role, children }: { enabled: boolean; role?: string; children: ReactNode }) {
   useEffect(() => {
     if (!enabled) return;
     let stopped = false;
@@ -26,7 +26,7 @@ export function RealtimeProvider({ enabled, children }: { enabled: boolean; chil
           const body = res?.data ?? res;
           if (body && body.changed) {
             rev = body.revision ?? rev;
-            await useDataStore.getState().refreshAdmin();
+            await useDataStore.getState().refreshAdmin(role);
           } else if (body && body.revision != null) {
             rev = body.revision; // timeout tick — just re-poll
           }
@@ -36,7 +36,7 @@ export function RealtimeProvider({ enabled, children }: { enabled: boolean; chil
       }
     })();
     return () => { stopped = true; };
-  }, [enabled]);
+  }, [enabled, role]);
 
   return <>{children}</>;
 }

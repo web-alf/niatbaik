@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, mediaUrl } from '@/lib/api';
-import { campaignBgStyle } from '@/lib/mappers';
+import { api, mediaUrl, sanitizeHTML } from '@/lib/api';
+import { campaignBgStyle, mapCampaign } from '@/lib/mappers';
 import { fmtIDR, fmtIDRShort, fmtNum } from '@/lib/format';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
@@ -35,6 +35,8 @@ export default function CampaignsPage() {
   const goLeads = (c: any) => { navigate('/dashboard?campaign=' + c.id); };
   // Detail preview modal state (formerly app-level setCampaignDetail).
   const [campaignDetail, setCampaignDetail] = useState<any>(null);
+  // "Add Info Update" modal target (was a toast stub) — opens a real update-post form.
+  const [updateTarget, setUpdateTarget] = useState<any>(null);
   // Live campaigns when API loaded them; else seed. Normalize backend status → design labels.
   const STATUS_NORM: Record<string, string> = { Berjalan: 'Running', Selesai: 'Ended', Aktif: 'Running' };
   const [ver, setVer] = useState(0);
@@ -46,7 +48,19 @@ export default function CampaignsPage() {
   }, []);
   const campaigns = useDataStore((s) => s.campaigns);
   const categories = useDataStore((s) => s.categories);
-  const src = campaigns;
+
+  // Admin list must show ALL statuses (Draft/Pending/Ended/Ditolak), not just the public
+  // live-only slice — otherwise draft campaigns are invisible/uneditable here. Fetch the
+  // admin endpoint; fall back to the public store slice if it fails (e.g. transient 403).
+  const [adminList, setAdminList] = useState<any[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api.adminCampaigns('limit=500').then((res: any) => {
+      if (alive && Array.isArray(res?.data)) setAdminList(res.data.map(mapCampaign));
+    }).catch(() => { /* keep store fallback */ });
+  }, [ver]);
+
+  const src = adminList ?? campaigns;
   const all = useMemo(() => src.map((c: any) => ({ ...c, status: STATUS_NORM[c.status] || c.status })), [src, ver]);
   const [tab, setTab] = useState('all');
   const [q, setQ] = useState('');
@@ -107,7 +121,7 @@ export default function CampaignsPage() {
 
       {view === 'cards' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((c: any) => <CampaignCard key={c.id} c={c} onLeads={() => goLeads(c)} onOpen={() => setCampaignDetail(c)} onEdit={() => goEdit(c)} onDelete={async () => {
+          {filtered.map((c: any) => <CampaignCard key={c.id} c={c} onLeads={() => goLeads(c)} onOpen={() => setCampaignDetail(c)} onEdit={() => goEdit(c)} onAddUpdate={() => setUpdateTarget(c)} onDelete={async () => {
             if (!confirm('Hapus campaign "' + c.title + '"? Campaign akan dipindah ke Trash.')) return;
             try {
               await api.deleteCampaign(c.id);
@@ -160,7 +174,7 @@ export default function CampaignsPage() {
                     <div className="inline-flex items-center gap-1">
                       <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink" onClick={() => setCampaignDetail(c)}><Icon name="eye" size={16}/></button>
                       <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink" onClick={() => goEdit(c)}><Icon name="edit" size={16}/></button>
-                      <CampaignOptionMenu c={c} onEdit={() => goEdit(c)} onPreview={() => setCampaignDetail(c)} onDelete={async () => {
+                      <CampaignOptionMenu c={c} onEdit={() => goEdit(c)} onPreview={() => setCampaignDetail(c)} onAddUpdate={() => setUpdateTarget(c)} onDonations={() => goLeads(c)} onDelete={async () => {
                         if (!confirm('Hapus campaign "' + c.title + '"? Campaign akan dipindah ke Trash.')) return;
                         try {
                           await api.deleteCampaign(c.id);
@@ -181,11 +195,67 @@ export default function CampaignsPage() {
       {campaignDetail && (
         <CampaignDetailModal campaign={campaignDetail} onClose={() => setCampaignDetail(null)}/>
       )}
+
+      {updateTarget && (
+        <AddUpdateModal campaign={updateTarget} onClose={() => setUpdateTarget(null)} onSaved={() => { setUpdateTarget(null); setVer(v => v + 1); }}/>
+      )}
     </div>
   );
 }
 
-function CampaignCard({ c, onLeads, onOpen, onEdit, onDelete }: any) {
+// Post an info-update to a campaign's timeline (backs the "Add Info Update" row action).
+function AddUpdateModal({ campaign, onClose, onSaved }: any) {
+  const showToast = useUiStore((s) => s.showToast);
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [existing, setExisting] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.campaignUpdates(campaign.id).then((r: any) => setExisting(Array.isArray(r?.data) ? r.data : [])).catch(() => {});
+  }, [campaign.id]);
+
+  const save = async () => {
+    if (!title.trim() || !body.trim()) { showToast('Judul dan isi update wajib diisi'); return; }
+    setSaving(true);
+    try {
+      await api.createCampaignUpdate(campaign.id, { title: title.trim(), body: body.trim() });
+      showToast('Update campaign ditambahkan');
+      onSaved && onSaved();
+    } catch (e: any) { showToast(e?.message || 'Gagal menambah update'); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={`Info Update — ${campaign.title}`} footer={<>
+      <Btn variant="outline" tone="ink" onClick={onClose}>Batal</Btn>
+      <Btn tone="brand" icon={saving ? 'refresh' : 'plus'} onClick={save} disabled={saving}>{saving ? 'Menyimpan…' : 'Tambah Update'}</Btn>
+    </>}>
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs font-semibold text-mute">Judul</label>
+          <input className="field w-full mt-1" value={title} onChange={e => setTitle(e.target.value)} placeholder="mis. Tim sudah tiba di lokasi" maxLength={255}/>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-mute">Isi update</label>
+          <textarea className="field w-full mt-1" rows={4} value={body} onChange={e => setBody(e.target.value)} placeholder="Ceritakan progres terbaru campaign ini…"/>
+        </div>
+        {existing.length > 0 && (
+          <div className="pt-2 border-t border-line">
+            <div className="text-xs font-semibold text-mute mb-1">{existing.length} update sebelumnya</div>
+            <div className="space-y-1 max-h-32 overflow-auto">
+              {existing.map((u: any) => (
+                <div key={u.id} className="text-xs text-ink/80"><b>{u.title}</b> · {u.created_at ? new Date(u.created_at).toLocaleDateString('id-ID') : ''}</div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function CampaignCard({ c, onLeads, onOpen, onEdit, onDelete, onAddUpdate }: any) {
   return (
     <Card className="overflow-hidden hover:shadow-pop transition-shadow group">
       <button type="button" onClick={onLeads} title="Lihat leads campaign ini di dashboard"
@@ -219,7 +289,7 @@ function CampaignCard({ c, onLeads, onOpen, onEdit, onDelete }: any) {
         <div className="mt-4 flex items-center gap-2">
           <Btn size="sm" variant="outline" tone="ink" icon="eye" onClick={onOpen} className="flex-1">Preview</Btn>
           <Btn size="sm" tone="brand" icon="edit" className="flex-1" onClick={onEdit}>Edit</Btn>
-          <CampaignOptionMenu c={c} onEdit={onEdit} onPreview={onOpen} onDelete={onDelete}/>
+          <CampaignOptionMenu c={c} onEdit={onEdit} onPreview={onOpen} onDelete={onDelete} onAddUpdate={onAddUpdate} onDonations={onLeads}/>
         </div>
       </div>
     </Card>
@@ -227,7 +297,7 @@ function CampaignCard({ c, onLeads, onOpen, onEdit, onDelete }: any) {
 }
 
 // ---------- Option dropdown menu (3-dot) ----------
-function CampaignOptionMenu({ c, onEdit, onPreview, onDelete, align = 'right' }: any) {
+function CampaignOptionMenu({ c, onEdit, onPreview, onDelete, onAddUpdate, onDonations, align = 'right' }: any) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<any>(null);   // 'up' | 'down'
   const btnRef = useRef<any>(null);
@@ -258,8 +328,8 @@ function CampaignOptionMenu({ c, onEdit, onPreview, onDelete, align = 'right' }:
 
   const items: any[] = [
     { l: 'Edit Campaign',              icon: 'edit',     onClick: () => { setOpen(false); onEdit && onEdit(); } },
-    { l: `Add Info Update (${updateCount})`, icon: 'pin',      onClick: () => { setOpen(false); showToast('Form update campaign dibuka'); } },
-    { l: 'Data Donasi',                icon: 'wallet',   onClick: () => { setOpen(false); showToast('Membuka data donasi'); } },
+    { l: `Add Info Update (${updateCount})`, icon: 'pin',      onClick: () => { setOpen(false); onAddUpdate && onAddUpdate(); } },
+    { l: 'Data Donasi',                icon: 'wallet',   onClick: () => { setOpen(false); onDonations && onDonations(); } },
     { l: 'Preview',                    icon: 'eye',      onClick: () => { setOpen(false); onPreview && onPreview(); } },
     { l: 'Buka di Tab Baru',            icon: 'eye',      onClick: () => { setOpen(false); const u = campaignShareUrl(c); if (u) window.open(u, '_blank'); else showToast('URL campaign belum tersedia'); } },
     { l: 'Salin URL',                  icon: 'copy',     onClick: () => { setOpen(false); const u = campaignShareUrl(c); if (u) { navigator.clipboard?.writeText(u); showToast('URL campaign disalin'); } else showToast('URL campaign belum tersedia'); } },
@@ -315,11 +385,28 @@ function CampaignDetailModal({ campaign, onClose }: any) {
   const [tab, setTab] = useState('story');
   const navigate = useNavigate();
   const showToast = useUiStore((s) => s.showToast);
-  const transactions = useDataStore((s) => s.transactions);
   const c = campaign;
   const presets = [25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000];
 
-  const recentDonors = (transactions || []).slice(0, 6);
+  // Real campaign detail (story HTML, updates, donors scoped to THIS campaign) from the
+  // public detail endpoint — the preview mirrors exactly what a donor sees. Was hardcoded
+  // to one fabricated NTT water-well story + a global-invoice donor list for every campaign.
+  const [detail, setDetail] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    setDetailLoading(true);
+    api.campaign(c.slug || c.id).then((res: any) => {
+      if (alive) setDetail(res?.data || null);
+    }).catch(() => { if (alive) setDetail(null); })
+      .finally(() => { if (alive) setDetailLoading(false); });
+    return () => { alive = false; };
+  }, [c.slug, c.id]);
+
+  const story = detail?.description || c.description || '';
+  const updates = detail?.updates || [];
+  const donors = detail?.donors || [];
+  const fmtDate = (s: string) => s ? new Date(s).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' }) : '';
   return (
     <Modal open={true} onClose={onClose} title="Preview Halaman Campaign" size="xl"
       footer={<>
@@ -364,79 +451,63 @@ function CampaignDetailModal({ campaign, onClose }: any) {
               <div className="p-5">
                 <Tabs variant="underline" value={tab} onChange={setTab} tabs={[
                   { value:'story',  label:'Cerita' },
-                  { value:'updates',label:'Update (4)' },
+                  { value:'updates',label:`Update (${updates.length})` },
                   { value:'donors', label:'Donatur' },
                   { value:'faq',    label:'FAQ' },
                 ]}/>
 
                 <div className="mt-4">
                   {tab === 'story' && (
-                    <div className="prose prose-slate prose-sm max-w-none">
-                      <p className="text-ink/85 leading-relaxed">
-                        Saudara/i pejuang kebaikan, di Desa Lengkong, NTT, anak-anak harus berjalan
-                        4 km setiap pagi hanya untuk mendapatkan seember air keruh. Air yang sama
-                        digunakan untuk minum, masak, dan mencuci — menyebabkan diare berulang dan
-                        kasus stunting yang terus meningkat.
-                      </p>
-                      <p className="text-ink/85 leading-relaxed">
-                        Bersama NIATBAIK.ORG, kita berikhtiar membangun <b>sumur bor + filtrasi
-                        bersih</b> yang dapat melayani 380 keluarga. Dengan donasi <b>Rp 100.000</b>,
-                        satu keluarga bisa mengakses air bersih selama 1 tahun penuh.
-                      </p>
-                      <div className="not-prose grid grid-cols-3 gap-3 my-4">
-                        {['Pengeboran', 'Filtrasi', 'Distribusi'].map((s, i) => (
-                          <div key={i} className="p-3 rounded-xl border border-line">
-                            <div className="text-xs text-mute uppercase font-semibold">Tahap {i+1}</div>
-                            <div className="font-bold text-ink mt-0.5">{s}</div>
-                            <Progress value={[100, 65, 12][i]} max={100} height="h-1.5"/>
-                          </div>
-                        ))}
-                      </div>
-                      <p className="text-ink/85 leading-relaxed">
-                        Setiap donasi akan dilaporkan transparan setiap minggu lewat halaman ini
-                        dan WhatsApp. <b>InsyaAllah</b> niat baik kita menjadi penolong di akhirat.
-                      </p>
-                    </div>
+                    detailLoading ? <div className="text-sm text-mute">Memuat cerita…</div> :
+                    story ? (
+                      <div className="prose prose-slate prose-sm max-w-none text-ink/85 leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: sanitizeHTML(story) as string }}/>
+                    ) : <div className="text-sm text-mute">Belum ada deskripsi untuk campaign ini.</div>
                   )}
                   {tab === 'updates' && (
+                    detailLoading ? <div className="text-sm text-mute">Memuat update…</div> :
+                    updates.length ? (
                     <div className="space-y-4">
-                      {[
-                        { d:'18 Mei 2026', t:'Tim sudah tiba di lokasi', body:'Survey geologi selesai, titik bor ditentukan…' },
-                        { d:'10 Mei 2026', t:'Donasi tembus 50% target', body:'Alhamdulillah, semua proses pengadaan dimulai…' },
-                        { d:'02 Mei 2026', t:'Kampanye resmi dibuka', body:'Terima kasih atas dukungan awal 312 donatur pertama.' },
-                      ].map((u, i) => (
+                      {updates.map((u: any, i: number) => (
                         <div key={i} className="flex gap-3">
                           <div className="h-9 w-9 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0"><Icon name="pin" size={16}/></div>
                           <div>
-                            <div className="text-xs text-mute">{u.d}</div>
-                            <div className="font-bold text-ink">{u.t}</div>
+                            <div className="text-xs text-mute">{fmtDate(u.created_at)}</div>
+                            <div className="font-bold text-ink">{u.title}</div>
                             <div className="text-sm text-ink/80 mt-0.5">{u.body}</div>
                           </div>
                         </div>
                       ))}
                     </div>
+                    ) : <div className="text-sm text-mute">Belum ada update untuk campaign ini.</div>
                   )}
                   {tab === 'donors' && (
+                    detailLoading ? <div className="text-sm text-mute">Memuat donatur…</div> :
+                    donors.length ? (
                     <div className="space-y-2">
-                      {recentDonors.map((d: any, i: number) => (
+                      {donors.map((d: any, i: number) => (
                         <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-bg2">
                           <div className="h-9 w-9 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-xs">
-                            {(d.anon ? 'HA' : d.donor.split(' ').map((s: any)=>s[0]).join('')).slice(0,2)}
+                            {(d.is_anonymous ? 'HA' : (d.name||'?').split(' ').map((s: any)=>s[0]).join('')).slice(0,2)}
                           </div>
                           <div className="flex-1">
-                            <div className="text-sm font-semibold text-ink">{d.anon ? 'Hamba Allah' : d.donor}</div>
-                            <div className="text-xs text-mute italic">"{d.message}"</div>
+                            <div className="text-sm font-semibold text-ink">{d.is_anonymous ? 'Hamba Allah' : d.name}</div>
+                            {d.message ? <div className="text-xs text-mute italic">"{d.message}"</div> : null}
                           </div>
                           <div className="text-right">
                             <div className="font-bold text-brand-600">{fmtIDR(d.amount)}</div>
-                            <div className="text-[10px] text-mute">{d.date}</div>
+                            <div className="text-[10px] text-mute">{fmtDate(d.created_at)}</div>
                           </div>
                         </div>
                       ))}
                     </div>
+                    ) : <div className="text-sm text-mute">Belum ada donatur untuk campaign ini.</div>
                   )}
                   {tab === 'faq' && (
                     <div className="space-y-2">
+                      {/* Platform-wide FAQ (applies to every campaign). Per-campaign FAQ has no
+                          data model yet — tracked as backend work, not fabricated here. */}
+                      <div className="text-xs text-mute mb-1">Pertanyaan umum seputar donasi di NIATBAIK.ORG</div>
                       {[
                         { q:'Apakah donasi saya aman dan terverifikasi?', a:'Ya. Semua campaign diverifikasi tim NIATBAIK.ORG dan dilaporkan secara transparan.' },
                         { q:'Apakah saya bisa mendapatkan bukti donasi?', a:'Bukti otomatis terkirim via email & WhatsApp.' },

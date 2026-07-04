@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { fmtIDRShort, fmtNum } from '@/lib/format';
+import { ROLE_META } from '@/lib/nav';
 import { Icon, Logo } from '@/components';
 
 function LoginStats(){
@@ -42,11 +43,16 @@ const LOGIN_ACCOUNTS: any = {
 // Demo helpers (pre-filled emails, never passwords) only make sense on local dev.
 const IS_LOCAL_DEV = typeof window !== 'undefined' && window.location && window.location.hostname === 'localhost';
 
-const LOGIN_ROLE_META: any = {
-  Admin:      { color: 'bg-brand-600',  ring: 'ring-brand-600',  light: 'bg-brand-50',  text: 'text-brand-700',  icon: 'shield',  tag: 'Full Access',   desc: 'Kelola seluruh platform' },
-  CS:         { color: 'bg-sky2-500',   ring: 'ring-sky2-500',   light: 'bg-sky2-50',   text: 'text-sky2-600',   icon: 'inbox',   tag: 'Operasional',   desc: 'Inbox & follow-up donatur' },
-  Advertiser: { color: 'bg-violet-600', ring: 'ring-violet-600', light: 'bg-violet-50', text: 'text-violet-700', icon: 'chart',   tag: 'Marketing',     desc: 'Analytics & ads tracking' }
+// Colors/icons/tags come from the single source of truth (ROLE_META in nav.ts) so a
+// role restyle propagates here; only the login-specific `desc` copy is layered on top.
+const LOGIN_ROLE_DESC: Record<string, string> = {
+  Admin: 'Kelola seluruh platform',
+  CS: 'Inbox & follow-up donatur',
+  Advertiser: 'Analytics & ads tracking',
 };
+const LOGIN_ROLE_META: any = Object.fromEntries(
+  Object.entries(ROLE_META).map(([r, m]) => [r, { ...m, desc: LOGIN_ROLE_DESC[r] || '' }])
+);
 
 export default function LoginPage() {
   const { login } = useAuth();

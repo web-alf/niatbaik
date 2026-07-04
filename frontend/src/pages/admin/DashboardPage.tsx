@@ -45,6 +45,7 @@ export default function DashboardPage() {
   const dashboardStats = useDataStore((s) => s.dashboardStats);
   const trafficSources = useDataStore((s) => s.trafficSources);
   const paymentBreakdown = useDataStore((s) => s.paymentBreakdown);
+  const analyticsOverview = useDataStore((s) => s.analyticsOverview);
   const txns = transactions;
   const campaignSeed = campaigns;
   // dailyDonations may be [{amount,...}] (API) or [number] (seed) — normalize to numbers.
@@ -153,16 +154,22 @@ export default function DashboardPage() {
   if (role === 'Advertiser') return <AdvertiserPage/>;
   if (role === 'CS') return <CSDashboard/>;
 
-  // Admin dashboard — live stats overlay (S) with seed fallback values.
+  // Admin dashboard — live stats from /dashboard/stats. Fallbacks are 0/empty (NOT the
+  // old fabricated millions). Delta badges are REAL period-over-period figures from the
+  // backend (delta_*_pct); null → badge hidden (no baseline to compare, not a fake 0%).
+  const thisMonth = new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+  const pct = (v: any): string | undefined =>
+    v == null ? undefined : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+  const tone = (v: any) => (v != null && v < 0 ? 'down' : 'up');
   const stats = [
-    { icon:'wallet', label:'Total Donasi',         value: fmtIDRShort(S.total_raised ?? 1_842_315_500), delta:'+18.4%', sub:'sepanjang waktu', accent:'brand' },
-    { icon:'creditcard', label:'Total Transaksi',  value: fmtNum(S.total_transactions ?? 24_812), delta:'+12.1%', sub:'transaksi sukses', accent:'sky' },
-    { icon:'megaphone', label:'Campaign Aktif',    value: String(S.active_campaigns ?? 14), delta:'+3', deltaTone:'up', sub:'sedang berjalan', accent:'ok' },
-    { icon:'handshake', label:'Total Fundraiser',  value: String(S.total_fundraisers ?? 38), delta:'+5', sub:'mitra aktif', accent:'warn' },
-    { icon:'target', label:'Leads dari Iklan',     value: fmtNum(S.total_leads ?? 13_072), delta:'+22.6%', sub:'30 hari terakhir', accent:'brand' },
-    { icon:'bolt',  label:'Conversion Rate',       value: (S.conversion_rate != null ? S.conversion_rate.toFixed(1) : '4.8') + '%', delta:'+0.6pp', sub:'lead → donasi', accent:'sky' },
-    { icon:'sun',   label:'Donasi Hari Ini',       value: fmtIDRShort(S.today_raised ?? 34_280_000), delta:'+8.1%', sub:'transaksi hari ini', accent:'ok' },
-    { icon:'flame', label:'Donasi Bulan Ini',      value: fmtIDRShort(S.month_raised ?? 412_460_000), delta:'+14.3%', sub:'Mei 2026', accent:'bad' },
+    { icon:'wallet', label:'Total Donasi',         value: fmtIDRShort(S.total_raised ?? 0), delta: pct(S.delta_raised_pct), deltaTone: tone(S.delta_raised_pct), sub:'7 hari vs 7 hari lalu', accent:'brand' },
+    { icon:'creditcard', label:'Total Transaksi',  value: fmtNum(S.total_transactions ?? 0), delta: pct(S.delta_tx_pct), deltaTone: tone(S.delta_tx_pct), sub:'transaksi sukses', accent:'sky' },
+    { icon:'megaphone', label:'Campaign Aktif',    value: String(S.active_campaigns ?? 0), sub:'sedang berjalan', accent:'ok' },
+    { icon:'handshake', label:'Total Fundraiser',  value: String(S.total_fundraisers ?? 0), sub:'mitra aktif', accent:'warn' },
+    { icon:'target', label:'Leads dari Iklan',     value: fmtNum(S.total_leads ?? 0), delta: pct(S.delta_leads_pct), deltaTone: tone(S.delta_leads_pct), sub:'7 hari vs 7 hari lalu', accent:'brand' },
+    { icon:'bolt',  label:'Conversion Rate',       value: (S.conversion_rate != null ? S.conversion_rate.toFixed(1) : '0') + '%', sub:'lead → donasi', accent:'sky' },
+    { icon:'sun',   label:'Donasi Hari Ini',       value: fmtIDRShort(S.today_raised ?? 0), delta: pct(S.delta_today_pct), deltaTone: tone(S.delta_today_pct), sub:'vs kemarin', accent:'ok' },
+    { icon:'flame', label:'Donasi Bulan Ini',      value: fmtIDRShort(S.month_raised ?? 0), delta: pct(S.delta_month_pct), deltaTone: tone(S.delta_month_pct), sub:thisMonth, accent:'bad' },
   ];
 
   return (
@@ -353,7 +360,11 @@ export default function DashboardPage() {
             <Btn size="sm" variant="ghost" tone="ink" iconRight="arrowR" onClick={() => navigate('/analytics')}>Detail</Btn>
           </div>
           <div className="space-y-3">
-            {(trafficSources || []).map((t: any) => (
+            {(() => {
+              // Bars are relative to the busiest source's donations (real data), not a fixed
+              // literal — so fill actually reflects each source's share. Min 1 avoids /0.
+              const maxDon = Math.max(1, ...(trafficSources || []).map((t: any) => t.donations || 0));
+              return (trafficSources || []).map((t: any) => (
               <div key={t.name}>
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
@@ -362,14 +373,15 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-xs text-mute">{fmtNum(t.visits)} visits · {fmtNum(t.leads)} leads · <b className="text-ink">{fmtNum(t.donations)}</b> donasi</div>
                 </div>
-                <div className="mt-1.5"><Progress value={t.donations} max={2000} height="h-1.5"/></div>
+                <div className="mt-1.5"><Progress value={t.donations} max={maxDon} height="h-1.5"/></div>
               </div>
-            ))}
+              ));
+            })()}
           </div>
           <div className="mt-4 grid grid-cols-3 gap-3 text-center">
             <div className="p-3 rounded-lg bg-bg2"><div className="text-xs text-mute">Cost / Lead</div><div className="text-lg font-bold text-ink">{fmtIDRShort(S.cost_per_lead || 0)}</div></div>
             <div className="p-3 rounded-lg bg-bg2"><div className="text-xs text-mute">Cost / Donation</div><div className="text-lg font-bold text-ink">{fmtIDRShort(S.cost_per_donation || 0)}</div></div>
-            <div className="p-3 rounded-lg bg-bg2"><div className="text-xs text-mute">ROAS</div><div className="text-lg font-bold text-emerald-600">3.8x</div></div>
+            <div className="p-3 rounded-lg bg-bg2"><div className="text-xs text-mute">ROAS</div><div className="text-lg font-bold text-emerald-600">{analyticsOverview?.roas ? analyticsOverview.roas.toFixed(1) + 'x' : '—'}</div></div>
           </div>
         </Card>
       </div>

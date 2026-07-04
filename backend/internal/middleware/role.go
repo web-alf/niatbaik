@@ -35,3 +35,10 @@ func RequireCS() echo.MiddlewareFunc {
 func RequireAdvertiser() echo.MiddlewareFunc {
 	return RequireRole("admin", "advertiser")
 }
+
+// RequireStaff allows any internal staff role (admin, cs, advertiser) but still
+// blocks donors/fundraisers. Used for campaign management: CS operates campaigns,
+// Advertiser needs read+edit for per-campaign pixel/tracking config.
+func RequireStaff() echo.MiddlewareFunc {
+	return RequireRole("admin", "cs", "advertiser")
+}

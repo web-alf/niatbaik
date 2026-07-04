@@ -3,6 +3,7 @@ import { fmtNum, fmtIDRShort } from '@/lib/format';
 import { exportCSV } from '@/lib/export';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
+import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { PageHeader, StatCard, Card, SearchInput, Select, Btn, Icon, Modal } from '@/components';
 
@@ -19,6 +20,7 @@ export default function FundraiserPage() {
   const campaigns = useDataStore((s) => s.campaigns);
   const refreshAdmin = useDataStore((s) => s.refreshAdmin);
   const showToast = useUiStore((s) => s.showToast);
+  const { role } = useAuth();
   const [search, setSearch] = useState('');
   const [campaignFilter, setCampaignFilter] = useState('all');
   const [showInvite, setShowInvite] = useState(false);
@@ -91,7 +93,9 @@ export default function FundraiserPage() {
             exportCSV(rows, 'niatbaik_fundraiser');
             showToast(rows.length + ' fundraiser diekspor');
           }}>Export</Btn>
-          <Btn icon="plus" onClick={() => setShowInvite(true)}>Undang Fundraiser</Btn>
+          {/* Inviting a fundraiser calls POST /users, which is admin-only. CS can view the
+              list but not create, so the button is hidden for non-admins (was 403'ing). */}
+          {role === 'Admin' && <Btn icon="plus" onClick={() => setShowInvite(true)}>Undang Fundraiser</Btn>}
         </>}
       />
 

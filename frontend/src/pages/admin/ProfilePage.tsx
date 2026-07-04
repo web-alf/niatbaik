@@ -3,6 +3,7 @@ import { api, mediaUrl } from '@/lib/api';
 import { fmtNum } from '@/lib/format';
 import { useUiStore } from '@/store/ui';
 import { useAuth } from '@/context/AuthContext';
+import { ROLE_META } from '@/lib/nav';
 import { Card, PageHeader, Btn, Badge, RoleBadge, Icon } from '@/components';
 
 const timeAgo = (dateStr: string) => {
@@ -39,24 +40,22 @@ export default function ProfilePage() {
   const { role, user, logout, updateUser } = useAuth();
   const showToast = useUiStore((s) => s.showToast);
 
-  // Per-role fallback meta (extra fields not in session)
-  const defaults: any = {
-    Admin:      { wa: '+62 812 3456 7890', joined: '12 Jan 2025' },
-    CS:         { wa: '+62 813 9876 5432', joined: '08 Mar 2025' },
-    Advertiser: { wa: '+62 821 5566 7788', joined: '21 Apr 2025' },
-  };
   const meBase: any = user || { name:'-', email:'-', role: role, initial:'??' };
-  const fb = defaults[role] || defaults.Admin;
 
-  // Computed display values (read from session if present, else fallback)
+  // "Sejak bergabung" from the real account creation date (/auth/me returns created_at).
+  const joinedDate = meBase.created_at
+    ? new Date(meBase.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+    : '—';
+
+  // Computed display values (real session data only — no fabricated WA/join fallbacks).
   const display = {
     name:   meBase.name,
     email:  meBase.email,
-    wa:     meBase.wa     || meBase.phone || fb.wa,
+    wa:     meBase.phone || '',
     // Avatar comes from user.image (the persisted /uploads path from /auth/me), resolved
     // through mediaUrl. Older code read a non-existent `avatar` key, so it never showed.
     avatar: meBase.image ? mediaUrl(meBase.image) : null,
-    joined: meBase.joined || fb.joined,
+    joined: joinedDate,
     initial: meBase.initial,
   };
 
@@ -211,7 +210,7 @@ export default function ProfilePage() {
     showToast('Password berhasil diubah · sesi lain akan diminta login ulang');
   };
 
-  const avatarBgClass = role==='Admin' ? 'bg-brand-600' : role==='CS' ? 'bg-sky2-500' : 'bg-violet-600';
+  const avatarBgClass = (ROLE_META[role]?.color) || 'bg-brand-600';
 
   return (
     <div className="space-y-5">

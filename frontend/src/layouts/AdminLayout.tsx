@@ -180,6 +180,7 @@ function UserMenu() {
 
 function Topbar({ onMenu }: { onMenu: () => void }) {
   const navigate = useNavigate();
+  const { role } = useAuth();
   const openInvoice = useUiStore((s) => s.openInvoice);
   const [searchQ, setSearchQ] = useState('');
   const [searchResults, setSearchResults] = useState<any>(null);
@@ -194,21 +195,22 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
     if (!q || q.length < 2) { setSearchResults(null); setSearchLoading(false); return; }
     setSearchLoading(true);
     debounceRef.current = setTimeout(async () => {
-      try {
-        const [cRes, uRes, iRes] = await Promise.all([
-          api.adminCampaigns('search=' + encodeURIComponent(q) + '&limit=5'),
-          api.users('search=' + encodeURIComponent(q) + '&limit=5'),
-          api.invoices('search=' + encodeURIComponent(q) + '&limit=5'),
-        ]);
-        setSearchResults({ campaigns: cRes?.data || [], users: uRes?.data || [], invoices: iRes?.data || [] });
-      } catch (e) {
-        console.error('[Search]', e);
-        setSearchResults({ campaigns: [], users: [], invoices: [] });
-      } finally {
-        setSearchLoading(false);
-      }
+      const qp = 'search=' + encodeURIComponent(q) + '&limit=5';
+      // Only query endpoints this role may read (campaigns=staff, invoices=admin+cs,
+      // users=admin). allSettled so one 403 can't blank the whole result set — the old
+      // Promise.all rejected on the first forbidden call, leaving CS/Advertiser search dead.
+      const canUsers = role === 'Admin';
+      const canInvoices = role === 'Admin' || role === 'CS';
+      const [cRes, uRes, iRes] = await Promise.allSettled([
+        api.adminCampaigns(qp),
+        canUsers ? api.users(qp) : Promise.resolve(null),
+        canInvoices ? api.invoices(qp) : Promise.resolve(null),
+      ]);
+      const val = (r: any) => (r.status === 'fulfilled' ? r.value?.data || [] : []);
+      setSearchResults({ campaigns: val(cRes), users: val(uRes), invoices: val(iRes) });
+      setSearchLoading(false);
     }, 300);
-  }, []);
+  }, [role]);
 
   useEffect(() => { doSearch(searchQ); }, [searchQ, doSearch]);
 
@@ -311,7 +313,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
 }
 
 export function AdminLayout() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [adsGuideOpen, setAdsGuideOpen] = useState(false);
@@ -345,7 +347,7 @@ export function AdminLayout() {
   }, []);
 
   return (
-    <RealtimeProvider enabled={!!user}>
+    <RealtimeProvider enabled={!!user} role={role}>
       <div className="min-h-screen flex bg-bg2">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="flex-1 min-w-0 flex flex-col">

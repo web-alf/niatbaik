@@ -4,6 +4,7 @@ import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { exportCSV } from '@/lib/export';
 import { useAdminSync } from '@/lib/useAdminSync';
+import { ROLE_META } from '@/lib/nav';
 import { Card, PageHeader, Tabs, Btn, SearchInput, RoleBadge, Modal, Icon } from '@/components';
 
 const mapUser = (u: any) => ({
@@ -147,7 +148,7 @@ export default function MembersPage() {
               <tr key={m.id} className="border-b border-line last:border-0">
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-3">
-                    <div className={`h-9 w-9 rounded-full text-white font-bold text-xs flex items-center justify-center ${m.role==='Admin' ? 'bg-brand-600' : m.role==='CS' ? 'bg-sky2-500' : m.role==='Fundraiser' ? 'bg-emerald-600' : 'bg-violet-600'}`}>
+                    <div className={`h-9 w-9 rounded-full text-white font-bold text-xs flex items-center justify-center ${ROLE_META[m.role]?.color || (m.role==='Fundraiser' ? 'bg-emerald-600' : 'bg-slate-500')}`}>
                       {m.name.split(' ').map((s: any)=>s[0]).join('').slice(0,2)}
                     </div>
                     <div>

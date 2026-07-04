@@ -67,7 +67,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	donationHandler := handler.NewDonationHandler(donationService)
 	webhookHandler := handler.NewWebhookHandler(mootaService, flipService, xenditService, ipaymuService, duitkuService)
 	dashboardHandler := handler.NewDashboardHandler(dashboardService)
-	adminCampaignHandler := handler.NewAdminCampaignHandler(campaignService, campaignRepo)
+	adminCampaignHandler := handler.NewAdminCampaignHandler(campaignService, campaignRepo, invoiceRepo)
 	userHandler := handler.NewUserHandler(userService, userRepo)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
 	settingHandler := handler.NewSettingHandler(settingService, mootaService)
@@ -176,20 +176,36 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	dashboard.GET("/recent-transactions", dashboardHandler.GetRecentTransactions)
 	dashboard.GET("/campaign-earnings", dashboardHandler.GetCampaignEarnings)
 
+	// Staff routes — campaign management is done by admin AND cs (operasional) AND
+	// advertiser (per-campaign pixel/tracking). Kept off the admin-only group so the
+	// nav/editor that already promise these roles access actually work (were 403'ing).
+	staff := protected.Group("")
+	staff.Use(middleware.RequireStaff())
+
+	staff.GET("/admin/campaigns", adminCampaignHandler.List)
+	staff.GET("/admin/campaigns/:id", adminCampaignHandler.Get)
+	staff.POST("/admin/campaigns", adminCampaignHandler.Create)
+	staff.PUT("/admin/campaigns/:id", adminCampaignHandler.Update)
+	staff.DELETE("/admin/campaigns/:id", adminCampaignHandler.Delete)
+
+	categoryHandler := handler.NewCategoryHandler(categoryRepo)
+	// Categories are edited from the campaign editor, so any campaign-editing staff role
+	// must be able to create/update/delete them too.
+	staff.POST("/admin/categories", categoryHandler.Create)
+	staff.PUT("/admin/categories/:id", categoryHandler.Update)
+	staff.DELETE("/admin/categories/:id", categoryHandler.Delete)
+
+	// Per-campaign info updates (the detail-page timeline). Backs the "Add Info Update"
+	// admin action. Any campaign-managing staff role can post/remove them.
+	campaignUpdateRepo := repository.NewCampaignUpdateRepo(db)
+	campaignUpdateHandler := handler.NewCampaignUpdateHandler(campaignUpdateRepo)
+	staff.GET("/admin/campaigns/:id/updates", campaignUpdateHandler.List)
+	staff.POST("/admin/campaigns/:id/updates", campaignUpdateHandler.Create)
+	staff.DELETE("/admin/campaigns/:id/updates/:updateId", campaignUpdateHandler.Delete)
+
 	// Admin routes
 	admin := protected.Group("")
 	admin.Use(middleware.RequireAdmin())
-
-	admin.GET("/admin/campaigns", adminCampaignHandler.List)
-	admin.GET("/admin/campaigns/:id", adminCampaignHandler.Get)
-	admin.POST("/admin/campaigns", adminCampaignHandler.Create)
-	admin.PUT("/admin/campaigns/:id", adminCampaignHandler.Update)
-	admin.DELETE("/admin/campaigns/:id", adminCampaignHandler.Delete)
-
-	categoryHandler := handler.NewCategoryHandler(categoryRepo)
-	admin.POST("/admin/categories", categoryHandler.Create)
-	admin.PUT("/admin/categories/:id", categoryHandler.Update)
-	admin.DELETE("/admin/categories/:id", categoryHandler.Delete)
 
 	admin.GET("/users", userHandler.List)
 	admin.POST("/users", userHandler.Create)

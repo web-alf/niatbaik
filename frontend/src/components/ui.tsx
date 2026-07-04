@@ -418,10 +418,13 @@ export const InvoiceModal = ({ txn, onClose, onCopy }: any) => {
 export const Toast = ({ message, tone = 'ok' }: any) => {
   if (!message) return null;
   const tones: Record<string, string> = { ok: 'bg-emerald-600', bad: 'bg-rose-600', ink: 'bg-ink' };
+  // Icon must match the tone — a red error toast with a green-style checkmark reads as
+  // success. 'bad' → warning/x, otherwise the success check.
+  const icon = tone === 'bad' ? 'close' : 'check';
   return (
     <div className="fixed bottom-6 right-6 z-50">
       <div className={`${tones[tone]} text-white px-4 py-2.5 rounded-xl shadow-pop text-sm font-medium flex items-center gap-2`}>
-        <Icon name="check" size={16} strokeWidth={2.4} />
+        <Icon name={icon} size={16} strokeWidth={2.4} />
         {message}
       </div>
     </div>

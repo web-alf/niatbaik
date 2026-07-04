@@ -376,5 +376,6 @@ function AdsGuideMount({ open, onClose }: { open: boolean; onClose: () => void }
 
 function GlobalToast() {
   const toast = useUiStore((s) => s.toast);
-  return <Toast message={toast} />;
+  const toastTone = useUiStore((s) => s.toastTone);
+  return <Toast message={toast} tone={toastTone} />;
 }

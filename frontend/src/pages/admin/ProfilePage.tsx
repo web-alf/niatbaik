@@ -154,8 +154,8 @@ export default function ProfilePage() {
   // user row (which was never even persisted before, so the photo vanished on reload).
   const pickAvatar = async (file: any) => {
     if (!file) return;
-    if (!file.type.startsWith('image/')) { showToast('File harus berupa gambar'); return; }
-    if (file.size > 2 * 1024 * 1024)     { showToast('Ukuran maks 2 MB'); return; }
+    if (!file.type.startsWith('image/')) { showToast('File harus berupa gambar', 'bad'); return; }
+    if (file.size > 2 * 1024 * 1024)     { showToast('Ukuran maks 2 MB', 'bad'); return; }
     setAvatarUploading(true);
     try {
       const res: any = await api.uploadImage(file);
@@ -166,7 +166,7 @@ export default function ProfilePage() {
       if (!path) throw new Error('no url');
       setForm((f: any) => ({ ...f, imagePath: path, avatar: mediaUrl(path) }));
     } catch {
-      showToast('Gagal mengunggah gambar');
+      showToast('Gagal mengunggah gambar', 'bad');
     } finally {
       setAvatarUploading(false);
     }

@@ -13,28 +13,39 @@ function applyDark(v: boolean) {
   document.body.classList.toggle('dark', v);
 }
 
+type ToastTone = 'ok' | 'bad' | 'ink';
+
 interface UiState {
   dark: boolean;
   toast: string;
+  toastTone: ToastTone;
   invoiceTxn: Invoice | null;
   setDark: (v: boolean) => void;
-  showToast: (msg: string | { title?: string }) => void;
+  showToast: (msg: string | { title?: string }, tone?: ToastTone) => void;
   openInvoice: (tx: Invoice) => void;
   closeInvoice: () => void;
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
+// A toast used to ALWAYS render green with a checkmark, so error/warning messages
+// ("Gagal…", "File harus berupa gambar") looked like success. When a tone isn't given
+// explicitly, infer 'bad' from failure keywords so existing error toasts turn red without
+// touching every call site.
+const ERROR_RE = /gagal|salah|tidak valid|tidak dapat|harus|wajib|maks|maksimal|minimal|periksa|error|invalid|failed/i;
+const inferTone = (text: string): ToastTone => (ERROR_RE.test(text) ? 'bad' : 'ok');
+
 export const useUiStore = create<UiState>((set) => ({
   dark: readDark(),
   toast: '',
+  toastTone: 'ok',
   invoiceTxn: null,
 
   setDark(v) { applyDark(v); set({ dark: v }); },
 
-  showToast(msg) {
+  showToast(msg, tone) {
     const text = typeof msg === 'string' ? msg : (msg?.title || '');
-    set({ toast: text });
+    set({ toast: text, toastTone: tone || inferTone(text) });
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => set({ toast: '' }), 2600);
   },

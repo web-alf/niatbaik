@@ -10,6 +10,7 @@ import { NBTracking } from '@/lib/tracking';
 export function PublicLayout() {
   const ready = useDataStore((s) => s.ready);
   const toast = useUiStore((s) => s.toast);
+  const toastTone = useUiStore((s) => s.toastTone);
 
   // Public pages need public data (campaigns, settings, payment methods) before they
   // render meaningfully. Kick a public refresh once on mount if it hasn't run. Also fire
@@ -27,7 +28,7 @@ export function PublicLayout() {
       <ErrorBoundary>
         <Outlet />
       </ErrorBoundary>
-      <Toast message={toast} />
+      <Toast message={toast} tone={toastTone} />
     </>
   );
 }

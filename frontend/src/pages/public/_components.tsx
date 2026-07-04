@@ -270,16 +270,41 @@ export function Hero({ onNav }: any) {
 }
 
 // -------- Logo strip (trust) --------
+// Official logos bundled as static assets (frontend/public/trust/, sourced from Wikimedia
+// Commons). Rendered grayscale, colorized on hover; if an image fails to load the item
+// falls back to the institution name so the strip never shows a broken image.
+const TRUST_LOGOS = [
+  { name: 'Kementerian Sosial RI', src: '/trust/kemensos.svg' },
+  { name: 'BAZNAS', src: '/trust/baznas.svg' },
+  { name: 'PWNU', src: '/trust/nu.svg' },
+  { name: 'Muhammadiyah', src: '/trust/muhammadiyah.svg' },
+  { name: 'detikcom', src: '/trust/detik.png' },
+  { name: 'CNN Indonesia', src: '/trust/cnn-indonesia.svg' },
+  { name: 'Tempo', src: '/trust/tempo.svg' },
+  { name: 'Liputan6', src: '/trust/liputan6.svg' },
+  { name: 'Kompas', src: '/trust/kompas.svg' },
+  { name: 'OJK', src: '/trust/ojk.png' },
+];
+
 export function TrustStrip() {
-  const items = ['Kementerian Sosial RI', 'Baznas', 'PWNU', 'Muhammadiyah', 'Detik.com', 'CNN Indonesia', 'Tempo', 'Liputan6', 'Kompas', 'OJK'];
   return (
     <section className="py-8 border-y border-line bg-bg2/60 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="text-center text-xs font-semibold uppercase tracking-widest text-mute mb-4">Diliput & dipercaya oleh</div>
         <div className="relative">
-          <div className="marquee flex gap-4">
-            {[...items, ...items].map((s, i) => (
-              <div key={i} className="shrink-0 px-6 py-3 rounded-lg bg-white border border-line text-ink/70 font-bold text-sm">{s}</div>
+          <div className="marquee flex gap-4 items-stretch">
+            {[...TRUST_LOGOS, ...TRUST_LOGOS].map((l, i) => (
+              <div key={i} className="shrink-0 flex items-center px-6 py-3 rounded-lg bg-white border border-line" title={l.name}>
+                <img src={l.src} alt={l.name} loading="lazy"
+                  className="h-7 max-w-[130px] w-auto object-contain grayscale opacity-75 hover:grayscale-0 hover:opacity-100 transition duration-200"
+                  onError={(e: any) => {
+                    // Swap the broken image for the plain-text name (previous behavior).
+                    const span = document.createElement('span');
+                    span.className = 'text-ink/70 font-bold text-sm whitespace-nowrap';
+                    span.textContent = l.name;
+                    e.target.replaceWith(span);
+                  }}/>
+              </div>
             ))}
           </div>
         </div>

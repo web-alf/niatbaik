@@ -1,7 +1,7 @@
 // API DTOs. Tight on the entities that flow through many components; loose
 // (index signature + unknown) where the backend shape is a fuzzy JSON blob.
 
-export type Role = 'Admin' | 'CS' | 'Advertiser';
+export type Role = 'Admin' | 'CS' | 'Advertiser' | 'Fundraiser';
 
 // Backend wraps payloads as { data, message, ... }. request<T>() returns null on
 // a GET network/parse failure (see lib/api.ts), so callers must null-check.

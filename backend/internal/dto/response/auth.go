@@ -22,4 +22,6 @@ type UserResponse struct {
 	Image              string     `json:"image"`
 	LastLoginAt        *time.Time `json:"last_login_at"`
 	CreatedAt          time.Time  `json:"created_at"`
+	BonusBalance       int64      `json:"bonus_balance"`
+	BonusWithdrawn     int64      `json:"bonus_withdrawn"`
 }

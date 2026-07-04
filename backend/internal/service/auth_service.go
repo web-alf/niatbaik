@@ -363,5 +363,7 @@ func userToResponse(u *model.User) *response.UserResponse {
 		Image:              u.Image,
 		LastLoginAt:        u.LastLoginAt,
 		CreatedAt:          u.CreatedAt,
+		BonusBalance:       u.BonusBalance,
+		BonusWithdrawn:     u.BonusWithdrawn,
 	}
 }

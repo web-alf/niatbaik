@@ -25,30 +25,32 @@ export const NAV: NavItem[] = [
   { key: 'data-studio',   label: 'Data Studio',      icon: 'sparkle',    path: '/data-studio',   roles: ['Admin', 'Advertiser'] },
   { key: 'inbox',         label: 'CS Inbox',         icon: 'inbox',      path: '/inbox',         roles: ['Admin', 'CS'] },
   { key: 'fundraiser',    label: 'Fundraiser',       icon: 'handshake',  path: '/fundraiser',    roles: ['Admin', 'CS'] },
+  // Fundraiser portal — the fundraiser's OWN view (referral links, stats, commission,
+  // payout). Distinct from the admin '/fundraiser' management page above.
+  { key: 'fundraiser-portal', label: 'Portal Saya',  icon: 'handshake',  path: '/fundraiser-portal', roles: ['Fundraiser'] },
   { key: 'withdrawals',   label: 'Penarikan Dana',   icon: 'wallet',     path: '/withdrawals',   roles: ['Admin'] },
   { key: 'members',       label: 'Members / User',   icon: 'users',      path: '/members',       roles: ['Admin'] },
   { key: 'gateways',      label: 'Payment Gateways', icon: 'creditcard', path: '/gateways',      roles: ['Admin'] },
-  { key: 'notifications', label: 'Notification',     icon: 'bell',       path: '/notifications', roles: ['Admin', 'CS', 'Advertiser'] },
+  { key: 'notifications', label: 'Notification',     icon: 'bell',       path: '/notifications', roles: ['Admin', 'CS', 'Advertiser', 'Fundraiser'] },
   { key: 'trash',         label: 'Trash',            icon: 'trash',      path: '/trash',         roles: ['Admin'] },
 ];
 
 export const SECONDARY_NAV: NavItem[] = [
-  { key: 'profile',  label: 'Profile',  icon: 'user', path: '/profile',  roles: ['Admin', 'CS', 'Advertiser'] },
+  { key: 'profile',  label: 'Profile',  icon: 'user', path: '/profile',  roles: ['Admin', 'CS', 'Advertiser', 'Fundraiser'] },
   { key: 'settings', label: 'Settings', icon: 'cog',  path: '/settings', roles: ['Admin'] },
 ];
 
 export const ROLE_META: Record<string, { color: string; ring: string; light: string; text: string; icon: string; tag: string }> = {
-  Admin:      { color: 'bg-brand-600',  ring: 'ring-brand-600',  light: 'bg-brand-50',  text: 'text-brand-700',  icon: 'shield', tag: 'Full Access' },
-  CS:         { color: 'bg-sky2-500',   ring: 'ring-sky2-500',   light: 'bg-sky2-50',   text: 'text-sky2-600',   icon: 'inbox',  tag: 'Operasional' },
-  Advertiser: { color: 'bg-violet-600', ring: 'ring-violet-600', light: 'bg-violet-50', text: 'text-violet-700', icon: 'chart',  tag: 'Marketing' },
+  Admin:      { color: 'bg-brand-600',  ring: 'ring-brand-600',  light: 'bg-brand-50',  text: 'text-brand-700',  icon: 'shield',    tag: 'Full Access' },
+  CS:         { color: 'bg-sky2-500',   ring: 'ring-sky2-500',   light: 'bg-sky2-50',   text: 'text-sky2-600',   icon: 'inbox',     tag: 'Operasional' },
+  Advertiser: { color: 'bg-violet-600', ring: 'ring-violet-600', light: 'bg-violet-50', text: 'text-violet-700', icon: 'chart',     tag: 'Marketing' },
+  Fundraiser: { color: 'bg-emerald-600',ring: 'ring-emerald-600',light: 'bg-emerald-50',text: 'text-emerald-700',icon: 'handshake', tag: 'Mitra' },
 };
 
-// Backend staff role (admin/cs/advertiser) → design role. Non-staff backend roles
-// (fundraiser/user — donors) deliberately have NO design role: they must never be
-// granted the admin shell. Previously they fell through to 'Admin', which showed
-// donors the full admin nav (every data call 403'd, but the menu structure leaked
-// and the UX was broken). isStaffRole gates admin-tree access in RequireAuth.
-const ROLE_MAP: Record<string, Role> = { admin: 'Admin', cs: 'CS', advertiser: 'Advertiser' };
+// Backend role → design role. admin/cs/advertiser are staff; fundraiser is a partner role
+// that gets its OWN limited shell (portal + payout + profile), NOT the admin nav. Only the
+// donor 'user' role has no design role and is kept out of the shell entirely (RequireAuth).
+const ROLE_MAP: Record<string, Role> = { admin: 'Admin', cs: 'CS', advertiser: 'Advertiser', fundraiser: 'Fundraiser' };
 export const isStaffRole = (u: User | null | undefined): boolean =>
   !!u && (!!ROLE_META[u.role as string] || !!ROLE_MAP[(u.role as string)?.toLowerCase?.()]);
 // Resolve a staff user to its design role. Non-staff fall back to 'Admin' only so the
@@ -57,8 +59,8 @@ export const toDesignRole = (u: User | null | undefined): Role =>
   (ROLE_META[u?.role as string] ? (u!.role as Role) : (ROLE_MAP[(u?.role as string)?.toLowerCase?.()] || 'Admin'));
 
 // role → allowed nav keys (and the matching first path used as the post-login landing).
-export const NAV_ROLE_KEYS: Record<Role, string[]> = { Admin: [], CS: [], Advertiser: [] };
-(['Admin', 'CS', 'Advertiser'] as Role[]).forEach((r) => {
+export const NAV_ROLE_KEYS: Record<Role, string[]> = { Admin: [], CS: [], Advertiser: [], Fundraiser: [] };
+(['Admin', 'CS', 'Advertiser', 'Fundraiser'] as Role[]).forEach((r) => {
   NAV_ROLE_KEYS[r] = NAV.filter((n) => n.roles.includes(r)).map((n) => n.key);
 });
 

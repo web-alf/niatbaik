@@ -41,6 +41,17 @@ func (r *FundraiserRepo) FindByID(id uuid.UUID) (*model.Fundraiser, error) {
 	return &fundraiser, nil
 }
 
+// FindByUser returns all of a user's affiliate records (one per campaign they fundraise
+// for), newest first, with the campaign preloaded for the portal's referral links.
+func (r *FundraiserRepo) FindByUser(userID uuid.UUID) ([]model.Fundraiser, error) {
+	var fundraisers []model.Fundraiser
+	err := r.db.Preload("Campaign").
+		Where("user_id = ?", userID).
+		Order("created_at desc").
+		Find(&fundraisers).Error
+	return fundraisers, err
+}
+
 func (r *FundraiserRepo) FindByUserAndCampaign(userID, campaignID uuid.UUID) (*model.Fundraiser, error) {
 	var fundraiser model.Fundraiser
 	err := r.db.Where("user_id = ? AND campaign_id = ?", userID, campaignID).

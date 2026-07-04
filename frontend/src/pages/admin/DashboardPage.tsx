@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
@@ -153,6 +153,9 @@ export default function DashboardPage() {
   // Role-specific dashboards
   if (role === 'Advertiser') return <AdvertiserPage/>;
   if (role === 'CS') return <CSDashboard/>;
+  // Fundraiser has no admin dashboard — send them to their own portal (their nav has no
+  // Dashboard link, but a direct /dashboard hit would otherwise 403 every admin data call).
+  if (role === 'Fundraiser') return <Navigate to="/fundraiser-portal" replace/>;
 
   // Admin dashboard — live stats from /dashboard/stats. Fallbacks are 0/empty (NOT the
   // old fabricated millions). Delta badges are REAL period-over-period figures from the

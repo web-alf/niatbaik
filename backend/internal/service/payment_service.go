@@ -99,9 +99,17 @@ func (s *PaymentService) ProcessPayment(invoice *model.Invoice) error {
 			}
 			commissionAmount := (campaignReceives * commissionPercent) / 100
 
+			// Scope to the fundraiser's affiliate record FOR THIS CAMPAIGN (a user can be a
+			// fundraiser on several campaigns). Bump raised + donor/paid counts so the
+			// affiliate stats reflect reality — previously this matched user_id only (wrong
+			// campaign's row could be hit) and only touched total_raised.
 			if err := tx.Model(&model.Fundraiser{}).
-				Where("user_id = ?", *lockedInvoice.ReferredBy).
-				UpdateColumn("total_raised", gorm.Expr("total_raised + ?", lockedInvoice.Subtotal)).Error; err != nil {
+				Where("user_id = ? AND campaign_id = ?", *lockedInvoice.ReferredBy, lockedInvoice.CampaignID).
+				UpdateColumns(map[string]interface{}{
+					"total_raised":  gorm.Expr("total_raised + ?", lockedInvoice.Subtotal),
+					"total_donors":  gorm.Expr("total_donors + 1"),
+					"invoices_paid": gorm.Expr("invoices_paid + 1"),
+				}).Error; err != nil {
 				return fmt.Errorf("failed to update fundraiser: %w", err)
 			}
 

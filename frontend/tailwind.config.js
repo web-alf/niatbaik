@@ -11,10 +11,10 @@ export default {
   // build ever scans partial source (the Docker stale-bundle gotcha), leaving non-admin
   // role badges/avatars with no background. Safelisting guarantees they ship every build.
   safelist: [
-    'bg-brand-600', 'bg-sky2-500', 'bg-violet-600',
-    'ring-brand-600', 'ring-sky2-500', 'ring-violet-600',
-    'bg-brand-50', 'bg-sky2-50', 'bg-violet-50',
-    'text-brand-700', 'text-sky2-600', 'text-violet-700',
+    'bg-brand-600', 'bg-sky2-500', 'bg-violet-600', 'bg-emerald-600',
+    'ring-brand-600', 'ring-sky2-500', 'ring-violet-600', 'ring-emerald-600',
+    'bg-brand-50', 'bg-sky2-50', 'bg-violet-50', 'bg-emerald-50',
+    'text-brand-700', 'text-sky2-600', 'text-violet-700', 'text-emerald-700',
   ],
   theme: {
     extend: {

@@ -146,19 +146,23 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
   async refreshAdmin(role?: string) {
     const canAdmin = !role || role === 'Admin';
     const canCS = !role || role === 'Admin' || role === 'CS';
+    // Fundraiser is a partner role with its own portal — the dashboard/chart/transaction
+    // reads are admin+cs+advertiser only, so gate them too (fundraiser boot would 403 the
+    // whole batch otherwise). A fundraiser only needs profile + notifications here.
+    const canStaff = !role || role === 'Admin' || role === 'CS' || role === 'Advertiser';
     const [txRes, notifRes, fundraiserRes, usersRes, settingsRes, profileRes, invRes,
       chartRes, statsRes, pmChartRes, tsChartRes, pmListRes, trashRes] = await Promise.all([
-      safe(() => api.recentTransactions(48)),
+      canStaff ? safe(() => api.recentTransactions(48)) : Promise.resolve(null),
       safe(() => api.notifications()),
       canCS ? safe(() => api.fundraisers()) : Promise.resolve(null),
       canAdmin ? safe(() => api.users('limit=500')) : Promise.resolve(null),
       canAdmin ? safe(() => api.settings()) : Promise.resolve(null),
       safe(() => api.profile()),
       canCS ? safe(() => api.invoices('limit=500')) : Promise.resolve(null),
-      safe(() => api.dailyChart(30)),
-      safe(() => api.dashboardStats()),
-      safe(() => api.paymentMethodChart()),
-      safe(() => api.trafficSourceChart()),
+      canStaff ? safe(() => api.dailyChart(30)) : Promise.resolve(null),
+      canStaff ? safe(() => api.dashboardStats()) : Promise.resolve(null),
+      canStaff ? safe(() => api.paymentMethodChart()) : Promise.resolve(null),
+      canStaff ? safe(() => api.trafficSourceChart()) : Promise.resolve(null),
       canAdmin ? safe(() => api.paymentMethods()) : Promise.resolve(null),
       canAdmin ? safe(() => api.trash()) : Promise.resolve(null),
     ]);
@@ -244,7 +248,12 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
     set({ loading: true });
     const tasks = [get().refreshPublic()];
     if (isLoggedIn) {
-      tasks.push(get().refreshAdmin(role), get().refreshAnalytics(), get().refreshDataStudio());
+      tasks.push(get().refreshAdmin(role));
+      // Analytics + Data Studio are admin+advertiser only — skip for CS/Fundraiser (would
+      // 403). When role is unknown (initial boot) still fire; safe() swallows any 403.
+      if (!role || role === 'Admin' || role === 'Advertiser') {
+        tasks.push(get().refreshAnalytics(), get().refreshDataStudio());
+      }
     }
     await Promise.all(tasks);
     set({ loading: false, ready: true });

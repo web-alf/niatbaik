@@ -278,6 +278,9 @@ export const api = {
   // Fundraisers
   fundraisers(params = '') { return this.get<any[]>('/fundraisers' + (params ? '?' + params : '')); },
   fundraiser(id: string | number) { return this.get<any>('/fundraisers/' + id); },
+  createFundraiser(data: unknown) { return this.post<any>('/fundraisers', data); },
+  fundraiserMine() { return this.get<any>('/fundraisers/me'); },
+  createWithdrawal(data: unknown) { return this.post<any>('/withdrawals', data); },
 
   // Withdrawals
   withdrawals() { return this.get<any[]>('/withdrawals'); },

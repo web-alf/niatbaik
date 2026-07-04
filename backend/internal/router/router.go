@@ -74,7 +74,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	withdrawalHandler := handler.NewWithdrawalHandler(withdrawalService, withdrawalRepo)
 	trashHandler := handler.NewTrashHandler(trashService)
 	invoiceHandler := handler.NewInvoiceHandler(db, paymentService, paymentStatusRepo)
-	fundraiserHandler := handler.NewFundraiserHandler(fundraiserRepo, commissionRepo)
+	fundraiserHandler := handler.NewFundraiserHandler(fundraiserRepo, commissionRepo, userRepo, userService)
 	profileHandler := handler.NewProfileHandler(profileService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
 	uploadHandler := handler.NewUploadHandler(uploadService)
@@ -247,9 +247,15 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	cs.PUT("/invoices/:id/note", invoiceHandler.AddNote)
 	cs.PUT("/invoices/:id/quality", invoiceHandler.UpdateQuality)
 
+	// Fundraiser self-service: a fundraiser reads their own affiliate records + commission
+	// via /fundraisers/me. On `protected` (any authed user); the handler scopes to the
+	// caller. Registered before the :id param route so "me" isn't parsed as an id.
+	protected.GET("/fundraisers/me", fundraiserHandler.GetMine)
+
 	// Fundraiser management is operational — admin + cs (the FE route and nav both
 	// allow CS; keeping it admin-only made the page 403 silently for CS).
 	cs.GET("/fundraisers", fundraiserHandler.List)
+	cs.POST("/fundraisers", fundraiserHandler.Create)
 	cs.GET("/fundraisers/:id", fundraiserHandler.GetDetail)
 
 	// Analytics (admin + advertiser)

@@ -33,6 +33,7 @@ import AdvertiserPage from '@/pages/admin/AdvertiserPage';
 import DataStudioPage from '@/pages/admin/DataStudioPage';
 import CsInboxPage from '@/pages/admin/CsInboxPage';
 import FundraiserPage from '@/pages/admin/FundraiserPage';
+import FundraiserPortalPage from '@/pages/fundraiser/FundraiserPortalPage';
 import MembersPage from '@/pages/admin/MembersPage';
 import WithdrawalsPage from '@/pages/admin/WithdrawalsPage';
 import GatewaysPage from '@/pages/admin/GatewaysPage';
@@ -89,6 +90,7 @@ export const router = createBrowserRouter([
               { path: '/data-studio', element: <RequireRole roles={['Admin', 'Advertiser']}><DataStudioPage /></RequireRole> },
               { path: '/inbox', element: <RequireRole roles={['Admin', 'CS']}><CsInboxPage /></RequireRole> },
               { path: '/fundraiser', element: <RequireRole roles={['Admin', 'CS']}><FundraiserPage /></RequireRole> },
+              { path: '/fundraiser-portal', element: <RequireRole roles={['Fundraiser', 'Admin']}><FundraiserPortalPage /></RequireRole> },
               { path: '/members', element: <RequireRole roles={['Admin']}><MembersPage /></RequireRole> },
               { path: '/withdrawals', element: <RequireRole roles={['Admin']}><WithdrawalsPage /></RequireRole> },
               { path: '/gateways', element: <RequireRole roles={['Admin']}><GatewaysPage /></RequireRole> },

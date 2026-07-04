@@ -25,6 +25,15 @@ func NewWithdrawalService(db *gorm.DB, withdrawalRepo *repository.WithdrawalRepo
 // CreateRequest lets a verified campaign owner request a payout, validating
 // ownership and that the requested amount does not exceed withdrawable balance.
 func (s *WithdrawalService) CreateRequest(userID uuid.UUID, req *request.CreateWithdrawalRequest) (*model.Withdrawal, error) {
+	if req.Amount <= 0 {
+		return nil, errors.New("nominal penarikan harus lebih dari nol")
+	}
+	// Bonus/commission payout (fundraiser): no campaign, drawn from the user's
+	// bonus_balance minus what's already reserved by pending bonus withdrawals.
+	if req.CampaignID == nil {
+		return s.createBonusRequest(userID, req)
+	}
+
 	var created model.Withdrawal
 	// Wrap the whole check-and-create in a transaction and lock the campaign row, so
 	// two concurrent requests can't each read the same stale "available balance" and
@@ -33,7 +42,7 @@ func (s *WithdrawalService) CreateRequest(userID uuid.UUID, req *request.CreateW
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		var campaign model.Campaign
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			First(&campaign, "id = ? AND user_id = ?", req.CampaignID, userID).Error; err != nil {
+			First(&campaign, "id = ? AND user_id = ?", *req.CampaignID, userID).Error; err != nil {
 			return errors.New("campaign not found or access denied")
 		}
 
@@ -44,13 +53,10 @@ func (s *WithdrawalService) CreateRequest(userID uuid.UUID, req *request.CreateW
 		// withdrawals. Only pending/queued statuses still reserve funds against TotalRaised.
 		var totalWithdrawn int64
 		tx.Model(&model.Withdrawal{}).
-			Where("campaign_id = ? AND status IN ?", req.CampaignID, []string{"Dalam Antrian", "Menunggu"}).
+			Where("campaign_id = ? AND status IN ?", *req.CampaignID, []string{"Dalam Antrian", "Menunggu"}).
 			Select("COALESCE(SUM(amount), 0)").Scan(&totalWithdrawn)
 
 		availableBalance := campaign.TotalRaised - totalWithdrawn
-		if req.Amount <= 0 {
-			return errors.New("nominal penarikan harus lebih dari nol")
-		}
 		if req.Amount > availableBalance {
 			return fmt.Errorf("dana tidak mencukupi, sisa saldo yang dapat ditarik: Rp %d", availableBalance)
 		}
@@ -58,7 +64,47 @@ func (s *WithdrawalService) CreateRequest(userID uuid.UUID, req *request.CreateW
 		now := time.Now()
 		created = model.Withdrawal{
 			UserID:      userID,
-			CampaignID:  &req.CampaignID,
+			CampaignID:  req.CampaignID,
+			BankType:    req.BankType,
+			BankNumber:  req.BankNumber,
+			BankName:    req.BankName,
+			Amount:      req.Amount,
+			Status:      "Dalam Antrian",
+			RequestedAt: &now,
+		}
+		return tx.Create(&created).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &created, nil
+}
+
+// createBonusRequest queues a fundraiser commission payout against the user's bonus_balance.
+// Locks the user row so concurrent requests can't both pass the balance check; available =
+// bonus_balance minus amounts already reserved by pending (unpaid) bonus withdrawals.
+func (s *WithdrawalService) createBonusRequest(userID uuid.UUID, req *request.CreateWithdrawalRequest) (*model.Withdrawal, error) {
+	var created model.Withdrawal
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		var user model.User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&user, "id = ?", userID).Error; err != nil {
+			return errors.New("user not found")
+		}
+
+		var reserved int64
+		tx.Model(&model.Withdrawal{}).
+			Where("user_id = ? AND campaign_id IS NULL AND status IN ?", userID, []string{"Dalam Antrian", "Menunggu"}).
+			Select("COALESCE(SUM(amount), 0)").Scan(&reserved)
+
+		available := user.BonusBalance - reserved
+		if req.Amount > available {
+			return fmt.Errorf("saldo komisi tidak mencukupi, sisa yang dapat ditarik: Rp %d", available)
+		}
+
+		now := time.Now()
+		created = model.Withdrawal{
+			UserID:      userID,
+			CampaignID:  nil, // bonus withdrawal
 			BankType:    req.BankType,
 			BankNumber:  req.BankNumber,
 			BankName:    req.BankName,
@@ -85,8 +131,27 @@ func (s *WithdrawalService) Approve(id uuid.UUID) error {
 		if w.Status == "Selesai" {
 			return errors.New("withdrawal already completed")
 		}
+
+		// Bonus/commission payout (fundraiser, no campaign): settle from the user's
+		// bonus_balance and move it into bonus_withdrawn. Lock the user row first.
 		if w.CampaignID == nil {
-			return errors.New("withdrawal has no associated campaign")
+			var user model.User
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&user, "id = ?", w.UserID).Error; err != nil {
+				return fmt.Errorf("failed to lock user: %w", err)
+			}
+			if user.BonusBalance < w.Amount {
+				return errors.New("saldo komisi tidak mencukupi untuk pencairan ini")
+			}
+			if err := tx.Model(&user).UpdateColumns(map[string]interface{}{
+				"bonus_balance":   gorm.Expr("bonus_balance - ?", w.Amount),
+				"bonus_withdrawn": gorm.Expr("bonus_withdrawn + ?", w.Amount),
+			}).Error; err != nil {
+				return err
+			}
+			now := time.Now()
+			w.Status = "Selesai"
+			w.CompletedAt = &now
+			return tx.Save(&w).Error
 		}
 
 		var campaign model.Campaign

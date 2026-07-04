@@ -59,19 +59,24 @@ export default function FundraiserPage() {
     .filter((f: any) => !search || (f.name || '').toLowerCase().includes(search.toLowerCase()));
 
   const handleInvite = async () => {
-    if (!invForm.name.trim() || !invForm.email.trim()) { showToast('Nama & email wajib diisi'); return; }
+    if (!invForm.name.trim() || !invForm.email.trim()) { showToast('Nama & email wajib diisi', 'bad'); return; }
+    // Campaign is required — a fundraiser is tied to a specific campaign (the affiliate
+    // record). Without it the invite created a user but no Fundraiser record, so the list
+    // stayed empty and referral stats never attributed.
+    if (!invForm.campaign) { showToast('Pilih campaign untuk fundraiser ini', 'bad'); return; }
     // Generate a temporary password and SHOW it to the admin (the backend invite email
     // is best-effort and may be off, so the admin needs the credential to share).
     const tempPassword = 'fr-' + Math.random().toString(36).slice(-8);
     setInviting(true);
     try {
-      await api.createUser({ name: invForm.name, email: invForm.email, phone: invForm.phone, role: 'fundraiser', password: tempPassword });
+      // createFundraiser creates BOTH the user and the campaign affiliate record.
+      await api.createFundraiser({ name: invForm.name, email: invForm.email, phone: invForm.phone, password: tempPassword, campaign_id: invForm.campaign });
       setCreatedCreds({ email: invForm.email, password: tempPassword });
       setShowInvite(false);
       setInvForm({ name: '', email: '', phone: '', campaign: '' });
       await refreshAdmin();
     } catch (e: any) {
-      showToast('Gagal mengirim undangan: ' + (e?.message || 'Error'));
+      showToast('Gagal mengirim undangan: ' + (e?.message || 'Error'), 'bad');
     }
     setInviting(false);
   };
@@ -175,7 +180,14 @@ export default function FundraiserPage() {
           <div><label className="text-xs font-semibold text-mute">Nama</label><input className="field mt-1" value={invForm.name} onChange={(e) => setInvForm({ ...invForm, name: e.target.value })} placeholder="Nama fundraiser"/></div>
           <div><label className="text-xs font-semibold text-mute">Email</label><input className="field mt-1" value={invForm.email} onChange={(e) => setInvForm({ ...invForm, email: e.target.value })} placeholder="email@domain.com"/></div>
           <div><label className="text-xs font-semibold text-mute">No. HP</label><input className="field mt-1" value={invForm.phone} onChange={(e) => setInvForm({ ...invForm, phone: e.target.value })} placeholder="08xxx"/></div>
-          <div className="text-[11px] text-mute">Akun fundraiser dibuat dengan password sementara yang akan ditampilkan setelah dibuat — bagikan ke fundraiser agar bisa login.</div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Campaign</label>
+            <Select value={invForm.campaign} onChange={(v: string) => setInvForm({ ...invForm, campaign: v })} options={[
+              { value: '', label: 'Pilih campaign…' },
+              ...campaigns.map((c: any) => ({ value: c.id, label: c.title })),
+            ]}/>
+          </div>
+          <div className="text-[11px] text-mute">Akun fundraiser dibuat dengan password sementara yang akan ditampilkan setelah dibuat — bagikan ke fundraiser agar bisa login. Fundraiser terikat ke campaign yang dipilih.</div>
         </div>
       </Modal>
 

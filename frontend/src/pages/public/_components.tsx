@@ -152,6 +152,13 @@ export function Navbar({ onNav, onHome }: any) {
   const [open, setOpen] = useState(false);
   const [dark, toggleDark] = usePublicDark();
   const navigate = useNavigate();
+  // Lock body scroll while the mobile drawer is open.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
   // Admin-uploaded logo (Settings → Branding) with the static asset as fallback.
   const navLogo = useDataStore((s) => s.publicSettings)?.logo;
   const links = [
@@ -182,8 +189,9 @@ export function Navbar({ onNav, onHome }: any) {
           ))}
         </nav>
         <div className="flex-1"/>
+        {/* Desktop-only: on mobile the drawer already has a Dark Mode item. */}
         <button onClick={toggleDark} aria-label="Toggle dark mode"
-          className="h-9 w-9 rounded-lg border border-line bg-white hover:bg-bg2 flex items-center justify-center text-ink">
+          className="hidden lg:flex h-9 w-9 rounded-lg border border-line bg-white hover:bg-bg2 items-center justify-center text-ink">
           <Icon name={dark ? 'sun' : 'moon'} size={16}/>
         </button>
         <button onClick={() => navigate('/dashboard')} className="hidden lg:inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
@@ -194,19 +202,36 @@ export function Navbar({ onNav, onHome }: any) {
         </PrimaryBtn>
         <button onClick={() => setOpen(!open)} className="lg:hidden h-9 w-9 rounded-lg hover:bg-bg2 flex items-center justify-center"><Icon name="menu" size={20}/></button>
       </div>
-      {open && (
-        <div className="lg:hidden border-t border-line bg-white">
-          <div className="px-4 py-3 flex flex-col gap-1">
-            {links.map((l) => (
-              <a key={l.l} href={l.h} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2" onClick={(e) => { if (onHome) goSection(e, l.h); else setOpen(false); }}>{l.l}</a>
-            ))}
-            <button onClick={toggleDark} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2 text-left flex items-center gap-2">
-              <Icon name={dark ? 'sun' : 'moon'} size={16}/> {dark ? 'Light Mode' : 'Dark Mode'}
-            </button>
-            <button onClick={() => { setOpen(false); navigate('/dashboard'); }} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-mute text-left">Masuk Dashboard</button>
-          </div>
+      {/* Mobile drawer: slides in from the RIGHT. Kept mounted so the CSS
+          transform transition animates both open and close. */}
+      <div className={`lg:hidden fixed inset-0 z-40 bg-ink/40 transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={() => setOpen(false)} aria-hidden="true"/>
+      <aside className={`lg:hidden fixed top-0 right-0 z-50 h-full w-72 max-w-[85vw] bg-white shadow-pop flex flex-col
+        transition-transform duration-300 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}
+        role="dialog" aria-label="Menu">
+        <div className="h-16 px-4 flex items-center justify-between border-b border-line">
+          {navLogo ? <img src={mediaUrl(navLogo)} alt="NIATBAIK.ORG" className="h-7"/> : <Logo size={28}/>}
+          <button onClick={() => setOpen(false)} aria-label="Tutup menu" className="h-9 w-9 rounded-lg hover:bg-bg2 flex items-center justify-center">
+            <Icon name="close" size={18}/>
+          </button>
         </div>
-      )}
+        <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1">
+          {links.map((l) => (
+            <a key={l.l} href={l.h} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2" onClick={(e) => { if (onHome) goSection(e, l.h); else setOpen(false); }}>{l.l}</a>
+          ))}
+          <button onClick={toggleDark} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2 text-left flex items-center gap-2">
+            <Icon name={dark ? 'sun' : 'moon'} size={16}/> {dark ? 'Light Mode' : 'Dark Mode'}
+          </button>
+          <button onClick={() => { setOpen(false); navigate('/dashboard'); }} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-mute text-left flex items-center gap-2">
+            <Icon name="user" size={16}/> Masuk Dashboard
+          </button>
+        </div>
+        <div className="p-4 border-t border-line">
+          <PrimaryBtn size="md" className="w-full justify-center" onClick={() => { setOpen(false); onNav('campaign', getFirstCampaign()); }}>
+            <Icon name="heart" size={16}/> Donasi Sekarang
+          </PrimaryBtn>
+        </div>
+      </aside>
     </header>
   );
 }

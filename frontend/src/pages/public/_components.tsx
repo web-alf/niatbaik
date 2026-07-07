@@ -790,11 +790,12 @@ function ShareCampaign({ c, slug }: any) {
   };
 
   const enc = encodeURIComponent;
+  // Real brand marks with their brand colors (glyphs in Icon.tsx: wa/fb/tg/x).
   const links = [
-    { key: 'wa', label: 'WhatsApp', icon: 'wa', href: `https://wa.me/?text=${enc(shareText + ' ' + shareUrl)}` },
-    { key: 'fb', label: 'Facebook', icon: 'globe', href: `https://www.facebook.com/sharer/sharer.php?u=${enc(shareUrl)}` },
-    { key: 'tg', label: 'Telegram', icon: 'send', href: `https://t.me/share/url?url=${enc(shareUrl)}&text=${enc(shareText)}` },
-    { key: 'x', label: 'X / Twitter', icon: 'megaphone', href: `https://twitter.com/intent/tweet?url=${enc(shareUrl)}&text=${enc(shareText)}` },
+    { key: 'wa', label: 'WhatsApp', icon: 'wa', color: 'text-[#25D366]', href: `https://wa.me/?text=${enc(shareText + ' ' + shareUrl)}` },
+    { key: 'fb', label: 'Facebook', icon: 'fb', color: 'text-[#1877F2]', href: `https://www.facebook.com/sharer/sharer.php?u=${enc(shareUrl)}` },
+    { key: 'tg', label: 'Telegram', icon: 'tg', color: 'text-[#229ED9]', href: `https://t.me/share/url?url=${enc(shareUrl)}&text=${enc(shareText)}` },
+    { key: 'x', label: 'X / Twitter', icon: 'x', color: 'text-ink', href: `https://twitter.com/intent/tweet?url=${enc(shareUrl)}&text=${enc(shareText)}` },
   ];
 
   return (
@@ -808,7 +809,7 @@ function ShareCampaign({ c, slug }: any) {
           {links.map((l) => (
             <a key={l.key} href={l.href} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}
               className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold text-ink hover:bg-bg2">
-              <Icon name={l.icon} size={16} className="text-brand-600"/> {l.label}
+              <Icon name={l.icon} size={16} className={l.color}/> {l.label}
             </a>
           ))}
           <button onClick={copyLink}
@@ -1057,7 +1058,10 @@ export function CampaignPage({ c: listItem, onNav }: any) {
       {/* Sub-bar under the shared navbar: breadcrumb back (left) + share (top-right). The
           main home navigation lives in the Navbar above; this keeps the campaign-scoped
           "kembali" + the Bagikan button close to the content. */}
-      <section className="bg-white/90 backdrop-blur border-b border-line sticky top-0 z-30 lg:static lg:bg-bg2">
+      {/* backdrop-blur makes this section a stacking context even when lg:static, which
+          trapped the share dropdown's z-20 under the lg:sticky donation card. Keep the
+          section positioned with a z above the content column on desktop instead. */}
+      <section className="bg-white/90 backdrop-blur border-b border-line sticky top-0 z-30 lg:relative lg:z-40 lg:bg-bg2">
         <div className="max-w-7xl mx-auto px-4 lg:px-6 py-3 flex items-center justify-between gap-3">
           <button onClick={() => onNav('home')} className="inline-flex items-center gap-1.5 text-sm font-semibold text-mute hover:text-ink">
             <Icon name="chevronL" size={16}/> Kembali ke beranda

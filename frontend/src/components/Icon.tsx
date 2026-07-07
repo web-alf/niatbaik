@@ -66,6 +66,10 @@ export function Icon({ name, size = 18, className = '', strokeWidth = 1.8 }: Ico
     link: <><path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></>,
     wa: <><path d="M20.5 12a8.5 8.5 0 11-15.6 4.6L3 21l4.5-1.2A8.5 8.5 0 0020.5 12z"/><path d="M8.5 9.5c.3-.4.7-.5 1-.5l.6 1.5-.7.7c.6 1.2 1.4 2 2.6 2.6l.7-.7 1.5.6c0 .3-.1.7-.5 1-1 .8-2.4.4-3.7-.6-1-.8-1.8-1.7-2.2-2.7-.4-1-.3-1.8.7-1.9z" fill="currentColor" stroke="none"/></>,
     sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></>,
+    // Brand marks (filled) for the share menu.
+    fb: <path d="M22 12a10 10 0 10-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0022 12z" fill="currentColor" stroke="none"/>,
+    x: <path d="M18.9 2H22l-7.6 8.7L23.3 22h-6.9l-5.4-6.5L4.8 22H1.7l8.2-9.4L1 2h7.1l4.9 5.9L18.9 2zm-1.2 18h1.9L6.9 3.8H4.9L17.7 20z" fill="currentColor" stroke="none"/>,
+    tg: <path d="M21.9 4.6l-3.1 14.7c-.2 1-.8 1.3-1.7.8l-4.7-3.5-2.3 2.2c-.3.3-.5.5-1 .5l.4-4.9L18.2 6.7c.4-.3-.1-.5-.6-.2L6.8 13.2l-4.6-1.4c-1-.3-1-1 .2-1.5l18-7c.8-.3 1.6.2 1.5 1.3z" fill="currentColor" stroke="none"/>,
     logout: <><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></>,
     menu: <><path d="M4 7h16M4 12h16M4 17h16"/></>,
     play: <><path d="M6 4l14 8-14 8z" fill="currentColor"/></>,

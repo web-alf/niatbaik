@@ -121,7 +121,8 @@ func (r *CampaignRepo) FindBySlug(slug string) (*model.Campaign, error) {
 // the lookup must accept either — looking up a UUID by the slug column always 404'd.
 func (r *CampaignRepo) FindBySlugOrID(key string) (*model.Campaign, error) {
 	var c model.Campaign
-	q := r.db.Preload("Category").Preload("User").Preload("Updates")
+	// Fundraisers (+their User) feed the public "Fundraiser" section on the detail page.
+	q := r.db.Preload("Category").Preload("User").Preload("Updates").Preload("Fundraisers.User")
 	if id, err := uuid.Parse(key); err == nil {
 		err = q.Where("id = ? OR slug = ?", id, key).First(&c).Error
 		if err != nil {

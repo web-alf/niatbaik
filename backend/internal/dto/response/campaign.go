@@ -82,6 +82,16 @@ type CampaignDetail struct {
 	User               CampaignUser         `json:"user"`
 	Updates            []CampaignUpdateItem `json:"updates"`
 	Donors             []CampaignDonor      `json:"donors"`
+	// Fundraisers backing this campaign, shown publicly on the detail page.
+	// Only name/image/total_raised — no user ids or contact info.
+	Fundraisers []CampaignFundraiser `json:"fundraisers"`
+}
+
+type CampaignFundraiser struct {
+	Name        string `json:"name"`
+	Image       string `json:"image"`
+	TotalRaised int64  `json:"total_raised"`
+	TotalDonors int    `json:"total_donors"`
 }
 
 type CampaignUser struct {
@@ -191,7 +201,21 @@ func ToCampaignDetail(c *model.Campaign, donorCount int64, donors []CampaignDono
 			Name:  c.User.Name,
 			Image: c.User.Image,
 		},
-		Updates: updates,
-		Donors:  donors,
+		Updates:     updates,
+		Donors:      donors,
+		Fundraisers: toCampaignFundraisers(c.Fundraisers),
 	}
+}
+
+func toCampaignFundraisers(fs []model.Fundraiser) []CampaignFundraiser {
+	out := make([]CampaignFundraiser, 0, len(fs))
+	for i := range fs {
+		out = append(out, CampaignFundraiser{
+			Name:        fs[i].User.Name,
+			Image:       fs[i].User.Image,
+			TotalRaised: fs[i].TotalRaised,
+			TotalDonors: fs[i].TotalDonors,
+		})
+	}
+	return out
 }

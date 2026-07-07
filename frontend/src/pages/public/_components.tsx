@@ -266,7 +266,8 @@ export function Hero({ onNav }: any) {
           }}>
             <Icon name="heart" size={18}/> Mulai Donasi
           </PrimaryBtn>
-          <button onClick={() => document.getElementById('campaigns')?.scrollIntoView({behavior:'smooth'})} className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-base font-bold text-ink hover:bg-white border border-line bg-white/60">
+          {/* Sizing mirrors PrimaryBtn lg so the CTA pair reads as one set. */}
+          <button onClick={() => document.getElementById('campaigns')?.scrollIntoView({behavior:'smooth'})} className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl text-lg font-bold text-ink hover:bg-white ring-1 ring-inset ring-line bg-white/60">
             <Icon name="eye" size={18}/> Lihat Campaign
           </button>
         </div>
@@ -942,7 +943,10 @@ export function CampaignPage({ c: listItem, onNav }: any) {
   // to the global recent-transactions feed only when detail hasn't loaded.
   const detailDonors = (detail && Array.isArray(detail.donors)) ? detail.donors : null;
   const txFeed = useDataStore((s) => s.transactions);
-  const recentDonors = detailDonors || (txFeed || []).slice(0, 8);
+  // Fallback feed is GLOBAL (all campaigns) — scope it to THIS campaign or another
+  // campaign's donors/doa would show here while the detail fetch is in flight.
+  const recentDonors = detailDonors
+    || (txFeed || []).filter((t: any) => t.isPaid && t.campaignId && t.campaignId === (listItem && listItem.id)).slice(0, 8);
   const updates = (detail && Array.isArray(detail.updates)) ? detail.updates : null;
 
   // Admin-customizable CTA label for the campaign page (button1). The form's
@@ -1140,7 +1144,7 @@ export function CampaignPage({ c: listItem, onNav }: any) {
                 </div>
 
                 <div className="mt-5">
-                  {tab === 'story' && <><CampaignStory c={c}/><FundraiserCTA c={c}/><DonorPrayers donors={recentDonors}/></>}
+                  {tab === 'story' && <><CampaignStory c={c}/><FundraiserCTA c={c}/><FundraiserSection c={c}/><DonorPrayers donors={recentDonors}/></>}
                   {tab === 'updates' && <CampaignUpdates updates={updates}/>}
                   {tab === 'donors' && <CampaignDonors donors={recentDonors}/>}
                   {tab === 'faq' && <CampaignFAQ/>}
@@ -2286,6 +2290,76 @@ function FundraiserCTA({ c }: any) {
         className="mt-2 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-500 text-white hover:bg-emerald-600">
         <Icon name="wa" size={16}/> Bagikan ke WhatsApp
       </a>
+    </div>
+  );
+}
+
+// FundraiserSection lists the fundraisers backing THIS campaign (from the detail
+// endpoint's `fundraisers`, name/avatar/stats only). Empty state invites visitors to
+// become one — the join CTA goes to CS WhatsApp because fundraiser accounts are
+// created by CS, there is no public self-signup. Logged-in fundraisers already get
+// the share panel (FundraiserCTA) above, so they don't see the join button.
+function FundraiserSection({ c }: any) {
+  const { user } = useAuth();
+  // undefined = detail not fetched yet → render nothing (avoids "Belum ada" flash).
+  if (!Array.isArray(c?.fundraisers)) return null;
+  const list = c.fundraisers;
+  const isFundraiser = String((user as any)?.role || '').toLowerCase() === 'fundraiser';
+  const cs = pickCsContact();
+  const ps = useDataStore.getState().publicSettings;
+  const waNum = normalizeWa((cs && cs.phone) || (ps && ps.whatsapp_admin) || '');
+  const waText = encodeURIComponent(`Assalamu'alaikum, saya ingin menjadi Fundraiser untuk campaign "${(c && c.title) || ''}". Mohon info caranya 🙏`);
+  const joinHref = waNum ? `https://wa.me/${waNum}?text=${waText}` : '#';
+  return (
+    <div className="mt-6 rounded-2xl border border-line bg-white p-5">
+      <div className="flex items-center gap-2 font-bold text-ink">
+        <Icon name="handshake" size={18} className="text-brand-600"/> Fundraiser
+        {list.length > 0 && <span className="text-mute font-semibold">({list.length})</span>}
+      </div>
+      {list.length === 0 ? (
+        <div className="mt-4 flex flex-col items-center text-center py-4">
+          <div className="h-16 w-16 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center">
+            <Icon name="handshake" size={32} strokeWidth={1.5}/>
+          </div>
+          <div className="mt-3 font-bold text-ink">Belum ada Fundraiser</div>
+          <p className="mt-1 text-sm text-mute max-w-xs">Mari jadi Fundraiser dan berikan manfaat bagi program ini.</p>
+          {!isFundraiser && (
+            <a href={joinHref} target="_blank" rel="noopener noreferrer"
+              className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-brand-600 text-white hover:bg-brand-700">
+              <Icon name="handshake" size={16}/> Jadi Fundraiser
+            </a>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="mt-3 space-y-3">
+            {list.map((f: any, i: number) => {
+              const name = f.name || 'Fundraiser';
+              const initials = name.split(' ').map((s: any) => s[0]).join('').slice(0, 2).toUpperCase();
+              return (
+                <div key={i} className="flex items-center gap-3">
+                  {f.image
+                    ? <img src={mediaUrl(f.image)} alt={name} className="h-10 w-10 rounded-full object-cover"/>
+                    : <div className="h-10 w-10 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-sm">{initials}</div>}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-bold text-ink truncate">{name}</div>
+                    <div className="text-xs text-mute">
+                      Menggalang <b className="text-ink">{fmtIDR(f.total_raised || 0)}</b>
+                      {(f.total_donors > 0) && <> · {fmtNum(f.total_donors)} donatur</>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {!isFundraiser && (
+            <a href={joinHref} target="_blank" rel="noopener noreferrer"
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border border-brand-600 text-brand-600 hover:bg-brand-50">
+              <Icon name="handshake" size={16}/> Jadi Fundraiser
+            </a>
+          )}
+        </>
+      )}
     </div>
   );
 }

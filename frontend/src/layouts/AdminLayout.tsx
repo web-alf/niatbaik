@@ -9,6 +9,7 @@ import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { RealtimeProvider } from '@/context/RealtimeProvider';
 import { api, mediaUrl } from '@/lib/api';
+import { useBrowserNotifications } from '@/lib/browserNotify';
 import AdsGuidePage from '@/pages/admin/AdsGuidePage';
 
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -315,6 +316,14 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
 export function AdminLayout() {
   const { user, role } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  // Native browser notification when the realtime poll delivers a new unread row.
+  useBrowserNotifications();
+  useEffect(() => {
+    const openNotifs = () => navigate('/notifications');
+    window.addEventListener('nb-open-notifications', openNotifs);
+    return () => window.removeEventListener('nb-open-notifications', openNotifs);
+  }, [navigate]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [adsGuideOpen, setAdsGuideOpen] = useState(false);
   const invoiceTxn = useUiStore((s) => s.invoiceTxn);

@@ -3,6 +3,7 @@
 // / invoice-poll logic kept byte-identical except for the window.* → import swaps
 // documented in PORT_CONTRACT.md.
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { fmtIDR, fmtIDRShort, fmtNum, NOMINAL_PRESETS } from '@/lib/format';
 import { api, mediaUrl, sanitizeHTML, normalizeRichTextColors } from '@/lib/api';
@@ -203,10 +204,14 @@ export function Navbar({ onNav, onHome }: any) {
         <button onClick={() => setOpen(!open)} className="lg:hidden h-9 w-9 rounded-lg hover:bg-bg2 flex items-center justify-center"><Icon name="menu" size={20}/></button>
       </div>
       {/* Mobile drawer: slides in from the RIGHT. Kept mounted so the CSS
-          transform transition animates both open and close. */}
-      <div className={`lg:hidden fixed inset-0 z-40 bg-ink/40 transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          transform transition animates both open and close. Portaled to <body>:
+          the sticky z-30 header creates a stacking context, so without the portal
+          the drawer's z-50 is trapped inside it and paints BEHIND the hero /
+          other sticky sections. */}
+      {createPortal(<>
+      <div className={`lg:hidden fixed inset-0 z-[90] bg-ink/40 transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setOpen(false)} aria-hidden="true"/>
-      <aside className={`lg:hidden fixed top-0 right-0 z-50 h-full w-72 max-w-[85vw] bg-white shadow-pop flex flex-col
+      <aside className={`lg:hidden fixed top-0 right-0 z-[100] h-full w-72 max-w-[85vw] bg-white shadow-pop flex flex-col
         transition-transform duration-300 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}
         role="dialog" aria-label="Menu">
         <div className="h-16 px-4 flex items-center justify-between border-b border-line">
@@ -232,6 +237,7 @@ export function Navbar({ onNav, onHome }: any) {
           </PrimaryBtn>
         </div>
       </aside>
+      </>, document.body)}
     </header>
   );
 }
@@ -259,15 +265,16 @@ export function Hero({ onNav }: any) {
           Transparan, mudah, dan dipercaya{(totals.donors > 0) ? <> oleh <b className="text-ink">{fmtNum(totals.donors)}+ donatur</b></> : ''} di Indonesia.
         </p>
 
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <PrimaryBtn size="lg" className="ctaPulse" onClick={() => {
+        {/* Mobile: stacked full-width pair (identical size); ≥sm: side by side. */}
+        <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 w-full max-w-md sm:max-w-none sm:w-auto">
+          <PrimaryBtn size="lg" className="ctaPulse w-full sm:w-auto" onClick={() => {
             const el = document.getElementById('campaigns');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
           }}>
             <Icon name="heart" size={18}/> Mulai Donasi
           </PrimaryBtn>
           {/* Sizing mirrors PrimaryBtn lg so the CTA pair reads as one set. */}
-          <button onClick={() => document.getElementById('campaigns')?.scrollIntoView({behavior:'smooth'})} className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl text-lg font-bold text-ink hover:bg-white ring-1 ring-inset ring-line bg-white/60">
+          <button onClick={() => document.getElementById('campaigns')?.scrollIntoView({behavior:'smooth'})} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl text-lg font-bold text-ink hover:bg-white ring-1 ring-inset ring-line bg-white/60">
             <Icon name="eye" size={18}/> Lihat Campaign
           </button>
         </div>

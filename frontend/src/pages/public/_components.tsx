@@ -1140,7 +1140,7 @@ export function CampaignPage({ c: listItem, onNav }: any) {
                 </div>
 
                 <div className="mt-5">
-                  {tab === 'story' && <><CampaignStory c={c}/><FundraiserCTA c={c}/></>}
+                  {tab === 'story' && <><CampaignStory c={c}/><FundraiserCTA c={c}/><DonorPrayers donors={recentDonors}/></>}
                   {tab === 'updates' && <CampaignUpdates updates={updates}/>}
                   {tab === 'donors' && <CampaignDonors donors={recentDonors}/>}
                   {tab === 'faq' && <CampaignFAQ/>}
@@ -2286,6 +2286,53 @@ function FundraiserCTA({ c }: any) {
         className="mt-2 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-500 text-white hover:bg-emerald-600">
         <Icon name="wa" size={16}/> Bagikan ke WhatsApp
       </a>
+    </div>
+  );
+}
+
+// DonorPrayers renders donors' "doa" messages UNDER the story so every visitor sees
+// them without opening the Donatur tab. Anonymous donations arrive with message
+// stripped server-side, so no identifying text can leak here. Handles both the
+// detail-endpoint shape ({name, message, created_at}) and the legacy tx feed
+// ({donor, message, date}). Hidden entirely when no donor left a message.
+function DonorPrayers({ donors }: any) {
+  const [expanded, setExpanded] = useState(false);
+  const list = (Array.isArray(donors) ? donors : []).filter((d: any) => (d.message || '').trim());
+  if (!list.length) return null;
+  const shown = expanded ? list : list.slice(0, 3);
+  return (
+    <div className="mt-6">
+      <div className="flex items-center gap-2 font-bold text-ink">
+        <Icon name="heart" size={18} className="text-rose-500"/> Doa Para Donatur <span className="text-mute font-semibold">({list.length})</span>
+      </div>
+      <div className="mt-3 space-y-3">
+        {shown.map((d: any, i: number) => {
+          const anon = d.is_anonymous ?? d.anon ?? false;
+          const name = anon ? 'Hamba Allah' : (d.name || d.donor || 'Hamba Allah');
+          const initials = name.split(' ').map((s: any) => s[0]).join('').slice(0, 2).toUpperCase();
+          let when = '';
+          if (d.created_at) { try { when = new Date(d.created_at).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' }); } catch {} }
+          else if (typeof d.date === 'string') when = d.date.split(',')[0];
+          return (
+            <div key={i} className="rounded-xl border border-line bg-bg2/60 p-4">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-xs">{initials}</div>
+                <div>
+                  <div className="text-sm font-bold text-ink">{name}</div>
+                  {when && <div className="text-[11px] text-mute">{when}</div>}
+                </div>
+              </div>
+              <p className="mt-2.5 text-sm text-ink/85 leading-relaxed">&ldquo;{(d.message || '').trim()}&rdquo;</p>
+            </div>
+          );
+        })}
+      </div>
+      {list.length > 3 && (
+        <button onClick={() => setExpanded(!expanded)}
+          className="mt-3 w-full py-2 rounded-xl border border-line text-sm font-bold text-brand-600 hover:bg-bg2">
+          {expanded ? 'Tampilkan lebih sedikit' : `Lihat semua doa (${list.length})`}
+        </button>
+      )}
     </div>
   );
 }

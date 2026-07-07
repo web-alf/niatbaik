@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api, mediaUrl, sanitizeHTML } from '@/lib/api';
+import { api, mediaUrl, sanitizeHTML, normalizeRichTextColors } from '@/lib/api';
 import { mapCampaign } from '@/lib/mappers';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
@@ -1189,8 +1189,10 @@ function RichEditor({ value, onChange }: any) {
 
   useEffect(() => {
     // Sanitize on load so any already-stored malicious HTML can't execute when an
-    // admin opens the editor. sanitizeHTML comes from api.ts.
-    let clean: any = sanitizeHTML(value || '');
+    // admin opens the editor. sanitizeHTML comes from api.ts. Then normalize pasted
+    // light-mode-only inline colors (near-black/dark navy text, white highlight) so
+    // the editor shows theme-correct text AND the fix persists on the next save.
+    let clean: any = normalizeRichTextColors(sanitizeHTML(value || '') as string);
     // Resolve stored relative /uploads/ image src to a loadable URL so previews show
     // in the editor (dev serves uploads from a different origin). Rewritten back to
     // relative on save.

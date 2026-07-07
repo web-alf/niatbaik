@@ -98,35 +98,41 @@ export function sanitizeHTML(html: unknown): unknown {
 }
 
 // Rich-text color normalizer for authored campaign HTML. Content pasted into the
-// admin editor (Word/Google Docs) carries inline `color:#000`/`rgb(0,0,0)` and
-// `background:#fff` — fine on light, invisible on the dark theme (dark-mode CSS only
-// overrides Tailwind classes, not inline styles). Strip text colors that are just
-// "default dark ink" (near-black, or dark AND unsaturated) plus near-white
-// backgrounds so the content inherits theme-aware colors; keep saturated accent
-// colors (red, brand blue) — those are deliberate authoring choices.
-function parseCssColor(raw: string): { b: number; s: number } | null {
+// admin editor (Word/Google Docs/other sites) carries inline text colors tuned for a
+// LIGHT page (near-black, dark navy rgb(35,55,77), dark gray) plus white highlights.
+// Dark-mode CSS only overrides Tailwind classes, not inline styles, so that text is
+// invisible on the dark theme. Rule: any inline text color too dark to read on the
+// dark surface (#131C2E) — WCAG contrast < 3:1 — is stripped so the text inherits the
+// theme ink (dark on light, light on dark). Bright accents (red, orange, light blue)
+// pass the contrast bar and are kept. Near-white backgrounds are stripped too;
+// saturated highlights (yellow) are kept.
+function parseCssColor(raw: string): { r: number; g: number; b: number } | null {
   const v = (raw || '').trim().toLowerCase();
   const NAMED: Record<string, string> = {
     black: '#000000', white: '#ffffff', gray: '#808080', grey: '#808080',
     silver: '#c0c0c0', windowtext: '#000000', // MS Word emits `color: windowtext`
   };
-  let r = -1, g = -1, bl = -1;
+  let r = -1, g = -1, b = -1;
   const hex = NAMED[v] || (v.startsWith('#') ? v : '');
   if (hex) {
     const h = hex.slice(1);
-    if (h.length === 3) { r = parseInt(h[0] + h[0], 16); g = parseInt(h[1] + h[1], 16); bl = parseInt(h[2] + h[2], 16); }
-    else if (h.length >= 6) { r = parseInt(h.slice(0, 2), 16); g = parseInt(h.slice(2, 4), 16); bl = parseInt(h.slice(4, 6), 16); }
+    if (h.length === 3) { r = parseInt(h[0] + h[0], 16); g = parseInt(h[1] + h[1], 16); b = parseInt(h[2] + h[2], 16); }
+    else if (h.length >= 6) { r = parseInt(h.slice(0, 2), 16); g = parseInt(h.slice(2, 4), 16); b = parseInt(h.slice(4, 6), 16); }
   } else {
     const m = v.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-    if (m) { r = +m[1]; g = +m[2]; bl = +m[3]; }
+    if (m) { r = +m[1]; g = +m[2]; b = +m[3]; }
   }
-  if (r < 0 || Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(bl)) return null;
-  const max = Math.max(r, g, bl), min = Math.min(r, g, bl);
-  return {
-    b: (0.299 * r + 0.587 * g + 0.114 * bl) / 255, // perceived brightness 0..1
-    s: max === 0 ? 0 : (max - min) / max,           // HSV saturation 0..1
-  };
+  if (r < 0 || Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+  return { r, g, b };
 }
+
+// WCAG relative luminance (0..1).
+function relLuminance(c: { r: number; g: number; b: number }): number {
+  const lin = (u: number) => { const s = u / 255; return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); };
+  return 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+}
+
+const DARK_SURFACE_LUM = relLuminance({ r: 19, g: 28, b: 46 }); // #131C2E card surface
 
 export function normalizeRichTextColors(html: string): string {
   if (typeof html !== 'string' || html === '' || !/color|<font/i.test(html)) return html;
@@ -136,18 +142,29 @@ export function normalizeRichTextColors(html: string): string {
     doc.body.innerHTML = html;
   } catch { return html; }
 
-  const isDefaultDarkInk = (c: { b: number; s: number } | null) => !!c && (c.b < 0.16 || (c.b < 0.55 && c.s < 0.35));
-  const isNearWhite = (c: { b: number; s: number } | null) => !!c && c.b > 0.92 && c.s < 0.15;
+  // Too dark to read on the dark theme → treat as "default ink meant for light mode".
+  const unreadableOnDark = (c: { r: number; g: number; b: number } | null) => {
+    if (!c) return false;
+    const L = relLuminance(c);
+    const [hi, lo] = L > DARK_SURFACE_LUM ? [L, DARK_SURFACE_LUM] : [DARK_SURFACE_LUM, L];
+    return (hi + 0.05) / (lo + 0.05) < 3;
+  };
+  const isNearWhite = (c: { r: number; g: number; b: number } | null) => {
+    if (!c) return false;
+    const max = Math.max(c.r, c.g, c.b), min = Math.min(c.r, c.g, c.b);
+    const sat = max === 0 ? 0 : (max - min) / max;
+    return relLuminance(c) > 0.8 && sat < 0.15;
+  };
 
   for (const el of Array.from(doc.body.querySelectorAll<HTMLElement>('[style],font[color]'))) {
-    if (el.style.color && isDefaultDarkInk(parseCssColor(el.style.color))) el.style.removeProperty('color');
+    if (el.style.color && unreadableOnDark(parseCssColor(el.style.color))) el.style.removeProperty('color');
     if (el.style.backgroundColor && isNearWhite(parseCssColor(el.style.backgroundColor))) {
       el.style.removeProperty('background-color');
       // background-color may come from the `background` shorthand — clear it too.
       if (el.style.backgroundColor) el.style.removeProperty('background');
     }
     if (!el.getAttribute('style')) el.removeAttribute('style');
-    if (el.tagName === 'FONT' && isDefaultDarkInk(parseCssColor(el.getAttribute('color') || ''))) el.removeAttribute('color');
+    if (el.tagName === 'FONT' && unreadableOnDark(parseCssColor(el.getAttribute('color') || ''))) el.removeAttribute('color');
   }
   return doc.body.innerHTML;
 }

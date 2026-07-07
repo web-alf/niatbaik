@@ -20,6 +20,7 @@ function Root() {
 import LandingPage from '@/pages/public/LandingPage';
 import CampaignDetailPage from '@/pages/public/CampaignDetailPage';
 import DonationInvoicePage from '@/pages/public/DonationInvoicePage';
+import LegalPage from '@/pages/public/LegalPage';
 import LoginPage from '@/pages/auth/LoginPage';
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
@@ -70,6 +71,9 @@ export const router = createBrowserRouter([
           { path: '/', element: <LandingPage /> },
           { path: '/c/:slug', element: <CampaignDetailPage /> },
           { path: '/donations/:invoiceNumber', element: <DonationInvoicePage /> },
+          { path: '/syarat-ketentuan', element: <LegalPage kind="terms" /> },
+          { path: '/kebijakan-privasi', element: <LegalPage kind="privacy" /> },
+          { path: '/disklaimer', element: <LegalPage kind="disclaimer" /> },
         ],
       },
       { path: '/login', element: <LoginPage /> },

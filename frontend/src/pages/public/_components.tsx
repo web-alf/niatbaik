@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fmtIDR, fmtIDRShort, fmtNum, NOMINAL_PRESETS } from '@/lib/format';
-import { api, mediaUrl, sanitizeHTML } from '@/lib/api';
+import { api, mediaUrl, sanitizeHTML, normalizeRichTextColors } from '@/lib/api';
 import { NBTracking } from '@/lib/tracking';
 import { Icon, Logo } from '@/components';
 import { useDataStore } from '@/store/data';
@@ -624,7 +624,7 @@ export function Footer() {
           <div className="font-bold mb-3">Tentang</div>
           <ul className="space-y-2 text-sm text-white/75">
             <li><FLink>Profil Yayasan</FLink></li>
-            <li><FLink>Pers & media</FLink></li>
+            <li><FLink href="/disklaimer">Disklaimer</FLink></li>
           </ul>
         </div>
         <div>
@@ -632,8 +632,8 @@ export function Footer() {
           <ul className="space-y-2 text-sm text-white/75">
             <li><FLink href="#faq">FAQ</FLink></li>
             <li><FLink href={kontakHref}>Kontak</FLink></li>
-            <li><FLink>Syarat & ketentuan</FLink></li>
-            <li><FLink>Kebijakan privasi</FLink></li>
+            <li><FLink href="/syarat-ketentuan">Syarat & ketentuan</FLink></li>
+            <li><FLink href="/kebijakan-privasi">Kebijakan privasi</FLink></li>
           </ul>
         </div>
       </div>
@@ -2372,13 +2372,15 @@ function FundraiserSection({ c }: any) {
 function DonorPrayers({ donors }: any) {
   const [expanded, setExpanded] = useState(false);
   const list = (Array.isArray(donors) ? donors : []).filter((d: any) => (d.message || '').trim());
-  if (!list.length) return null;
   const shown = expanded ? list : list.slice(0, 3);
   return (
     <div className="mt-6">
       <div className="flex items-center gap-2 font-bold text-ink">
-        <Icon name="heart" size={18} className="text-rose-500"/> Doa Para Donatur <span className="text-mute font-semibold">({list.length})</span>
+        <Icon name="heart" size={18} className="text-rose-500"/> Doa Para Donatur {list.length > 0 && <span className="text-mute font-semibold">({list.length})</span>}
       </div>
+      {list.length === 0 && (
+        <p className="mt-3 text-sm text-mute italic">Belum ada doa. Jadilah yang pertama berdonasi dan kirimkan doa terbaik untuk program ini.</p>
+      )}
       <div className="mt-3 space-y-3">
         {shown.map((d: any, i: number) => {
           const anon = d.is_anonymous ?? d.anon ?? false;
@@ -2422,9 +2424,12 @@ function CampaignStory({ c }: any) {
   // Only inject HTML when there is rich content; the sanitizer is imported directly
   // (sanitizeHTML from @/lib/api). Fail safe to the plain-text path below if empty.
   if (rawHtml) {
-    const clean = sanitizeHTML(rawHtml) as string;
+    // Sanitize first (XSS), then normalize pasted inline colors (near-black text /
+    // near-white highlight) so the story follows the light/dark theme instead of
+    // rendering dark-on-dark.
+    const clean = normalizeRichTextColors(sanitizeHTML(rawHtml) as string);
     return (
-      <div className="prose prose-slate prose-sm max-w-none text-ink/85"
+      <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-ink/85"
         dangerouslySetInnerHTML={{ __html: clean }}/>
     );
   }

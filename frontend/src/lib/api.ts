@@ -97,6 +97,61 @@ export function sanitizeHTML(html: unknown): unknown {
   return doc.body.innerHTML;
 }
 
+// Rich-text color normalizer for authored campaign HTML. Content pasted into the
+// admin editor (Word/Google Docs) carries inline `color:#000`/`rgb(0,0,0)` and
+// `background:#fff` — fine on light, invisible on the dark theme (dark-mode CSS only
+// overrides Tailwind classes, not inline styles). Strip text colors that are just
+// "default dark ink" (near-black, or dark AND unsaturated) plus near-white
+// backgrounds so the content inherits theme-aware colors; keep saturated accent
+// colors (red, brand blue) — those are deliberate authoring choices.
+function parseCssColor(raw: string): { b: number; s: number } | null {
+  const v = (raw || '').trim().toLowerCase();
+  const NAMED: Record<string, string> = {
+    black: '#000000', white: '#ffffff', gray: '#808080', grey: '#808080',
+    silver: '#c0c0c0', windowtext: '#000000', // MS Word emits `color: windowtext`
+  };
+  let r = -1, g = -1, bl = -1;
+  const hex = NAMED[v] || (v.startsWith('#') ? v : '');
+  if (hex) {
+    const h = hex.slice(1);
+    if (h.length === 3) { r = parseInt(h[0] + h[0], 16); g = parseInt(h[1] + h[1], 16); bl = parseInt(h[2] + h[2], 16); }
+    else if (h.length >= 6) { r = parseInt(h.slice(0, 2), 16); g = parseInt(h.slice(2, 4), 16); bl = parseInt(h.slice(4, 6), 16); }
+  } else {
+    const m = v.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (m) { r = +m[1]; g = +m[2]; bl = +m[3]; }
+  }
+  if (r < 0 || Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(bl)) return null;
+  const max = Math.max(r, g, bl), min = Math.min(r, g, bl);
+  return {
+    b: (0.299 * r + 0.587 * g + 0.114 * bl) / 255, // perceived brightness 0..1
+    s: max === 0 ? 0 : (max - min) / max,           // HSV saturation 0..1
+  };
+}
+
+export function normalizeRichTextColors(html: string): string {
+  if (typeof html !== 'string' || html === '' || !/color|<font/i.test(html)) return html;
+  let doc: Document;
+  try {
+    doc = document.implementation.createHTMLDocument('');
+    doc.body.innerHTML = html;
+  } catch { return html; }
+
+  const isDefaultDarkInk = (c: { b: number; s: number } | null) => !!c && (c.b < 0.16 || (c.b < 0.55 && c.s < 0.35));
+  const isNearWhite = (c: { b: number; s: number } | null) => !!c && c.b > 0.92 && c.s < 0.15;
+
+  for (const el of Array.from(doc.body.querySelectorAll<HTMLElement>('[style],font[color]'))) {
+    if (el.style.color && isDefaultDarkInk(parseCssColor(el.style.color))) el.style.removeProperty('color');
+    if (el.style.backgroundColor && isNearWhite(parseCssColor(el.style.backgroundColor))) {
+      el.style.removeProperty('background-color');
+      // background-color may come from the `background` shorthand — clear it too.
+      if (el.style.backgroundColor) el.style.removeProperty('background');
+    }
+    if (!el.getAttribute('style')) el.removeAttribute('style');
+    if (el.tagName === 'FONT' && isDefaultDarkInk(parseCssColor(el.getAttribute('color') || ''))) el.removeAttribute('color');
+  }
+  return doc.body.innerHTML;
+}
+
 // Fields sent EXACTLY as typed (no <>-escaping): secrets (escaping changes the
 // hashed string) and JSON config blobs (escaping corrupts JSON.parse). These are
 // parsed, never rendered as HTML, so they carry no XSS risk.

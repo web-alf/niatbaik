@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, mediaUrl, sanitizeHTML } from '@/lib/api';
+import { api, mediaUrl, sanitizeHTML, normalizeRichTextColors } from '@/lib/api';
 import { campaignBgStyle, mapCampaign } from '@/lib/mappers';
 import { fmtIDR, fmtIDRShort, fmtNum } from '@/lib/format';
 import { useUiStore } from '@/store/ui';
@@ -460,8 +460,8 @@ function CampaignDetailModal({ campaign, onClose }: any) {
                   {tab === 'story' && (
                     detailLoading ? <div className="text-sm text-mute">Memuat cerita…</div> :
                     story ? (
-                      <div className="prose prose-slate prose-sm max-w-none text-ink/85 leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: sanitizeHTML(story) as string }}/>
+                      <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-ink/85 leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: normalizeRichTextColors(sanitizeHTML(story) as string) }}/>
                     ) : <div className="text-sm text-mute">Belum ada deskripsi untuk campaign ini.</div>
                   )}
                   {tab === 'updates' && (

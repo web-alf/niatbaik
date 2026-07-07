@@ -3,7 +3,7 @@
 import { useNavigate } from 'react-router-dom';
 import {
   Navbar, Hero, TrustStrip, StatsSection, CampaignsSection, HowToSection,
-  TestimonialsSection, FAQ, FinalCTA, Footer, SocialPopup, StickyCTA, getFirstCampaign,
+  TestimonialsSection, FAQ, FinalCTA, Footer, SocialPopup,
 } from './_components';
 
 export default function LandingPage() {
@@ -24,7 +24,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       <Navbar onNav={onNav}/>
-      <main className="flex-1 pb-24 lg:pb-0">
+      <main className="flex-1">
         <Hero onNav={onNav}/>
         <TrustStrip/>
         <StatsSection/>
@@ -36,7 +36,6 @@ export default function LandingPage() {
         <Footer/>
       </main>
       <SocialPopup/>
-      <StickyCTA onClick={() => onNav('campaign', getFirstCampaign())}/>
     </div>
   );
 }

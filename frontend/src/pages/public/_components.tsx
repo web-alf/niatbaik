@@ -654,17 +654,6 @@ export function Footer() {
   );
 }
 
-// -------- Sticky mobile CTA --------
-export function StickyCTA({ onClick, label = 'Donasi Sekarang' }: any) {
-  return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-line p-3 shadow-pop">
-      <PrimaryBtn size="md" className="w-full" onClick={onClick}>
-        <Icon name="heart" size={18}/> {label}
-      </PrimaryBtn>
-    </div>
-  );
-}
-
 // -------- Social proof popup --------
 // Read the admin's social-proof config (Settings → Social Proof). Returns the
 // resolved {enabled, intervalMs, posClass, template}. Defaults match the panel.

@@ -5,6 +5,7 @@ import { useDataStore } from '@/store/data';
 import { fmtIDR, fmtIDRShort, fmtNum } from '@/lib/format';
 import { parseTxnDate, formatRangeLabel, getDateRange } from '@/lib/date';
 import { exportCSV, exportExcel } from '@/lib/export';
+import { txnExportRows } from '@/lib/txnExport';
 import { Card, StatCard, Badge, StatusBadge, Btn, SearchInput, Modal, PageHeader, Empty, Toggle, SourcePill, Icon, DateRangePill } from '@/components';
 
 export default function CsInboxPage() {
@@ -40,7 +41,6 @@ export default function CsInboxPage() {
     });
   }, [transactions]);
   const [advFilterOpen, setAdvFilterOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
 
   // Advanced filter state
   const [adv, setAdv] = useState<any>({
@@ -99,6 +99,15 @@ export default function CsInboxPage() {
   const [visible, setVisible] = useState(PAGE);
   useEffect(() => { setVisible(PAGE); }, [filter, search, adv]);
   const shown = filtered.slice(0, visible);
+
+  // Full export (same columns as admin) of the currently-filtered rows.
+  const exportTxns = (kind: 'csv' | 'xls') => {
+    const rows = txnExportRows(filtered);
+    if (!rows.length) { showToast('Tidak ada data untuk diekspor'); return; }
+    if (kind === 'csv') exportCSV(rows, 'niatbaik_cs_inbox', getDateRange());
+    else exportExcel(rows, 'niatbaik_cs_inbox', getDateRange(), 'CS Inbox');
+    showToast(`${rows.length} baris diekspor ke ${kind.toUpperCase()}`);
+  };
 
   // Once the list loads (or the selection falls out of the filtered set), select a valid
   // row so the detail pane isn't stuck on Empty (the old `txns[0]` seed was undefined).
@@ -197,7 +206,8 @@ export default function CsInboxPage() {
             Filter Lanjutan
             {activeAdvCount > 0 && <span className="h-5 min-w-[20px] px-1 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">{activeAdvCount}</span>}
           </button>
-          <Btn variant="outline" tone="ink" icon="download" onClick={() => setExportOpen(true)}>Export terbatas</Btn>
+          <Btn variant="outline" tone="ink" icon="download" onClick={() => exportTxns('csv')}>CSV</Btn>
+          <Btn tone="ink" icon="download" onClick={() => exportTxns('xls')}>Excel</Btn>
         </>}
       />
 
@@ -272,7 +282,6 @@ export default function CsInboxPage() {
       </div>
 
       <AdvFilterModal open={advFilterOpen} onClose={() => setAdvFilterOpen(false)} value={adv} onChange={setAdv} txns={txns}/>
-      <ExportLimitedModal open={exportOpen} onClose={() => setExportOpen(false)} rows={filtered} showToast={showToast}/>
     </div>
   );
 }
@@ -432,160 +441,6 @@ function FilterChip({ active, onClick, children }: any) {
   );
 }
 
-// =========================================================
-// Export modal (Export terbatas - CS-safe fields only)
-// =========================================================
-function ExportLimitedModal({ open, onClose, rows, showToast }: any) {
-  // Default: safe fields, NO payment method / email / WA
-  const ALL_FIELDS: any[] = [
-    { k:'invoice',      l:'Kode invoice',  always: true },
-    { k:'tanggal',      l:'Tanggal',        always: true },
-    { k:'donatur',      l:'Nama donatur',   default: true },
-    { k:'campaign',     l:'Campaign',       default: true },
-    { k:'nominal',      l:'Nominal',        default: true },
-    { k:'status',       l:'Status',         default: true },
-    { k:'whatsapp',     l:'No. WhatsApp',   sensitive: true },
-    { k:'email',        l:'Email',          sensitive: true },
-    { k:'metode',       l:'Metode pembayaran', sensitive: true },
-    { k:'fundraiser',   l:'Fundraiser',     default: true },
-    { k:'utm_source',   l:'Source iklan',   default: true },
-    { k:'utm_campaign', l:'UTM campaign',   default: true },
-    { k:'utm_medium',   l:'UTM medium' },
-    { k:'utm_content',  l:'UTM content' },
-    { k:'utm_term',     l:'UTM term' },
-    { k:'utm_id',       l:'UTM id' },
-    { k:'pesan',        l:'Doa / pesan donatur' },
-    { k:'note',         l:'Catatan CS' },
-  ];
-
-  const [fields, setFields] = useState<any>(() => {
-    const obj: any = {};
-    ALL_FIELDS.forEach(f => obj[f.k] = !!(f.always || f.default));
-    return obj;
-  });
-  const [format, setFormat] = useState('csv');
-  const [limit, setLimit]   = useState<any>('filtered');  // 'filtered' | 100 | 500 | 1000
-
-  const buildRows = () => {
-    let src = rows;
-    if (limit !== 'filtered') src = rows.slice(0, +limit);
-    return src.map((t: any) => {
-      const r: any = {};
-      ALL_FIELDS.forEach(f => {
-        if (!fields[f.k]) return;
-        switch (f.k) {
-          case 'invoice':      r[f.l] = t.id; break;
-          case 'tanggal':      r[f.l] = t.date; break;
-          case 'donatur':      r[f.l] = t.anon ? 'Hamba Allah' : t.donor; break;
-          case 'campaign':     r[f.l] = t.campaign; break;
-          case 'nominal':      r[f.l] = t.amount; break;
-          case 'status':       r[f.l] = t.status; break;
-          case 'whatsapp':     r[f.l] = t.whatsapp; break;
-          case 'email':        r[f.l] = t.email; break;
-          case 'metode':       r[f.l] = t.method; break;
-          case 'fundraiser':   r[f.l] = t.referrer || ''; break;
-          case 'utm_source':   r[f.l] = t.utm.source; break;
-          case 'utm_campaign': r[f.l] = t.utm.campaign; break;
-          case 'utm_medium':   r[f.l] = t.utm.medium || ''; break;
-          case 'utm_content':  r[f.l] = t.utm.content || ''; break;
-          case 'utm_term':     r[f.l] = t.utm.term || ''; break;
-          case 'utm_id':       r[f.l] = t.utm.id || ''; break;
-          case 'pesan':        r[f.l] = t.message || ''; break;
-          case 'note':         r[f.l] = t.note || ''; break;
-        }
-      });
-      return r;
-    });
-  };
-
-  const doExport = () => {
-    const out = buildRows();
-    if (!out.length) { showToast('Tidak ada data untuk diekspor'); return; }
-    if (format === 'csv') exportCSV(out, 'cs_inbox', getDateRange());
-    else exportExcel(out, 'cs_inbox', getDateRange(), 'CS Inbox');
-    showToast(`${out.length} baris diekspor sebagai ${format.toUpperCase()}`);
-    onClose();
-  };
-
-  const selectedCount = Object.values(fields).filter(Boolean).length;
-  const sensitiveSelected = ALL_FIELDS.filter(f => f.sensitive && fields[f.k]).length;
-
-  return (
-    <Modal open={open} onClose={onClose} title="Export Data CS (Terbatas)" size="lg"
-      footer={<>
-        <div className="mr-auto text-xs text-mute">
-          {selectedCount} field · {limit === 'filtered' ? rows.length : Math.min(rows.length, +limit)} baris
-        </div>
-        <Btn variant="outline" tone="ink" onClick={onClose}>Batal</Btn>
-        <Btn icon="download" onClick={doExport}>Download {format === 'csv' ? 'CSV' : 'Excel'}</Btn>
-      </>}>
-      <div className="space-y-5">
-        <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2 text-xs">
-          <Icon name="shield" size={14} className="text-amber-600 mt-0.5 shrink-0"/>
-          <div className="text-amber-800">
-            <b>Export terbatas</b> berarti data sensitif (no. WA, email, metode pembayaran) <b>opt-in saja</b>.
-            Jaga kerahasiaan file — jangan bagikan ke grup terbuka; anonimkan bila diteruskan.
-          </div>
-        </div>
-
-        <Group label="Format File">
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { v:'csv', l:'CSV', sub:'Universal · Excel/Google Sheets', icon:'download' },
-              { v:'xls', l:'Excel (XLS)', sub:'Header bold + warna brand', icon:'download' },
-            ].map((o) => (
-              <button key={o.v} onClick={() => setFormat(o.v)}
-                className={`p-3 rounded-xl border-2 text-left transition-all ${format===o.v ? 'border-brand-600 bg-brand-50' : 'border-line hover:bg-bg2'}`}>
-                <Icon name={o.icon} size={16} className={format===o.v ? 'text-brand-600' : 'text-mute'}/>
-                <div className={`mt-1.5 font-extrabold text-sm ${format===o.v ? 'text-brand-700' : 'text-ink'}`}>{o.l}</div>
-                <div className="text-[10px] text-mute mt-0.5">{o.sub}</div>
-              </button>
-            ))}
-          </div>
-        </Group>
-
-        <Group label="Jumlah Baris">
-          <div className="flex flex-wrap gap-2">
-            {[
-              { v:'filtered', l:`Semua hasil filter (${rows.length})` },
-              { v:'100', l:'100 baris pertama' },
-              { v:'500', l:'500 baris pertama' },
-              { v:'1000', l:'1.000 baris pertama' },
-            ].map((o) => (
-              <button key={o.v} onClick={() => setLimit(o.v)}
-                className={`px-3 py-1.5 rounded-full border text-xs font-bold ${limit==o.v ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line text-ink hover:bg-bg2'}`}>
-                {o.l}
-              </button>
-            ))}
-          </div>
-        </Group>
-
-        <Group label="Field yang Disertakan">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {ALL_FIELDS.map((f) => (
-              <label key={f.k}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${fields[f.k] ? (f.sensitive ? 'border-amber-200 bg-amber-50/60' : 'border-brand-100 bg-brand-50/40') : 'border-line bg-white hover:bg-bg2'} ${f.always ? 'opacity-70 cursor-not-allowed' : ''}`}>
-                <input type="checkbox"
-                  checked={fields[f.k]}
-                  disabled={f.always}
-                  onChange={(e) => setFields({ ...fields, [f.k]: e.target.checked })}
-                  className="rounded border-line h-4 w-4 accent-brand-600"/>
-                <span className="text-sm font-semibold text-ink flex-1">{f.l}</span>
-                {f.always && <Badge tone="slate" size="sm">wajib</Badge>}
-                {f.sensitive && <Badge tone="warn" size="sm">sensitif</Badge>}
-              </label>
-            ))}
-          </div>
-          {sensitiveSelected > 0 && (
-            <div className="mt-2 text-xs text-amber-700 font-semibold flex items-center gap-1.5">
-              <Icon name="shield" size={12}/> {sensitiveSelected} field sensitif terpilih · tangani sesuai kebijakan data donatur
-            </div>
-          )}
-        </Group>
-      </div>
-    </Modal>
-  );
-}
 
 // =========================================================
 // CSDetail — wires up action buttons

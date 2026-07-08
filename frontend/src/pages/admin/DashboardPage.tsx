@@ -8,6 +8,7 @@ import { fmtIDR, fmtIDRShort, fmtNum, paymentMethods, isAutoConfirmMethod } from
 import { campaignBgStyle } from '@/lib/mappers';
 import { useSharedDateRange, parseTxnDate, fmtDate } from '@/lib/date';
 import { exportCSV, exportExcel, filterByRange } from '@/lib/export';
+import { txnExportRows } from '@/lib/txnExport';
 import { Card, StatCard, Badge, StatusBadge, Progress, Btn, SearchInput, Select, LineChart, Donut, PageHeader, Tabs, SourcePill, Icon, DateRangePill } from '@/components';
 import AdvertiserPage from '@/pages/admin/AdvertiserPage';
 
@@ -122,29 +123,10 @@ export default function DashboardPage() {
   // Reset to page 1 whenever any filter or the page size changes.
   useEffect(() => { setPageNum(1); }, [txnQuery, txnStatusFilter, txnMethodFilter, range, pageSize]);
 
-  // Export respects all active filters (date range + query/status/method).
-  const exportRows = () => visibleTxns.map((t: any) => ({
-    invoice: t.id,
-    tanggal: t.date,
-    donatur: t.anon ? 'Hamba Allah' : t.donor,
-    campaign: t.campaign,
-    nominal: t.amount,
-    metode: t.method,
-    status: t.status,
-    fundraiser: t.referrer || '',
-    whatsapp: t.whatsapp,
-    email: t.email,
-    utm_source: t.utm.source,
-    utm_medium: t.utm.medium,
-    utm_campaign: t.utm.campaign,
-    utm_content: t.utm.content || '',
-    utm_term: t.utm.term || '',
-    utm_id: t.utm.id || '',
-    pesan: t.message,
-  }));
-
+  // Export respects all active filters (date range + query/status/method). Uses the shared
+  // full column set so every role exports the same columns as admin.
   const handleExport = (kind: any) => {
-    const rows = exportRows();
+    const rows = txnExportRows(visibleTxns);
     if (!rows.length) { showToast('Tidak ada data pada rentang tanggal'); return; }
     if (kind === 'csv') exportCSV(rows, 'niatbaik_transaksi', range);
     else exportExcel(rows, 'niatbaik_transaksi', range, 'Transaksi');
@@ -402,20 +384,12 @@ function CSDashboard() {
   const showToast = useUiStore((s) => s.showToast);
   const S = useDataStore((s) => s.dashboardStats) || {};
 
-  // "Export terbatas" — CS-safe columns only (no raw amount/PII beyond what CS already
-  // sees in the inbox). Exports whatever transactions are loaded in the store.
+  // Full export — same columns as the admin dashboard (unified across roles).
   const exportLimited = (kind: 'csv' | 'xls') => {
-    const rows = (txns || []).map((t: any) => ({
-      invoice: t.id,
-      tanggal: t.date,
-      donatur: t.anon ? 'Hamba Allah' : t.donor,
-      campaign: t.campaign,
-      status: t.status,
-      fundraiser: t.referrer || '',
-    }));
+    const rows = txnExportRows(txns);
     if (!rows.length) { showToast('Tidak ada data untuk diekspor'); return; }
-    if (kind === 'csv') exportCSV(rows, 'niatbaik_cs_ringkas');
-    else exportExcel(rows, 'niatbaik_cs_ringkas', undefined, 'CS');
+    if (kind === 'csv') exportCSV(rows, 'niatbaik_transaksi');
+    else exportExcel(rows, 'niatbaik_transaksi', undefined, 'Transaksi');
     showToast(`${rows.length} baris diekspor ke ${kind.toUpperCase()}`);
   };
 

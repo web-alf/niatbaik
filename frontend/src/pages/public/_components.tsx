@@ -1090,26 +1090,22 @@ export function CampaignPage({ c: listItem, onNav }: any) {
             <div className="lg:col-span-3">
               <div className="relative aspect-[16/9] rounded-2xl overflow-hidden bg-cover bg-center" style={thumbStyle(c)}>
                 {!hasThumbImage(c) && <div className="absolute inset-0 flex items-center justify-center text-white/85"><Icon name={c.icon} size={140} strokeWidth={1}/></div>}
-                {/* Bright image; gradient only where text/badges sit (top + bottom) so the
-                    photo isn't flatly darkened. The title overlays the bottom band. */}
+                {/* Only the top gradient remains — it keeps the category/LIVE badges legible.
+                    The title no longer overlays the photo (it sits below), so the bottom
+                    darkening band was removed. */}
                 <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/40 to-transparent"/>
-                <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/70 via-black/30 to-transparent"/>
                 <div className="absolute top-4 left-4 flex gap-2">
                   <span className="px-2.5 py-1 rounded-md bg-white/95 text-[11px] font-bold text-ink">{c.category}</span>
                   <span className="px-2.5 py-1 rounded-md bg-emerald-600 text-[11px] font-bold text-white inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse"/>LIVE</span>
                   {c.isUrgent && <span className="px-2.5 py-1 rounded-md bg-rose-500 text-[11px] font-bold text-white">URGENT</span>}
                 </div>
-                {/* Title overlay only on desktop — on phones it crowds the 16/9 photo. */}
-                <div className="hidden lg:block absolute bottom-4 left-4 right-4 text-white">
-                  <div className="text-xs font-semibold uppercase opacity-90">Yayasan Niat Baik · Terverifikasi</div>
-                  <h1 className="mt-1 text-2xl lg:text-4xl font-extrabold leading-tight">{c.title}</h1>
-                </div>
               </div>
 
-              {/* Mobile title: below the image, on white — readable, not cramped. */}
-              <div className="lg:hidden mt-3">
-                <div className="text-[11px] font-semibold uppercase text-mute">Yayasan Niat Baik · Terverifikasi</div>
-                <h1 className="mt-1 text-xl font-extrabold leading-snug text-ink">{c.title}</h1>
+              {/* Title always sits BELOW the cover (all breakpoints) — no overlap with the
+                  photo, readable on the page background in light + dark. */}
+              <div className="mt-3 lg:mt-4">
+                <div className="text-[11px] lg:text-xs font-semibold uppercase tracking-wide text-mute">Yayasan Niat Baik · Terverifikasi</div>
+                <h1 className="mt-1 text-xl lg:text-3xl font-extrabold leading-snug lg:leading-tight text-ink">{c.title}</h1>
               </div>
 
               {/* Mobile-only top CTA: the full progress+donate card is in the sidebar,

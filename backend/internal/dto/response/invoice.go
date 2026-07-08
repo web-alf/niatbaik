@@ -40,6 +40,9 @@ type InvoiceResponse struct {
 	UTMTerm       string     `json:"utm_term"`
 	UTMID         string     `json:"utm_id"`
 	ClickID       string     `json:"click_id"`
+	// Fundraiser (referrer) attribution — filled from the preloaded Referrer relation
+	// when the donation came through a ?ref=<user_id> share link.
+	ReferrerName  string     `json:"referrer_name"`
 	PaidAt        *time.Time `json:"paid_at"`
 	ExpiredAt     time.Time  `json:"expired_at"`
 	CreatedAt     time.Time  `json:"created_at"`
@@ -96,10 +99,18 @@ func ToInvoiceResponse(inv *model.Invoice) InvoiceResponse {
 		UTMTerm:       inv.UTMTerm,
 		UTMID:         inv.UTMID,
 		ClickID:       inv.ClickID,
+		ReferrerName:  referrerName(inv),
 		PaidAt:        inv.PaidAt,
 		ExpiredAt:     inv.ExpiredAt,
 		CreatedAt:     inv.CreatedAt,
 	}
+}
+
+func referrerName(inv *model.Invoice) string {
+	if inv.Referrer != nil {
+		return inv.Referrer.Name
+	}
+	return ""
 }
 
 func ToInvoiceListResponse(invoices []model.Invoice) []InvoiceResponse {

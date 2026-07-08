@@ -131,6 +131,7 @@ export default function DashboardPage() {
     nominal: t.amount,
     metode: t.method,
     status: t.status,
+    fundraiser: t.referrer || '',
     whatsapp: t.whatsapp,
     email: t.email,
     utm_source: t.utm.source,

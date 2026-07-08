@@ -100,7 +100,10 @@ export function mapInvoice(inv: any): Invoice {
       || (typeof inv.campaign === 'string' ? inv.campaign : (inv.campaign && inv.campaign.title) || ''),
     campaignId: inv.campaign_id || inv.campaignId || (inv.campaign && inv.campaign.id) || '',
     amount: inv.amount ?? inv.total ?? 0,
-    method: inv.payment_method || inv.method || '',
+    // payment_method_name covers the raw model shape (recent-transactions endpoint).
+    method: inv.payment_method || inv.payment_method_name || inv.method || '',
+    // Fundraiser attribution: referrer_name from InvoiceResponse, nested relation on raw rows.
+    referrer: inv.referrer_name || (inv.referrer && inv.referrer.name) || '',
     status,
     isPaid: inv.is_paid ?? (status === 'Paid'),
     leadQuality: inv.lead_quality ?? inv.leadQuality ?? '',

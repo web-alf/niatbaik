@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { api, mediaUrl } from '@/lib/api';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
-import { exportCSV } from '@/lib/export';
+import { exportCSV, exportExcel } from '@/lib/export';
 import { useAdminSync } from '@/lib/useAdminSync';
 import { ROLE_META } from '@/lib/nav';
 import { Card, PageHeader, Tabs, Btn, SearchInput, RoleBadge, Modal, Icon } from '@/components';
@@ -108,11 +108,15 @@ export default function MembersPage() {
         title="Members / User"
         subtitle="Tim NIATBAIK.ORG · Admin, CS, dan Advertiser."
         actions={<>
-          <Btn variant="outline" tone="ink" icon="download" onClick={() => {
-            const rows = filtered.map(m => ({ nama: m.name, email: m.email, role: m.role, last_login: m.lastLogin }));
-            exportCSV(rows, 'niatbaik_users');
-            showToast(rows.length + ' user diekspor');
-          }}>Export</Btn>
+          {(['csv', 'xls'] as const).map((kind) => (
+            <Btn key={kind} variant={kind === 'csv' ? 'outline' : undefined} tone="ink" icon="download" onClick={() => {
+              const rows = filtered.map(m => ({ nama: m.name, email: m.email, role: m.role, last_login: m.lastLogin }));
+              if (!rows.length) { showToast('Tidak ada data'); return; }
+              if (kind === 'csv') exportCSV(rows, 'niatbaik_users');
+              else exportExcel(rows, 'niatbaik_users', undefined, 'Users');
+              showToast(rows.length + ' user diekspor');
+            }}>{kind === 'csv' ? 'CSV' : 'Excel'}</Btn>
+          ))}
           <Btn icon="plus" onClick={() => { setEditing(null); setShowAdd(true); }}>Add User</Btn>
         </>}
       />

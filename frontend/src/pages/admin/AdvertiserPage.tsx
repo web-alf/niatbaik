@@ -4,7 +4,7 @@ import { useDataStore } from '@/store/data';
 import { useUiStore } from '@/store/ui';
 import { fmtNum, fmtIDRShort } from '@/lib/format';
 import { campaignBgStyle } from '@/lib/mappers';
-import { exportCSV } from '@/lib/export';
+import { exportCSV, exportExcel } from '@/lib/export';
 import { Card, PageHeader, Select, DateRangePill, Btn, StatCard, Badge, LineChart, Icon } from '@/components';
 
 // utm_source values that map to each ad platform (used for the platform filter).
@@ -46,13 +46,15 @@ export default function AdvertiserPage() {
     setSaving(false);
   };
 
-  const exportCosts = () => {
+  const exportCosts = (kind: 'csv' | 'xls' = 'csv') => {
     const rows = trafficSources.map((t: any) => ({
       source: t.name || t.source, visits: t.visits, leads: t.leads,
       donations: t.donations, spend: t.spend || 0, revenue: t.revenue || 0,
     }));
-    if (rows.length) { exportCSV(rows, 'niatbaik_advertiser'); showToast(rows.length + ' baris diekspor'); }
-    else showToast('Tidak ada data');
+    if (!rows.length) { showToast('Tidak ada data'); return; }
+    if (kind === 'csv') exportCSV(rows, 'niatbaik_advertiser');
+    else exportExcel(rows, 'niatbaik_advertiser', undefined, 'Advertiser');
+    showToast(rows.length + ' baris diekspor');
   };
   // Per-platform pixel/connection status from the backend (config + last dispatch log),
   // replacing the hardcoded "Active/Error" mock badges. Empty until fetched.
@@ -77,7 +79,8 @@ export default function AdvertiserPage() {
             {value:'tiktok', label:'TikTok Ads'},
           ]}/>
           <DateRangePill/>
-          <Btn variant="outline" tone="ink" icon="download" onClick={exportCosts}>Export</Btn>
+          <Btn variant="outline" tone="ink" icon="download" onClick={() => exportCosts('csv')}>CSV</Btn>
+          <Btn tone="ink" icon="download" onClick={() => exportCosts('xls')}>Excel</Btn>
         </>}
       />
 

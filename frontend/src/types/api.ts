@@ -82,6 +82,7 @@ export interface Invoice {
   clickId?: string;
   anon: boolean;
   message: string;
+  referrer?: string; // fundraiser name when donation came via ?ref= link
 }
 
 export interface User {

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { api, mediaUrl } from '@/lib/api';
 import { fmtIDR, fmtIDRShort, fmtNum } from '@/lib/format';
 import { getDateRange, fmtDate } from '@/lib/date';
-import { exportCSV } from '@/lib/export';
+import { exportCSV, exportExcel } from '@/lib/export';
 import { useUiStore } from '@/store/ui';
 import { useAdminSync } from '@/lib/useAdminSync';
 import { Card, PageHeader, StatCard, Select, DateRangePill, Btn, Icon, Progress } from '@/components';
@@ -61,15 +61,18 @@ export default function CampaignEarningsPage() {
         subtitle="Rekap perolehan per campaign — filter berdasarkan campaign & rentang tanggal."
         actions={<>
           <DateRangePill value={range} onChange={setRange} />
-          <Btn variant="outline" tone="ink" icon="download" onClick={() => {
-            const data = filtered.map((r) => ({
-              campaign: r.title, status: r.status, leads: r.leads, donasi: r.donations,
-              donatur: r.donors, perolehan: r.revenue, target: r.target, total_raised_all_time: r.total_raised,
-            }));
-            if (!data.length) { showToast('Tidak ada data'); return; }
-            exportCSV(data, 'niatbaik_perolehan_campaign');
-            showToast(data.length + ' campaign diekspor');
-          }}>Export</Btn>
+          {(['csv', 'xls'] as const).map((kind) => (
+            <Btn key={kind} variant={kind === 'csv' ? 'outline' : undefined} tone="ink" icon="download" onClick={() => {
+              const data = filtered.map((r) => ({
+                campaign: r.title, status: r.status, leads: r.leads, donasi: r.donations,
+                donatur: r.donors, perolehan: r.revenue, target: r.target, total_raised_all_time: r.total_raised,
+              }));
+              if (!data.length) { showToast('Tidak ada data'); return; }
+              if (kind === 'csv') exportCSV(data, 'niatbaik_perolehan_campaign', range);
+              else exportExcel(data, 'niatbaik_perolehan_campaign', range, 'Perolehan');
+              showToast(data.length + ' campaign diekspor');
+            }}>{kind === 'csv' ? 'CSV' : 'Excel'}</Btn>
+          ))}
         </>}
       />
 

@@ -3,7 +3,7 @@ import { fmtNum, fmtIDRShort } from '@/lib/format';
 import { campaignBgStyle } from '@/lib/mappers';
 import { getDateRange } from '@/lib/date';
 import { api } from '@/lib/api';
-import { exportCSV } from '@/lib/export';
+import { exportCSV, exportExcel } from '@/lib/export';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { Icon, Donut, DateRangePill } from '@/components';
@@ -48,16 +48,18 @@ export default function DataStudioPage() {
 
   useEffect(() => { fetchPage(page); }, [page]);
 
-  // Export whatever the current page has loaded as CSV.
-  const exportCurrent = () => {
+  // Export whatever the current page has loaded.
+  const exportCurrent = (kind: 'csv' | 'xls' = 'csv') => {
     const d = dsData[page];
     let rows: any[] = [];
     if (page === 'overview') rows = (d?.sources || []).map((s: any) => ({ source: s.source, sessions: s.sessions, revenue: s.revenue }));
     else if (page === 'geo') rows = (Array.isArray(d) ? d : d?.regions || []).map((g: any) => ({ region: g.region, donations: g.donations, revenue: g.revenue }));
     else if (page === 'funnel') rows = (Array.isArray(d) ? d : d?.steps || []).map((f: any) => ({ step: f.step, count: f.count }));
     else if (d) rows = [{ platform: d.platform, spend: d.spend, sessions: d.sessions, donations: d.donations, revenue: d.revenue, roas: d.roas }];
-    if (rows.length) { exportCSV(rows, 'niatbaik_datastudio_' + page); showToast(rows.length + ' baris diekspor'); }
-    else showToast('Tidak ada data untuk diekspor');
+    if (!rows.length) { showToast('Tidak ada data untuk diekspor'); return; }
+    if (kind === 'csv') exportCSV(rows, 'niatbaik_datastudio_' + page);
+    else exportExcel(rows, 'niatbaik_datastudio_' + page, undefined, 'Data Studio');
+    showToast(rows.length + ' baris diekspor');
   };
 
   const pages = [
@@ -83,7 +85,8 @@ export default function DataStudioPage() {
           </div>
           <div className="flex-1" />
           <button title="Muat ulang" className="h-8 w-8 rounded-md hover:bg-bg2 text-mute" onClick={() => fetchPage(page)}><Icon name="refresh" size={14} /></button>
-          <button title="Export CSV" className="h-8 w-8 rounded-md hover:bg-bg2 text-mute" onClick={exportCurrent}><Icon name="download" size={14} /></button>
+          <button title="Export CSV" className="h-8 rounded-md px-2 text-[11px] font-bold hover:bg-bg2 text-mute" onClick={() => exportCurrent('csv')}>CSV</button>
+          <button title="Export Excel" className="h-8 rounded-md px-2 text-[11px] font-bold hover:bg-bg2 text-mute" onClick={() => exportCurrent('xls')}>XLS</button>
         </div>
         {/* Page tabs */}
         <div className="px-4 lg:px-6 flex items-center gap-1 overflow-x-auto border-t border-line">

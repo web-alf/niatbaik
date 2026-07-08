@@ -343,7 +343,7 @@ func (r *StatsRepo) GetRecentTransactions(limit int) ([]model.Invoice, error) {
 	// Include leads (unpaid/pending invoices), not only settled ones — a new lead must
 	// appear in "Transaksi Terbaru" the moment it comes in. Order by most-recent activity
 	// (paid_at when settled, else created_at) so paid + pending interleave chronologically.
-	err := r.db.Preload("Campaign").Preload("User").
+	err := r.db.Preload("Campaign").Preload("User").Preload("Referrer").
 		Order("COALESCE(paid_at, created_at) desc").
 		Limit(limit).
 		Find(&invoices).Error

@@ -389,9 +389,12 @@ function ExportLimitedModal({ open, onClose, rows, showToast }: any) {
     { k:'whatsapp',     l:'No. WhatsApp',   sensitive: true },
     { k:'email',        l:'Email',          sensitive: true },
     { k:'metode',       l:'Metode pembayaran', sensitive: true },
+    { k:'fundraiser',   l:'Fundraiser',     default: true },
     { k:'utm_source',   l:'Source iklan',   default: true },
     { k:'utm_campaign', l:'UTM campaign',   default: true },
+    { k:'utm_medium',   l:'UTM medium' },
     { k:'utm_content',  l:'UTM content' },
+    { k:'utm_term',     l:'UTM term' },
     { k:'utm_id',       l:'UTM id' },
     { k:'pesan',        l:'Doa / pesan donatur' },
     { k:'note',         l:'Catatan CS' },
@@ -422,9 +425,12 @@ function ExportLimitedModal({ open, onClose, rows, showToast }: any) {
           case 'whatsapp':     r[f.l] = t.whatsapp; break;
           case 'email':        r[f.l] = t.email; break;
           case 'metode':       r[f.l] = t.method; break;
+          case 'fundraiser':   r[f.l] = t.referrer || ''; break;
           case 'utm_source':   r[f.l] = t.utm.source; break;
           case 'utm_campaign': r[f.l] = t.utm.campaign; break;
+          case 'utm_medium':   r[f.l] = t.utm.medium || ''; break;
           case 'utm_content':  r[f.l] = t.utm.content || ''; break;
+          case 'utm_term':     r[f.l] = t.utm.term || ''; break;
           case 'utm_id':       r[f.l] = t.utm.id || ''; break;
           case 'pesan':        r[f.l] = t.message || ''; break;
           case 'note':         r[f.l] = t.note || ''; break;

@@ -84,7 +84,8 @@ func (r *InvoiceRepo) FindAll(params request.PaginationParams) ([]model.Invoice,
 	var invoices []model.Invoice
 	var total int64
 
-	q := r.db.Model(&model.Invoice{}).Preload("Campaign").Preload("PaymentMethod").Preload("User")
+	// Referrer feeds the fundraiser column in admin list/export.
+	q := r.db.Model(&model.Invoice{}).Preload("Campaign").Preload("PaymentMethod").Preload("User").Preload("Referrer")
 
 	if params.Status != "" {
 		q = q.Where("status = ?", params.Status)

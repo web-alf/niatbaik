@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { fmtNum, fmtIDRShort } from '@/lib/format';
-import { exportCSV } from '@/lib/export';
+import { exportCSV, exportExcel } from '@/lib/export';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { useAuth } from '@/context/AuthContext';
@@ -87,17 +87,20 @@ export default function FundraiserPage() {
         title="Fundraiser"
         subtitle="Mitra fundraiser yang mempromosikan campaign NIATBAIK.ORG."
         actions={<>
-          <Btn variant="outline" tone="ink" icon="download" onClick={() => {
-            const rows = filtered.map((f: any) => ({
-              nama: f.name, email: f.email, campaign: f.campaign,
-              transaksi: f.txn, transaksi_terbayar: f.txnPaid, donatur: f.donors,
-              klik: f.clicks, terkumpul: f.raised,
-              komisi: f.commission, komisi_pending: f.pendingPayout, ref: f.ref,
-            }));
-            if (!rows.length) { showToast('Tidak ada data'); return; }
-            exportCSV(rows, 'niatbaik_fundraiser');
-            showToast(rows.length + ' fundraiser diekspor');
-          }}>Export</Btn>
+          {(['csv', 'xls'] as const).map((kind) => (
+            <Btn key={kind} variant={kind === 'csv' ? 'outline' : undefined} tone="ink" icon="download" onClick={() => {
+              const rows = filtered.map((f: any) => ({
+                nama: f.name, email: f.email, campaign: f.campaign,
+                transaksi: f.txn, transaksi_terbayar: f.txnPaid, donatur: f.donors,
+                klik: f.clicks, terkumpul: f.raised,
+                komisi: f.commission, komisi_pending: f.pendingPayout, ref: f.ref,
+              }));
+              if (!rows.length) { showToast('Tidak ada data'); return; }
+              if (kind === 'csv') exportCSV(rows, 'niatbaik_fundraiser');
+              else exportExcel(rows, 'niatbaik_fundraiser', undefined, 'Fundraiser');
+              showToast(rows.length + ' fundraiser diekspor');
+            }}>{kind === 'csv' ? 'CSV' : 'Excel'}</Btn>
+          ))}
           {/* Inviting a fundraiser calls POST /users, which is admin-only. CS can view the
               list but not create, so the button is hidden for non-admins (was 403'ing). */}
           {role === 'Admin' && <Btn icon="plus" onClick={() => setShowInvite(true)}>Undang Fundraiser</Btn>}

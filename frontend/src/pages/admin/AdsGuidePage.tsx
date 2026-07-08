@@ -23,7 +23,7 @@ export default function AdsGuidePage({ open, onClose }: any) {
       </span>}
       footer={<>
         <span className="mr-auto text-xs text-mute">Update: Mei 2026</span>
-        <Btn variant="outline" tone="ink" icon="download">Unduh PDF</Btn>
+        <Btn variant="outline" tone="ink" icon="download" onClick={() => window.print()}>Unduh PDF</Btn>
         <Btn onClick={onClose}>Tutup</Btn>
       </>}>
 

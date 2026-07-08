@@ -4,6 +4,7 @@ import { fmtNum } from '@/lib/format';
 import { useUiStore } from '@/store/ui';
 import { useAuth } from '@/context/AuthContext';
 import { ROLE_META } from '@/lib/nav';
+import { exportCSV } from '@/lib/export';
 import { Card, PageHeader, Btn, Badge, RoleBadge, Icon } from '@/components';
 
 const timeAgo = (dateStr: string) => {
@@ -396,7 +397,11 @@ export default function ProfilePage() {
             <div className="font-bold text-ink">Activity Log</div>
             <div className="text-xs text-mute">30 aktivitas terakhir</div>
           </div>
-          <Btn size="sm" variant="ghost" tone="ink" icon="download">Export log</Btn>
+          <Btn size="sm" variant="ghost" tone="ink" icon="download" onClick={() => {
+            if (!activityLog.length) { showToast('Belum ada aktivitas tercatat'); return; }
+            exportCSV(activityLog.map((a) => ({ aktivitas: a.t, waktu: a.when })), 'niatbaik_activity_log');
+            showToast(activityLog.length + ' aktivitas diekspor');
+          }}>Export log</Btn>
         </div>
         <div className="space-y-2">
           {(activityLog.length ? activityLog : [

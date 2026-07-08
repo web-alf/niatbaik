@@ -399,13 +399,36 @@ function CSDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const openInvoice = useUiStore((s) => s.openInvoice);
+  const showToast = useUiStore((s) => s.showToast);
   const S = useDataStore((s) => s.dashboardStats) || {};
+
+  // "Export terbatas" — CS-safe columns only (no raw amount/PII beyond what CS already
+  // sees in the inbox). Exports whatever transactions are loaded in the store.
+  const exportLimited = (kind: 'csv' | 'xls') => {
+    const rows = (txns || []).map((t: any) => ({
+      invoice: t.id,
+      tanggal: t.date,
+      donatur: t.anon ? 'Hamba Allah' : t.donor,
+      campaign: t.campaign,
+      status: t.status,
+      fundraiser: t.referrer || '',
+    }));
+    if (!rows.length) { showToast('Tidak ada data untuk diekspor'); return; }
+    if (kind === 'csv') exportCSV(rows, 'niatbaik_cs_ringkas');
+    else exportExcel(rows, 'niatbaik_cs_ringkas', undefined, 'CS');
+    showToast(`${rows.length} baris diekspor ke ${kind.toUpperCase()}`);
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         title={`Selamat datang, ${(user?.name || 'CS').split(' ')[0]} 👋`}
         subtitle="Dashboard Customer Service · prioritaskan donatur yang menunggu follow-up."
-        actions={<><DateRangePill/><Btn variant="outline" tone="ink" icon="download">Export terbatas</Btn></>}
+        actions={<>
+          <DateRangePill/>
+          <Btn variant="outline" tone="ink" icon="download" onClick={() => exportLimited('csv')}>CSV</Btn>
+          <Btn tone="ink" icon="download" onClick={() => exportLimited('xls')}>Excel</Btn>
+        </>}
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

@@ -107,18 +107,26 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 	// is ignored (donation still proceeds, just unattributed). Tagging the invoice
 	// here is what activates the commission payout in PaymentService.ProcessPayment.
 	var referredBy *uuid.UUID
-	if req.ReferralCode != "" {
-		if refID, err := uuid.Parse(strings.TrimSpace(req.ReferralCode)); err == nil {
-			var refUser model.User
+	if code := strings.TrimSpace(req.ReferralCode); code != "" {
+		// The referral code is a username (?ref=<username>); older share links used the raw
+		// user UUID, so accept both — try UUID first, then fall back to username lookup.
+		var refUser model.User
+		var found bool
+		if refID, err := uuid.Parse(code); err == nil {
 			if err := s.db.Select("id", "role").First(&refUser, "id = ?", refID).Error; err == nil {
-				// Only a fundraiser earns a referral commission, and never on a
-				// donation to a campaign they own — that would let a campaign owner
-				// self-deal a commission off their own program's donations. Both
-				// conditions must hold for the invoice to be attributed.
-				if refUser.Role == "fundraiser" && refUser.ID != campaign.UserID {
-					referredBy = &refUser.ID
-				}
+				found = true
 			}
+		}
+		if !found {
+			if err := s.db.Select("id", "role").First(&refUser, "username = ?", strings.ToLower(code)).Error; err == nil {
+				found = true
+			}
+		}
+		// Only a fundraiser earns a referral commission, and never on a donation to a
+		// campaign they own — that would let a campaign owner self-deal a commission off
+		// their own program's donations. Both conditions must hold to attribute the invoice.
+		if found && refUser.Role == "fundraiser" && refUser.ID != campaign.UserID {
+			referredBy = &refUser.ID
 		}
 	}
 
@@ -258,6 +266,18 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 		}
 		if err := tx.Create(&donation).Error; err != nil {
 			return fmt.Errorf("failed to create donation: %w", err)
+		}
+
+		// Attribute the invoice to the fundraiser's affiliate record for this campaign
+		// (invoices_created counts referred donations initiated; invoices_paid is bumped
+		// separately when payment settles). Scoped to (user, campaign) so a multi-campaign
+		// fundraiser's per-campaign stats stay correct.
+		if referredBy != nil {
+			if err := tx.Model(&model.Fundraiser{}).
+				Where("user_id = ? AND campaign_id = ?", *referredBy, campaign.ID).
+				UpdateColumn("invoices_created", gorm.Expr("invoices_created + 1")).Error; err != nil {
+				return fmt.Errorf("failed to update fundraiser invoices_created: %w", err)
+			}
 		}
 		return nil
 	})

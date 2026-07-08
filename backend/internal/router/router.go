@@ -107,6 +107,8 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	api.GET("/payment-statuses", paymentStatusHandler.List)
 	api.GET("/stats", publicHandler.GetPublicStats)
 	api.POST("/track/visit", publicHandler.TrackVisit)
+	// Fundraiser share-link click tracking (public share traffic; best-effort, always 200).
+	api.POST("/fundraisers/ref-hit", fundraiserHandler.RefHit)
 	api.POST("/donations", donationHandler.CreateDonation)
 	api.GET("/donations/:invoice", donationHandler.GetPaymentStatus)
 	// Public AI-CS chat (Cekat Ai). AI-first; returns handoff=true → route to human WA CS.

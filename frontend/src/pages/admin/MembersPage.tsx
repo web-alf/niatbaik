@@ -12,6 +12,7 @@ const mapUser = (u: any) => ({
   name: u.name,
   email: u.email,
   phone: u.phone,
+  username: u.username || '',
   image: u.image || '',
   role: ((r) => r === 'Cs' ? 'CS' : r)((u.role || 'user').charAt(0).toUpperCase() + (u.role || 'user').slice(1)),
   lastLogin: u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : 'Belum pernah',
@@ -28,7 +29,7 @@ export default function MembersPage() {
   const [editing, setEditing] = useState<any>(null);
   const [confirmDel, setConfirmDel] = useState<any>(null);
 
-  const [addForm, setAddForm] = useState<any>({ name:'', email:'', phone:'', role:'admin', password:'' });
+  const [addForm, setAddForm] = useState<any>({ name:'', email:'', phone:'', username:'', role:'admin', password:'' });
   const [addErrors, setAddErrors] = useState<any>({});
   const [addLoading, setAddLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
@@ -47,8 +48,8 @@ export default function MembersPage() {
   useAdminSync(load);
 
   useEffect(() => {
-    if (editing) setAddForm({ name: editing.name, email: editing.email, phone: editing.phone || '', role: editing.role.toLowerCase(), password: '' });
-    else setAddForm({ name:'', email:'', phone:'', role:'admin', password:'' });
+    if (editing) setAddForm({ name: editing.name, email: editing.email, phone: editing.phone || '', username: editing.username || '', role: editing.role.toLowerCase(), password: '' });
+    else setAddForm({ name:'', email:'', phone:'', username:'', role:'admin', password:'' });
     setAddErrors({});
     setShowPwd(false);
   }, [editing, showAdd]);
@@ -72,19 +73,25 @@ export default function MembersPage() {
     // Either way, if a value is present it must be ≥8 chars.
     if (!editing && !addForm.password.trim()) e.password = 'Password wajib diisi (min 8 karakter)';
     if (addForm.password && addForm.password.length < 8) e.password = 'Password minimal 8 karakter';
+    // Username optional; validated only when provided (admin sets it, no cooldown).
+    if (addForm.username && addForm.username.trim() && !/^[a-z0-9_]{3,30}$/.test(addForm.username.trim().toLowerCase()))
+      e.username = 'Username: huruf kecil, angka, garis bawah (3–30 karakter)';
     setAddErrors(e);
     if (Object.keys(e).length) return;
     setAddLoading(true);
     try {
+      const uname = (addForm.username || '').trim().toLowerCase();
       if (editing) {
         const patch: any = { name: addForm.name, email: addForm.email, phone: addForm.phone, role: addForm.role };
+        // Only send username when it changed, so an unchanged edit doesn't re-stamp it.
+        if (uname && uname !== (editing.username || '')) patch.username = uname;
         // Only send password when the admin actually typed a new one — an empty field
         // leaves the current password untouched (backend treats "" as unchanged).
         if (addForm.password.trim()) patch.password = addForm.password;
         await api.updateUser(editing.id, patch);
         showToast(addForm.password.trim() ? 'User & password berhasil diupdate' : 'User berhasil diupdate');
       } else {
-        await api.createUser({ name: addForm.name, email: addForm.email, phone: addForm.phone, role: addForm.role, password: addForm.password });
+        await api.createUser({ name: addForm.name, email: addForm.email, phone: addForm.phone, username: uname, role: addForm.role, password: addForm.password });
         showToast('User berhasil ditambahkan');
       }
       setShowAdd(false); setEditing(null);
@@ -186,9 +193,8 @@ export default function MembersPage() {
         <div className="flex items-center justify-between mb-3">
           <div>
             <div className="font-bold text-ink">Permission Matrix</div>
-            <div className="text-xs text-mute mt-0.5">Akses per role · klik untuk mengubah.</div>
+            <div className="text-xs text-mute mt-0.5">Referensi akses per role (sesuai penegakan di server).</div>
           </div>
-          <Btn size="sm" variant="ghost" tone="ink" icon="edit">Edit permissions</Btn>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -198,28 +204,33 @@ export default function MembersPage() {
                 <th className="py-2 font-semibold text-center">Admin</th>
                 <th className="py-2 font-semibold text-center">CS</th>
                 <th className="py-2 font-semibold text-center">Advertiser</th>
+                <th className="py-2 font-semibold text-center">Fundraiser</th>
               </tr>
             </thead>
             <tbody>
+              {/* Flags mirror the actual backend RequireRole/RequireStaff groups + frontend
+                  route guards — kept truthful (e.g. CS CAN manage campaigns via the staff
+                  group; Fundraiser only sees its own portal). Reference only; not editable. */}
               {[
-                { p:'Dashboard', a:1, c:1, ad:1 },
-                { p:'Kelola Campaign', a:1, c:0, ad:0 },
-                { p:'Publish/Edit Campaign', a:1, c:0, ad:0 },
-                { p:'Lihat Transaksi', a:1, c:1, ad:1 },
-                { p:'Lihat data sensitif donatur (full)', a:1, c:1, ad:0 },
-                { p:'Update status invoice', a:1, c:1, ad:0 },
-                { p:'Kirim follow-up WA', a:1, c:1, ad:0 },
-                { p:'Kelola Payment Method', a:1, c:0, ad:0 },
-                { p:'Akses Analytics & UTM', a:1, c:0, ad:1 },
-                { p:'Manage Tracking Pixel', a:1, c:0, ad:1 },
-                { p:'Export full data', a:1, c:0, ad:0 },
-                { p:'Export terbatas (CSV ringkas)', a:1, c:1, ad:1 },
-                { p:'Kelola Members & Role', a:1, c:0, ad:0 },
-                { p:'Akses Trash & Restore', a:1, c:0, ad:0 },
+                { p:'Dashboard', a:1, c:1, ad:1, f:0 },
+                { p:'Kelola Campaign', a:1, c:1, ad:1, f:0 },
+                { p:'Publish/Edit Campaign', a:1, c:1, ad:1, f:0 },
+                { p:'Lihat Transaksi', a:1, c:1, ad:0, f:0 },
+                { p:'Lihat data sensitif donatur (full)', a:1, c:1, ad:0, f:0 },
+                { p:'Update status invoice', a:1, c:1, ad:0, f:0 },
+                { p:'Kirim follow-up WA', a:1, c:1, ad:0, f:0 },
+                { p:'Kelola Payment Method', a:1, c:0, ad:0, f:0 },
+                { p:'Akses Analytics & UTM', a:1, c:0, ad:1, f:0 },
+                { p:'Manage Tracking Pixel', a:1, c:0, ad:1, f:0 },
+                { p:'Kelola Fundraiser', a:1, c:1, ad:0, f:0 },
+                { p:'Portal Fundraiser (referral & komisi)', a:1, c:0, ad:0, f:1 },
+                { p:'Export terbatas (CSV/Excel)', a:1, c:1, ad:1, f:0 },
+                { p:'Kelola Members & Role', a:1, c:0, ad:0, f:0 },
+                { p:'Akses Trash & Restore', a:1, c:0, ad:0, f:0 },
               ].map((r, i) => (
                 <tr key={i} className="border-t border-line">
                   <td className="py-2.5 text-ink font-medium">{r.p}</td>
-                  {[r.a, r.c, r.ad].map((v, j) => (
+                  {[r.a, r.c, r.ad, r.f].map((v, j) => (
                     <td key={j} className="py-2.5 text-center">
                       {v ? <span className="inline-flex h-6 w-6 rounded-full bg-emerald-50 text-emerald-600 items-center justify-center"><Icon name="check" size={14} strokeWidth={2.5}/></span>
                          : <span className="inline-flex h-6 w-6 rounded-full bg-slate-100 text-slate-400 items-center justify-center"><Icon name="close" size={14}/></span>}
@@ -255,6 +266,12 @@ export default function MembersPage() {
             <label className="text-xs font-semibold text-mute">Telepon</label>
             <input className="field mt-1" placeholder="08xxxxxxxxxx"
               value={addForm.phone} onChange={(e) => setAddForm({...addForm, phone: e.target.value})}/>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-mute">Username <span className="font-normal normal-case">· link referral (opsional)</span></label>
+            <input className={`field mt-1 ${addErrors.username ? 'border-rose-500' : ''}`} placeholder={editing ? addForm.username || 'username' : 'otomatis dari email jika kosong'}
+              value={addForm.username} onChange={(e) => setAddForm({...addForm, username: e.target.value.toLowerCase()})}/>
+            {addErrors.username && <div className="text-xs text-rose-500 mt-1">{addErrors.username}</div>}
           </div>
           <div>
             <label className="text-xs font-semibold text-mute">Role</label>

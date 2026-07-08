@@ -52,6 +52,7 @@ export default function ProfilePage() {
     name:   meBase.name,
     email:  meBase.email,
     wa:     meBase.phone || '',
+    username: meBase.username || '',
     // Avatar comes from user.image (the persisted /uploads path from /auth/me), resolved
     // through mediaUrl. Older code read a non-existent `avatar` key, so it never showed.
     avatar: meBase.image ? mediaUrl(meBase.image) : null,
@@ -59,11 +60,23 @@ export default function ProfilePage() {
     initial: meBase.initial,
   };
 
+  // Username rename cooldown (30 days, non-admin). Compute remaining days from
+  // username_changed_at so the field can be locked with a "dapat diubah lagi" hint.
+  const isAdmin = String(role).toLowerCase() === 'admin';
+  const usernameCooldown = (() => {
+    if (isAdmin || !meBase.username_changed_at) return { locked: false, days: 0, date: '' };
+    const next = new Date(new Date(meBase.username_changed_at).getTime() + 30 * 864e5);
+    const days = Math.ceil((next.getTime() - Date.now()) / 864e5);
+    return days > 0
+      ? { locked: true, days, date: next.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) }
+      : { locked: false, days: 0, date: '' };
+  })();
+
   // -------- Edit state --------
   const [editing, setEditing] = useState(false);
   // form.avatar = display URL (for the <img> preview); form.imagePath = the RAW stored
   // value we send to the server (/uploads/<uuid>.ext or '' to clear).
-  const [form, setForm]       = useState<any>({ name: display.name, email: display.email, wa: display.wa, avatar: display.avatar, imagePath: meBase.image || '' });
+  const [form, setForm]       = useState<any>({ name: display.name, email: display.email, wa: display.wa, username: display.username, avatar: display.avatar, imagePath: meBase.image || '' });
   const [errors, setErrors]   = useState<any>({});
   const [saving, setSaving]   = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -105,7 +118,7 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (!editing) setForm({ name: display.name, email: display.email, wa: display.wa, avatar: display.avatar, imagePath: meBase.image || '' });
+    if (!editing) setForm({ name: display.name, email: display.email, wa: display.wa, username: display.username, avatar: display.avatar, imagePath: meBase.image || '' });
     // eslint-disable-next-line
   }, [editing, user?.email]);
 
@@ -119,6 +132,9 @@ export default function ProfilePage() {
     else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) e.email = 'Format email tidak valid';
     if (!form.wa.trim()) e.wa = 'No. WhatsApp wajib diisi';
     else if (form.wa.replace(/\D/g,'').length < 9) e.wa = 'No. WhatsApp tidak valid';
+    // Username is optional but, when provided, must match the backend rule (a-z 0-9 _, 3-30).
+    if (form.username && form.username.trim() && !/^[a-z0-9_]{3,30}$/.test(form.username.trim().toLowerCase()))
+      e.username = 'Username: huruf kecil, angka, garis bawah (3–30 karakter)';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -128,23 +144,29 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       // Persist server-side. `image` is the raw /uploads path (backend column), NOT the
-      // display URL. Then re-read /auth/me so the local user reflects what was saved.
-      await api?.updateProfile?.({ name: form.name.trim(), email: form.email.trim(), phone: form.wa.trim(), image: form.imagePath || '' });
+      // display URL. Only send username when it actually changed so the backend doesn't
+      // trip the 30-day cooldown on an unrelated profile save. Then re-read /auth/me so the
+      // local user reflects what was saved.
+      const patch: any = { name: form.name.trim(), email: form.email.trim(), phone: form.wa.trim(), image: form.imagePath || '' };
+      const newUname = (form.username || '').trim().toLowerCase();
+      if (newUname && newUname !== (display.username || '')) patch.username = newUname;
+      await api?.updateProfile?.(patch);
       try {
         const me: any = await api.me();
         if (me?.data) updateUser(me.data);
       } catch { updateUser({ name: form.name.trim(), email: form.email.trim(), phone: form.wa.trim(), image: form.imagePath || '' }); }
       showToast('Profil berhasil disimpan');
       setEditing(false);
-    } catch {
-      showToast('Gagal menyimpan profil');
+    } catch (err: any) {
+      // Surface the backend's specific reason (cooldown / username taken / phone taken).
+      showToast('Gagal menyimpan: ' + (err?.message || 'coba lagi'));
     } finally {
       setSaving(false);
     }
   };
 
   const cancel = () => {
-    setForm({ name: display.name, email: display.email, wa: display.wa, avatar: display.avatar, imagePath: meBase.image || '' });
+    setForm({ name: display.name, email: display.email, wa: display.wa, username: display.username, avatar: display.avatar, imagePath: meBase.image || '' });
     setErrors({});
     setEditing(false);
   };
@@ -288,6 +310,31 @@ export default function ProfilePage() {
                 onChange={(v: any) => setForm({ ...form, email: v })} error={errors.email}/>
               <ProfileField label="No. WhatsApp" editing={editing} value={form.wa} display={display.wa}
                 onChange={(v: any) => setForm({ ...form, wa: v })} error={errors.wa} placeholder="+62 812 …"/>
+              {/* Username = public referral handle. Editable in edit mode unless the 30-day
+                  cooldown is active (admins never hit the cooldown). */}
+              <div>
+                <label className="text-xs font-semibold text-mute">Username <span className="font-normal normal-case text-mute/70">· link referral</span></label>
+                {editing && !usernameCooldown.locked ? (
+                  <>
+                    <div className="mt-1 flex items-center rounded-lg border border-line bg-white focus-within:border-brand-600 overflow-hidden">
+                      <span className="pl-3 text-mute text-sm">?ref=</span>
+                      <input value={form.username}
+                        onChange={(e: any) => setForm({ ...form, username: e.target.value.toLowerCase() })}
+                        placeholder="username" className="flex-1 px-2 h-10 outline-none text-sm text-ink"/>
+                    </div>
+                    {errors.username && <div className="text-[11px] text-rose-500 mt-1">{errors.username}</div>}
+                    {!isAdmin && <div className="text-[10px] text-mute mt-1">Dapat diubah setiap 30 hari sekali.</div>}
+                  </>
+                ) : (
+                  <>
+                    <div className="mt-1 h-10 px-3 rounded-lg border border-line bg-bg2 text-sm font-semibold text-ink flex items-center justify-between">
+                      <span>{display.username ? '@' + display.username : '—'}</span>
+                      {usernameCooldown.locked && <Icon name="lock" size={13} className="text-mute" title="Dalam masa cooldown"/>}
+                    </div>
+                    {usernameCooldown.locked && <div className="text-[10px] text-amber-600 mt-1">Dapat diubah lagi pada {usernameCooldown.date} ({usernameCooldown.days} hari lagi).</div>}
+                  </>
+                )}
+              </div>
               <div>
                 <label className="text-xs font-semibold text-mute">Role</label>
                 <div className="mt-1 h-10 px-3 rounded-lg border border-line bg-bg2 text-sm font-semibold text-ink flex items-center justify-between">

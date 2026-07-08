@@ -43,8 +43,10 @@ func (h *ProfileHandler) UpdateProfile(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
 	}
 
-	if err := h.profileService.UpdateProfile(claims.UserID, &req); err != nil {
-		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to update profile"))
+	// Surface the specific message (cooldown / username taken / phone taken) instead of a
+	// generic 500 — the client shows it to the user.
+	if err := h.profileService.UpdateProfile(claims.UserID, claims.Role, &req); err != nil {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
 	}
 
 	h.profileService.LogActivity(claims.UserID, "update", "Profile updated",

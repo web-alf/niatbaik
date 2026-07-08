@@ -66,6 +66,15 @@ func (r *FundraiserRepo) Create(f *model.Fundraiser) error {
 	return r.db.Create(f).Error
 }
 
+// IncrementClicks bumps total_clicks for the (user, campaign) affiliate record. Returns
+// the number of rows affected so the caller can tell whether a matching record existed.
+func (r *FundraiserRepo) IncrementClicks(userID, campaignID uuid.UUID) int64 {
+	res := r.db.Model(&model.Fundraiser{}).
+		Where("user_id = ? AND campaign_id = ?", userID, campaignID).
+		UpdateColumn("total_clicks", gorm.Expr("total_clicks + 1"))
+	return res.RowsAffected
+}
+
 func (r *FundraiserRepo) Update(f *model.Fundraiser) error {
 	return r.db.Save(f).Error
 }

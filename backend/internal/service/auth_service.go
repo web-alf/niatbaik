@@ -354,14 +354,20 @@ func userToResponse(u *model.User) *response.UserResponse {
 	if u.Phone != nil {
 		phone = *u.Phone
 	}
+	uname := ""
+	if u.Username != nil {
+		uname = *u.Username
+	}
 	return &response.UserResponse{
 		ID:                 u.ID,
 		Name:               u.Name,
 		Email:              u.Email,
 		Phone:              phone,
+		Username:           uname,
 		Role:               u.Role,
 		Image:              u.Image,
 		LastLoginAt:        u.LastLoginAt,
+		UsernameChangedAt:  u.UsernameChangedAt,
 		CreatedAt:          u.CreatedAt,
 		BonusBalance:       u.BonusBalance,
 		BonusWithdrawn:     u.BonusWithdrawn,

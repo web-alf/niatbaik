@@ -911,11 +911,24 @@ export function CampaignPage({ c: listItem, onNav }: any) {
     return () => { cancelled = true; };
   }, [slug]);
 
-  // Capture a fundraiser referral code from the share link (?ref=<user_id>) once,
-  // so it can be attached to the donation and credit the referrer's commission.
+  // Capture a fundraiser referral code from the share link (?ref=<username>, legacy
+  // ?ref=<user_id>) once, so it can be attached to the donation and credit the referrer's
+  // commission.
   const referralCode = useMemo(() => {
     try { return new URLSearchParams(window.location.search).get('ref') || ''; } catch { return ''; }
   }, []);
+
+  // Record a fundraiser link click (total_clicks) once per session per (campaign, ref) —
+  // a sessionStorage guard keeps re-renders/reloads from inflating the count. Best-effort:
+  // the endpoint always 200s and we swallow errors so a share visit is never blocked.
+  useEffect(() => {
+    const cid = c && c.id;
+    if (!referralCode || !cid) return;
+    const key = `nb-refhit-${cid}-${referralCode}`;
+    try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch { /* ignore */ }
+    api.refHit(cid, referralCode).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [c && c.id, referralCode]);
 
   // CS "need help" link: use the configured CS contact (rotator-aware), falling
   // back to the admin WhatsApp from public settings. Avoids the old hardcoded
@@ -2275,7 +2288,10 @@ function FundraiserCTA({ c }: any) {
   const isFundraiser = String((user as any)?.role || '').toLowerCase() === 'fundraiser';
   if (!isFundraiser || !c) return null;
   const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'https://donasi.niatbaik.org';
-  const link = `${origin}/c/${c.slug || c.id}?ref=${(user as any).id}`;
+  // Referral handle = username (?ref=budi), falling back to the user id for accounts that
+  // predate the username backfill.
+  const refCode = (user as any).username || (user as any).id;
+  const link = `${origin}/c/${c.slug || c.id}?ref=${refCode}`;
   const waText = encodeURIComponent(`Bantu sebarkan campaign "${c.title}" 🙏\nDonasi lewat tautan ini: ${link}`);
   const copy = () => { try { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {} };
   return (
@@ -2294,22 +2310,58 @@ function FundraiserCTA({ c }: any) {
   );
 }
 
+// JadiFundraiserButton is the public "Jadi Fundraiser" CTA with a 3-state gate:
+//   • not logged in            → warning "login dulu" + link to /login (return-to campaign)
+//   • logged in, role≠fundraiser → "akses ditolak" showing the current role (becoming a
+//                                  fundraiser stays admin/CS-driven; no self-signup)
+//   • logged in, role=fundraiser → not rendered (they get the FundraiserCTA share panel)
+// `variant` matches the two placements (solid in empty state, outline in the list footer).
+function JadiFundraiserButton({ c, variant }: { c: any; variant: 'solid' | 'outline' }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [msg, setMsg] = useState<{ tone: 'warn' | 'bad'; text: string } | null>(null);
+  const isFundraiser = String((user as any)?.role || '').toLowerCase() === 'fundraiser';
+  if (isFundraiser) return null; // share panel handles them
+
+  const role = (user as any)?.role;
+  const cls = variant === 'solid'
+    ? 'bg-brand-600 text-white hover:bg-brand-700 px-5'
+    : 'border border-brand-600 text-brand-600 hover:bg-brand-50 px-4';
+
+  const onClick = () => {
+    if (!user) {
+      const back = (c?.slug || c?.id) ? `/c/${c.slug || c.id}` : '/';
+      setMsg({ tone: 'warn', text: 'Silakan login terlebih dahulu untuk menjadi fundraiser.' });
+      setTimeout(() => navigate(`/login?next=${encodeURIComponent(back)}`), 900);
+      return;
+    }
+    // Logged in but not a fundraiser → access denied (no in-app enrollment).
+    setMsg({ tone: 'bad', text: `Akses ditolak — role Anda saat ini: ${role || 'user'}. Hubungi admin untuk menjadi fundraiser.` });
+  };
+
+  return (
+    <div className="mt-4 flex flex-col items-center gap-2">
+      <button onClick={onClick}
+        className={`inline-flex items-center gap-2 py-2.5 rounded-xl text-sm font-bold ${cls}`}>
+        <Icon name="handshake" size={16}/> Jadi Fundraiser
+      </button>
+      {msg && (
+        <div className={`text-xs font-semibold px-3 py-2 rounded-lg max-w-xs text-center ${msg.tone === 'bad' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+          {msg.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // FundraiserSection lists the fundraisers backing THIS campaign (from the detail
 // endpoint's `fundraisers`, name/avatar/stats only). Empty state invites visitors to
-// become one — the join CTA goes to CS WhatsApp because fundraiser accounts are
-// created by CS, there is no public self-signup. Logged-in fundraisers already get
-// the share panel (FundraiserCTA) above, so they don't see the join button.
+// become one via the gated JadiFundraiserButton. Logged-in fundraisers already get the
+// share panel (FundraiserCTA) above, so the button hides itself for them.
 function FundraiserSection({ c }: any) {
-  const { user } = useAuth();
   // undefined = detail not fetched yet → render nothing (avoids "Belum ada" flash).
   if (!Array.isArray(c?.fundraisers)) return null;
   const list = c.fundraisers;
-  const isFundraiser = String((user as any)?.role || '').toLowerCase() === 'fundraiser';
-  const cs = pickCsContact();
-  const ps = useDataStore.getState().publicSettings;
-  const waNum = normalizeWa((cs && cs.phone) || (ps && ps.whatsapp_admin) || '');
-  const waText = encodeURIComponent(`Assalamu'alaikum, saya ingin menjadi Fundraiser untuk campaign "${(c && c.title) || ''}". Mohon info caranya 🙏`);
-  const joinHref = waNum ? `https://wa.me/${waNum}?text=${waText}` : '#';
   return (
     <div className="mt-6 rounded-2xl border border-line bg-white p-5">
       <div className="flex items-center gap-2 font-bold text-ink">
@@ -2323,12 +2375,7 @@ function FundraiserSection({ c }: any) {
           </div>
           <div className="mt-3 font-bold text-ink">Belum ada Fundraiser</div>
           <p className="mt-1 text-sm text-mute max-w-xs">Mari jadi Fundraiser dan berikan manfaat bagi program ini.</p>
-          {!isFundraiser && (
-            <a href={joinHref} target="_blank" rel="noopener noreferrer"
-              className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-brand-600 text-white hover:bg-brand-700">
-              <Icon name="handshake" size={16}/> Jadi Fundraiser
-            </a>
-          )}
+          <JadiFundraiserButton c={c} variant="solid"/>
         </div>
       ) : (
         <>
@@ -2352,12 +2399,9 @@ function FundraiserSection({ c }: any) {
               );
             })}
           </div>
-          {!isFundraiser && (
-            <a href={joinHref} target="_blank" rel="noopener noreferrer"
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border border-brand-600 text-brand-600 hover:bg-brand-50">
-              <Icon name="handshake" size={16}/> Jadi Fundraiser
-            </a>
-          )}
+          <div className="flex justify-center">
+            <JadiFundraiserButton c={c} variant="outline"/>
+          </div>
         </>
       )}
     </div>

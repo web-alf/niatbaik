@@ -116,6 +116,33 @@ func (h *FundraiserHandler) Create(c echo.Context) error {
 	}, "fundraiser created"))
 }
 
+// RefHit records a click on a fundraiser share link. Public + best-effort: it resolves the
+// ref (username or legacy UUID) to a fundraiser and bumps that campaign's total_clicks.
+// Always returns 200 (even when the ref doesn't resolve) so share traffic is never blocked
+// and bots can't probe which refs are valid.
+func (h *FundraiserHandler) RefHit(c echo.Context) error {
+	var req request.RefHitRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusOK, response.SuccessResponse(nil, "ok"))
+	}
+	if err := c.Validate(&req); err != nil {
+		return c.JSON(http.StatusOK, response.SuccessResponse(nil, "ok"))
+	}
+
+	code := strings.TrimSpace(req.Ref)
+	var user *model.User
+	if id, err := uuid.Parse(code); err == nil {
+		user, _ = h.userRepo.FindByID(id)
+	}
+	if user == nil {
+		user, _ = h.userRepo.FindByUsername(strings.ToLower(code))
+	}
+	if user != nil && user.Role == "fundraiser" {
+		h.fundraiserRepo.IncrementClicks(user.ID, req.CampaignID)
+	}
+	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "ok"))
+}
+
 // GetMine returns the calling fundraiser's own affiliate records (per campaign) plus their
 // commission history and available bonus balance — the data backing the fundraiser portal.
 func (h *FundraiserHandler) GetMine(c echo.Context) error {

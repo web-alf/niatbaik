@@ -101,9 +101,9 @@ export default function FundraiserPage() {
               showToast(rows.length + ' fundraiser diekspor');
             }}>{kind === 'csv' ? 'CSV' : 'Excel'}</Btn>
           ))}
-          {/* Inviting a fundraiser calls POST /users, which is admin-only. CS can view the
-              list but not create, so the button is hidden for non-admins (was 403'ing). */}
-          {role === 'Admin' && <Btn icon="plus" onClick={() => setShowInvite(true)}>Undang Fundraiser</Btn>}
+          {/* Inviting a fundraiser calls POST /fundraisers, which the backend allows for CS
+              (and admin) — the handler creates the user server-side. So CS can invite too. */}
+          {(role === 'Admin' || role === 'CS') && <Btn icon="plus" onClick={() => setShowInvite(true)}>Undang Fundraiser</Btn>}
         </>}
       />
 

@@ -74,6 +74,30 @@ func (r *UserRepo) FindByEmail(email string) (*model.User, error) {
 	return &u, nil
 }
 
+// FindByUsername looks up a user by their referral handle (case-insensitive; usernames are
+// stored lowercased so this is an exact match in practice).
+func (r *UserRepo) FindByUsername(uname string) (*model.User, error) {
+	var u model.User
+	err := r.db.Where("username = ?", uname).First(&u).Error
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// UsernameTaken reports whether a username is already in use by any user OTHER than
+// excludeID (pass uuid.Nil to check globally). Used for uniqueness validation on
+// create/update and by the backfill's collision check.
+func (r *UserRepo) UsernameTaken(uname string, excludeID uuid.UUID) bool {
+	var count int64
+	q := r.db.Model(&model.User{}).Where("username = ?", uname)
+	if excludeID != uuid.Nil {
+		q = q.Where("id <> ?", excludeID)
+	}
+	q.Count(&count)
+	return count > 0
+}
+
 func (r *UserRepo) Create(u *model.User) error {
 	return r.db.Create(u).Error
 }

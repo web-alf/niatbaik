@@ -35,10 +35,13 @@ export default function FundraiserPortalPage() {
   const totalRaised = fundraisers.reduce((s: number, f: any) => s + (f.total_raised || 0), 0);
   const totalDonors = fundraisers.reduce((s: number, f: any) => s + (f.total_donors || 0), 0);
 
+  // Referral handle: username (?ref=budi) with the user id as a legacy fallback.
+  const refCode = (user as any)?.username || user?.id || '';
+
   const copyRef = (f: any) => {
     const slug = f.campaign?.slug || '';
     if (!slug) { showToast('Link belum tersedia', 'bad'); return; }
-    navigator.clipboard?.writeText(`${REF_BASE}/c/${slug}?ref=${user?.id || ''}`);
+    navigator.clipboard?.writeText(`${REF_BASE}/c/${slug}?ref=${refCode}`);
     showToast('Link referral disalin');
   };
 
@@ -73,7 +76,7 @@ export default function FundraiserPortalPage() {
                   <Btn size="sm" variant="outline" tone="ink" icon="copy" onClick={() => copyRef(f)}>Salin Link</Btn>
                 </div>
                 <div className="mt-3 text-[11px] text-mute break-all bg-bg2 rounded-lg px-3 py-2">
-                  {REF_BASE}/c/{f.campaign?.slug || ''}?ref={user?.id || ''}
+                  {REF_BASE}/c/{f.campaign?.slug || ''}?ref={refCode}
                 </div>
               </div>
             ))}

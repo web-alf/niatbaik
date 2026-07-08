@@ -352,6 +352,8 @@ export const api = {
   fundraiser(id: string | number) { return this.get<any>('/fundraisers/' + id); },
   createFundraiser(data: unknown) { return this.post<any>('/fundraisers', data); },
   fundraiserMine() { return this.get<any>('/fundraisers/me'); },
+  // Public share-link click tracking (?ref=). Best-effort — caller ignores failures.
+  refHit(campaignId: string | number, ref: string) { return this.post<any>('/fundraisers/ref-hit', { campaign_id: campaignId, ref }); },
   createWithdrawal(data: unknown) { return this.post<any>('/withdrawals', data); },
 
   // Withdrawals

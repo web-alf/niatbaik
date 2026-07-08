@@ -2,23 +2,41 @@ import { useState, useEffect, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
+import { useAdminSync } from '@/lib/useAdminSync';
 import { fmtIDR, fmtIDRShort, fmtNum } from '@/lib/format';
 import { parseTxnDate, formatRangeLabel, getDateRange } from '@/lib/date';
 import { exportCSV, exportExcel } from '@/lib/export';
 import { Card, StatCard, Badge, StatusBadge, Btn, SearchInput, Modal, PageHeader, Empty, Toggle, SourcePill, Icon, DateRangePill } from '@/components';
 
 export default function CsInboxPage() {
-  // Live invoices when API loaded them; else seed.
+  // Live invoices from the store. `transactions` is populated ASYNCHRONOUSLY by
+  // refreshAdmin() (and dropped from persistence as PII), so it is empty at first mount —
+  // we must sync it into local state via an effect, not just seed once (the old bug: the
+  // inbox stayed permanently empty because useState's initializer ran before the fetch).
   const transactions = useDataStore((s) => s.transactions);
-  const seedTxns = transactions;
   const openInvoice = useUiStore((s) => s.openInvoice);
   const showToast = useUiStore((s) => s.showToast);
 
-  // local stateful copy so we can mutate status
-  const [txns, setTxns] = useState<any[]>(() => seedTxns.map((t: any) => ({ ...t })));
+  // Ensure the store is loaded on mount and refreshed on every admin-rev bump (realtime).
+  useAdminSync(() => useDataStore.getState().refreshAdmin());
+
+  // local stateful copy so we can mutate status/note optimistically
+  const [txns, setTxns] = useState<any[]>(() => transactions.map((t: any) => ({ ...t })));
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<any>(txns[0]);
+
+  // Sync local copy whenever the store's transactions change (initial load + realtime).
+  // Preserve any in-flight optimistic status/note edits by merging on id.
+  useEffect(() => {
+    setTxns((prev) => {
+      const edits = new Map(prev.map((t: any) => [t.id, t]));
+      return transactions.map((t: any) => {
+        const e = edits.get(t.id);
+        return e ? { ...t, status: e.status ?? t.status, note: e.note ?? t.note } : { ...t };
+      });
+    });
+  }, [transactions]);
   const [advFilterOpen, setAdvFilterOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
 
@@ -72,6 +90,38 @@ export default function CsInboxPage() {
     }
     return true;
   }), [filter, search, adv, txns]);
+
+  // Pagination — the list was hard-capped at 30 rows with no way to reach the rest.
+  // "Muat lebih banyak" grows the visible window; reset it when the filter set changes.
+  const PAGE = 30;
+  const [visible, setVisible] = useState(PAGE);
+  useEffect(() => { setVisible(PAGE); }, [filter, search, adv]);
+  const shown = filtered.slice(0, visible);
+
+  // Once the list loads (or the selection falls out of the filtered set), select a valid
+  // row so the detail pane isn't stuck on Empty (the old `txns[0]` seed was undefined).
+  useEffect(() => {
+    if ((!selected || !filtered.some((t: any) => t.id === selected.id)) && filtered.length) {
+      setSelected(filtered[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered]);
+
+  // Lead-quality tagging (Hot/Warm/Cold) — endpoint is CS-allowed; optimistic + rollback.
+  const setQuality = async (t: any, quality: string) => {
+    if (!t.uuid) { showToast('UUID invoice tidak tersedia'); return; }
+    const prevQ = t.leadQuality;
+    setTxns((prev) => prev.map((x: any) => x.id === t.id ? { ...x, leadQuality: quality } : x));
+    setSelected((prev: any) => prev && prev.id === t.id ? { ...prev, leadQuality: quality } : prev);
+    try {
+      await api.updateInvoiceQuality(t.uuid, quality);
+      showToast('Kualitas lead diperbarui');
+    } catch (e: any) {
+      setTxns((prev) => prev.map((x: any) => x.id === t.id ? { ...x, leadQuality: prevQ } : x));
+      setSelected((prev: any) => prev && prev.id === t.id ? { ...prev, leadQuality: prevQ } : prev);
+      showToast('Gagal memperbarui kualitas: ' + (e?.message || ''));
+    }
+  };
 
   // Update status to paid — optimistic local + best-effort API. The backend expects
   // a real PaymentStatus *code* (e.g. "Terbayar"), not the UI bucket "Paid"; pick the
@@ -181,7 +231,7 @@ export default function CsInboxPage() {
           <div className="flex-1 overflow-y-auto divide-y divide-line">
             {filtered.length === 0 ? (
               <div className="p-6 text-center text-sm text-mute">Tidak ada transaksi sesuai filter.</div>
-            ) : filtered.slice(0, 30).map((t: any) => (
+            ) : shown.map((t: any) => (
               <button key={t.id} onClick={() => setSelected(t)}
                 className={`w-full text-left p-3 hover:bg-bg2 ${selected?.id === t.id ? 'bg-brand-50/40 border-l-4 border-brand-600' : ''}`}>
                 <div className="flex items-start justify-between gap-2">
@@ -203,12 +253,18 @@ export default function CsInboxPage() {
                 </div>
               </button>
             ))}
+            {filtered.length > visible && (
+              <button onClick={() => setVisible((v) => v + PAGE)}
+                className="w-full p-3 text-xs font-bold text-brand-600 hover:bg-bg2">
+                Muat lebih banyak · {filtered.length - visible} lagi
+              </button>
+            )}
           </div>
         </Card>
 
         {/* Detail */}
         <Card className="lg:col-span-2 p-5">
-          {selected ? <CSDetail key={selected?.id} t={selected} onOpen={() => openInvoice(selected)} onCopy={copyInvoice} onMarkPaid={updateStatusToPaid} onSaveNote={saveNote} showToast={showToast}/>
+          {selected ? <CSDetail key={selected?.id} t={selected} onOpen={() => openInvoice(selected)} onCopy={copyInvoice} onMarkPaid={updateStatusToPaid} onSaveNote={saveNote} onSetQuality={setQuality} showToast={showToast}/>
                     : <Empty title="Pilih percakapan" sub="Pilih donatur di sebelah kiri."/>}
         </Card>
       </div>
@@ -466,7 +522,7 @@ function ExportLimitedModal({ open, onClose, rows, showToast }: any) {
           <Icon name="shield" size={14} className="text-amber-600 mt-0.5 shrink-0"/>
           <div className="text-amber-800">
             <b>Export terbatas</b> berarti data sensitif (no. WA, email, metode pembayaran) <b>opt-in saja</b>.
-            Aktivitas export dicatat di Activity Log dan dapat diaudit Admin.
+            Jaga kerahasiaan file — jangan bagikan ke grup terbuka; anonimkan bila diteruskan.
           </div>
         </div>
 
@@ -520,7 +576,7 @@ function ExportLimitedModal({ open, onClose, rows, showToast }: any) {
           </div>
           {sensitiveSelected > 0 && (
             <div className="mt-2 text-xs text-amber-700 font-semibold flex items-center gap-1.5">
-              <Icon name="shield" size={12}/> {sensitiveSelected} field sensitif terpilih · audit log akan mencatat ini
+              <Icon name="shield" size={12}/> {sensitiveSelected} field sensitif terpilih · tangani sesuai kebijakan data donatur
             </div>
           )}
         </Group>
@@ -532,7 +588,7 @@ function ExportLimitedModal({ open, onClose, rows, showToast }: any) {
 // =========================================================
 // CSDetail — wires up action buttons
 // =========================================================
-function CSDetail({ t, onOpen, onCopy, onMarkPaid, onSaveNote, showToast }: any) {
+function CSDetail({ t, onOpen, onCopy, onMarkPaid, onSaveNote, onSetQuality, showToast }: any) {
   const [confirmPaid, setConfirmPaid] = useState(false);
   const [waOpen, setWaOpen] = useState(false);
   // Controlled internal note. Previously this was an uncontrolled defaultValue
@@ -609,6 +665,26 @@ function CSDetail({ t, onOpen, onCopy, onMarkPaid, onSaveNote, showToast }: any)
         <div className="text-xs uppercase font-semibold text-mute mb-1">Campaign</div>
         <div className="text-ink font-semibold">{String(t.campaign||'')}</div>
         <div className="text-xs italic text-mute mt-1">"{String(t.message||'')}"</div>
+      </div>
+
+      {/* Lead quality — CS can tag a donor's intent (endpoint is CS-allowed). */}
+      <div>
+        <label className="text-xs uppercase font-semibold text-mute">Kualitas Lead</label>
+        <div className="mt-1 flex items-center gap-2">
+          {[
+            { k: 'hot',  l: 'Hot',  cls: 'text-rose-600 border-rose-200 bg-rose-50' },
+            { k: 'warm', l: 'Warm', cls: 'text-amber-600 border-amber-200 bg-amber-50' },
+            { k: 'cold', l: 'Cold', cls: 'text-sky-600 border-sky-200 bg-sky-50' },
+          ].map((q) => {
+            const active = String(t.leadQuality || '').toLowerCase() === q.k;
+            return (
+              <button key={q.k} onClick={() => onSetQuality && onSetQuality(t, q.k)}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-bold ${active ? q.cls : 'border-line text-mute hover:bg-bg2'}`}>
+                {q.l}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div>
@@ -694,7 +770,7 @@ function CSDetail({ t, onOpen, onCopy, onMarkPaid, onSaveNote, showToast }: any)
         </div>
         <div className="mt-3 rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800">
           <Icon name="check" size={12} strokeWidth={2.4} className="inline mr-1"/>
-          Donatur akan otomatis menerima kuitansi via email & WhatsApp. Webhook ke pixel <b>Purchase</b> akan di-fire.
+          Status donasi menjadi <b>Paid</b> dan webhook ke pixel <b>Purchase</b> akan di-fire (tracking konversi).
         </div>
       </Modal>
     </div>

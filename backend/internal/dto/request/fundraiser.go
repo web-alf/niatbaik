@@ -13,3 +13,10 @@ type CreateFundraiserRequest struct {
 	Password   string    `json:"password" validate:"required,min=6"`
 	CampaignID uuid.UUID `json:"campaign_id" validate:"required"`
 }
+
+// RefHitRequest records a click on a fundraiser share link (?ref=<username|uuid>) for a
+// campaign. Public (unauthenticated share traffic); the frontend throttles per session.
+type RefHitRequest struct {
+	Ref        string    `json:"ref" validate:"required"`
+	CampaignID uuid.UUID `json:"campaign_id" validate:"required"`
+}

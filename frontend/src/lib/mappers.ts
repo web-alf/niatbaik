@@ -150,7 +150,7 @@ export function mapFundraiser(f: any): any {
     txnPaid: f.invoices_paid ?? 0,
     commission: earned + withdrawn,                 // total commission ever earned
     pendingPayout: earned,                          // unpaid, awaiting withdrawal
-    ref: f.user_id || '',                           // referral code = user id
+    ref: f.user?.username || f.user_id || '',       // referral code = username (fallback: user id)
     joined: f.created_at || '',
   };
 }

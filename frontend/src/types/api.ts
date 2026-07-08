@@ -90,6 +90,8 @@ export interface User {
   name: string;
   email: string;
   phone?: string;
+  username?: string; // public referral handle (?ref=<username>)
+  username_changed_at?: string | null; // last rename; drives the 30-day cooldown UI
   role: Role | string;
   access?: string;
   image?: string; // persisted /uploads avatar path from /auth/me (resolve via mediaUrl)

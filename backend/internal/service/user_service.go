@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
@@ -11,6 +12,7 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/repository"
 	"github.com/anrdart/niatbaik-api/pkg/hash"
 	"github.com/anrdart/niatbaik-api/pkg/mailer"
+	"github.com/anrdart/niatbaik-api/pkg/username"
 	"github.com/google/uuid"
 )
 
@@ -34,9 +36,17 @@ func (s *UserService) Create(req *request.CreateUserRequest) (*model.User, error
 		return nil, err
 	}
 
+	// Resolve the username: an explicit one (validated + unique) or auto-generated from the
+	// email local-part. Every user gets a handle so referral links (?ref=<username>) work.
+	uname, err := s.resolveNewUsername(req.Username, req.Email, req.Name)
+	if err != nil {
+		return nil, err
+	}
+
 	u := model.User{
 		Name:     req.Name,
 		Email:    req.Email,
+		Username: &uname,
 		Password: hashed,
 		Role:     req.Role,
 	}
@@ -114,6 +124,26 @@ func (s *UserService) Update(id uuid.UUID, req *request.UpdateUserRequest) (*mod
 	if req.Phone != "" {
 		u.Phone = &req.Phone
 	}
+	// Admin-set username: validate + enforce uniqueness, no cooldown. Only applied when it
+	// differs from the current value.
+	if strings.TrimSpace(req.Username) != "" {
+		uname := username.Normalize(req.Username)
+		if err := username.Validate(uname); err != nil {
+			return nil, err
+		}
+		cur := ""
+		if u.Username != nil {
+			cur = *u.Username
+		}
+		if uname != cur {
+			if s.userRepo.UsernameTaken(uname, u.ID) {
+				return nil, errors.New("username sudah digunakan oleh pengguna lain")
+			}
+			now := time.Now()
+			u.Username = &uname
+			u.UsernameChangedAt = &now
+		}
+	}
 	if req.Role != "" {
 		u.Role = req.Role
 	}
@@ -134,6 +164,30 @@ func (s *UserService) Update(id uuid.UUID, req *request.UpdateUserRequest) (*mod
 		return nil, err
 	}
 	return u, nil
+}
+
+// resolveNewUsername validates an explicit username (unique) or, when blank, generates a
+// unique one from the email local-part (fallback: name). Always returns a value satisfying
+// username.Validate.
+func (s *UserService) resolveNewUsername(explicit, email, name string) (string, error) {
+	if strings.TrimSpace(explicit) != "" {
+		uname := username.Normalize(explicit)
+		if err := username.Validate(uname); err != nil {
+			return "", err
+		}
+		if s.userRepo.UsernameTaken(uname, uuid.Nil) {
+			return "", errors.New("username sudah digunakan oleh pengguna lain")
+		}
+		return uname, nil
+	}
+	seed := email
+	if at := strings.IndexByte(seed, '@'); at > 0 {
+		seed = seed[:at]
+	}
+	if strings.TrimSpace(seed) == "" {
+		seed = name
+	}
+	return username.GenerateUnique(seed, func(c string) bool { return s.userRepo.UsernameTaken(c, uuid.Nil) }), nil
 }
 
 func (s *UserService) Delete(id uuid.UUID) error {

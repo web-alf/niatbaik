@@ -12,6 +12,11 @@ type User struct {
 	Name               string         `gorm:"size:255;not null" json:"name"`
 	Email              string         `gorm:"size:255;uniqueIndex;not null" json:"email"`
 	Phone              *string        `gorm:"size:20;uniqueIndex" json:"phone"`
+	// Username is the public referral handle (?ref=<username>) and a friendly login-agnostic
+	// identifier. Pointer so the unique index tolerates multiple NULLs while it is being
+	// backfilled (mirrors Phone). Editable by the owner at most once / 30 days; admin exempt.
+	Username          *string    `gorm:"size:30;uniqueIndex" json:"username"`
+	UsernameChangedAt *time.Time `json:"-"`
 	EmailVerifiedAt    *time.Time     `json:"email_verified_at"`
 	LastLoginAt        *time.Time     `gorm:"index" json:"last_login_at"` // updated on each successful login
 	Password           string         `gorm:"size:255;not null" json:"-"`

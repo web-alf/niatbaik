@@ -2,11 +2,15 @@ package service
 
 import (
 	"errors"
+	"fmt"
+	"strings"
+	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/internal/repository"
 	"github.com/anrdart/niatbaik-api/pkg/hash"
+	"github.com/anrdart/niatbaik-api/pkg/username"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -31,7 +35,14 @@ func (s *ProfileService) GetProfile(userID uuid.UUID) (*model.User, error) {
 	return &user, nil
 }
 
-func (s *ProfileService) UpdateProfile(userID uuid.UUID, req *request.UpdateProfileRequest) error {
+// UsernameCooldownDays is the minimum gap between self-service username changes for
+// non-admin users. Admins bypass it (see callerRole handling below).
+const UsernameCooldownDays = 30
+
+// UpdateProfile applies the profile patch. callerRole gates the username-rename cooldown:
+// "admin" bypasses it. Validation/cooldown/uniqueness failures return a user-facing error
+// (the handler surfaces the message), so this must run BEFORE any write.
+func (s *ProfileService) UpdateProfile(userID uuid.UUID, callerRole string, req *request.UpdateProfileRequest) error {
 	updates := map[string]interface{}{}
 	if req.Name != "" {
 		updates["name"] = req.Name
@@ -45,6 +56,41 @@ func (s *ProfileService) UpdateProfile(userID uuid.UUID, req *request.UpdateProf
 			return errors.New("nomor telepon sudah digunakan oleh pengguna lain")
 		}
 		updates["phone"] = req.Phone
+	}
+	// Username: normalize → validate → cooldown (non-admin) → uniqueness. Only applied when
+	// the value actually differs from the stored one, so re-saving the profile with the same
+	// username never trips the cooldown.
+	if strings.TrimSpace(req.Username) != "" {
+		uname := username.Normalize(req.Username)
+		if err := username.Validate(uname); err != nil {
+			return err
+		}
+		var current model.User
+		if err := s.db.Select("username", "username_changed_at").First(&current, "id = ?", userID).Error; err != nil {
+			return err
+		}
+		curUname := ""
+		if current.Username != nil {
+			curUname = *current.Username
+		}
+		if uname != curUname {
+			if callerRole != "admin" && current.UsernameChangedAt != nil {
+				nextAllowed := current.UsernameChangedAt.Add(UsernameCooldownDays * 24 * time.Hour)
+				if time.Now().Before(nextAllowed) {
+					remaining := int(time.Until(nextAllowed).Hours()/24) + 1
+					return fmt.Errorf("username hanya dapat diubah setiap %d hari (sisa %d hari)", UsernameCooldownDays, remaining)
+				}
+			}
+			var count int64
+			if err := s.db.Model(&model.User{}).Where("username = ? AND id != ?", uname, userID).Count(&count).Error; err != nil {
+				return err
+			}
+			if count > 0 {
+				return errors.New("username sudah digunakan oleh pengguna lain")
+			}
+			updates["username"] = uname
+			updates["username_changed_at"] = time.Now()
+		}
 	}
 	if req.Address != "" {
 		updates["address"] = req.Address

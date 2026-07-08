@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
-import { useAdminSync } from '@/lib/useAdminSync';
 import { fmtIDR, fmtIDRShort, fmtNum } from '@/lib/format';
 import { parseTxnDate, formatRangeLabel, getDateRange } from '@/lib/date';
 import { exportCSV, exportExcel } from '@/lib/export';
@@ -17,8 +16,11 @@ export default function CsInboxPage() {
   const openInvoice = useUiStore((s) => s.openInvoice);
   const showToast = useUiStore((s) => s.showToast);
 
-  // Ensure the store is loaded on mount and refreshed on every admin-rev bump (realtime).
-  useAdminSync(() => useDataStore.getState().refreshAdmin());
+  // NOTE: do NOT call useAdminSync(refreshAdmin) here — refreshAdmin() bumps adminRev,
+  // and useAdminSync re-fires on every adminRev change, so that pairing is an infinite
+  // loop (it hammered /invoices into 429s and left the inbox empty). AdminLayout already
+  // calls refreshAll() on entry and RealtimeProvider refreshes on changes; the effect
+  // below simply mirrors the store's `transactions` into local state.
 
   // local stateful copy so we can mutate status/note optimistically
   const [txns, setTxns] = useState<any[]>(() => transactions.map((t: any) => ({ ...t })));

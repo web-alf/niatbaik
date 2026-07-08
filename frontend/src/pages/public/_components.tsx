@@ -2281,6 +2281,9 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
 function FundraiserCTA({ c }: any) {
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
+  // The link is hidden until the fundraiser explicitly opts in by pressing the button —
+  // it reads as a deliberate action ("generate my link") rather than a link dumped on load.
+  const [revealed, setRevealed] = useState(false);
   const isFundraiser = String((user as any)?.role || '').toLowerCase() === 'fundraiser';
   if (!isFundraiser || !c) return null;
   const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'https://donasi.niatbaik.org';
@@ -2291,17 +2294,27 @@ function FundraiserCTA({ c }: any) {
   const waText = encodeURIComponent(`Bantu sebarkan campaign "${c.title}" 🙏\nDonasi lewat tautan ini: ${link}`);
   const copy = () => { try { navigator.clipboard?.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {} };
   return (
-    <div className="mt-6 rounded-2xl border-2 border-emerald-200 bg-emerald-50/60 p-5">
-      <div className="flex items-center gap-2 text-emerald-700 font-bold"><Icon name="handshake" size={18}/> Jadi Fundraiser Campaign Ini</div>
-      <div className="text-sm text-ink/80 mt-1 leading-relaxed">Bagikan tautan khusus Anda — setiap donasi yang masuk lewat tautan ini tercatat sebagai kontribusi Anda. Barakallahu fiikum 🤝</div>
-      <div className="mt-3 flex items-center gap-2 rounded-xl border border-emerald-200 bg-white px-3 py-2">
-        <span className="flex-1 min-w-0 truncate text-xs font-mono text-mute">{link}</span>
-        <button onClick={copy} className="shrink-0 text-xs font-bold text-emerald-700 hover:underline">{copied ? 'Tersalin ✓' : 'Salin'}</button>
-      </div>
-      <a href={`https://wa.me/?text=${waText}`} target="_blank" rel="noopener noreferrer"
-        className="mt-2 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-500 text-white hover:bg-emerald-600">
-        <Icon name="wa" size={16}/> Bagikan ke WhatsApp
-      </a>
+    <div className="mt-6 rounded-2xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/30 p-5">
+      <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold"><Icon name="handshake" size={18}/> Jadi Fundraiser Campaign Ini</div>
+      <div className="text-sm text-ink mt-1 leading-relaxed">Bagikan tautan khusus Anda — setiap donasi yang masuk lewat tautan ini tercatat sebagai kontribusi Anda. Barakallahu fiikum 🤝</div>
+
+      {!revealed ? (
+        <button onClick={() => setRevealed(true)}
+          className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+          <Icon name="handshake" size={16}/> Jadi Fundraiser
+        </button>
+      ) : (
+        <>
+          <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-white dark:bg-slate-900 px-3 py-2">
+            <span className="flex-1 min-w-0 truncate text-xs font-mono text-ink">{link}</span>
+            <button onClick={copy} className="shrink-0 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:underline">{copied ? 'Tersalin ✓' : 'Salin'}</button>
+          </div>
+          <a href={`https://wa.me/?text=${waText}`} target="_blank" rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+            <Icon name="wa" size={16}/> Bagikan ke WhatsApp
+          </a>
+        </>
+      )}
     </div>
   );
 }

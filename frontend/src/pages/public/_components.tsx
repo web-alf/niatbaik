@@ -34,6 +34,21 @@ const pctLabel = (raised: number, target: number): string => {
 // otherwise it's open-ended ("tanpa batas waktu", shown with an infinity indicator).
 const hasDeadline = (c: any): boolean => Number(c?.daysLeft) > 0 || Number(c?.duration_days) > 0 || Number(c?.durationDays) > 0;
 
+// timeAgoID: relative time in Indonesian ("7 jam yang lalu", "3 hari yang lalu") for the
+// prayer list. Falls back to '' on unparseable input.
+const timeAgoID = (v: unknown): string => {
+  if (!v) return '';
+  const t = new Date(v as any).getTime();
+  if (isNaN(t)) return '';
+  const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (s < 60) return 'baru saja';
+  const m = Math.floor(s / 60); if (m < 60) return `${m} menit yang lalu`;
+  const h = Math.floor(m / 60); if (h < 24) return `${h} jam yang lalu`;
+  const d = Math.floor(h / 24); if (d < 30) return `${d} hari yang lalu`;
+  const mo = Math.floor(d / 30); if (mo < 12) return `${mo} bulan yang lalu`;
+  return `${Math.floor(mo / 12)} tahun yang lalu`;
+};
+
 // Parse a campaign's form_fields_config JSON (button labels etc.) safely.
 const parseFormFieldsConfig = (ffc: any) => {
   try { return ffc ? JSON.parse(ffc) : {}; } catch { return {}; }
@@ -2415,14 +2430,15 @@ function JadiFundraiserButton({ c, variant }: { c: any; variant: 'solid' | 'outl
 // become one via the gated JadiFundraiserButton. Logged-in fundraisers already get the
 // share panel (FundraiserCTA) above, so the button hides itself for them.
 function FundraiserSection({ c }: any) {
-  // undefined = detail not fetched yet → render nothing (avoids "Belum ada" flash).
-  if (!Array.isArray(c?.fundraisers)) return null;
-  const list = c.fundraisers;
+  const [frShown, setFrShown] = useState(5);
   // Greet a visitor who arrived via a fundraiser's ?ref=<username> link by showing the
   // referrer's name (matches username, falls back to the legacy uuid user-id ref).
   const ref = useMemo(() => {
     try { return (new URLSearchParams(window.location.search).get('ref') || '').toLowerCase(); } catch { return ''; }
   }, []);
+  // undefined = detail not fetched yet → render nothing (avoids "Belum ada" flash).
+  if (!Array.isArray(c?.fundraisers)) return null;
+  const list = c.fundraisers;
   const referrer = ref ? (list.find((f: any) => (f.username || '').toLowerCase() === ref || String(f.user_id || '').toLowerCase() === ref)) : null;
   return (
     <div className="mt-6 rounded-2xl border border-line bg-white p-5">
@@ -2447,28 +2463,29 @@ function FundraiserSection({ c }: any) {
         </div>
       ) : (
         <>
-          <div className="mt-3 space-y-3">
-            {list.map((f: any, i: number) => {
+          <div className="mt-4 space-y-3">
+            {list.slice(0, frShown).map((f: any, i: number) => {
               const name = f.name || 'Fundraiser';
-              const initials = name.split(' ').map((s: any) => s[0]).join('').slice(0, 2).toUpperCase();
               return (
-                <div key={i} className="flex items-center gap-3">
-                  {f.image
-                    ? <img src={mediaUrl(f.image)} alt={name} className="h-10 w-10 rounded-full object-cover"/>
-                    : <div className="h-10 w-10 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-sm">{initials}</div>}
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-bold text-ink truncate">{name}</div>
-                    <div className="text-xs text-mute">
-                      Menggalang <b className="text-ink">{fmtIDR(f.total_raised || 0)}</b>
-                      {(f.total_donors > 0) && <> · {fmtNum(f.total_donors)} donatur</>}
-                    </div>
+                <div key={i} className="rounded-xl border border-line p-4">
+                  <div className="font-bold text-brand-700">{name}</div>
+                  <div className="text-xs text-ink/70 mt-0.5">
+                    Berhasil mengajak <b className="text-ink">{fmtNum(f.total_donors || 0)}</b> orang untuk berdonasi.
                   </div>
+                  <div className="mt-1.5 font-extrabold text-ink">{fmtIDR(f.total_raised || 0)}</div>
                 </div>
               );
             })}
           </div>
-          <div className="flex justify-center">
-            <JadiFundraiserButton c={c} variant="outline"/>
+          {list.length > frShown && (
+            <div className="mt-3 flex justify-center">
+              <button onClick={() => setFrShown((n: number) => n + 5)}
+                className="px-5 py-2 rounded-full border border-line text-sm font-semibold text-ink hover:bg-bg2">Load more</button>
+            </div>
+          )}
+          <div className="mt-4 pt-4 border-t border-line text-center">
+            <p className="text-sm text-mute max-w-xs mx-auto">Mari jadi Fundraiser dan berikan manfaat bagi program ini.</p>
+            <div className="flex justify-center"><JadiFundraiserButton c={c} variant="solid"/></div>
           </div>
         </>
       )}
@@ -2482,13 +2499,13 @@ function FundraiserSection({ c }: any) {
 // detail-endpoint shape ({name, message, created_at}) and the legacy tx feed
 // ({donor, message, date}). Hidden entirely when no donor left a message.
 function DonorPrayers({ donors }: any) {
-  const [expanded, setExpanded] = useState(false);
+  const [shownN, setShownN] = useState(5);
   const list = (Array.isArray(donors) ? donors : []).filter((d: any) => (d.message || '').trim());
-  const shown = expanded ? list : list.slice(0, 3);
+  const shown = list.slice(0, shownN);
   return (
     <div className="mt-6">
       <div className="flex items-center gap-2 font-bold text-ink">
-        <Icon name="heart" size={18} className="text-rose-500"/> Doa Para Donatur {list.length > 0 && <span className="text-mute font-semibold">({list.length})</span>}
+        <Icon name="heart" size={18} className="text-rose-500"/> Doa-doa orang baik {list.length > 0 && <span className="text-mute font-semibold">({list.length})</span>}
       </div>
       {list.length === 0 && (
         <p className="mt-3 text-sm text-mute italic">Belum ada doa. Jadilah yang pertama berdonasi dan kirimkan doa terbaik untuk program ini.</p>
@@ -2497,30 +2514,48 @@ function DonorPrayers({ donors }: any) {
         {shown.map((d: any, i: number) => {
           const anon = d.is_anonymous ?? d.anon ?? false;
           const name = anon ? 'Hamba Allah' : (d.name || d.donor || 'Hamba Allah');
-          const initials = name.split(' ').map((s: any) => s[0]).join('').slice(0, 2).toUpperCase();
-          let when = '';
-          if (d.created_at) { try { when = new Date(d.created_at).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' }); } catch {} }
-          else if (typeof d.date === 'string') when = d.date.split(',')[0];
-          return (
-            <div key={i} className="rounded-xl border border-line bg-bg2/60 p-4">
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-xs">{initials}</div>
-                <div>
-                  <div className="text-sm font-bold text-ink">{name}</div>
-                  {when && <div className="text-[11px] text-mute">{when}</div>}
-                </div>
-              </div>
-              <p className="mt-2.5 text-sm text-ink/85 leading-relaxed">&ldquo;{(d.message || '').trim()}&rdquo;</p>
-            </div>
-          );
+          const when = timeAgoID(d.created_at || d.date);
+          return <PrayerCard key={i} name={name} when={when} message={(d.message || '').trim()}/>;
         })}
       </div>
-      {list.length > 3 && (
-        <button onClick={() => setExpanded(!expanded)}
+      {list.length > shownN && (
+        <button onClick={() => setShownN((n) => n + 5)}
           className="mt-3 w-full py-2 rounded-xl border border-line text-sm font-bold text-brand-600 hover:bg-bg2">
-          {expanded ? 'Tampilkan lebih sedikit' : `Lihat semua doa (${list.length})`}
+          Load more
         </button>
       )}
+    </div>
+  );
+}
+
+// PrayerCard = one "doa" row matching the reference: name + relative time on the header,
+// the message, then an "Aamiin" affordance. Aamiin is a client-side gesture (there is no
+// per-prayer count on the backend, so we don't invent one) — it persists the visitor's own
+// tap in localStorage and shows a running local tally, seeded at 1 so a fresh prayer reads
+// "1 Aamiin" like the reference rather than a bare 0.
+function PrayerCard({ name, when, message }: any) {
+  const key = `nb-aamiin-${when}-${(message || '').slice(0, 24)}`;
+  const [amin, setAmin] = useState(false);
+  useEffect(() => { try { setAmin(!!localStorage.getItem(key)); } catch { /* ignore */ } }, [key]);
+  const count = (amin ? 1 : 0) + 1; // local seed of 1 + this visitor's tap
+  const toggle = () => {
+    setAmin((v) => {
+      const next = !v;
+      try { next ? localStorage.setItem(key, '1') : localStorage.removeItem(key); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  return (
+    <div className="rounded-xl border border-line bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="font-bold text-ink">{name}</div>
+        {when && <div className="text-[11px] text-mute shrink-0">{when}</div>}
+      </div>
+      <p className="mt-1.5 text-sm text-ink/85 leading-relaxed">{message}</p>
+      <button onClick={toggle}
+        className={`mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold transition-colors ${amin ? 'text-rose-600' : 'text-mute hover:text-rose-500'}`}>
+        <Icon name="pray" size={14}/> {count} Aamiin
+      </button>
     </div>
   );
 }

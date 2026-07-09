@@ -113,19 +113,19 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 		var refUser model.User
 		var found bool
 		if refID, err := uuid.Parse(code); err == nil {
-			if err := s.db.Select("id", "role").First(&refUser, "id = ?", refID).Error; err == nil {
+			if err := s.db.Select("id", "role", "fundraiser_enabled").First(&refUser, "id = ?", refID).Error; err == nil {
 				found = true
 			}
 		}
 		if !found {
-			if err := s.db.Select("id", "role").First(&refUser, "username = ?", strings.ToLower(code)).Error; err == nil {
+			if err := s.db.Select("id", "role", "fundraiser_enabled").First(&refUser, "username = ?", strings.ToLower(code)).Error; err == nil {
 				found = true
 			}
 		}
-		// Only a fundraiser earns a referral commission, and never on a donation to a
-		// campaign they own — that would let a campaign owner self-deal a commission off
-		// their own program's donations. Both conditions must hold to attribute the invoice.
-		if found && refUser.Role == "fundraiser" && refUser.ID != campaign.UserID {
+		// Only a fundraiser (by role OR the fundraiser-enabled capability) earns a referral
+		// commission, and never on a donation to a campaign they own — that would let a
+		// campaign owner self-deal a commission off their own program's donations.
+		if found && refUser.CanFundraise() && refUser.ID != campaign.UserID {
 			referredBy = &refUser.ID
 		}
 	}

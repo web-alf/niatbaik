@@ -137,7 +137,7 @@ func (h *FundraiserHandler) RefHit(c echo.Context) error {
 	if user == nil {
 		user, _ = h.userRepo.FindByUsername(strings.ToLower(code))
 	}
-	if user != nil && user.Role == "fundraiser" {
+	if user != nil && user.CanFundraise() {
 		h.fundraiserRepo.IncrementClicks(user.ID, req.CampaignID)
 	}
 	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "ok"))

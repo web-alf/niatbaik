@@ -21,6 +21,19 @@ export const getFirstCampaign = () => getCampaigns()[0] || { id:'', title:'', ca
 // socialProofLines was a legacy global never populated in the new store; returns [].
 const getSocialProof = (): any[] => [];
 
+// pctLabel avoids Math.round collapsing a tiny-but-nonzero progress (e.g. 0.25%) to "0%",
+// which reads as "nothing raised". Shows "<1%" for 0<pct<1, else the rounded integer.
+const pctLabel = (raised: number, target: number): string => {
+  if (!target || target <= 0) return '0%';
+  const pct = (raised / target) * 100;
+  if (pct <= 0) return '0%';
+  if (pct < 1) return '<1%';
+  return Math.min(100, Math.round(pct)) + '%';
+};
+// hasDeadline: a campaign with a positive daysLeft OR a real duration shows a countdown;
+// otherwise it's open-ended ("tanpa batas waktu", shown with an infinity indicator).
+const hasDeadline = (c: any): boolean => Number(c?.daysLeft) > 0 || Number(c?.duration_days) > 0 || Number(c?.durationDays) > 0;
+
 // Parse a campaign's form_fields_config JSON (button labels etc.) safely.
 const parseFormFieldsConfig = (ffc: any) => {
   try { return ffc ? JSON.parse(ffc) : {}; } catch { return {}; }
@@ -1151,8 +1164,10 @@ export function CampaignPage({ c: listItem, onNav }: any) {
                     <div className="text-xs text-mute mt-0.5">dari target <b>{fmtIDR(c.target)}</b></div>
                   </div>
                   <div className="text-right text-xs">
-                    <div className="font-extrabold text-emerald-600 text-base leading-none">{c.target ? Math.round(c.raised / c.target * 100) : 0}%</div>
-                    <div className="text-mute mt-0.5">{c.daysLeft} hari lagi</div>
+                    <div className="font-extrabold text-emerald-600 text-base leading-none">{pctLabel(c.raised, c.target)}</div>
+                    <div className="text-mute mt-0.5 inline-flex items-center gap-1">
+                      {hasDeadline(c) ? `${c.daysLeft} hari lagi` : <><Icon name="infinity" size={12}/> Tanpa batas</>}
+                    </div>
                   </div>
                 </div>
                 <Progress value={c.raised} max={c.target} className="h-2 mt-3"/>
@@ -1202,8 +1217,8 @@ export function CampaignPage({ c: listItem, onNav }: any) {
                   <Progress value={c.raised} max={c.target} className="h-2.5 mt-3"/>
                   <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
                     <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Donatur</div><div className="font-extrabold text-ink">{fmtNum(c.donors)}</div></div>
-                    <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Sisa hari</div><div className="font-extrabold text-rose-600">{c.daysLeft}</div></div>
-                    <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Tercapai</div><div className="font-extrabold text-emerald-600">{c.target ? Math.round(c.raised/c.target*100) : 0}%</div></div>
+                    <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Sisa hari</div><div className="font-extrabold text-rose-600">{hasDeadline(c) ? c.daysLeft : <Icon name="infinity" size={16} className="inline"/>}</div></div>
+                    <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Tercapai</div><div className="font-extrabold text-emerald-600">{pctLabel(c.raised, c.target)}</div></div>
                   </div>
 
                   <div className="mt-5 pt-5 border-t border-line">
@@ -2316,7 +2331,7 @@ function FundraiserCTA({ c }: any) {
   // The link is hidden until the fundraiser explicitly opts in by pressing the button —
   // it reads as a deliberate action ("generate my link") rather than a link dumped on load.
   const [revealed, setRevealed] = useState(false);
-  const isFundraiser = String((user as any)?.role || '').toLowerCase() === 'fundraiser';
+  const isFundraiser = String((user as any)?.role || '').toLowerCase() === 'fundraiser' || !!(user as any)?.fundraiser_enabled;
   if (!isFundraiser || !c) return null;
   const origin = (typeof window !== 'undefined' && window.location) ? window.location.origin : 'https://donasi.niatbaik.org';
   // Referral handle = username (?ref=budi), falling back to the user id for accounts that
@@ -2361,7 +2376,7 @@ function JadiFundraiserButton({ c, variant }: { c: any; variant: 'solid' | 'outl
   const { user } = useAuth();
   const navigate = useNavigate();
   const [msg, setMsg] = useState<{ tone: 'warn' | 'bad'; text: string } | null>(null);
-  const isFundraiser = String((user as any)?.role || '').toLowerCase() === 'fundraiser';
+  const isFundraiser = String((user as any)?.role || '').toLowerCase() === 'fundraiser' || !!(user as any)?.fundraiser_enabled;
   if (isFundraiser) return null; // share panel handles them
 
   const role = (user as any)?.role;

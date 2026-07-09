@@ -74,6 +74,10 @@ func Migrate(db *gorm.DB) error {
 	// homepage renders its built-in fallbacks until an admin fills a section in Settings →
 	// Homepage (the admin form is pre-populated with those same defaults to edit from).
 
+	// Backfill posted_at for legacy campaigns that predate PostedAt being set on create, so
+	// "sisa hari" computes correctly once a duration is present (was collapsing to 0).
+	db.Exec(`UPDATE campaigns SET posted_at = created_at WHERE posted_at IS NULL`)
+
 	log.Println("Database migrations completed")
 	return nil
 }

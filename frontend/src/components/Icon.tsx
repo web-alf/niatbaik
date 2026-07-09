@@ -49,6 +49,7 @@ export function Icon({ name, size = 18, className = '', strokeWidth = 1.8 }: Ico
     cloud: <><path d="M7 18a5 5 0 010-10 6 6 0 0111.7 1.5A4 4 0 0118 18H7z"/></>,
     briefcase: <><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M3 13h18"/></>,
     sparkle: <><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></>,
+    infinity: <><path d="M6.5 8a4 4 0 000 8c2 0 3-1.5 5.5-4s3.5-4 5.5-4a4 4 0 010 8c-2 0-3-1.5-5.5-4S8.5 8 6.5 8z"/></>,
     shield: <><path d="M12 3l8 3v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6l8-3z"/></>,
     creditcard: <><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 11h18"/></>,
     palette: <><circle cx="7" cy="13" r="1.5"/><circle cx="9" cy="8" r="1.5"/><circle cx="14" cy="7" r="1.5"/><circle cx="17" cy="11" r="1.5"/><path d="M12 22a10 10 0 110-20c5 0 9 3.5 9 8 0 3-2 4-4 4h-2c-1 0-2 .5-2 2 0 1 1 1.5 1 3 0 1.5-1 3-2 3z"/></>,

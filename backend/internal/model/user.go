@@ -56,6 +56,11 @@ type User struct {
 	ResetToken       string     `gorm:"size:255" json:"-"`
 	ResetTokenExpiry *time.Time `json:"-"`
 
+	// FundraiserEnabled is a capability flag layered ON TOP of Role: a user whose primary
+	// role is e.g. advertiser can ALSO be a fundraiser (referral link + portal + commission)
+	// without changing their role. Users with Role=="fundraiser" are implicitly enabled.
+	FundraiserEnabled bool `gorm:"default:false" json:"fundraiser_enabled"`
+
 	// Referral / bonus
 	BonusBalance  int64  `gorm:"default:0" json:"bonus_balance"`
 	BonusWithdrawn int64 `gorm:"default:0" json:"bonus_withdrawn"`
@@ -78,3 +83,8 @@ func (u *User) IsAdmin() bool       { return u.Role == "admin" }
 func (u *User) IsCS() bool          { return u.Role == "cs" }
 func (u *User) IsAdvertiser() bool  { return u.Role == "advertiser" }
 func (u *User) IsFundraiser() bool  { return u.Role == "fundraiser" }
+
+// CanFundraise reports whether the user may earn referral commission — either their primary
+// role is fundraiser, or they've been granted the fundraiser capability on top of another
+// role (e.g. an advertiser who is also a fundraiser).
+func (u *User) CanFundraise() bool { return u.Role == "fundraiser" || u.FundraiserEnabled }

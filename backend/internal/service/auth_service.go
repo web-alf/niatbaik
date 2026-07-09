@@ -371,5 +371,6 @@ func userToResponse(u *model.User) *response.UserResponse {
 		CreatedAt:          u.CreatedAt,
 		BonusBalance:       u.BonusBalance,
 		BonusWithdrawn:     u.BonusWithdrawn,
+		FundraiserEnabled:  u.FundraiserEnabled,
 	}
 }

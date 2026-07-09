@@ -44,11 +44,12 @@ func (s *UserService) Create(req *request.CreateUserRequest) (*model.User, error
 	}
 
 	u := model.User{
-		Name:     req.Name,
-		Email:    req.Email,
-		Username: &uname,
-		Password: hashed,
-		Role:     req.Role,
+		Name:              req.Name,
+		Email:             req.Email,
+		Username:          &uname,
+		Password:          hashed,
+		Role:              req.Role,
+		FundraiserEnabled: req.FundraiserEnabled,
 	}
 	if req.Phone != "" {
 		u.Phone = &req.Phone
@@ -146,6 +147,9 @@ func (s *UserService) Update(id uuid.UUID, req *request.UpdateUserRequest) (*mod
 	}
 	if req.Role != "" {
 		u.Role = req.Role
+	}
+	if req.FundraiserEnabled != nil {
+		u.FundraiserEnabled = *req.FundraiserEnabled
 	}
 	// Admin-set password change. Optional: only when a value is sent. Hash it and stamp
 	// PasswordChangedAt so the JWT middleware invalidates the user's existing sessions —

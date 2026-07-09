@@ -7,6 +7,8 @@ type CreateUserRequest struct {
 	Username string `json:"username"` // optional; auto-generated from email when blank
 	Password string `json:"password" validate:"required,min=8,max=72"` // bcrypt truncates >72 bytes
 	Role     string `json:"role" validate:"required,oneof=admin cs advertiser user fundraiser"`
+	// FundraiserEnabled grants the fundraiser capability on top of Role (see model.User).
+	FundraiserEnabled bool `json:"fundraiser_enabled"`
 }
 
 type UpdateUserRequest struct {
@@ -19,4 +21,7 @@ type UpdateUserRequest struct {
 	// Password: admin-set new password. Optional — empty means "leave unchanged".
 	// Validated only when present. bcrypt truncates >72 bytes.
 	Password string `json:"password" validate:"omitempty,min=8,max=72"`
+	// FundraiserEnabled: pointer so an omitted field leaves the flag unchanged while an
+	// explicit true/false toggles the capability.
+	FundraiserEnabled *bool `json:"fundraiser_enabled"`
 }

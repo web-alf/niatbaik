@@ -28,4 +28,5 @@ type UserResponse struct {
 	CreatedAt          time.Time  `json:"created_at"`
 	BonusBalance       int64      `json:"bonus_balance"`
 	BonusWithdrawn     int64      `json:"bonus_withdrawn"`
+	FundraiserEnabled  bool       `json:"fundraiser_enabled"`
 }

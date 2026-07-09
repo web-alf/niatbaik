@@ -13,9 +13,12 @@ import { useBrowserNotifications } from '@/lib/browserNotify';
 import AdsGuidePage from '@/pages/admin/AdsGuidePage';
 
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const navigate = useNavigate();
-  const visible = NAV.filter((n) => n.roles.includes(role));
+  // A non-fundraiser user with the fundraiser capability (fundraiser_enabled) also gets the
+  // Portal Saya item, on top of their normal role nav.
+  const canFundraise = role === 'Fundraiser' || !!(user as any)?.fundraiser_enabled;
+  const visible = NAV.filter((n) => n.roles.includes(role) || (canFundraise && n.key === 'fundraiser-portal'));
   const visibleSecondary = SECONDARY_NAV.filter((n) => !n.roles || n.roles.includes(role));
   const m = ROLE_META[role] || ROLE_META.Admin;
   const linkCls = ({ isActive }: { isActive: boolean }) =>

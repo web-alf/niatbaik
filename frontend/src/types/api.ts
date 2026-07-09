@@ -92,6 +92,7 @@ export interface User {
   phone?: string;
   username?: string; // public referral handle (?ref=<username>)
   username_changed_at?: string | null; // last rename; drives the 30-day cooldown UI
+  fundraiser_enabled?: boolean; // fundraiser capability layered on top of role
   role: Role | string;
   access?: string;
   image?: string; // persisted /uploads avatar path from /auth/me (resolve via mediaUrl)

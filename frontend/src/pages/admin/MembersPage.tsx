@@ -5,7 +5,7 @@ import { useDataStore } from '@/store/data';
 import { exportCSV, exportExcel } from '@/lib/export';
 import { useAdminSync } from '@/lib/useAdminSync';
 import { ROLE_META } from '@/lib/nav';
-import { Card, PageHeader, Tabs, Btn, SearchInput, RoleBadge, Modal, Icon } from '@/components';
+import { Card, PageHeader, Tabs, Btn, SearchInput, RoleBadge, Modal, Icon, Toggle } from '@/components';
 
 const mapUser = (u: any) => ({
   id: u.id,
@@ -13,6 +13,7 @@ const mapUser = (u: any) => ({
   email: u.email,
   phone: u.phone,
   username: u.username || '',
+  fundraiserEnabled: u.fundraiser_enabled ?? false,
   image: u.image || '',
   role: ((r) => r === 'Cs' ? 'CS' : r)((u.role || 'user').charAt(0).toUpperCase() + (u.role || 'user').slice(1)),
   lastLogin: u.last_login_at ? new Date(u.last_login_at).toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : 'Belum pernah',
@@ -29,7 +30,7 @@ export default function MembersPage() {
   const [editing, setEditing] = useState<any>(null);
   const [confirmDel, setConfirmDel] = useState<any>(null);
 
-  const [addForm, setAddForm] = useState<any>({ name:'', email:'', phone:'', username:'', role:'admin', password:'' });
+  const [addForm, setAddForm] = useState<any>({ name:'', email:'', phone:'', username:'', role:'admin', password:'', fundraiserEnabled:false });
   const [addErrors, setAddErrors] = useState<any>({});
   const [addLoading, setAddLoading] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
@@ -48,8 +49,8 @@ export default function MembersPage() {
   useAdminSync(load);
 
   useEffect(() => {
-    if (editing) setAddForm({ name: editing.name, email: editing.email, phone: editing.phone || '', username: editing.username || '', role: editing.role.toLowerCase(), password: '' });
-    else setAddForm({ name:'', email:'', phone:'', username:'', role:'admin', password:'' });
+    if (editing) setAddForm({ name: editing.name, email: editing.email, phone: editing.phone || '', username: editing.username || '', role: editing.role.toLowerCase(), password: '', fundraiserEnabled: !!editing.fundraiserEnabled });
+    else setAddForm({ name:'', email:'', phone:'', username:'', role:'admin', password:'', fundraiserEnabled:false });
     setAddErrors({});
     setShowPwd(false);
   }, [editing, showAdd]);
@@ -82,7 +83,7 @@ export default function MembersPage() {
     try {
       const uname = (addForm.username || '').trim().toLowerCase();
       if (editing) {
-        const patch: any = { name: addForm.name, email: addForm.email, phone: addForm.phone, role: addForm.role };
+        const patch: any = { name: addForm.name, email: addForm.email, phone: addForm.phone, role: addForm.role, fundraiser_enabled: !!addForm.fundraiserEnabled };
         // Only send username when it changed, so an unchanged edit doesn't re-stamp it.
         if (uname && uname !== (editing.username || '')) patch.username = uname;
         // Only send password when the admin actually typed a new one — an empty field
@@ -91,7 +92,7 @@ export default function MembersPage() {
         await api.updateUser(editing.id, patch);
         showToast(addForm.password.trim() ? 'User & password berhasil diupdate' : 'User berhasil diupdate');
       } else {
-        await api.createUser({ name: addForm.name, email: addForm.email, phone: addForm.phone, username: uname, role: addForm.role, password: addForm.password });
+        await api.createUser({ name: addForm.name, email: addForm.email, phone: addForm.phone, username: uname, role: addForm.role, password: addForm.password, fundraiser_enabled: !!addForm.fundraiserEnabled });
         showToast('User berhasil ditambahkan');
       }
       setShowAdd(false); setEditing(null);
@@ -284,6 +285,16 @@ export default function MembersPage() {
               ))}
             </div>
           </div>
+          {/* Fundraiser capability on top of the role — a non-fundraiser (e.g. advertiser)
+              can also earn referral commission + get the portal without changing role.
+              Redundant when role is already 'fundraiser'. */}
+          {addForm.role !== 'fundraiser' && (
+            <div className="rounded-lg border border-line p-3">
+              <Toggle value={!!addForm.fundraiserEnabled} onChange={(v: boolean) => setAddForm({ ...addForm, fundraiserEnabled: v })}
+                label="Aktifkan sebagai Fundraiser"
+                sub="Dapat link referral + Portal Fundraiser, tanpa mengubah role utama."/>
+            </div>
+          )}
           <div>
             <label className="text-xs font-semibold text-mute">
               {editing ? 'Password baru' : 'Password'}

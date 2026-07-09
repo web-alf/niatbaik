@@ -38,9 +38,12 @@ export function RequireAuth() {
   return <Outlet />;
 }
 
-export function RequireRole({ roles, children }: { roles: Role[]; children: React.ReactNode }) {
-  const { role } = useAuth();
-  if (roles.includes(role)) return <>{children}</>;
+export function RequireRole({ roles, allowFundraiser, children }: { roles: Role[]; allowFundraiser?: boolean; children: React.ReactNode }) {
+  const { role, user } = useAuth();
+  // allowFundraiser lets a user with the fundraiser capability (fundraiser_enabled) reach a
+  // page even when their primary role isn't in `roles` (e.g. an advertiser opening the
+  // fundraiser portal).
+  if (roles.includes(role) || (allowFundraiser && !!(user as any)?.fundraiser_enabled)) return <>{children}</>;
   return <AccessDenied />;
 }
 

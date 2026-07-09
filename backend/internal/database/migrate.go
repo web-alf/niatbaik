@@ -70,9 +70,9 @@ func Migrate(db *gorm.DB) error {
 		log.Printf("username backfill warning: %v", err)
 	}
 
-	if err := seedSiteContent(db); err != nil {
-		log.Printf("site content seed warning: %v", err)
-	}
+	// NOTE: site_content is intentionally NOT seeded. The table is created empty; the public
+	// homepage renders its built-in fallbacks until an admin fills a section in Settings →
+	// Homepage (the admin form is pre-populated with those same defaults to edit from).
 
 	log.Println("Database migrations completed")
 	return nil

@@ -9,6 +9,91 @@ import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { Card, Btn, Icon } from '@/components';
 
+// DEFAULTS mirror the public sections' built-in fallbacks. site_content is not seeded in
+// the DB, so on an empty table each admin form starts pre-filled with the copy the site
+// currently shows — the admin edits from there, and only sections they save get persisted.
+const DEFAULTS: Record<string, any> = {
+  navbar: {
+    links: [
+      { label: 'Campaign', href: '#campaigns' },
+      { label: 'Bagaimana?', href: '#how' },
+      { label: 'Testimoni', href: '#testi' },
+      { label: 'FAQ', href: '#faq' },
+    ],
+    ctaPrimary: 'Donasi Sekarang', loginLabel: 'Masuk',
+  },
+  hero: {
+    badge: '{{donors}} donatur aktif', badgeSub: '· Update real-time',
+    headline: 'Salurkan', headlineAccent: 'Niat Baik', headlineTail: 'Anda, wujudkan kebaikan nyata.',
+    paragraph: 'Donasi terverifikasi untuk kemanusiaan, kesehatan, pendidikan, dan wakaf. Transparan, mudah, dan dipercaya oleh {{donors}}+ donatur di Indonesia.',
+    ctaPrimary: 'Mulai Donasi', ctaSecondary: 'Lihat Campaign',
+    trustLines: ['SSL Aman', 'Berizin Kemensos', 'Audit publik bulanan'],
+  },
+  trust_strip: {
+    caption: 'Diliput & dipercaya oleh',
+    items: [
+      { name: 'Kementerian Sosial RI', src: '/trust/kemensos.svg' },
+      { name: 'BAZNAS', src: '/trust/baznas.svg' },
+      { name: 'PWNU', src: '/trust/nu.svg' },
+      { name: 'Muhammadiyah', src: '/trust/muhammadiyah.svg' },
+      { name: 'detikcom', src: '/trust/detik.png' },
+      { name: 'CNN Indonesia', src: '/trust/cnn-indonesia.svg' },
+      { name: 'Tempo', src: '/trust/tempo.svg' },
+      { name: 'Liputan6', src: '/trust/liputan6.svg' },
+      { name: 'Kompas', src: '/trust/kompas.svg' },
+      { name: 'OJK', src: '/trust/ojk.png' },
+    ],
+  },
+  how_to: {
+    eyebrow: 'Cara berdonasi', heading: 'Mudah · Hanya 60 detik',
+    sub: 'Donasi via NIATBAIK.ORG bisa dilakukan kapan saja, tanpa perlu daftar akun.',
+    steps: [
+      { icon: 'megaphone', title: 'Pilih campaign', desc: 'Pilih campaign sesuai niat baik Anda dari daftar terverifikasi.' },
+      { icon: 'wallet', title: 'Tentukan nominal', desc: 'Isi nominal donasi. Mulai dari Rp 10.000.' },
+      { icon: 'creditcard', title: 'Pilih pembayaran', desc: 'Bayar via QRIS, VA Bank, atau e-wallet favorit Anda.' },
+      { icon: 'heart', title: 'Doakan & sebar', desc: 'Donasi tersalurkan. Ajak teman ikut dalam kebaikan.' },
+    ],
+  },
+  testimonials: {
+    eyebrow: 'Apa kata donatur',
+    headingTpl: 'Bergabung bersama {{donors}}+ donatur Indonesia',
+    headingFallback: 'Bergabung bersama para donatur Indonesia',
+    sub: 'Cerita nyata dari donatur yang mempercayakan niat baiknya melalui NIATBAIK.ORG.',
+    items: [
+      { name: 'Ibu Sari, Bekasi', rating: '⭐⭐⭐⭐⭐', quote: 'Alhamdulillah, donasi saya untuk Aira dilaporkan transparan. Bahkan saya dikirim foto setelah operasinya. Sangat amanah.', color: '#2E4191' },
+      { name: 'Pak Burhan, Bandung', rating: '⭐⭐⭐⭐⭐', quote: 'Sudah 3 tahun rutin sedekah lewat NIATBAIK. Donasi via QRIS, cepat dan langsung dapat kuitansi via WhatsApp.', color: '#38B6FF' },
+      { name: 'Hamba Allah', rating: '⭐⭐⭐⭐⭐', quote: 'Donasi anonim juga dilayani. Yang penting niatnya baik, sampai ke yang membutuhkan. Terima kasih NIATBAIK.', color: '#16A34A' },
+      { name: 'Andini, Surabaya', rating: '⭐⭐⭐⭐⭐', quote: 'Saya jadi fundraiser di NIATBAIK. Mudah dipakai, dan komisi bisa saya donasikan lagi. Berkah!', color: '#F59E0B' },
+    ],
+  },
+  faq: {
+    eyebrow: 'Pertanyaan umum', heading: 'Hal-hal yang sering ditanyakan',
+    items: [
+      { question: 'Apakah donasi saya terverifikasi dan aman?', answer: 'Setiap campaign di NIATBAIK.ORG melalui proses verifikasi tim kami: kunjungan lapangan, dokumen pengaju, hingga update rutin. Donatur juga menerima laporan transparan tiap minggu.' },
+      { question: 'Bagaimana saya tahu donasi sudah diterima?', answer: 'Setelah pembayaran sukses, Anda akan menerima notifikasi & kuitansi otomatis via WhatsApp dan email. Riwayat donasi juga tampil di halaman campaign.' },
+      { question: 'Apa metode pembayaran yang didukung?', answer: 'QRIS, Virtual Account BCA/Mandiri/BNI/BRI, GoPay, OVO, Dana, ShopeePay, hingga kartu kredit. Tinggal pilih yang paling nyaman.' },
+      { question: 'Apakah saya bisa donasi sebagai Hamba Allah?', answer: 'Tentu. Centang "Donasi sebagai anonim" pada form, dan nama Anda akan tampil sebagai Hamba Allah di halaman publik.' },
+      { question: 'Apakah donasi saya bisa dijadikan zakat?', answer: 'Ya. Campaign tertentu dapat menjadi penyaluran zakat. Anda akan mendapatkan bukti penyaluran zakat untuk pengurang pajak.' },
+      { question: 'Apakah ada minimum donasi?', answer: 'Minimum donasi Rp 10.000. Tidak ada batas maksimum.' },
+    ],
+  },
+  final_cta: {
+    headline: 'Setiap niat baik, sekecil apapun, berdampak besar.',
+    sub: 'Mulai donasi sekarang dan jadilah bagian dari kebaikan yang nyata.',
+    buttonLabel: 'Donasi Sekarang',
+  },
+  footer: {
+    blurb: 'Platform donasi & crowdfunding terpercaya. Salurkan zakat, sedekah, wakaf, dan donasi kemanusiaan dengan mudah.',
+    waCtaLabel: 'Hubungi kami via WhatsApp',
+    columns: [
+      { title: 'Platform', links: [{ label: 'Donasi', href: '#campaigns' }, { label: 'Fundraiser', href: '#how' }, { label: 'Laporan transparansi', href: '#testi' }] },
+      { title: 'Tentang', links: [{ label: 'Profil Yayasan' }, { label: 'Disklaimer', href: '/disklaimer' }] },
+      { title: 'Bantuan', links: [{ label: 'FAQ', href: '#faq' }, { label: 'Kontak', href: 'wa' }, { label: 'Syarat & ketentuan', href: '/syarat-ketentuan' }, { label: 'Kebijakan privasi', href: '/kebijakan-privasi' }] },
+    ],
+    copyright: '© 2026 Yayasan NIATBAIK.', sslNote: 'Koneksi terenkripsi (SSL)',
+  },
+};
+
 // ---- small field primitives (match the `.field` class used across admin forms) ----
 function Text({ label, value, onChange, placeholder, area }: any) {
   return (
@@ -70,10 +155,13 @@ function RowList({ label, rows, fields, onChange, blank }: any) {
 // merges a partial into the draft. Save persists the whole draft under `sectionKey`.
 function SectionCard({ title, sub, sectionKey, initial, render }: any) {
   const showToast = useUiStore((s) => s.showToast);
-  const [draft, setDraft] = useState<any>(initial || {});
+  // Prefer the saved blob; when a section has never been saved (empty table), start from the
+  // built-in DEFAULTS so the form is pre-filled with the copy the site currently shows.
+  const seed = (initial && Object.keys(initial).length) ? initial : (DEFAULTS[sectionKey] || {});
+  const [draft, setDraft] = useState<any>(seed);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  useEffect(() => { setDraft(initial || {}); }, [initial]);
+  useEffect(() => { setDraft((initial && Object.keys(initial).length) ? initial : (DEFAULTS[sectionKey] || {})); }, [initial, sectionKey]);
   const patch = (p: any) => setDraft((d: any) => ({ ...d, ...p }));
   const save = async () => {
     setSaving(true);

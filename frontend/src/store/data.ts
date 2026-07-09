@@ -41,6 +41,7 @@ interface DataState {
   campaigns: Campaign[];
   categories: Category[];
   publicSettings: any | null;
+  siteContent: any | null; // homepage CMS blob (key→section JSON); null → use FE defaults
   paymentMethodsPublic: PaymentMethod[];
   paymentStatuses: PaymentStatus[];
   // admin (logged-in)
@@ -92,7 +93,7 @@ const EMPTY_TOTALS: Totals = {
 };
 
 export const useDataStore = create<DataState & DataActions>()(persist((set, get) => ({
-  campaigns: [], categories: [], publicSettings: null, paymentMethodsPublic: [], paymentStatuses: [],
+  campaigns: [], categories: [], publicSettings: null, siteContent: null, paymentMethodsPublic: [], paymentStatuses: [],
   transactions: [], notifications: [], fundraisers: [], users: [], settings: null, profile: null,
   trash: [], paymentMethodsList: [], dailyDonations: [], dashboardStats: null, paymentBreakdown: null,
   trafficSources: null, analyticsOverview: null, analyticsCampaigns: null, analyticsUtm: null,
@@ -102,9 +103,10 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
 
   // = loadApiData
   async refreshPublic() {
-    const [statsRes, campaignsRes, categoriesRes, pubSettingsRes, pubPayRes, payStatusRes] = await Promise.all([
+    const [statsRes, campaignsRes, categoriesRes, pubSettingsRes, pubPayRes, payStatusRes, contentRes] = await Promise.all([
       safe(() => api.publicStats()), safe(() => api.campaigns()), safe(() => api.categories()),
       safe(() => api.publicSettings()), safe(() => api.publicPaymentMethods()), safe(() => api.paymentStatuses()),
+      safe(() => api.publicSiteContent()),
     ]);
     const patch: Partial<DataState> = {};
     const totals = { ...get().totals };
@@ -129,6 +131,7 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
       // are safe no-ops when nothing is configured and must never break data load.
       try { NBTracking.captureUTM(); NBTracking.initPixels(pubSettingsRes.data); } catch { /* ignore */ }
     }
+    if (contentRes?.data && typeof contentRes.data === 'object') patch.siteContent = contentRes.data;
     if (Array.isArray(pubPayRes?.data)) patch.paymentMethodsPublic = pubPayRes.data;
     if (Array.isArray(payStatusRes?.data)) {
       patch.paymentStatuses = payStatusRes.data;
@@ -281,7 +284,7 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
   // persisted, so no personal data lands in localStorage. Those slices come back on the
   // first background refresh (they start empty on reload). Only aggregates/config cached.
   partialize: (s) => ({
-    campaigns: s.campaigns, categories: s.categories, publicSettings: s.publicSettings,
+    campaigns: s.campaigns, categories: s.categories, publicSettings: s.publicSettings, siteContent: s.siteContent,
     paymentMethodsPublic: s.paymentMethodsPublic, paymentStatuses: s.paymentStatuses,
     settings: s.settings,
     paymentMethodsList: s.paymentMethodsList, dailyDonations: s.dailyDonations,

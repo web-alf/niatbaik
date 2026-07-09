@@ -5,6 +5,7 @@ import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { applyThemeColor } from '@/lib/mappers';
 import { Card, PageHeader, Icon, Toggle, Select, Btn, Progress, Badge, StatusBadge, Modal } from '@/components';
+import SiteContentPanel from '@/pages/admin/SiteContentPanel';
 
 // PixelBrandLogo renders the official brand mark for each tracking integration, so the
 // Pixel & Tracking cards show real logos (Meta / Google / GA4 / TikTok / Looker) instead
@@ -103,6 +104,7 @@ export default function SettingsPage() {
     setTab(next);
   };
   const tabs = [
+    { value:'homepage',     label:'Homepage',       icon:'megaphone' },
     { value:'themes',       label:'Branding',       icon:'palette' },
     { value:'form',         label:'Form',           icon:'edit' },
     { value:'payment',      label:'Payment',        icon:'creditcard' },
@@ -179,6 +181,7 @@ export default function SettingsPage() {
         {/* Capture any input/change inside the panel area to flag unsaved edits. */}
         <div className="lg:col-span-4 space-y-5" onInputCapture={markDirty} onChangeCapture={markDirty}>
           {settingsLoading && <Card className="p-8 text-center text-mute">Memuat pengaturan…</Card>}
+          {tab === 'homepage' && <SiteContentPanel/>}
           {!settingsLoading && tab === 'themes' && <ThemesPanel settings={settings} onSave={saveSettings}/>}
           {!settingsLoading && tab === 'form' && <FormPanel settings={settings} onSave={saveSettings}/>}
           {!settingsLoading && tab === 'payment' && <PaymentPanel settings={settings} onSave={saveSettings}/>}

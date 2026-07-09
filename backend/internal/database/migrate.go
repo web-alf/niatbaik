@@ -52,6 +52,7 @@ func Migrate(db *gorm.DB) error {
 		&model.PaymentStatus{},
 		&model.ProcessedWebhook{},
 		&model.PageVisit{},
+		&model.SiteContent{},
 	)
 	if err != nil {
 		return fmt.Errorf("auto-migration failed: %w", err)
@@ -67,6 +68,10 @@ func Migrate(db *gorm.DB) error {
 		// Non-fatal: a backfill hiccup shouldn't block boot. Log and continue — un-backfilled
 		// users simply have a NULL username until they (or an admin) set one.
 		log.Printf("username backfill warning: %v", err)
+	}
+
+	if err := seedSiteContent(db); err != nil {
+		log.Printf("site content seed warning: %v", err)
 	}
 
 	log.Println("Database migrations completed")

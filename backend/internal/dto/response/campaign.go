@@ -89,6 +89,9 @@ type CampaignDetail struct {
 
 type CampaignFundraiser struct {
 	Name        string `json:"name"`
+	// Username lets the public page greet a visitor who arrived via a ?ref=<username>
+	// link ("direkomendasikan oleh ..."). Empty for fundraisers without one.
+	Username    string `json:"username"`
 	Image       string `json:"image"`
 	TotalRaised int64  `json:"total_raised"`
 	TotalDonors int    `json:"total_donors"`
@@ -210,8 +213,13 @@ func ToCampaignDetail(c *model.Campaign, donorCount int64, donors []CampaignDono
 func toCampaignFundraisers(fs []model.Fundraiser) []CampaignFundraiser {
 	out := make([]CampaignFundraiser, 0, len(fs))
 	for i := range fs {
+		uname := ""
+		if fs[i].User.Username != nil {
+			uname = *fs[i].User.Username
+		}
 		out = append(out, CampaignFundraiser{
 			Name:        fs[i].User.Name,
+			Username:    uname,
 			Image:       fs[i].User.Image,
 			TotalRaised: fs[i].TotalRaised,
 			TotalDonors: fs[i].TotalDonors,

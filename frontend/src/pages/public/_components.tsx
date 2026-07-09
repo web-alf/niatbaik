@@ -11,6 +11,7 @@ import { NBTracking } from '@/lib/tracking';
 import { Icon, Logo } from '@/components';
 import { useDataStore } from '@/store/data';
 import { useAuth } from '@/context/AuthContext';
+import { interpolate } from '@/lib/interpolate';
 
 export const getCampaigns = (): any[] => {
   const list = useDataStore.getState().campaigns;
@@ -162,12 +163,16 @@ export function Navbar({ onNav, onHome }: any) {
   }, [open]);
   // Admin-uploaded logo (Settings → Branding) with the static asset as fallback.
   const navLogo = useDataStore((s) => s.publicSettings)?.logo;
-  const links = [
-    { l:'Campaign', h:'#campaigns' },
-    { l:'Bagaimana?', h:'#how' },
-    { l:'Testimoni', h:'#testi' },
-    { l:'FAQ', h:'#faq' },
-  ];
+  // CMS-editable nav links / labels (Settings → Homepage), falling back to the defaults.
+  const cms = useDataStore((s) => s.siteContent)?.navbar || {};
+  const links = (Array.isArray(cms.links) && cms.links.length ? cms.links : [
+    { label:'Campaign', href:'#campaigns' },
+    { label:'Bagaimana?', href:'#how' },
+    { label:'Testimoni', href:'#testi' },
+    { label:'FAQ', href:'#faq' },
+  ]).map((x: any) => ({ l: x.label, h: x.href }));
+  const ctaPrimary = cms.ctaPrimary || 'Donasi Sekarang';
+  const loginLabel = cms.loginLabel || 'Masuk';
   // Section-link click. On the landing page let the native anchor jump handle it. On a
   // campaign page, go home first, then scroll to the target section after it renders.
   const goSection = (e: any, hash: string) => {
@@ -196,10 +201,10 @@ export function Navbar({ onNav, onHome }: any) {
           <Icon name={dark ? 'sun' : 'moon'} size={16}/>
         </button>
         <button onClick={() => navigate('/dashboard')} className="hidden lg:inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
-          <Icon name="user" size={16}/> Masuk
+          <Icon name="user" size={16}/> {loginLabel}
         </button>
         <PrimaryBtn size="sm" onClick={() => onNav('campaign', getFirstCampaign())}>
-          <Icon name="heart" size={16}/> Donasi Sekarang
+          <Icon name="heart" size={16}/> {ctaPrimary}
         </PrimaryBtn>
         <button onClick={() => setOpen(!open)} className="lg:hidden h-9 w-9 rounded-lg hover:bg-bg2 flex items-center justify-center"><Icon name="menu" size={20}/></button>
       </div>
@@ -233,7 +238,7 @@ export function Navbar({ onNav, onHome }: any) {
         </div>
         <div className="p-4 border-t border-line">
           <PrimaryBtn size="md" className="w-full justify-center" onClick={() => { setOpen(false); onNav('campaign', getFirstCampaign()); }}>
-            <Icon name="heart" size={16}/> Donasi Sekarang
+            <Icon name="heart" size={16}/> {ctaPrimary}
           </PrimaryBtn>
         </div>
       </aside>
@@ -245,6 +250,15 @@ export function Navbar({ onNav, onHome }: any) {
 // -------- Hero --------
 export function Hero({ onNav }: any) {
   const totals = useDataStore((s) => s.totals);
+  const cms = useDataStore((s) => s.siteContent)?.hero || {};
+  const tvars = { donors: fmtNum(totals.donors || 0), raised: fmtIDRShort(totals.raised || 0), activeCampaigns: fmtNum(totals.activeCampaigns || 0) };
+  const badge = interpolate(cms.badge, tvars) || `${fmtNum(totals.donors || 0)} donatur aktif`;
+  const paragraph = cms.paragraph
+    ? interpolate(cms.paragraph, tvars)
+    : `Donasi terverifikasi untuk kemanusiaan, kesehatan, pendidikan, dan wakaf. Transparan, mudah, dan dipercaya${(totals.donors > 0) ? ` oleh ${fmtNum(totals.donors)}+ donatur` : ''} di Indonesia.`;
+  const trustLines = (Array.isArray(cms.trustLines) && cms.trustLines.length ? cms.trustLines : ['SSL Aman', 'Berizin Kemensos', 'Audit publik bulanan']);
+  const ctaPrimary = cms.ctaPrimary || 'Mulai Donasi';
+  const ctaSecondary = cms.ctaSecondary || 'Lihat Campaign';
   return (
     <section className="relative overflow-hidden bg-bg2 border-b border-line">
       <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-brand-50 opacity-60 blur-3xl"/>
@@ -253,17 +267,14 @@ export function Hero({ onNav }: any) {
       <div className="max-w-4xl mx-auto px-4 lg:px-6 py-12 lg:py-20 text-center relative flex flex-col items-center">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-line shadow-card text-xs font-bold text-ink">
           <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"/>
-          <span>{fmtNum(totals.donors || 0)} donatur aktif</span>
-          <span className="text-mute font-normal hidden sm:inline">· Update real-time</span>
+          <span>{badge}</span>
+          {cms.badgeSub !== '' && <span className="text-mute font-normal hidden sm:inline">{cms.badgeSub || '· Update real-time'}</span>}
         </div>
 
         <h1 className="mt-5 text-4xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-ink max-w-2xl">
-          Salurkan <span className="text-brand-600">Niat Baik</span> Anda, wujudkan kebaikan nyata.
+          {cms.headline || 'Salurkan'} <span className="text-brand-600">{cms.headlineAccent || 'Niat Baik'}</span> {cms.headlineTail || 'Anda, wujudkan kebaikan nyata.'}
         </h1>
-        <p className="mt-5 text-lg text-mute max-w-xl leading-relaxed">
-          Donasi terverifikasi untuk kemanusiaan, kesehatan, pendidikan, dan wakaf.
-          Transparan, mudah, dan dipercaya{(totals.donors > 0) ? <> oleh <b className="text-ink">{fmtNum(totals.donors)}+ donatur</b></> : ''} di Indonesia.
-        </p>
+        <p className="mt-5 text-lg text-mute max-w-xl leading-relaxed">{paragraph}</p>
 
         {/* Mobile: stacked full-width pair (identical size); ≥sm: side by side. */}
         <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 w-full max-w-md sm:max-w-none sm:w-auto">
@@ -271,11 +282,11 @@ export function Hero({ onNav }: any) {
             const el = document.getElementById('campaigns');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
           }}>
-            <Icon name="heart" size={18}/> Mulai Donasi
+            <Icon name="heart" size={18}/> {ctaPrimary}
           </PrimaryBtn>
           {/* Sizing mirrors PrimaryBtn lg so the CTA pair reads as one set. */}
           <button onClick={() => document.getElementById('campaigns')?.scrollIntoView({behavior:'smooth'})} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl text-lg font-bold text-ink hover:bg-white ring-1 ring-inset ring-line bg-white/60">
-            <Icon name="eye" size={18}/> Lihat Campaign
+            <Icon name="eye" size={18}/> {ctaSecondary}
           </button>
         </div>
 
@@ -293,9 +304,9 @@ export function Hero({ onNav }: any) {
         </div>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-5 text-xs text-mute">
-          <span className="inline-flex items-center gap-1.5"><Icon name="shield" size={14} className="text-emerald-600"/> SSL Aman</span>
-          <span className="inline-flex items-center gap-1.5"><Icon name="check" size={14} className="text-emerald-600"/> Berizin Kemensos</span>
-          <span className="inline-flex items-center gap-1.5"><Icon name="check" size={14} className="text-emerald-600"/> Audit publik bulanan</span>
+          {trustLines.map((t: string, i: number) => (
+            <span key={i} className="inline-flex items-center gap-1.5"><Icon name={i === 0 ? 'shield' : 'check'} size={14} className="text-emerald-600"/> {t}</span>
+          ))}
         </div>
       </div>
     </section>
@@ -322,13 +333,16 @@ const TRUST_LOGOS = [
 ];
 
 export function TrustStrip() {
+  const cms = useDataStore((s) => s.siteContent)?.trust_strip || {};
+  const logos = (Array.isArray(cms.items) && cms.items.length ? cms.items : TRUST_LOGOS);
+  const caption = cms.caption || 'Diliput & dipercaya oleh';
   return (
     <section className="py-8 border-y border-line bg-bg2/60 overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
-        <div className="text-center text-xs font-semibold uppercase tracking-widest text-mute mb-4">Diliput & dipercaya oleh</div>
+        <div className="text-center text-xs font-semibold uppercase tracking-widest text-mute mb-4">{caption}</div>
         <div className="relative">
           <div className="marquee flex gap-4 items-stretch">
-            {[...TRUST_LOGOS, ...TRUST_LOGOS].map((l, i) => (
+            {[...logos, ...logos].map((l: any, i: number) => (
               <div key={i} className="shrink-0 flex items-center px-6 py-3 rounded-lg bg-white border border-line" title={l.name}>
                 <img src={l.src} alt={l.name} loading="lazy"
                   className="h-7 max-w-[130px] w-auto object-contain transition duration-200 [@media(hover:hover)]:grayscale [@media(hover:hover)]:opacity-75 [@media(hover:hover)]:hover:grayscale-0 [@media(hover:hover)]:hover:opacity-100"
@@ -457,31 +471,35 @@ function PublicCampaignCard({ c, onNav }: any) {
 
 // -------- How-to-donate --------
 export function HowToSection() {
-  const steps = [
-    { n:1, t:'Pilih campaign', d:'Pilih campaign sesuai niat baik Anda dari daftar terverifikasi.', icon:'megaphone' },
-    { n:2, t:'Tentukan nominal', d:'Isi nominal donasi. Mulai dari Rp 10.000.', icon:'wallet' },
-    { n:3, t:'Pilih pembayaran', d:'Bayar via QRIS, VA Bank, atau e-wallet favorit Anda.', icon:'creditcard' },
-    { n:4, t:'Doakan & sebar', d:'Donasi tersalurkan. Ajak teman ikut dalam kebaikan.', icon:'heart' },
-  ];
+  const cms = useDataStore((s) => s.siteContent)?.how_to || {};
+  const steps = (Array.isArray(cms.steps) && cms.steps.length ? cms.steps : [
+    { title:'Pilih campaign', desc:'Pilih campaign sesuai niat baik Anda dari daftar terverifikasi.', icon:'megaphone' },
+    { title:'Tentukan nominal', desc:'Isi nominal donasi. Mulai dari Rp 10.000.', icon:'wallet' },
+    { title:'Pilih pembayaran', desc:'Bayar via QRIS, VA Bank, atau e-wallet favorit Anda.', icon:'creditcard' },
+    { title:'Doakan & sebar', desc:'Donasi tersalurkan. Ajak teman ikut dalam kebaikan.', icon:'heart' },
+  ]);
+  const eyebrow = cms.eyebrow || 'Cara berdonasi';
+  const heading = cms.heading || 'Mudah · Hanya 60 detik';
+  const sub = cms.sub || 'Donasi via NIATBAIK.ORG bisa dilakukan kapan saja, tanpa perlu daftar akun.';
   return (
     <section id="how" className="py-14 lg:py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="text-center max-w-2xl mx-auto">
-          <div className="text-xs font-bold uppercase tracking-widest text-brand-600">Cara berdonasi</div>
-          <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold text-ink tracking-tight">Mudah · Hanya 60 detik</h2>
-          <p className="mt-2 text-mute">Donasi via NIATBAIK.ORG bisa dilakukan kapan saja, tanpa perlu daftar akun.</p>
+          <div className="text-xs font-bold uppercase tracking-widest text-brand-600">{eyebrow}</div>
+          <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold text-ink tracking-tight">{heading}</h2>
+          <p className="mt-2 text-mute">{sub}</p>
         </div>
 
         <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {steps.map((s, i) => (
+          {steps.map((s: any, i: number) => (
             <div key={i} className="relative">
               <div className="rounded-2xl bg-white border border-line p-6 hover:border-brand-200 hover:shadow-card transition-all h-full">
-                <div className="h-12 w-12 rounded-xl bg-brand-600 text-white flex items-center justify-center"><Icon name={s.icon} size={22}/></div>
-                <div className="mt-4 text-xs font-bold text-mute">LANGKAH {s.n}</div>
-                <div className="font-extrabold text-ink text-lg mt-0.5">{s.t}</div>
-                <div className="mt-1.5 text-sm text-mute leading-relaxed">{s.d}</div>
+                <div className="h-12 w-12 rounded-xl bg-brand-600 text-white flex items-center justify-center"><Icon name={s.icon || 'heart'} size={22}/></div>
+                <div className="mt-4 text-xs font-bold text-mute">LANGKAH {i + 1}</div>
+                <div className="font-extrabold text-ink text-lg mt-0.5">{s.title}</div>
+                <div className="mt-1.5 text-sm text-mute leading-relaxed">{s.desc}</div>
               </div>
-              {i < 3 && <div className="hidden lg:block absolute top-1/2 -right-3 -translate-y-1/2 text-mute"><Icon name="arrowR" size={20}/></div>}
+              {i < steps.length - 1 && <div className="hidden lg:block absolute top-1/2 -right-3 -translate-y-1/2 text-mute"><Icon name="arrowR" size={20}/></div>}
             </div>
           ))}
         </div>
@@ -493,20 +511,26 @@ export function HowToSection() {
 // -------- Testimonials --------
 export function TestimonialsSection() {
   const totals = useDataStore((s) => s.totals);
-  const items = [
-    { n:'Ibu Sari, Bekasi',   r:'⭐⭐⭐⭐⭐', t:'Alhamdulillah, donasi saya untuk Aira dilaporkan transparan. Bahkan saya dikirim foto setelah operasinya. Sangat amanah.', tone:'#2E4191' },
-    { n:'Pak Burhan, Bandung', r:'⭐⭐⭐⭐⭐', t:'Sudah 3 tahun rutin sedekah lewat NIATBAIK. Donasi via QRIS, cepat dan langsung dapat kuitansi via WhatsApp.', tone:'#38B6FF' },
-    { n:'Hamba Allah',         r:'⭐⭐⭐⭐⭐', t:'Donasi anonim juga dilayani. Yang penting niatnya baik, sampai ke yang membutuhkan. Terima kasih NIATBAIK.', tone:'#16A34A' },
-    { n:'Andini, Surabaya',    r:'⭐⭐⭐⭐⭐', t:'Saya jadi fundraiser di NIATBAIK. Mudah dipakai, dan komisi bisa saya donasikan lagi. Berkah!', tone:'#F59E0B' },
-  ];
+  const cms = useDataStore((s) => s.siteContent)?.testimonials || {};
+  const items = (Array.isArray(cms.items) && cms.items.length ? cms.items : [
+    { name:'Ibu Sari, Bekasi',   rating:'⭐⭐⭐⭐⭐', quote:'Alhamdulillah, donasi saya untuk Aira dilaporkan transparan. Bahkan saya dikirim foto setelah operasinya. Sangat amanah.', color:'#2E4191' },
+    { name:'Pak Burhan, Bandung', rating:'⭐⭐⭐⭐⭐', quote:'Sudah 3 tahun rutin sedekah lewat NIATBAIK. Donasi via QRIS, cepat dan langsung dapat kuitansi via WhatsApp.', color:'#38B6FF' },
+    { name:'Hamba Allah',         rating:'⭐⭐⭐⭐⭐', quote:'Donasi anonim juga dilayani. Yang penting niatnya baik, sampai ke yang membutuhkan. Terima kasih NIATBAIK.', color:'#16A34A' },
+    { name:'Andini, Surabaya',    rating:'⭐⭐⭐⭐⭐', quote:'Saya jadi fundraiser di NIATBAIK. Mudah dipakai, dan komisi bisa saya donasikan lagi. Berkah!', color:'#F59E0B' },
+  ]);
+  const eyebrow = cms.eyebrow || 'Apa kata donatur';
+  const heading = (totals.donors > 0)
+    ? interpolate(cms.headingTpl, { donors: fmtNum(totals.donors) }) || `Bergabung bersama ${fmtNum(totals.donors)}+ donatur Indonesia`
+    : (cms.headingFallback || 'Bergabung bersama para donatur Indonesia');
+  const sub = cms.sub || 'Cerita nyata dari donatur yang mempercayakan niat baiknya melalui NIATBAIK.ORG.';
   return (
     <section id="testi" className="py-14 lg:py-20 bg-brand-700 text-white relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 lg:px-6 relative">
         <div className="grid lg:grid-cols-2 gap-10 items-start">
           <div>
-            <div className="text-xs font-bold uppercase tracking-widest text-sky2-100">Apa kata donatur</div>
-            <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold tracking-tight">{(totals.donors > 0) ? `Bergabung bersama ${fmtNum(totals.donors)}+ donatur Indonesia` : 'Bergabung bersama para donatur Indonesia'}</h2>
-            <p className="mt-3 text-white/85">Cerita nyata dari donatur yang mempercayakan niat baiknya melalui NIATBAIK.ORG.</p>
+            <div className="text-xs font-bold uppercase tracking-widest text-sky2-100">{eyebrow}</div>
+            <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold tracking-tight">{heading}</h2>
+            <p className="mt-3 text-white/85">{sub}</p>
             <div className="mt-6 grid grid-cols-3 gap-3 max-w-md">
               <div><div className="text-2xl font-extrabold">{fmtNum(totals.donors || 0)}</div><div className="text-xs text-white/75">Donatur</div></div>
               <div><div className="text-2xl font-extrabold">{fmtIDRShort(totals.raised || 0)}</div><div className="text-xs text-white/75">Tersalurkan</div></div>
@@ -514,13 +538,13 @@ export function TestimonialsSection() {
             </div>
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
-            {items.map((t, i) => (
+            {items.map((t: any, i: number) => (
               <div key={i} className="rounded-2xl bg-white/10 backdrop-blur border border-white/15 p-5">
-                <div className="text-amber-300 text-sm">{t.r}</div>
-                <p className="mt-3 text-sm text-white/90 leading-relaxed">"{t.t}"</p>
+                <div className="text-amber-300 text-sm">{t.rating || '⭐⭐⭐⭐⭐'}</div>
+                <p className="mt-3 text-sm text-white/90 leading-relaxed">"{t.quote}"</p>
                 <div className="mt-4 flex items-center gap-2">
-                  <div className="h-9 w-9 rounded-full flex items-center justify-center font-bold text-white text-sm" style={{ background: t.tone }}>{t.n[0]}</div>
-                  <div className="text-sm font-bold">{t.n}</div>
+                  <div className="h-9 w-9 rounded-full flex items-center justify-center font-bold text-white text-sm" style={{ background: t.color || '#2E4191' }}>{(t.name || '?')[0]}</div>
+                  <div className="text-sm font-bold">{t.name}</div>
                 </div>
               </div>
             ))}
@@ -533,30 +557,33 @@ export function TestimonialsSection() {
 
 // -------- FAQ --------
 export function FAQ() {
-  const items = [
-    { q:'Apakah donasi saya terverifikasi dan aman?', a:'Setiap campaign di NIATBAIK.ORG melalui proses verifikasi tim kami: kunjungan lapangan, dokumen pengaju, hingga update rutin. Donatur juga menerima laporan transparan tiap minggu.' },
-    { q:'Bagaimana saya tahu donasi sudah diterima?', a:'Setelah pembayaran sukses, Anda akan menerima notifikasi & kuitansi otomatis via WhatsApp dan email. Riwayat donasi juga tampil di halaman campaign.' },
-    { q:'Apa metode pembayaran yang didukung?', a:'QRIS, Virtual Account BCA/Mandiri/BNI/BRI, GoPay, OVO, Dana, ShopeePay, hingga kartu kredit. Tinggal pilih yang paling nyaman.' },
-    { q:'Apakah saya bisa donasi sebagai Hamba Allah?', a:'Tentu. Centang "Donasi sebagai anonim" pada form, dan nama Anda akan tampil sebagai Hamba Allah di halaman publik.' },
-    { q:'Apakah donasi saya bisa dijadikan zakat?', a:'Ya. Campaign tertentu dapat menjadi penyaluran zakat. Anda akan mendapatkan bukti penyaluran zakat untuk pengurang pajak.' },
-    { q:'Apakah ada minimum donasi?', a:'Minimum donasi Rp 10.000. Tidak ada batas maksimum.' },
-  ];
+  const cms = useDataStore((s) => s.siteContent)?.faq || {};
+  const items = (Array.isArray(cms.items) && cms.items.length ? cms.items : [
+    { question:'Apakah donasi saya terverifikasi dan aman?', answer:'Setiap campaign di NIATBAIK.ORG melalui proses verifikasi tim kami: kunjungan lapangan, dokumen pengaju, hingga update rutin. Donatur juga menerima laporan transparan tiap minggu.' },
+    { question:'Bagaimana saya tahu donasi sudah diterima?', answer:'Setelah pembayaran sukses, Anda akan menerima notifikasi & kuitansi otomatis via WhatsApp dan email. Riwayat donasi juga tampil di halaman campaign.' },
+    { question:'Apa metode pembayaran yang didukung?', answer:'QRIS, Virtual Account BCA/Mandiri/BNI/BRI, GoPay, OVO, Dana, ShopeePay, hingga kartu kredit. Tinggal pilih yang paling nyaman.' },
+    { question:'Apakah saya bisa donasi sebagai Hamba Allah?', answer:'Tentu. Centang "Donasi sebagai anonim" pada form, dan nama Anda akan tampil sebagai Hamba Allah di halaman publik.' },
+    { question:'Apakah donasi saya bisa dijadikan zakat?', answer:'Ya. Campaign tertentu dapat menjadi penyaluran zakat. Anda akan mendapatkan bukti penyaluran zakat untuk pengurang pajak.' },
+    { question:'Apakah ada minimum donasi?', answer:'Minimum donasi Rp 10.000. Tidak ada batas maksimum.' },
+  ]);
+  const eyebrow = cms.eyebrow || 'Pertanyaan umum';
+  const heading = cms.heading || 'Hal-hal yang sering ditanyakan';
   const [open, setOpen] = useState(0);
   return (
     <section id="faq" className="py-14 lg:py-20 bg-white">
       <div className="max-w-3xl mx-auto px-4 lg:px-6">
         <div className="text-center">
-          <div className="text-xs font-bold uppercase tracking-widest text-brand-600">Pertanyaan umum</div>
-          <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold text-ink tracking-tight">Hal-hal yang sering ditanyakan</h2>
+          <div className="text-xs font-bold uppercase tracking-widest text-brand-600">{eyebrow}</div>
+          <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold text-ink tracking-tight">{heading}</h2>
         </div>
         <div className="mt-8 space-y-3">
-          {items.map((f, i) => (
+          {items.map((f: any, i: number) => (
             <div key={i} className={`rounded-2xl border ${open === i ? 'border-brand-200 bg-brand-50/40 shadow-card' : 'border-line bg-white'} transition-all`}>
               <button onClick={() => setOpen(open === i ? -1 : i)} className="w-full px-5 py-4 flex items-center justify-between text-left">
-                <span className="font-bold text-ink">{f.q}</span>
+                <span className="font-bold text-ink">{f.question}</span>
                 <Icon name="chevronD" size={18} className={`text-mute transition-transform ${open === i ? 'rotate-180 text-brand-600' : ''}`}/>
               </button>
-              {open === i && <div className="px-5 pb-4 text-sm text-ink/80 leading-relaxed">{f.a}</div>}
+              {open === i && <div className="px-5 pb-4 text-sm text-ink/80 leading-relaxed">{f.answer}</div>}
             </div>
           ))}
         </div>
@@ -567,17 +594,21 @@ export function FAQ() {
 
 // -------- Final CTA --------
 export function FinalCTA({ onNav }: any) {
+  const cms = useDataStore((s) => s.siteContent)?.final_cta || {};
+  const headline = cms.headline || 'Setiap niat baik, sekecil apapun, berdampak besar.';
+  const sub = cms.sub || 'Mulai donasi sekarang dan jadilah bagian dari kebaikan yang nyata.';
+  const buttonLabel = cms.buttonLabel || 'Donasi Sekarang';
   return (
     <section className="py-14 lg:py-20 bg-bg2">
       <div className="max-w-5xl mx-auto px-4 lg:px-6">
         <div className="relative rounded-3xl bg-brand-600 p-8 lg:p-12 text-white overflow-hidden">
           <div className="relative grid lg:grid-cols-3 gap-6 items-center">
             <div className="lg:col-span-2">
-              <h3 className="text-3xl lg:text-4xl font-extrabold leading-tight">Setiap niat baik, sekecil apapun, berdampak besar.</h3>
-              <p className="mt-3 text-white/85">Mulai donasi sekarang dan jadilah bagian dari kebaikan yang nyata.</p>
+              <h3 className="text-3xl lg:text-4xl font-extrabold leading-tight">{headline}</h3>
+              <p className="mt-3 text-white/85">{sub}</p>
             </div>
             <button onClick={() => onNav('campaign', getFirstCampaign())} className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl text-base font-extrabold bg-white text-brand-600 hover:scale-[1.02] transition-transform shadow-pop">
-              <Icon name="heart" size={20}/> Donasi Sekarang
+              <Icon name="heart" size={20}/> {buttonLabel}
             </button>
           </div>
         </div>
@@ -593,11 +624,25 @@ export function Footer() {
   // plain non-clickable text instead of deceptive href="#" dead links — on a donation
   // site, a "Kebijakan privasi" link that goes nowhere erodes trust (and is a legal gap).
   const publicSettings = useDataStore((s) => s.publicSettings);
+  const cms = useDataStore((s) => s.siteContent)?.footer || {};
   const cs = pickCsContact();
   const waNum = normalizeWa((cs && cs.phone) || (publicSettings && publicSettings.whatsapp_admin) || '');
   const kontakHref = waNum ? `https://wa.me/${waNum}` : '';
 
-  // Render an anchor when an in-page section exists, else dim plain text ("coming soon").
+  const blurb = cms.blurb || 'Platform donasi & crowdfunding terpercaya. Salurkan zakat, sedekah, wakaf, dan donasi kemanusiaan dengan mudah.';
+  const waCtaLabel = cms.waCtaLabel || 'Hubungi kami via WhatsApp';
+  const copyright = cms.copyright || '© 2026 Yayasan NIATBAIK.';
+  const sslNote = cms.sslNote || 'Koneksi terenkripsi (SSL)';
+  // Default columns mirror the previous hardcoded footer. The "wa" sentinel href resolves
+  // to the live WhatsApp contact link.
+  const columns = (Array.isArray(cms.columns) && cms.columns.length ? cms.columns : [
+    { title: 'Platform', links: [{ label: 'Donasi', href: '#campaigns' }, { label: 'Fundraiser', href: '#how' }, { label: 'Laporan transparansi', href: '#testi' }] },
+    { title: 'Tentang', links: [{ label: 'Profil Yayasan' }, { label: 'Disklaimer', href: '/disklaimer' }] },
+    { title: 'Bantuan', links: [{ label: 'FAQ', href: '#faq' }, { label: 'Kontak', href: 'wa' }, { label: 'Syarat & ketentuan', href: '/syarat-ketentuan' }, { label: 'Kebijakan privasi', href: '/kebijakan-privasi' }] },
+  ]);
+  const resolveHref = (h?: string) => (h === 'wa' ? kontakHref : h);
+
+  // Render an anchor when a destination exists, else dim plain text ("coming soon").
   const FLink = ({ href, children }: any) => href
     ? <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noopener noreferrer" className="hover:text-white cursor-pointer">{children}</a>
     : <span className="text-white/45" title="Segera hadir">{children}</span>;
@@ -611,43 +656,29 @@ export function Footer() {
           <div className="inline-flex items-center rounded-xl bg-white px-3 py-2 shadow-sm">
             {publicSettings?.logo ? <img src={mediaUrl(publicSettings.logo)} alt="NIATBAIK.ORG" className="h-7"/> : <Logo size={28}/>}
           </div>
-          <p className="mt-4 text-sm text-white/70 max-w-sm leading-relaxed">Platform donasi & crowdfunding terpercaya. Salurkan zakat, sedekah, wakaf, dan donasi kemanusiaan dengan mudah.</p>
+          <p className="mt-4 text-sm text-white/70 max-w-sm leading-relaxed">{blurb}</p>
           {kontakHref && (
             <a href={kontakHref} target="_blank" rel="noopener noreferrer"
               className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-white/80 hover:text-white">
-              <Icon name="wa" size={16}/> Hubungi kami via WhatsApp
+              <Icon name="wa" size={16}/> {waCtaLabel}
             </a>
           )}
         </div>
-        <div>
-          <div className="font-bold mb-3">Platform</div>
-          <ul className="space-y-2 text-sm text-white/75">
-            <li><FLink href="#campaigns">Donasi</FLink></li>
-            <li><FLink href="#how">Fundraiser</FLink></li>
-            <li><FLink href="#testi">Laporan transparansi</FLink></li>
-          </ul>
-        </div>
-        <div>
-          <div className="font-bold mb-3">Tentang</div>
-          <ul className="space-y-2 text-sm text-white/75">
-            <li><FLink>Profil Yayasan</FLink></li>
-            <li><FLink href="/disklaimer">Disklaimer</FLink></li>
-          </ul>
-        </div>
-        <div>
-          <div className="font-bold mb-3">Bantuan</div>
-          <ul className="space-y-2 text-sm text-white/75">
-            <li><FLink href="#faq">FAQ</FLink></li>
-            <li><FLink href={kontakHref}>Kontak</FLink></li>
-            <li><FLink href="/syarat-ketentuan">Syarat & ketentuan</FLink></li>
-            <li><FLink href="/kebijakan-privasi">Kebijakan privasi</FLink></li>
-          </ul>
-        </div>
+        {columns.map((col: any, ci: number) => (
+          <div key={ci}>
+            <div className="font-bold mb-3">{col.title}</div>
+            <ul className="space-y-2 text-sm text-white/75">
+              {(col.links || []).map((lnk: any, li: number) => (
+                <li key={li}><FLink href={resolveHref(lnk.href)}>{lnk.label}</FLink></li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
       <div className="max-w-7xl mx-auto px-4 lg:px-6 mt-10 pt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs text-white/55">
-        <div>© 2026 Yayasan NIATBAIK.</div>
+        <div>{copyright}</div>
         <div className="flex gap-3">
-          <span className="inline-flex items-center gap-1.5"><Icon name="shield" size={14}/> Koneksi terenkripsi (SSL)</span>
+          <span className="inline-flex items-center gap-1.5"><Icon name="shield" size={14}/> {sslNote}</span>
         </div>
       </div>
     </footer>
@@ -2053,7 +2084,7 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
         {successWaHref ? (
           <>
             <div className="mt-4 text-sm font-semibold text-ink">
-              Satu langkah lagi — konfirmasi ke CS{assignedCs && assignedCs.name ? ` (${assignedCs.name})` : ''}
+              Satu langkah lagi — konfirmasi ke tim CS NIATBAIK
             </div>
             {waCountdown != null && (
               <div className="mt-1 text-[12px] text-mute leading-relaxed">
@@ -2243,7 +2274,8 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
         const fallback = (psPublic && psPublic.whatsapp_admin) || '';
         const num = normalizeWa((assignedCs && assignedCs.phone) || fallback);
         if (!num) return null;
-        const label = assignedCs && assignedCs.name ? `Konfirmasi ke WhatsApp (${assignedCs.name})` : 'Konfirmasi ke WhatsApp';
+        // Generic label — never expose the individual CS member's name publicly.
+        const label = 'Konfirmasi ke WhatsApp';
         const msg = encodeURIComponent(`Halo admin, saya sudah donasi. Invoice: ${invoice.invoice_number}, nominal: ${fmtIDR(total)}. Mohon konfirmasi.`);
         const waHref = `https://wa.me/${num}?text=${msg}`;
         return (
@@ -2371,12 +2403,24 @@ function FundraiserSection({ c }: any) {
   // undefined = detail not fetched yet → render nothing (avoids "Belum ada" flash).
   if (!Array.isArray(c?.fundraisers)) return null;
   const list = c.fundraisers;
+  // Greet a visitor who arrived via a fundraiser's ?ref=<username> link by showing the
+  // referrer's name (matches username, falls back to the legacy uuid user-id ref).
+  const ref = useMemo(() => {
+    try { return (new URLSearchParams(window.location.search).get('ref') || '').toLowerCase(); } catch { return ''; }
+  }, []);
+  const referrer = ref ? (list.find((f: any) => (f.username || '').toLowerCase() === ref || String(f.user_id || '').toLowerCase() === ref)) : null;
   return (
     <div className="mt-6 rounded-2xl border border-line bg-white p-5">
       <div className="flex items-center gap-2 font-bold text-ink">
         <Icon name="handshake" size={18} className="text-brand-600"/> Fundraiser
         {list.length > 0 && <span className="text-mute font-semibold">({list.length})</span>}
       </div>
+      {referrer && (
+        <div className="mt-2 flex items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 px-3 py-2 text-sm">
+          <Icon name="heart" size={14} className="text-emerald-600 dark:text-emerald-400 shrink-0"/>
+          <span className="text-ink">Anda direkomendasikan oleh <b className="text-emerald-700 dark:text-emerald-400">{referrer.name}</b> 🤝</span>
+        </div>
+      )}
       {list.length === 0 ? (
         <div className="mt-4 flex flex-col items-center text-center py-4">
           <div className="h-16 w-16 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center">

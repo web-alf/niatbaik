@@ -276,6 +276,7 @@ export const api = {
   updatePaymentStatus(id: string | number, data: unknown) { return this.put('/admin/payment-statuses/' + id, data); },
   deletePaymentStatus(id: string | number) { return this.del('/admin/payment-statuses/' + id); },
   publicSettings() { return this.get<any>('/settings/public'); },
+  publicSiteContent() { return this.get<any>('/site-content/public'); },
   publicPaymentMethods() { return this.get<any[]>('/payment-methods/public'); },
   publicStats() { return this.get<any>('/stats'); },
 
@@ -329,6 +330,8 @@ export const api = {
   // Settings
   settings() { return this.get<any>('/settings'); },
   updateSettings(data: unknown) { return this.put('/settings', data); },
+  siteContent() { return this.get<any>('/site-content'); },
+  updateSiteContent(key: string, data: unknown) { return this.put('/site-content/' + key, data); },
   testEmail(to: string) { return this.post('/settings/test-email', { to }); },
   mootaBalance() { return this.get<any>('/settings/moota-balance'); },
   mootaAccounts() { return this.get<any>('/settings/moota-accounts'); },

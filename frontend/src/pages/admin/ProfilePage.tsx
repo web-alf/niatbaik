@@ -226,7 +226,7 @@ export default function ProfilePage() {
     if (Object.keys(e).length > 0) { showToast('Periksa kembali password Anda'); return; }
     // Confirm with the API before claiming success (wrong old password → error).
     let res: any;
-    try { res = await api?.changePassword?.({ old_password: pwd.old, new_password: pwd.neu }); }
+    try { res = await api?.changePassword?.({ current_password: pwd.old, new_password: pwd.neu, password_confirm: pwd.con }); }
     catch (err: any) { setPwdErrors({ old: err?.message || 'Password lama salah' }); showToast('Gagal mengubah password'); return; }
     if (res && res.success === false) { setPwdErrors({ old: res.message || 'Password lama salah' }); showToast('Gagal mengubah password'); return; }
     setPwd({ old:'', neu:'', con:'' });
@@ -319,7 +319,7 @@ export default function ProfilePage() {
                   <>
                     <div className="mt-1 flex items-center rounded-lg border border-line bg-white focus-within:border-brand-600 overflow-hidden">
                       <span className="pl-3 text-mute text-sm">?ref=</span>
-                      <input value={form.username}
+                      <input type="text" value={form.username}
                         onChange={(e: any) => setForm({ ...form, username: e.target.value.toLowerCase() })}
                         placeholder="username" className="flex-1 px-2 h-10 outline-none text-sm text-ink"/>
                     </div>

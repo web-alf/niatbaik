@@ -18,11 +18,11 @@ export interface NavItem {
 
 // path is the React Router URL; key is the legacy setView() id (kept for matching).
 export const NAV: NavItem[] = [
-  { key: 'dashboard',     label: 'Dashboard',        icon: 'home',       path: '/dashboard',     roles: ['Admin', 'CS', 'Advertiser'] },
-  { key: 'campaigns',     label: 'Campaigns',        icon: 'megaphone',  path: '/campaigns',     roles: ['Admin', 'CS', 'Advertiser'] },
-  { key: 'earnings',      label: 'Perolehan Campaign', icon: 'wallet',   path: '/earnings',      roles: ['Admin', 'CS', 'Advertiser'] },
-  { key: 'analytics',     label: 'Analytics',        icon: 'chart',      path: '/analytics',     roles: ['Admin', 'Advertiser'] },
-  { key: 'data-studio',   label: 'Data Studio',      icon: 'sparkle',    path: '/data-studio',   roles: ['Admin', 'Advertiser'] },
+  { key: 'dashboard',     label: 'Dashboard',        icon: 'home',       path: '/dashboard',     roles: ['Admin', 'CS', 'Advertiser', 'Fundraiser'] },
+  { key: 'campaigns',     label: 'Campaigns',        icon: 'megaphone',  path: '/campaigns',     roles: ['Admin', 'CS', 'Advertiser', 'Fundraiser'] },
+  { key: 'earnings',      label: 'Perolehan Campaign', icon: 'wallet',   path: '/earnings',      roles: ['Admin', 'CS', 'Advertiser', 'Fundraiser'] },
+  { key: 'analytics',     label: 'Analytics',        icon: 'chart',      path: '/analytics',     roles: ['Admin', 'Advertiser', 'Fundraiser'] },
+  { key: 'data-studio',   label: 'Data Studio',      icon: 'sparkle',    path: '/data-studio',   roles: ['Admin', 'Advertiser', 'Fundraiser'] },
   { key: 'inbox',         label: 'CS Inbox',         icon: 'inbox',      path: '/inbox',         roles: ['Admin', 'CS'] },
   { key: 'fundraiser',    label: 'Fundraiser',       icon: 'handshake',  path: '/fundraiser',    roles: ['Admin', 'CS'] },
   // Fundraiser portal — the fundraiser's OWN view (referral links, stats, commission,

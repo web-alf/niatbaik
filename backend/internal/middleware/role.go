@@ -32,13 +32,17 @@ func RequireCS() echo.MiddlewareFunc {
 	return RequireRole("admin", "cs")
 }
 
+// RequireAdvertiser gates the marketing/analytics surface. Fundraiser is included
+// because the fundraiser panel mirrors the advertiser panel (product decision), so it
+// reads the same analytics/data-studio/pixel endpoints.
 func RequireAdvertiser() echo.MiddlewareFunc {
-	return RequireRole("admin", "advertiser")
+	return RequireRole("admin", "advertiser", "fundraiser")
 }
 
-// RequireStaff allows any internal staff role (admin, cs, advertiser) but still
-// blocks donors/fundraisers. Used for campaign management: CS operates campaigns,
-// Advertiser needs read+edit for per-campaign pixel/tracking config.
+// RequireStaff allows the internal staff roles plus fundraiser. Fundraiser is included
+// so its advertiser-style panel can read campaigns + invoices. Used for campaign
+// management: CS operates campaigns, Advertiser needs read+edit for per-campaign
+// pixel/tracking config, Fundraiser mirrors advertiser access.
 func RequireStaff() echo.MiddlewareFunc {
-	return RequireRole("admin", "cs", "advertiser")
+	return RequireRole("admin", "cs", "advertiser", "fundraiser")
 }

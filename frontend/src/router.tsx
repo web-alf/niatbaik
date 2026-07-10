@@ -46,7 +46,7 @@ import TrashPage from '@/pages/admin/TrashPage';
 // Analytics splits by role: Advertiser sees a different page (was app.jsx:778).
 function AnalyticsRoute() {
   const { role } = useAuth();
-  return role === 'Advertiser' ? <AdvertiserPage /> : <AnalyticsPage />;
+  return role === 'Advertiser' || role === 'Fundraiser' ? <AdvertiserPage /> : <AnalyticsPage />;
 }
 
 function NotFound() {
@@ -90,8 +90,8 @@ export const router = createBrowserRouter([
               { path: '/earnings', element: <CampaignEarningsPage /> },
               { path: '/campaigns/new', element: <RequireRole roles={['Admin', 'CS', 'Advertiser']}><CampaignEditorPage /></RequireRole> },
               { path: '/campaigns/:id/edit', element: <RequireRole roles={['Admin', 'CS', 'Advertiser']}><CampaignEditorPage /></RequireRole> },
-              { path: '/analytics', element: <RequireRole roles={['Admin', 'Advertiser']}><AnalyticsRoute /></RequireRole> },
-              { path: '/data-studio', element: <RequireRole roles={['Admin', 'Advertiser']}><DataStudioPage /></RequireRole> },
+              { path: '/analytics', element: <RequireRole roles={['Admin', 'Advertiser', 'Fundraiser']} allowFundraiser><AnalyticsRoute /></RequireRole> },
+              { path: '/data-studio', element: <RequireRole roles={['Admin', 'Advertiser', 'Fundraiser']} allowFundraiser><DataStudioPage /></RequireRole> },
               { path: '/inbox', element: <RequireRole roles={['Admin', 'CS']}><CsInboxPage /></RequireRole> },
               { path: '/fundraiser', element: <RequireRole roles={['Admin', 'CS']}><FundraiserPage /></RequireRole> },
               { path: '/fundraiser-portal', element: <RequireRole roles={['Fundraiser', 'Admin']} allowFundraiser><FundraiserPortalPage /></RequireRole> },

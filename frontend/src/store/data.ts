@@ -149,10 +149,10 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
   async refreshAdmin(role?: string) {
     const canAdmin = !role || role === 'Admin';
     const canCS = !role || role === 'Admin' || role === 'CS';
-    // Fundraiser is a partner role with its own portal — the dashboard/chart/transaction
-    // reads are admin+cs+advertiser only, so gate them too (fundraiser boot would 403 the
-    // whole batch otherwise). A fundraiser only needs profile + notifications here.
-    const canStaff = !role || role === 'Admin' || role === 'CS' || role === 'Advertiser';
+    // Fundraiser now gets the advertiser-style dashboard (per product decision), so it
+    // needs the same dashboard/chart/invoice reads as staff. Backend read guards were
+    // widened to include fundraiser accordingly.
+    const canStaff = !role || role === 'Admin' || role === 'CS' || role === 'Advertiser' || role === 'Fundraiser';
     const [txRes, notifRes, fundraiserRes, usersRes, settingsRes, profileRes, invRes,
       chartRes, statsRes, pmChartRes, tsChartRes, pmListRes, trashRes] = await Promise.all([
       canStaff ? safe(() => api.recentTransactions(48)) : Promise.resolve(null),
@@ -202,7 +202,7 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
     // Advertiser analytics/Data-Studio aren't part of the batch above, so a realtime
     // mutation (new paid donation) wouldn't repaint the advertiser dashboard's aggregate
     // cards. Refresh them alongside for admin/advertiser so the numbers stay live.
-    if (!role || role === 'Admin' || role === 'Advertiser') {
+    if (!role || role === 'Admin' || role === 'Advertiser' || role === 'Fundraiser') {
       get().refreshAnalytics();
     }
   },
@@ -260,7 +260,7 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
       tasks.push(get().refreshAdmin(role));
       // Analytics + Data Studio are admin+advertiser only — skip for CS/Fundraiser (would
       // 403). When role is unknown (initial boot) still fire; safe() swallows any 403.
-      if (!role || role === 'Admin' || role === 'Advertiser') {
+      if (!role || role === 'Admin' || role === 'Advertiser' || role === 'Fundraiser') {
         tasks.push(get().refreshAnalytics(), get().refreshDataStudio());
       }
     }

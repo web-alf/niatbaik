@@ -174,7 +174,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 
 	// Dashboard (admin + cs + advertiser) — staff only, not regular donors/fundraisers
 	dashboard := protected.Group("/dashboard")
-	dashboard.Use(middleware.RequireRole("admin", "cs", "advertiser"))
+	dashboard.Use(middleware.RequireRole("admin", "cs", "advertiser", "fundraiser"))
 	dashboard.GET("/stats", dashboardHandler.GetStats)
 	dashboard.GET("/chart/daily", dashboardHandler.GetDailyChart)
 	dashboard.GET("/chart/payment-methods", dashboardHandler.GetPaymentMethodChart)

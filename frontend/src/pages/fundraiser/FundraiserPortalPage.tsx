@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import { fmtIDR, fmtNum } from '@/lib/format';
+import { exportCSV, exportExcel } from '@/lib/export';
 import { useUiStore } from '@/store/ui';
 import { useAuth } from '@/context/AuthContext';
 import { PageHeader, StatCard, Card, Btn, Icon, Modal } from '@/components';
@@ -45,11 +46,33 @@ export default function FundraiserPortalPage() {
     showToast('Link referral disalin');
   };
 
+  // Export the per-campaign performance aggregate (no donor PII — fundraisers only see
+  // their own totals, matching the /fundraisers/me scope).
+  const exportPerf = (kind: 'csv' | 'xls') => {
+    const rows = fundraisers.map((f: any) => ({
+      campaign: f.campaign?.title || '',
+      terkumpul: f.total_raised || 0,
+      donatur: f.total_donors || 0,
+      klik: f.total_clicks || 0,
+      donasi_dibuat: f.invoices_created || 0,
+      donasi_lunas: f.invoices_paid || 0,
+    }));
+    if (!rows.length) { showToast('Belum ada data untuk diekspor'); return; }
+    if (kind === 'csv') exportCSV(rows, 'niatbaik_fundraiser');
+    else exportExcel(rows, 'niatbaik_fundraiser', undefined, 'Fundraiser');
+    showToast(`${rows.length} baris diekspor ke ${kind.toUpperCase()}`);
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader title={`Halo, ${(user?.name || 'Fundraiser').split(' ')[0]} 👋`}
         subtitle="Sebarkan link referral, pantau donasi, dan cairkan komisimu."
-        actions={<Btn tone="brand" icon="wallet" onClick={() => setShowPayout(true)} disabled={bonusBalance < 10000}>Cairkan Komisi</Btn>}
+        actions={<>
+          <Btn variant="outline" tone="ink" icon="refresh" onClick={() => setVer((v) => v + 1)}>Refresh</Btn>
+          <Btn variant="outline" tone="ink" icon="download" onClick={() => exportPerf('csv')}>CSV</Btn>
+          <Btn variant="outline" tone="ink" icon="download" onClick={() => exportPerf('xls')}>Excel</Btn>
+          <Btn tone="brand" icon="wallet" onClick={() => setShowPayout(true)} disabled={bonusBalance < 10000}>Cairkan Komisi</Btn>
+        </>}
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

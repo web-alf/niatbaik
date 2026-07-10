@@ -382,16 +382,34 @@ function CSDashboard() {
   const navigate = useNavigate();
   const openInvoice = useUiStore((s) => s.openInvoice);
   const showToast = useUiStore((s) => s.showToast);
-  const S = useDataStore((s) => s.dashboardStats) || {};
+  const [range, setRange] = useSharedDateRange();
 
-  // Full export — same columns as the admin dashboard (unified across roles).
-  const exportLimited = (kind: 'csv' | 'xls') => {
-    const rows = txnExportRows(txns);
-    if (!rows.length) { showToast('Tidak ada data untuk diekspor'); return; }
-    if (kind === 'csv') exportCSV(rows, 'niatbaik_transaksi');
-    else exportExcel(rows, 'niatbaik_transaksi', undefined, 'Transaksi');
+  // KPIs are DERIVED from the loaded invoices, not the backend /dashboard/stats payload —
+  // that CS payload only carries {total_transactions, total_leads, today_raised}, so the
+  // four cards used to read absent keys (pending_followup/completed_today/wa_sent/
+  // pending_amount) and always render 0. Computing here off the same list the queue/leads
+  // use keeps every number real and reactive to the date range.
+  const kpi = useMemo(() => {
+    const isToday = (v: unknown) => { const d = parseTxnDate(v); if (!d) return false; const n = new Date(); return d.toDateString() === n.toDateString(); };
+    const inRange = filterByRange(txns as any[], range);
+    let leads = 0, pending = 0, pendingAmount = 0, paidToday = 0;
+    for (const t of inRange) {
+      leads++;
+      if (t.status === 'Pending') { pending++; pendingAmount += t.amount || 0; }
+    }
+    for (const t of txns) if (t.status === 'Paid' && isToday(t.date)) paidToday++;
+    return { leads, pending, pendingAmount, paidToday };
+  }, [txns, range]);
+
+  const exportQueue = (kind: 'csv' | 'xls') => {
+    const rows = txnExportRows(filterByRange(txns as any[], range));
+    if (!rows.length) { showToast('Tidak ada data pada rentang tanggal'); return; }
+    if (kind === 'csv') exportCSV(rows, 'niatbaik_transaksi', range);
+    else exportExcel(rows, 'niatbaik_transaksi', range, 'Transaksi');
     showToast(`${rows.length} baris diekspor ke ${kind.toUpperCase()}`);
   };
+
+  const queue = useMemo(() => filterByRange(txns as any[], range).filter((t: any) => t.status !== 'Paid').slice(0, 8), [txns, range]);
 
   return (
     <div className="space-y-6">
@@ -399,25 +417,30 @@ function CSDashboard() {
         title={`Selamat datang, ${(user?.name || 'CS').split(' ')[0]} 👋`}
         subtitle="Dashboard Customer Service · prioritaskan donatur yang menunggu follow-up."
         actions={<>
-          <DateRangePill/>
-          <Btn variant="outline" tone="ink" icon="download" onClick={() => exportLimited('csv')}>CSV</Btn>
-          <Btn tone="ink" icon="download" onClick={() => exportLimited('xls')}>Excel</Btn>
+          <DateRangePill value={range} onChange={setRange}/>
+          <Btn variant="outline" tone="ink" icon="download" onClick={() => exportQueue('csv')}>CSV</Btn>
+          <Btn tone="ink" icon="download" onClick={() => exportQueue('xls')}>Excel</Btn>
         </>}
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon="inbox"   label="Menunggu follow-up" value={String(S.pending_followup || 0)} accent="warn" sub="donatur pending"/>
-        <StatCard icon="check"   label="Selesai hari ini"   value={String(S.completed_today || 0)} accent="ok" sub="follow-up tuntas"/>
-        <StatCard icon="wa"      label="Pesan WA terkirim"  value={String(S.wa_sent || 0)} accent="sky" sub="bulan ini"/>
-        <StatCard icon="creditcard" label="Pending payment" value={fmtIDRShort(S.pending_amount || 0)} accent="bad" sub="butuh ditindaklanjuti"/>
+        <StatCard icon="target"     label="Total Lead"        value={fmtNum(kpi.leads)} accent="brand" sub="pada rentang tanggal"/>
+        <StatCard icon="inbox"      label="Menunggu follow-up" value={fmtNum(kpi.pending)} accent="warn" sub="donatur pending"/>
+        <StatCard icon="check"      label="Lunas hari ini"    value={fmtNum(kpi.paidToday)} accent="ok" sub="donasi terkonfirmasi"/>
+        <StatCard icon="creditcard" label="Nilai pending"     value={fmtIDRShort(kpi.pendingAmount)} accent="bad" sub="butuh ditindaklanjuti"/>
       </div>
+
+      {/* Full lead workspace — CS is authorized to toggle payment + tag quality. */}
+      <LeadsSection onOpen={openInvoice} />
 
       <Card className="p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="font-bold text-ink">Antrian Follow-up</div>
           <Btn size="sm" variant="ghost" tone="ink" iconRight="arrowR" onClick={() => navigate('/inbox')}>Buka inbox</Btn>
         </div>
-        <TxnTable rows={txns.filter((t: any) => t.status !== 'Paid').slice(0,8)} onOpen={openInvoice}/>
+        {queue.length === 0
+          ? <div className="py-8 text-center text-sm text-mute">Tidak ada antrian pada rentang tanggal ini.</div>
+          : <TxnTable rows={queue} onOpen={openInvoice}/>}
       </Card>
     </div>
   );
@@ -492,9 +515,10 @@ function TxnTable({
 // Columns: No | Nama Donatur | Whatsapp | Donasi | Program | Payment (toggle) | Status
 // (berkualitas/invalid) | Date | Action. Filterable by campaign + date. Reads ?campaign=<id>
 // from the URL so a campaign hero-click in /campaigns deep-links here pre-filtered.
-function LeadsSection({ onOpen }: any) {
+export function LeadsSection({ onOpen, readOnly = false, leads: leadsProp = null, eyebrow = 'Leads', title = 'Daftar Lead Donasi', emptyText = 'Tidak ada lead yang cocok dengan filter.' }: any) {
   const showToast = useUiStore((s) => s.showToast);
-  const leads = useDataStore((s) => s.transactions);
+  const storeLeads = useDataStore((s) => s.transactions);
+  const leads = (leadsProp ?? storeLeads) as any[];
   const campaigns = useDataStore((s) => s.campaigns);
   const paymentStatuses = useDataStore((s) => s.paymentStatuses);
   const refreshInvoices = useDataStore((s) => s.refreshInvoices);
@@ -541,6 +565,16 @@ function LeadsSection({ onOpen }: any) {
 
   const clearCampaign = () => { setCampaignId(''); if (urlCampaign) { sp.delete('campaign'); setSp(sp, { replace: true }); } };
 
+  // Export respects the active campaign + date-range + search filter (the full filtered
+  // set, not the current page). Same column set as the transaction export.
+  const exportLeads = (kind: 'csv' | 'xls') => {
+    const rows = txnExportRows(filtered);
+    if (!rows.length) { showToast('Tidak ada lead pada filter'); return; }
+    if (kind === 'csv') exportCSV(rows, 'niatbaik_leads', range);
+    else exportExcel(rows, 'niatbaik_leads', range, 'Leads');
+    showToast(`${rows.length} lead diekspor ke ${kind.toUpperCase()}`);
+  };
+
   const togglePayment = async (lead: any) => {
     if (!lead.uuid) { showToast('UUID invoice tidak tersedia'); return; }
     // Turning a PAID lead back to unpaid does NOT reverse the campaign/commission
@@ -570,9 +604,9 @@ function LeadsSection({ onOpen }: any) {
     <Card className="p-5">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <div className="text-xs font-semibold uppercase tracking-wider text-mute">Leads</div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-mute">{eyebrow}</div>
           <div className="mt-1 font-bold text-ink flex items-center gap-2 flex-wrap">
-            <span>Daftar Lead Donasi</span>
+            <span>{title}</span>
             {campaignId && campaignTitle && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-[11px] font-bold">
                 {campaignTitle}
@@ -585,11 +619,13 @@ function LeadsSection({ onOpen }: any) {
           <SearchInput placeholder="Cari donatur / WA / invoice…" className="w-full sm:w-56" value={q} onChange={setQ}/>
           <Select value={campaignId} onChange={setCampaignId} icon="megaphone" options={campaignOptions} className="w-full sm:w-52"/>
           <DateRangePill value={range} onChange={setRange}/>
+          <Btn variant="outline" tone="ink" size="sm" icon="download" onClick={() => exportLeads('csv')}>CSV</Btn>
+          <Btn tone="ink" size="sm" icon="download" onClick={() => exportLeads('xls')}>Excel</Btn>
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="py-12 text-center text-sm text-mute">Tidak ada lead yang cocok dengan filter.</div>
+        <div className="py-12 text-center text-sm text-mute">{emptyText}</div>
       ) : (
         <>
           <div className="overflow-x-auto -mx-5">
@@ -631,12 +667,16 @@ function LeadsSection({ onOpen }: any) {
                         <div className="max-w-[180px] truncate text-ink/90" title={r.campaign || ''}>{r.campaign || '—'}</div>
                       </td>
                       <td className="py-3 text-center">
-                        <button
-                          onClick={() => togglePayment(r)} disabled={busy}
-                          title={r.isPaid ? 'Lunas — klik untuk tandai belum bayar' : 'Belum bayar — klik untuk tandai lunas'}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${r.isPaid ? 'bg-emerald-500' : 'bg-slate-300'}`}>
-                          <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${r.isPaid ? 'translate-x-5' : 'translate-x-0.5'}`}/>
-                        </button>
+                        {readOnly ? (
+                          <Badge tone={r.isPaid ? 'ok' : 'slate'} size="sm">{r.isPaid ? 'Lunas' : 'Belum'}</Badge>
+                        ) : (
+                          <button
+                            onClick={() => togglePayment(r)} disabled={busy}
+                            title={r.isPaid ? 'Lunas — klik untuk tandai belum bayar' : 'Belum bayar — klik untuk tandai lunas'}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${r.isPaid ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                            <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${r.isPaid ? 'translate-x-5' : 'translate-x-0.5'}`}/>
+                          </button>
+                        )}
                       </td>
                       <td className="py-3 whitespace-nowrap">
                         {r.leadQuality === 'berkualitas'
@@ -649,13 +689,16 @@ function LeadsSection({ onOpen }: any) {
                       <td className="pl-8 pr-5 py-3">
                         <div className="flex items-center gap-2 justify-end">
                           {/* Quality tagging as ONE segmented control (joined pill) so it
-                              reads as a single "set quality" widget, not loose icons. */}
-                          <div className="inline-flex shrink-0 rounded-lg border border-line overflow-hidden">
-                            <button title="Tandai berkualitas" disabled={busy} onClick={() => setQuality(r, r.leadQuality === 'berkualitas' ? '' : 'berkualitas')}
-                              className={`h-8 w-8 inline-flex items-center justify-center disabled:opacity-40 ${r.leadQuality === 'berkualitas' ? 'bg-emerald-500 text-white' : 'text-mute hover:bg-emerald-50 hover:text-emerald-600'}`}><Icon name="check" size={15}/></button>
-                            <button title="Tandai invalid" disabled={busy} onClick={() => setQuality(r, r.leadQuality === 'invalid' ? '' : 'invalid')}
-                              className={`h-8 w-8 inline-flex items-center justify-center border-l border-line disabled:opacity-40 ${r.leadQuality === 'invalid' ? 'bg-rose-500 text-white' : 'text-mute hover:bg-rose-50 hover:text-rose-600'}`}><Icon name="close" size={15}/></button>
-                          </div>
+                              reads as a single "set quality" widget, not loose icons.
+                              Hidden in read-only mode (advertiser/fundraiser view). */}
+                          {!readOnly && (
+                            <div className="inline-flex shrink-0 rounded-lg border border-line overflow-hidden">
+                              <button title="Tandai berkualitas" disabled={busy} onClick={() => setQuality(r, r.leadQuality === 'berkualitas' ? '' : 'berkualitas')}
+                                className={`h-8 w-8 inline-flex items-center justify-center disabled:opacity-40 ${r.leadQuality === 'berkualitas' ? 'bg-emerald-500 text-white' : 'text-mute hover:bg-emerald-50 hover:text-emerald-600'}`}><Icon name="check" size={15}/></button>
+                              <button title="Tandai invalid" disabled={busy} onClick={() => setQuality(r, r.leadQuality === 'invalid' ? '' : 'invalid')}
+                                className={`h-8 w-8 inline-flex items-center justify-center border-l border-line disabled:opacity-40 ${r.leadQuality === 'invalid' ? 'bg-rose-500 text-white' : 'text-mute hover:bg-rose-50 hover:text-rose-600'}`}><Icon name="close" size={15}/></button>
+                            </div>
+                          )}
                           <button title="Lihat detail" onClick={() => onOpen && onOpen(r)} className="h-8 w-8 shrink-0 rounded-lg border border-line inline-flex items-center justify-center text-mute hover:bg-bg2 hover:text-ink"><Icon name="eye" size={15}/></button>
                         </div>
                       </td>

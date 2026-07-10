@@ -249,8 +249,14 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	cs := protected.Group("")
 	cs.Use(middleware.RequireCS())
 
-	cs.GET("/invoices", invoiceHandler.List)
-	cs.GET("/invoices/:id", invoiceHandler.GetDetail)
+	// Invoice READS are staff-wide (admin+cs+advertiser) so the Advertiser dashboard can
+	// show an individual lead table too — advertisers see the same rows, just read-only.
+	// MUTATIONS (status/note/quality) stay CS-only: attribution/ops belong to CS.
+	staffInv := protected.Group("")
+	staffInv.Use(middleware.RequireStaff())
+	staffInv.GET("/invoices", invoiceHandler.List)
+	staffInv.GET("/invoices/:id", invoiceHandler.GetDetail)
+
 	cs.PUT("/invoices/:id/status", invoiceHandler.UpdateStatus)
 	cs.PUT("/invoices/:id/note", invoiceHandler.AddNote)
 	cs.PUT("/invoices/:id/quality", invoiceHandler.UpdateQuality)

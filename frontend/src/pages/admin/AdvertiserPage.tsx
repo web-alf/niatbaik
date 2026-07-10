@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { useDataStore } from '@/store/data';
 import { useUiStore } from '@/store/ui';
 import { fmtNum, fmtIDRShort } from '@/lib/format';
 import { campaignBgStyle } from '@/lib/mappers';
 import { exportCSV, exportExcel } from '@/lib/export';
+import { useSharedDateRange } from '@/lib/date';
+import { LeadsSection } from '@/pages/admin/DashboardPage';
 import { Card, PageHeader, Select, DateRangePill, Btn, StatCard, Badge, LineChart, Icon } from '@/components';
 
 // utm_source values that map to each ad platform (used for the platform filter).
@@ -16,6 +18,12 @@ const PLATFORM_SOURCES: Record<string, string[]> = {
 
 export default function AdvertiserPage() {
   const showToast = useUiStore((s) => s.showToast);
+  const openInvoice = useUiStore((s) => s.openInvoice);
+  const [range, setRange] = useSharedDateRange();
+  const transactions = useDataStore((s) => s.transactions) || [];
+  // Advertiser-attributed leads = invoices carrying a UTM source (channel attribution).
+  // These are the individual rows behind the aggregate cards, shown read-only.
+  const adLeads = useMemo(() => (transactions as any[]).filter((t: any) => (t.utm?.source || '').trim() !== ''), [transactions]);
   const analyticsTraffic = useDataStore((s) => s.analyticsTraffic);
   const trafficSourcesRaw = useDataStore((s) => s.trafficSources);
   const allTraffic = (analyticsTraffic || trafficSourcesRaw || []) as any[];
@@ -78,7 +86,7 @@ export default function AdvertiserPage() {
             {value:'google', label:'Google Ads'},
             {value:'tiktok', label:'TikTok Ads'},
           ]}/>
-          <DateRangePill/>
+          <DateRangePill value={range} onChange={setRange}/>
           <Btn variant="outline" tone="ink" icon="download" onClick={() => exportCosts('csv')}>CSV</Btn>
           <Btn tone="ink" icon="download" onClick={() => exportCosts('xls')}>Excel</Btn>
         </>}
@@ -274,6 +282,11 @@ export default function AdvertiserPage() {
           <iframe src="/" className="w-full h-[60vh] sm:h-[480px] block" title="Landing preview"/>
         </div>
       </Card>
+
+      {/* Individual lead rows behind the aggregate cards (read-only for advertiser). */}
+      <LeadsSection onOpen={openInvoice} readOnly leads={adLeads}
+        eyebrow="Leads Iklan" title="Lead per Kanal (UTM)"
+        emptyText="Belum ada lead ber-UTM pada rentang ini."/>
     </div>
   );
 }

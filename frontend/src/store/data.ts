@@ -161,7 +161,7 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
       canAdmin ? safe(() => api.users('limit=500')) : Promise.resolve(null),
       canAdmin ? safe(() => api.settings()) : Promise.resolve(null),
       safe(() => api.profile()),
-      canCS ? safe(() => api.invoices('limit=500')) : Promise.resolve(null),
+      canStaff ? safe(() => api.invoices('limit=500')) : Promise.resolve(null),
       canStaff ? safe(() => api.dailyChart(30)) : Promise.resolve(null),
       canStaff ? safe(() => api.dashboardStats()) : Promise.resolve(null),
       canStaff ? safe(() => api.paymentMethodChart()) : Promise.resolve(null),
@@ -199,6 +199,12 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
     // this is what makes a change on device A appear on device B without a manual
     // reload (the RealtimeProvider long-poll calls refreshAdmin on a revision change).
     set({ ...patch, adminRev: (get().adminRev || 0) + 1 });
+    // Advertiser analytics/Data-Studio aren't part of the batch above, so a realtime
+    // mutation (new paid donation) wouldn't repaint the advertiser dashboard's aggregate
+    // cards. Refresh them alongside for admin/advertiser so the numbers stay live.
+    if (!role || role === 'Admin' || role === 'Advertiser') {
+      get().refreshAnalytics();
+    }
   },
 
   async refreshInvoices() {

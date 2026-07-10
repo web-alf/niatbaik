@@ -75,6 +75,7 @@ func (h *InvoiceHandler) List(c echo.Context) error {
 	err := pagination.ApplyPagination(query, params).
 		Preload("Campaign").
 		Preload("PaymentMethod").
+		Preload("Referrer").
 		Find(&invoices).Error
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch invoices"))
@@ -94,6 +95,7 @@ func (h *InvoiceHandler) GetDetail(c echo.Context) error {
 	err = h.db.Preload("Campaign").
 		Preload("PaymentMethod").
 		Preload("User").
+		Preload("Referrer").
 		Preload("Donations").
 		First(&invoice, "id = ?", id).Error
 	if err != nil {

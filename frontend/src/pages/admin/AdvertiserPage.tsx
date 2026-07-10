@@ -6,6 +6,7 @@ import { fmtNum, fmtIDRShort } from '@/lib/format';
 import { campaignBgStyle } from '@/lib/mappers';
 import { exportCSV, exportExcel } from '@/lib/export';
 import { useSharedDateRange } from '@/lib/date';
+import { useAuth } from '@/context/AuthContext';
 import { LeadsSection } from '@/pages/admin/DashboardPage';
 import { Card, PageHeader, Select, DateRangePill, Btn, StatCard, Badge, LineChart, Icon } from '@/components';
 
@@ -19,6 +20,10 @@ const PLATFORM_SOURCES: Record<string, string[]> = {
 export default function AdvertiserPage() {
   const showToast = useUiStore((s) => s.showToast);
   const openInvoice = useUiStore((s) => s.openInvoice);
+  // This page backs both the Advertiser and Fundraiser panels; label it per role so a
+  // fundraiser doesn't see "Advertiser" in their own dashboard.
+  const { role } = useAuth();
+  const panelLabel = role === 'Fundraiser' ? 'Fundraiser' : 'Advertiser';
   const [range, setRange] = useSharedDateRange();
   const transactions = useDataStore((s) => s.transactions) || [];
   // Advertiser-attributed leads = invoices carrying a UTM source (channel attribution).
@@ -60,8 +65,9 @@ export default function AdvertiserPage() {
       donations: t.donations, spend: t.spend || 0, revenue: t.revenue || 0,
     }));
     if (!rows.length) { showToast('Tidak ada data'); return; }
-    if (kind === 'csv') exportCSV(rows, 'niatbaik_advertiser');
-    else exportExcel(rows, 'niatbaik_advertiser', undefined, 'Advertiser');
+    const fname = `niatbaik_${panelLabel.toLowerCase()}`;
+    if (kind === 'csv') exportCSV(rows, fname);
+    else exportExcel(rows, fname, undefined, panelLabel);
     showToast(rows.length + ' baris diekspor');
   };
   // Per-platform pixel/connection status from the backend (config + last dispatch log),
@@ -77,7 +83,7 @@ export default function AdvertiserPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Dashboard Advertiser"
+        title={`Dashboard ${panelLabel}`}
         subtitle="Pantau performa iklan, UTM, pixel & rekomendasi optimasi."
         actions={<>
           <Select value={platform} onChange={setPlatform} icon="filter" options={[

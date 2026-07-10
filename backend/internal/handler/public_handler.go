@@ -277,7 +277,11 @@ func (h *PublicHandler) ListPaymentMethods(c echo.Context) error {
 			gw := service.ResolveChannelGateway(settings, ch.key, "")
 			// "manual" channels are surfaced via the manual-bank block below (they point at
 			// the org account, not a hosted gateway page). Only show hosted gateways here.
-			if gw != "flip" && gw != "moota" && gw != "xendit" {
+			// ResolveChannelGateway returns one of flip/moota/xendit/ipaymu/duitku/manual
+			// (downgrading to "manual" when the routed gateway lacks credentials), so skip
+			// exactly "manual" — an allowlist here goes stale as gateways are added (ipaymu/
+			// duitku were dropped silently before this).
+			if gw == "manual" {
 				continue
 			}
 			items = append(items, map[string]interface{}{

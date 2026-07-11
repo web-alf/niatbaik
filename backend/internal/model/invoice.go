@@ -41,6 +41,20 @@ type Invoice struct {
 
 	ReferralProcessed bool `gorm:"default:false" json:"referral_processed"`
 
+	// Exact amounts credited to each ledger the moment this invoice was settled, snapshotted
+	// so a later paid→unpaid revert can reverse the SAME figures. Recomputing from live
+	// settings (admin fee / commission %) would drift if those settings changed between
+	// payment and revert. Any of these can legitimately be zero for a settled invoice (e.g.
+	// a donation at/below the admin fee credits 0), so they must NOT be used to detect
+	// "was this snapshotted?" — that's what PaymentSnapshotted is for.
+	CampaignCredited   int64 `gorm:"default:0" json:"campaign_credited"`   // → campaign.TotalRaised (net of fee+commission)
+	MasterCredited     int64 `gorm:"default:0" json:"master_credited"`     // → settings.TotalMoney (Total − fee)
+	CommissionCredited int64 `gorm:"default:0" json:"commission_credited"` // → referrer bonus_balance
+	// True once ProcessPayment has written the *_credited snapshots. Invoices paid BEFORE
+	// this column existed are false → ReversePayment best-effort recomputes from live
+	// settings for them (the one-time legacy backlog), never for freshly-settled rows.
+	PaymentSnapshotted bool `gorm:"default:false" json:"payment_snapshotted"`
+
 	PaymentMethodName    string `gorm:"size:100" json:"payment_method_name"`
 	PaymentQrcode        string `gorm:"type:text" json:"payment_qrcode"`
 	DeeplinkURL          string `gorm:"type:text" json:"deeplink_url"`

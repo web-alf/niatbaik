@@ -158,18 +158,20 @@ func (h *InvoiceHandler) UpdateStatus(c echo.Context) error {
 		return c.JSON(http.StatusOK, response.SuccessResponse(nil, "invoice status updated"))
 	}
 
-	// Target status is NOT paid. If the invoice was previously settled, also clear
-	// is_paid/paid_at so the row stays internally consistent (otherwise is_paid=true
-	// with an unpaid status label corrupts every consumer that keys on is_paid, and the
-	// leads payment-toggle would snap back to "paid"). NOTE: this intentionally does NOT
-	// reverse the campaign/global balance or fundraiser commission — the admin UI warns
-	// about this. A true refund must reverse that bookkeeping in a locked transaction.
-	updates := map[string]any{"status": req.Status}
+	// Target status is NOT paid. If the invoice was previously settled, run the full
+	// reversal so the campaign balance, foundation balance, fundraiser counters and
+	// commission are all decremented by exactly what the payment credited (a
+	// locked, idempotent transaction). ReversePayment refuses if the funds were already
+	// disbursed via a withdrawal — surface that to the caller instead of corrupting balances.
 	if invoice.IsPaid {
-		updates["is_paid"] = false
-		updates["paid_at"] = nil
+		if err := h.paymentService.ReversePayment(&invoice, req.Status); err != nil {
+			return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		}
+		return c.JSON(http.StatusOK, response.SuccessResponse(nil, "invoice status updated"))
 	}
-	if err := h.db.Model(&invoice).Updates(updates).Error; err != nil {
+
+	// Never was paid — just relabel the status (no bookkeeping was ever applied).
+	if err := h.db.Model(&invoice).Updates(map[string]any{"status": req.Status}).Error; err != nil {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to update status"))
 	}
 	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "invoice status updated"))

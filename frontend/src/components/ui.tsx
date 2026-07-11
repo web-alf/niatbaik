@@ -389,6 +389,9 @@ export const InvoiceModal = ({ txn, onClose, onCopy }: any) => {
           <Field label="Campaign" value={txn.campaign} />
           <Field label="WhatsApp" value={txn.whatsapp} mono />
           <Field label="Email" value={txn.email} mono />
+          {/* Fundraiser (referrer) who drove this donation via their ?ref= share link.
+              Empty when the donation wasn't attributed to any fundraiser. */}
+          <Field label="Fundraiser" value={txn.referrer} />
         </div>
         <div>
           <div className="text-xs uppercase tracking-wider text-mute font-semibold mb-2">Pesan / Doa Donatur</div>

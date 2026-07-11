@@ -81,6 +81,7 @@ const parseArr = (v: any, fb: any) => {
 
 export default function SettingsPage() {
   const showToast = useUiStore((s) => s.showToast);
+  const askConfirm = useUiStore((s) => s.askConfirm);
   const [tab, setTab] = useState('themes');
   const [settings, setSettings] = useState<any>(null);
   const [settingsLoading, setSettingsLoading] = useState(true);
@@ -97,9 +98,9 @@ export default function SettingsPage() {
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, []);
 
-  const switchTab = (next: string) => {
+  const switchTab = async (next: string) => {
     if (next === tab) return;
-    if (dirtyRef.current && !confirm('Ada perubahan yang belum disimpan di tab ini. Pindah tab dan buang perubahan?')) return;
+    if (dirtyRef.current && !(await askConfirm({ title: 'Buang perubahan?', message: 'Ada perubahan yang belum disimpan di tab ini. Pindah tab dan buang perubahan?', confirmLabel: 'Ya, buang', tone: 'bad' }))) return;
     dirtyRef.current = false;
     setTab(next);
   };
@@ -586,6 +587,7 @@ function ManualBankRow({ bank, onChange, onRemove, onToast }: any) {
 
 function PaymentPanel({ settings, onSave }: any) {
   const showToastSafe = useUiStore((s) => s.showToast);
+  const askConfirm = useUiStore((s) => s.askConfirm);
   const [pTab, setPTab] = useState('general');
 
   // Per-sub-tab unsaved-changes guard. The parent SettingsView tracks a single global
@@ -597,9 +599,9 @@ function PaymentPanel({ settings, onSave }: any) {
   const pDirtyRef = useRef<any>({});
   const markPDirty = () => { pDirtyRef.current[pTab] = true; };
   const clearPDirty = (tab: string) => { pDirtyRef.current[tab] = false; };
-  const switchPTab = (next: string) => {
+  const switchPTab = async (next: string) => {
     if (next === pTab) return;
-    if (pDirtyRef.current[pTab] && !confirm('Ada perubahan yang belum disimpan di sub-tab ini. Pindah dan buang perubahan?')) return;
+    if (pDirtyRef.current[pTab] && !(await askConfirm({ title: 'Buang perubahan?', message: 'Ada perubahan yang belum disimpan di sub-tab ini. Pindah dan buang perubahan?', confirmLabel: 'Ya, buang', tone: 'bad' }))) return;
     pDirtyRef.current[pTab] = false;
     setPTab(next);
   };
@@ -1933,6 +1935,7 @@ function FundraisingPanel({ settings, onSave }: any) {
 
 function CategoryPanel() {
   const showToast = useUiStore((s) => s.showToast);
+  const askConfirm = useUiStore((s) => s.askConfirm);
   const [cats, setCats] = useState<any>(() => (useDataStore.getState().categories || []).slice());
   const [name, setName] = useState('');
   const [editing, setEditing] = useState<any>(null); // {id, name}
@@ -1965,7 +1968,7 @@ function CategoryPanel() {
   };
 
   const remove = async (cat: any) => {
-    if (!confirm('Hapus kategori "' + cat.name + '"? Campaign yang memakainya akan menjadi tanpa kategori.')) return;
+    if (!(await askConfirm({ title: 'Hapus kategori', message: `Hapus kategori "${cat.name}"? Campaign yang memakainya akan menjadi tanpa kategori.`, confirmLabel: 'Ya, hapus', tone: 'bad', icon: 'trash' }))) return;
     setBusy(true);
     try { await api.deleteCategory(cat.id); showToast('Kategori dihapus'); await refresh(); }
     catch (e: any) { showToast('Gagal menghapus: ' + (e?.message || '')); }
@@ -2002,6 +2005,7 @@ function CategoryPanel() {
 
 function PaymentStatusPanel() {
   const showToast = useUiStore((s) => s.showToast);
+  const askConfirm = useUiStore((s) => s.askConfirm);
   const [rows, setRows] = useState<any>(() => (useDataStore.getState().paymentStatuses || []).slice());
   const blank = { code:'', label:'', color:'#10B981', is_paid:false, is_default:false, sort_order:0 };
   const [form, setForm] = useState<any>(blank);
@@ -2031,7 +2035,7 @@ function PaymentStatusPanel() {
 
   const edit = (s: any) => { setEditing(s.id); setForm({ code:s.code, label:s.label, color:s.color || '#10B981', is_paid:!!s.is_paid, is_default:!!s.is_default, sort_order:s.sort_order || 0 }); };
   const remove = async (s: any) => {
-    if (!confirm('Hapus status "' + s.label + '"? Invoice yang memakainya tetap menyimpan teks status lama.')) return;
+    if (!(await askConfirm({ title: 'Hapus status', message: `Hapus status "${s.label}"? Invoice yang memakainya tetap menyimpan teks status lama.`, confirmLabel: 'Ya, hapus', tone: 'bad', icon: 'trash' }))) return;
     setBusy(true);
     try { await api.deletePaymentStatus(s.id); showToast('Status dihapus'); await refresh(); }
     catch (e: any) { showToast('Gagal menghapus: ' + (e?.message || '')); }

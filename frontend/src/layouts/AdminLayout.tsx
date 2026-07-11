@@ -2,7 +2,7 @@
 // Ported from app.jsx Sidebar/UserMenu/Topbar + the logged-in render branch.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Icon, Logo, InvoiceModal, Toast, ErrorBoundary } from '@/components';
+import { Icon, Logo, InvoiceModal, Toast, ConfirmDialog, ErrorBoundary } from '@/components';
 import { NAV, SECONDARY_NAV, ROLE_META } from '@/lib/nav';
 import { useAuth } from '@/context/AuthContext';
 import { useUiStore } from '@/store/ui';
@@ -375,6 +375,7 @@ export function AdminLayout() {
         <InvoiceModal txn={invoiceTxn} onClose={closeInvoice} onCopy={(id: string) => showToast('Kode invoice ' + id + ' disalin')} />
       )}
       <AdsGuideMount open={adsGuideOpen} onClose={() => setAdsGuideOpen(false)} />
+      <GlobalConfirm />
       <GlobalToast />
     </RealtimeProvider>
   );
@@ -390,4 +391,10 @@ function GlobalToast() {
   const toast = useUiStore((s) => s.toast);
   const toastTone = useUiStore((s) => s.toastTone);
   return <Toast message={toast} tone={toastTone} />;
+}
+
+function GlobalConfirm() {
+  const confirm = useUiStore((s) => s.confirm);
+  const resolveConfirm = useUiStore((s) => s.resolveConfirm);
+  return <ConfirmDialog state={confirm} onResolve={resolveConfirm} />;
 }

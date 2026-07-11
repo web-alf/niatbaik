@@ -415,6 +415,33 @@ export const InvoiceModal = ({ txn, onClose, onCopy }: any) => {
   );
 };
 
+// App-wide styled confirmation dialog. Driven by useUiStore.confirm (set via askConfirm),
+// mounted once in AdminLayout. Replaces native window.confirm() so prompts are themed and
+// consistent (and can show a warning callout for money-affecting actions).
+export const ConfirmDialog = ({ state, onResolve }: any) => {
+  if (!state) return null;
+  const tone = state.tone || 'brand';
+  return (
+    <Modal open onClose={() => onResolve(false)} title={state.title || 'Konfirmasi'} size="sm"
+      footer={<>
+        <Btn variant="outline" tone="ink" onClick={() => onResolve(false)}>{state.cancelLabel || 'Batal'}</Btn>
+        <Btn tone={tone} icon={state.icon || (tone === 'bad' ? 'trash' : 'check')} onClick={() => onResolve(true)}>
+          {state.confirmLabel || 'Ya, lanjut'}
+        </Btn>
+      </>}>
+      <div className="text-sm text-ink/85 space-y-2">
+        <p className="whitespace-pre-wrap">{state.message}</p>
+        {state.note && (
+          <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-[12px] text-amber-700">
+            <Icon name="shield" size={14} className="mt-0.5 shrink-0" />
+            {state.note}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
 export const Toast = ({ message, tone = 'ok' }: any) => {
   if (!message) return null;
   const tones: Record<string, string> = { ok: 'bg-emerald-600', bad: 'bg-rose-600', ink: 'bg-ink' };

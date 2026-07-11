@@ -104,7 +104,9 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
   // = loadApiData
   async refreshPublic() {
     const [statsRes, campaignsRes, categoriesRes, pubSettingsRes, pubPayRes, payStatusRes, contentRes] = await Promise.all([
-      safe(() => api.publicStats()), safe(() => api.campaigns()), safe(() => api.categories()),
+      // limit=100 (the public endpoint's max, silently reset to 15 above that) so the
+      // dashboard campaign-filter dropdown isn't truncated to the first 15 live campaigns.
+      safe(() => api.publicStats()), safe(() => api.campaigns('limit=100')), safe(() => api.categories()),
       safe(() => api.publicSettings()), safe(() => api.publicPaymentMethods()), safe(() => api.paymentStatuses()),
       safe(() => api.publicSiteContent()),
     ]);

@@ -28,6 +28,7 @@ function campaignShareUrl(c: any) {
 // Campaigns list + detail preview modal
 export default function CampaignsPage() {
   const showToast = useUiStore((s) => s.showToast);
+  const askConfirm = useUiStore((s) => s.askConfirm);
   const navigate = useNavigate();
   const goCreate = () => { navigate('/campaigns/new'); };
   const goEdit = (c: any) => { navigate('/campaigns/' + c.id + '/edit'); };
@@ -122,7 +123,7 @@ export default function CampaignsPage() {
       {view === 'cards' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((c: any) => <CampaignCard key={c.id} c={c} onLeads={() => goLeads(c)} onOpen={() => setCampaignDetail(c)} onEdit={() => goEdit(c)} onAddUpdate={() => setUpdateTarget(c)} onDelete={async () => {
-            if (!confirm('Hapus campaign "' + c.title + '"? Campaign akan dipindah ke Trash.')) return;
+            if (!(await askConfirm({ title: 'Hapus campaign', message: `Hapus campaign "${c.title}"? Campaign akan dipindah ke Trash.`, confirmLabel: 'Ya, hapus', tone: 'bad', icon: 'trash' }))) return;
             try {
               await api.deleteCampaign(c.id);
               await useDataStore.getState().refreshAdmin();
@@ -175,7 +176,7 @@ export default function CampaignsPage() {
                       <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink" onClick={() => setCampaignDetail(c)}><Icon name="eye" size={16}/></button>
                       <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink" onClick={() => goEdit(c)}><Icon name="edit" size={16}/></button>
                       <CampaignOptionMenu c={c} onEdit={() => goEdit(c)} onPreview={() => setCampaignDetail(c)} onAddUpdate={() => setUpdateTarget(c)} onDonations={() => goLeads(c)} onDelete={async () => {
-                        if (!confirm('Hapus campaign "' + c.title + '"? Campaign akan dipindah ke Trash.')) return;
+                        if (!(await askConfirm({ title: 'Hapus campaign', message: `Hapus campaign "${c.title}"? Campaign akan dipindah ke Trash.`, confirmLabel: 'Ya, hapus', tone: 'bad', icon: 'trash' }))) return;
                         try {
                           await api.deleteCampaign(c.id);
                           await useDataStore.getState().refreshAdmin();

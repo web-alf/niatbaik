@@ -515,6 +515,7 @@ function TxnTable({
 // from the URL so a campaign hero-click in /campaigns deep-links here pre-filtered.
 export function LeadsSection({ onOpen, readOnly = false, leads: leadsProp = null, eyebrow = 'Leads', title = 'Daftar Lead Donasi', emptyText = 'Tidak ada lead yang cocok dengan filter.' }: any) {
   const showToast = useUiStore((s) => s.showToast);
+  const askConfirm = useUiStore((s) => s.askConfirm);
   const storeLeads = useDataStore((s) => s.transactions);
   const leads = (leadsProp ?? storeLeads) as any[];
   const campaigns = useDataStore((s) => s.campaigns);
@@ -539,16 +540,29 @@ export function LeadsSection({ onOpen, readOnly = false, leads: leadsProp = null
   const paidCode = useMemo(() => (paymentStatuses.find((s: any) => s.is_paid)?.code) || 'Terbayar', [paymentStatuses]);
   const unpaidCode = useMemo(() => (paymentStatuses.find((s: any) => !s.is_paid)?.code) || 'Menunggu Pembayaran', [paymentStatuses]);
 
-  const campaignOptions = useMemo(() => ([
-    { value: '', label: 'Semua campaign' },
-    ...campaigns.map((c: any) => ({ value: String(c.id), label: c.title })),
-  ]), [campaigns]);
-  const campaignTitle = campaigns.find((c: any) => String(c.id) === campaignId)?.title;
+  // Dropdown options: the live campaigns list PLUS any campaign that actually appears in
+  // the leads (a deep-link from /campaigns can target a Draft/Ended campaign that isn't in
+  // the public live list — without this its option is missing and the chip/title blank).
+  const campaignOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    campaigns.forEach((c: any) => seen.set(String(c.id), c.title));
+    (leads as any[]).forEach((t: any) => {
+      const id = String(t.campaignId || '');
+      if (id && !seen.has(id)) seen.set(id, t.campaign || id);
+    });
+    return [{ value: '', label: 'Semua campaign' }, ...Array.from(seen, ([value, label]) => ({ value, label }))];
+  }, [campaigns, leads]);
+  const campaignTitle = campaignOptions.find((o) => o.value === campaignId && o.value !== '')?.label;
 
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
-    const inRange = filterByRange(leads as any[], range);
-    return inRange.filter((t: any) => {
+    // When a campaign is selected we show ALL of its leads regardless of the shared date
+    // range: that range defaults to the current month, so filtering a campaign whose leads
+    // predate this month used to yield an empty table ("lead ga ada"). The campaign filter
+    // is the explicit intent here; the date pill still governs the unfiltered "all
+    // campaigns" view. (Display-only — no bookkeeping touched.)
+    const base = campaignId ? (leads as any[]) : filterByRange(leads as any[], range);
+    return base.filter((t: any) => {
       if (campaignId && String(t.campaignId) !== campaignId) return false;
       if (!query) return true;
       const donor = t.anon ? 'hamba allah' : (t.donor || '').toLowerCase();
@@ -575,13 +589,24 @@ export function LeadsSection({ onOpen, readOnly = false, leads: leadsProp = null
 
   const togglePayment = async (lead: any) => {
     if (!lead.uuid) { showToast('UUID invoice tidak tersedia'); return; }
-    // Turning a PAID lead back to unpaid does NOT reverse the campaign/commission
-    // bookkeeping (the backend credits on the paid path only) — warn before doing it.
-    if (lead.isPaid && !confirm(`Tandai "${lead.id}" sebagai BELUM dibayar?\n\nCatatan: saldo campaign & komisi fundraiser yang sudah tercatat TIDAK otomatis dikoreksi.`)) return;
+    // Turning a PAID lead back to unpaid now auto-reverses the campaign balance, foundation
+    // balance and fundraiser commission on the backend (ReversePayment). Confirm first, and
+    // if the backend refuses (funds already disbursed via a withdrawal) surface that message.
+    if (lead.isPaid) {
+      const ok = await askConfirm({
+        title: 'Batalkan status lunas?',
+        message: `Tandai "${lead.id}" sebagai BELUM dibayar?`,
+        confirmLabel: 'Ya, batalkan',
+        tone: 'bad',
+        icon: 'close',
+        note: 'Saldo campaign, saldo yayasan & komisi fundraiser dari donasi ini akan otomatis dikoreksi (dikurangi).',
+      });
+      if (!ok) return;
+    }
     setBusyId(lead.uuid);
     try {
       await api.updateInvoiceStatus(lead.uuid, lead.isPaid ? unpaidCode : paidCode);
-      showToast(lead.isPaid ? 'Ditandai belum dibayar' : 'Ditandai lunas');
+      showToast(lead.isPaid ? 'Dibatalkan · saldo & komisi dikoreksi' : 'Ditandai lunas');
       await refreshInvoices();
     } catch (e: any) { showToast('Gagal: ' + (e?.message || '')); }
     finally { setBusyId(null); }

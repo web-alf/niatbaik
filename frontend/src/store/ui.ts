@@ -15,15 +15,32 @@ function applyDark(v: boolean) {
 
 type ToastTone = 'ok' | 'bad' | 'ink';
 
+// App-wide styled confirmation dialog (replaces native window.confirm, which can't be
+// themed and looks foreign in the admin). askConfirm returns a promise that resolves true
+// on confirm, false on cancel/dismiss — so call sites read almost like `if (await ...)`.
+export interface ConfirmOptions {
+  title?: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  tone?: 'brand' | 'bad';
+  icon?: string;
+  note?: string; // optional warning callout under the message
+}
+interface ConfirmState extends ConfirmOptions { resolve: (ok: boolean) => void }
+
 interface UiState {
   dark: boolean;
   toast: string;
   toastTone: ToastTone;
   invoiceTxn: Invoice | null;
+  confirm: ConfirmState | null;
   setDark: (v: boolean) => void;
   showToast: (msg: string | { title?: string }, tone?: ToastTone) => void;
   openInvoice: (tx: Invoice) => void;
   closeInvoice: () => void;
+  askConfirm: (opts: ConfirmOptions) => Promise<boolean>;
+  resolveConfirm: (ok: boolean) => void;
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -35,11 +52,12 @@ let toastTimer: ReturnType<typeof setTimeout> | undefined;
 const ERROR_RE = /gagal|salah|tidak valid|tidak dapat|harus|wajib|maks|maksimal|minimal|periksa|error|invalid|failed/i;
 const inferTone = (text: string): ToastTone => (ERROR_RE.test(text) ? 'bad' : 'ok');
 
-export const useUiStore = create<UiState>((set) => ({
+export const useUiStore = create<UiState>((set, get) => ({
   dark: readDark(),
   toast: '',
   toastTone: 'ok',
   invoiceTxn: null,
+  confirm: null,
 
   setDark(v) { applyDark(v); set({ dark: v }); },
 
@@ -52,4 +70,18 @@ export const useUiStore = create<UiState>((set) => ({
 
   openInvoice(tx) { set({ invoiceTxn: tx }); },
   closeInvoice() { set({ invoiceTxn: null }); },
+
+  askConfirm(opts) {
+    // Resolve any dialog already open (treat as cancelled) before showing the new one.
+    const prev = get().confirm;
+    if (prev) prev.resolve(false);
+    return new Promise<boolean>((resolve) => {
+      set({ confirm: { ...opts, resolve } });
+    });
+  },
+  resolveConfirm(ok) {
+    const c = get().confirm;
+    if (c) c.resolve(ok);
+    set({ confirm: null });
+  },
 }));

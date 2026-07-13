@@ -21,7 +21,10 @@ import (
 
 // metaCAPIURL / tiktokEAPIURL are overridable in tests; default to the real endpoints.
 var (
-	metaCAPIURL = "https://graph.facebook.com/v18.0"
+	// Graph API version. v18.0 sunset 26 Jan 2026 → every /events call 400'd (err 2635
+	// "deprecated version"), silently killing all server-side Purchase events. Meta sunsets
+	// a version ~2yr after release; v23.0 (May 2025) runs into 2027. Bump before it expires.
+	metaCAPIURL = "https://graph.facebook.com/v23.0"
 	// Events API host is business-api.tiktok.com — business.tiktok.com is the console UI
 	// and does NOT serve the API (requests redirect/fail), so no server event lands.
 	tiktokEAPIURL = "https://business-api.tiktok.com/open_api/v1.3"
@@ -134,6 +137,20 @@ func metaFbc(v string) string {
 	return fmt.Sprintf("fb.1.%d.%s", time.Now().UnixMilli(), v)
 }
 
+// metaSourceURL builds the event_source_url Meta requires for action_source=website.
+// Uses the public campaign page (/c/<slug>) when the campaign is preloaded, else the site
+// origin. Omitting it lowers Event Match Quality and browser↔server dedup.
+func (s *TrackingService) metaSourceURL(inv *model.Invoice) string {
+	base := ""
+	if s.cfg != nil {
+		base = s.cfg.FrontendBaseURL
+	}
+	if inv.Campaign.Slug != "" {
+		return fmt.Sprintf("%s/c/%s", base, inv.Campaign.Slug)
+	}
+	return base
+}
+
 // sendMetaCAPI posts a Purchase event to the Meta Conversions API for the given paid
 // invoice. No-op unless CAPI is enabled and both pixel id + access token are set.
 // PII (email/phone) is SHA-256 hashed. The event_id is the invoice number so Meta
@@ -164,14 +181,20 @@ func (s *TrackingService) sendMetaCAPI(settings *model.Setting, inv *model.Invoi
 	if fbc := metaFbc(inv.Fbclid); fbc != "" {
 		userData["fbc"] = fbc
 	}
+	// Meta requires >=1 customer-info key in user_data or it 400s the whole event. An
+	// organic donor with no email/phone and no fbp/fbc yields {} — skip (it can't match).
+	if len(userData) == 0 {
+		return
+	}
 
 	payload := map[string]interface{}{
 		"data": []map[string]interface{}{{
-			"event_name":    "Purchase",
-			"event_time":    time.Now().Unix(),
-			"event_id":      dedupEventID(inv.InvoiceNumber),
-			"action_source": "website",
-			"user_data":     userData,
+			"event_name":       "Purchase",
+			"event_time":       time.Now().Unix(),
+			"event_id":         dedupEventID(inv.InvoiceNumber),
+			"action_source":    "website",
+			"event_source_url": s.metaSourceURL(inv),
+			"user_data":        userData,
 			"custom_data": map[string]interface{}{
 				"currency": "IDR",
 				// IDR has no minor unit and Invoice.Total is stored in WHOLE rupiah, so send
@@ -251,21 +274,24 @@ func extractRemoteEventID(body []byte) string {
 }
 
 // sendTiktokEAPI posts a CompletePayment event to the TikTok Events API for the given
-// paid invoice. No-op unless EAPI enabled and pixel id + access token set. PII hashed.
+// paid invoice. No-op unless pixel id + access token are set (presence-gated, same as
+// GA4 — there is no separate enable toggle in the UI). PII hashed.
 func (s *TrackingService) sendTiktokEAPI(settings *model.Setting, inv *model.Invoice) {
-	if settings == nil || !settings.TiktokEAPIEnabled || settings.TiktokPixelID == "" || settings.TiktokAccessToken == "" {
+	if settings == nil || settings.TiktokPixelID == "" || settings.TiktokAccessToken == "" {
 		return
 	}
 	if s.repo == nil {
 		return
 	}
 
+	// Events API 2.0 hashes PII as raw lowercase-hex SHA-256 STRINGS (not {"sha256":...}
+	// objects — that older shape is silently unmatched).
 	user := map[string]interface{}{}
 	if inv.DonorEmail != "" {
-		user["email"] = map[string]string{"sha256": sha256Hex(inv.DonorEmail)}
+		user["email"] = sha256Hex(inv.DonorEmail)
 	}
 	if phone := normalizePhoneE164(inv.DonorPhone); phone != "" {
-		user["phone"] = map[string]string{"sha256": sha256Hex(phone)}
+		user["phone"] = sha256Hex(phone)
 	}
 	// Click-level attribution (raw, not hashed): ttclid from the ad click, ttp from the
 	// TikTok pixel cookie.
@@ -276,8 +302,11 @@ func (s *TrackingService) sendTiktokEAPI(settings *model.Setting, inv *model.Inv
 		user["ttp"] = inv.Ttp
 	}
 
-	payload := map[string]interface{}{
-		"event_code": "complete_payment",
+	// Events API 2.0 envelope: top-level event_source + event_source_id (the pixel/dataset
+	// code — previously sent NOWHERE, so TikTok could never attribute the event), and the
+	// event(s) wrapped in a "data" array. The old flat body with a bogus "event_code" field
+	// was rejected on every dispatch.
+	event := map[string]interface{}{
 		"event":      "CompletePayment",
 		"event_time": time.Now().Unix(),
 		"event_id":   dedupEventID(inv.InvoiceNumber),
@@ -287,6 +316,11 @@ func (s *TrackingService) sendTiktokEAPI(settings *model.Setting, inv *model.Inv
 			// Whole-rupiah, no minor unit — send as-is (dividing by 100 under-reported 100x).
 			"value": float64(inv.Total),
 		},
+	}
+	payload := map[string]interface{}{
+		"event_source":    "web",
+		"event_source_id": settings.TiktokPixelID,
+		"data":            []map[string]interface{}{event},
 	}
 	if settings.TiktokTestEventCode != "" {
 		payload["test_event_code"] = settings.TiktokTestEventCode
@@ -314,10 +348,16 @@ func (s *TrackingService) sendGA4MP(settings *model.Setting, inv *model.Invoice)
 	if settings == nil || settings.GA4MeasurementID == "" || settings.GA4APISecret == "" || s.repo == nil {
 		return
 	}
+	// client_id MUST be the id the GA tag generated (from the _ga cookie) or GA4 spins up a
+	// fresh session-less pseudo-user with no traffic source — the server purchase lands as
+	// (direct) and never reaches the linked Google Ads account. Fall back to the invoice
+	// number only when the cookie wasn't captured (still dedups via transaction_id).
+	clientID := inv.GAClientID
+	if clientID == "" {
+		clientID = inv.InvoiceNumber
+	}
 	payload := map[string]interface{}{
-		// No _ga client id server-side; the invoice number is a stable pseudo client id and
-		// doubles as the transaction_id for dedup.
-		"client_id": inv.InvoiceNumber,
+		"client_id": clientID,
 		"events": []map[string]interface{}{{
 			"name": "purchase",
 			"params": map[string]interface{}{
@@ -330,7 +370,9 @@ func (s *TrackingService) sendGA4MP(settings *model.Setting, inv *model.Invoice)
 	body, _ := json.Marshal(payload)
 	url := fmt.Sprintf("%s?measurement_id=%s&api_secret=%s", ga4MPURL, settings.GA4MeasurementID, settings.GA4APISecret)
 	lg := &model.TrackingDispatchLog{
-		Platform:  "ga4",
+		// Logged under "google" (not "ga4") because GetStatus keys the Google dashboard row
+		// on "google"; a "ga4" row would never surface in the status panel.
+		Platform:  "google",
 		EventName: "purchase",
 		EventID:   dedupEventID(inv.InvoiceNumber),
 		InvoiceID: &inv.ID,
@@ -360,13 +402,29 @@ func (s *TrackingService) httpPostWithHeader(url string, body []byte, hdrKey, hd
 	respBody, _ := io.ReadAll(resp.Body)
 
 	lg.HTTPStatus = resp.StatusCode
-	lg.Success = resp.StatusCode >= 200 && resp.StatusCode < 300
+	// TikTok returns HTTP 200 even on logical failure (bad token, bad event_source_id,
+	// malformed body), signalling the real result in the JSON body's top-level "code" (0 =
+	// ok). Trusting 2xx alone logged every rejected event as a success → false "active" in
+	// the status panel. Require both 2xx AND code==0.
+	lg.Success = resp.StatusCode >= 200 && resp.StatusCode < 300 && tiktokBodyOK(respBody)
 	if !lg.Success {
 		lg.ErrorMessage = string(respBody)
 	} else {
 		lg.RemoteEventID = extractRemoteEventID(respBody)
 	}
 	s.repo.LogDispatch(lg)
+}
+
+// tiktokBodyOK reports whether a TikTok Events API response body indicates logical success
+// (top-level "code" == 0). JSON numbers decode to float64. A body that doesn't parse or
+// lacks "code" is treated as NOT ok, so a garbled/unexpected response isn't logged green.
+func tiktokBodyOK(body []byte) bool {
+	var m map[string]interface{}
+	if err := json.Unmarshal(body, &m); err != nil {
+		return false
+	}
+	code, ok := m["code"].(float64)
+	return ok && code == 0
 }
 
 // SendConversions is the single entry point fired after an invoice is paid. It reads
@@ -400,7 +458,7 @@ func (s *TrackingService) SendConversions(inv *model.Invoice) {
 		wg.Add(1)
 		go run("meta", func() { s.sendMetaCAPI(settings, inv) })
 	}
-	if settings.TiktokEAPIEnabled && settings.TiktokPixelID != "" && settings.TiktokAccessToken != "" {
+	if settings.TiktokPixelID != "" && settings.TiktokAccessToken != "" {
 		wg.Add(1)
 		go run("tiktok", func() { s.sendTiktokEAPI(settings, inv) })
 	}

@@ -1455,17 +1455,19 @@ function TrackingPanel({ settings, onSave }: any) {
   const [showToken, setShowToken] = useState<any>({});
   // No demo IDs — each input is driven by real saved state (pixelIds, loaded from
   // settings below). Status starts neutral until a real ID is entered.
+  // Client-side pixel/tag IDs only. Meta CAPI + TikTok Events API tokens live in the
+  // "Server-side Conversion Credentials" block below (they reuse the same pixel IDs, so a
+  // separate card here was a dead input). Looker is a report embed, managed in its own
+  // section — not a conversion pixel.
   const pixels = [
     { name:'Meta Pixel',            status:'not', brand:'meta' },
-    { name:'Meta Conversions API',  status:'not', brand:'meta' },
     { name:'Google Tag Manager',    status:'not', brand:'gtm' },
     { name:'Google Ads Conversion', status:'not', brand:'googleads' },
     { name:'Google Analytics 4',    status:'not', brand:'ga4' },
     { name:'TikTok Pixel',          status:'not', brand:'tiktok' },
-    { name:'TikTok Events API',     status:'not', brand:'tiktok' },
-    { name:'Looker Studio (Data Studio)', status:'not', brand:'looker' },
   ];
   const events = ['PageView','ViewContent','InitiateCheckout','AddPaymentInfo','Lead','CompleteDonation','Purchase'];
+  const EVENT_STAGE: any = { PageView:'Landing', ViewContent:'Detail campaign', InitiateCheckout:'Mulai donasi', AddPaymentInfo:'Pilih pembayaran', Lead:'Invoice dibuat', CompleteDonation:'Donasi selesai', Purchase:'Pembayaran sukses' };
   // Real verification of pixel events happens in each platform's official debug tool
   // (fired from the live public page), not from this admin form. Link there instead
   // of faking a "test event sent" toast.
@@ -1480,18 +1482,14 @@ function TrackingPanel({ settings, onSave }: any) {
     'Looker Studio (Data Studio)': 'https://lookerstudio.google.com/',
   };
 
-  const DEFAULT_LOOKER = [
-    { name:'Overview Donasi (Master)',   url:'lookerstudio.google.com/reporting/a1b2-…',  updated:'baru saja', status:'active', dim:'47 widget · 6 page', owner:'andre@niatbaik.org' },
-    { name:'Performa Meta Ads',          url:'lookerstudio.google.com/reporting/x9y8-…',  updated:'5 menit lalu', status:'active', dim:'18 widget · 2 page', owner:'dewi@niatbaik.org' },
-    { name:'Performa Google Ads + GA4',  url:'lookerstudio.google.com/reporting/k3l4-…',  updated:'1 jam lalu',  status:'active', dim:'22 widget · 3 page', owner:'dewi@niatbaik.org' },
-    { name:'TikTok Ads Funnel',          url:'lookerstudio.google.com/reporting/p7q8-…',  updated:'belum sync',  status:'error',  dim:'14 widget · 2 page', owner:'rahmat@niatbaik.org' },
-  ];
-  const [lookerReports, setLookerReports] = useState<any>(parseArr(settings?.looker_reports, DEFAULT_LOOKER));
+  // No fabricated defaults — an unconfigured install shows an empty state, not fake reports
+  // with invented owners/URLs that look "connected" but resolve to nothing.
+  const [lookerReports, setLookerReports] = useState<any>(parseArr(settings?.looker_reports, []));
   const [lookerModal, setLookerModal] = useState(false);
   const [lookerForm, setLookerForm] = useState<any>({ name:'', url:'' });
   const [editingLooker, setEditingLooker] = useState<any>(null);
 
-  useEffect(() => { setLookerReports(parseArr(settings?.looker_reports, DEFAULT_LOOKER)); }, [settings]);
+  useEffect(() => { setLookerReports(parseArr(settings?.looker_reports, [])); }, [settings]);
 
   useEffect(() => {
     if (!settings) return;
@@ -1501,7 +1499,6 @@ function TrackingPanel({ settings, onSave }: any) {
       'Google Ads Conversion': settings.google_ads_conversion_id || '',
       'Google Analytics 4': settings.ga4_measurement_id || '',
       'TikTok Pixel': settings.tiktok_pixel_id || '',
-      'Looker Studio (Data Studio)': settings.looker_studio_embed || '',
     });
     setTokenSet({
       meta: !!settings.meta_capi_token_set,
@@ -1523,13 +1520,25 @@ function TrackingPanel({ settings, onSave }: any) {
 
   const openAddLooker = () => { setEditingLooker(null); setLookerForm({ name:'', url:'' }); setLookerModal(true); };
   const openEditLooker = (r: any, i: number) => { setEditingLooker(i); setLookerForm({ name: r.name, url: r.url }); setLookerModal(true); };
+  // Looker's shareable /reporting/ link is NOT frameable — only the File → Embed report
+  // /embed/reporting/ URL is. Normalize so an admin pasting either form gets a working
+  // embed. Also accept a full <iframe …> snippet (extract its src) and ensure https://.
+  const normalizeLookerURL = (raw: string) => {
+    let u = (raw || '').trim();
+    const m = u.match(/src=["']([^"']+)["']/i);   // pasted <iframe> snippet
+    if (m) u = m[1];
+    if (!/^https?:\/\//i.test(u)) u = 'https://' + u.replace(/^\/+/, '');
+    u = u.replace('/reporting/', '/embed/reporting/').replace('/embed/embed/', '/embed/');
+    return u;
+  };
   const saveLooker = () => {
     if (!lookerForm.name.trim() || !lookerForm.url.trim()) { showToast('Nama dan URL wajib diisi'); return; }
+    const url = normalizeLookerURL(lookerForm.url);
     let updated;
     if (editingLooker != null) {
-      updated = lookerReports.map((r: any, i: number) => i === editingLooker ? { ...r, ...lookerForm } : r);
+      updated = lookerReports.map((r: any, i: number) => i === editingLooker ? { ...r, ...lookerForm, url } : r);
     } else {
-      updated = [...lookerReports, { ...lookerForm, updated:'baru saja', status:'active', dim:'-', owner:'-' }];
+      updated = [...lookerReports, { name: lookerForm.name.trim(), url }];
     }
     setLookerReports(updated);
     onSave({ looker_reports: updated });
@@ -1641,7 +1650,6 @@ function TrackingPanel({ settings, onSave }: any) {
             tiktok_pixel_id: pixelIds['TikTok Pixel'] || '',
             tiktok_access_token: pixelIds.tiktok_access_token || undefined,
             tiktok_test_event_code: pixelIds.tiktok_test_event_code || undefined,
-            looker_studio_embed: pixelIds['Looker Studio (Data Studio)'] || '',
           })}>Simpan Semua Tracking</SaveButton>
         </div>
       </Section>
@@ -1649,21 +1657,26 @@ function TrackingPanel({ settings, onSave }: any) {
       <Section title="Looker Studio Reports" sub="Hubungkan dashboard Looker Studio (Data Studio) untuk konsolidasi semua data ads & donasi dalam satu tampilan."
         actions={<Btn size="sm" tone="brand" icon="chart" onClick={() => { try { window.dispatchEvent(new CustomEvent('nb-go-datastudio')); } catch{} }}>Buka Data Studio</Btn>}>
         <div className="space-y-3">
-          {(Array.isArray(lookerReports)?lookerReports:[]).map((r: any, i: number) => (
+          {(Array.isArray(lookerReports)?lookerReports:[]).length === 0 && (
+            <div className="text-xs text-mute p-3 rounded-xl border border-dashed border-line text-center">Belum ada report. Tambahkan URL embed Looker Studio untuk menampilkannya di Data Studio.</div>
+          )}
+          {(Array.isArray(lookerReports)?lookerReports:[]).map((r: any, i: number) => {
+            const embeddable = /\/embed\/reporting\//.test(r.url || '');
+            return (
             <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-line">
               <div className="h-10 w-10 rounded-lg bg-[#4285F4] text-white flex items-center justify-center shrink-0">
                 <Icon name="chart" size={18}/>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-ink truncate">{r.name}</div>
-                <div className="text-xs text-mute truncate">{r.url} · {r.dim}</div>
+                <div className="text-xs text-mute truncate">{r.url}</div>
               </div>
-              <div className="hidden sm:block text-xs text-mute">{r.updated}</div>
-              <StatusBadge status={r.status === 'active' ? 'active' : 'inactive'}/>
-              <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink"><Icon name="refresh" size={14}/></button>
-              <button onClick={() => openEditLooker(r, i)} className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink"><Icon name="edit" size={14}/></button>
+              <StatusBadge status={embeddable ? 'active' : 'inactive'}/>
+              <button onClick={() => openEditLooker(r, i)} className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink" title="Edit"><Icon name="edit" size={14}/></button>
+              <button onClick={() => { const u = lookerReports.filter((_: any, j: number) => j !== i); setLookerReports(u); onSave({ looker_reports: u }); }} className="h-8 w-8 rounded-md hover:bg-rose-50 text-mute hover:text-rose-600" title="Hapus"><Icon name="trash" size={14}/></button>
             </div>
-          ))}
+            );
+          })}
           <button onClick={openAddLooker} className="w-full px-3 py-2.5 rounded-xl border border-dashed border-line bg-white text-sm font-bold text-brand-600 hover:bg-brand-50">
             + Tambah Looker Studio Report
           </button>
@@ -1678,29 +1691,20 @@ function TrackingPanel({ settings, onSave }: any) {
         </div>
       </Section>
 
-      <Section title="Event Tracking" sub="Event yang otomatis dipicu di funnel donasi.">
+      <Section title="Event Tracking" sub="Event funnel donasi standar. Pemetaan event per platform diatur per-campaign lewat Fire Event di editor campaign (conversion_config), bukan global di sini.">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-mute">
                 <th className="py-2 font-semibold">Event</th>
-                <th className="py-2 font-semibold text-center">Meta</th>
-                <th className="py-2 font-semibold text-center">Google</th>
-                <th className="py-2 font-semibold text-center">TikTok</th>
-                <th className="py-2 font-semibold text-right">24h fired</th>
+                <th className="py-2 font-semibold">Tahap Funnel</th>
               </tr>
             </thead>
             <tbody>
-              {events.map((e, i) => (
+              {events.map((e) => (
                 <tr key={e} className="border-t border-line">
                   <td className="py-2.5"><code className="text-xs font-mono font-bold bg-bg2 px-2 py-0.5 rounded text-ink">{e}</code></td>
-                  {[true, true, i!==2].map((on, j) => (
-                    <td key={j} className="py-2.5 text-center">
-                      {on ? <span className="inline-flex items-center gap-1 text-emerald-600 text-xs font-bold"><span className="h-1.5 w-1.5 rounded-full bg-emerald-600"/>ON</span>
-                          : <span className="text-mute text-xs">OFF</span>}
-                    </td>
-                  ))}
-                  <td className="py-2.5 text-right text-mute">—</td>
+                  <td className="py-2.5 text-mute text-xs">{EVENT_STAGE[e] || 'custom'}</td>
                 </tr>
               ))}
             </tbody>
@@ -1716,6 +1720,9 @@ function TrackingPanel({ settings, onSave }: any) {
         <div className="space-y-3">
           <div><label className="text-xs font-semibold text-mute">Nama Report</label><input className="field mt-1" value={lookerForm.name} onChange={(e) => setLookerForm((f: any) => ({...f, name: e.target.value}))} placeholder="cth: Overview Donasi"/></div>
           <div><label className="text-xs font-semibold text-mute">URL Looker Studio</label><input className="field mt-1" value={lookerForm.url} onChange={(e) => setLookerForm((f: any) => ({...f, url: e.target.value}))} placeholder="lookerstudio.google.com/reporting/…"/></div>
+          <div className="text-[11px] text-mute leading-relaxed rounded-lg bg-bg2 p-2.5">
+            Di Looker Studio: <b>File → Embed report</b>, centang <b>“Enable embedding”</b>, dan set Link sharing ke <b>Anyone with the link</b>. URL <code>/reporting/…</code> otomatis dikonversi ke bentuk <code>/embed/reporting/…</code> yang bisa ditampilkan. Boleh juga tempel snippet <code>&lt;iframe&gt;</code> langsung.
+          </div>
         </div>
       </Modal>
     </>

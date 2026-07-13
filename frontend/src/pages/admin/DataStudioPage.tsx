@@ -16,8 +16,18 @@ import { Icon, Donut, DateRangePill } from '@/components';
 const SRC_COLORS = ['#1A73E8', '#0F9D58', '#F4B400', '#EA4335', '#9C27B0', '#FB8C00', '#94A3B8'];
 const colorFor = (i: number) => SRC_COLORS[i % SRC_COLORS.length];
 
+// parseLookerReports reads the admin-saved looker_reports JSON (array of {name,url}) off
+// settings. Tolerates a raw string or already-parsed array; never throws.
+function parseLookerReports(raw: any): any[] {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw !== 'string' || !raw.trim()) return [];
+  try { const v = JSON.parse(raw); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+
 export default function DataStudioPage() {
   const campaignSeed = useDataStore((s) => s.campaigns) || [];
+  const settings = useDataStore((s) => s.settings);
+  const lookerReports = parseLookerReports(settings?.looker_reports);
   const [page, setPage] = useState('overview');
   const [dateRangeObj, setDateRangeObj] = useState<any>(getDateRange());
   const [dsData, setDsData] = useState<any>({});
@@ -69,6 +79,8 @@ export default function DataStudioPage() {
     { v: 'tiktok', l: 'TikTok' },
     { v: 'geo', l: 'Geographic' },
     { v: 'funnel', l: 'Conversion Funnel' },
+    // Only surface the embedded-reports tab when the admin has saved at least one.
+    ...(lookerReports.length ? [{ v: 'reports', l: 'Looker Reports' }] : []),
   ];
 
   return (
@@ -124,6 +136,7 @@ export default function DataStudioPage() {
         {page === 'tiktok' && <DSPlatformPage data={dsData.tiktok} label="TikTok" accent="#000000" />}
         {page === 'geo' && <DSGeo data={dsData.geo} />}
         {page === 'funnel' && <DSFunnel data={dsData.funnel} />}
+        {page === 'reports' && <DSLookerReports reports={lookerReports} />}
       </div>
     </div>
   );
@@ -341,6 +354,37 @@ function DSGeo({ data }: any) {
           </div>
         </DSCard>
       </div>
+    </div>
+  );
+}
+
+// =============================================================
+// LOOKER REPORTS — embeds the admin-saved Looker Studio reports.
+// URLs are normalized to /embed/reporting/ on save (SettingsPage). The iframe only renders
+// if docker/nginx/prod.conf CSP frame-src allows lookerstudio.google.com. A report that
+// isn't set to "Enable embedding" + link-shared shows Looker's own permission page.
+// =============================================================
+function DSLookerReports({ reports }: any) {
+  const list: any[] = Array.isArray(reports) ? reports : [];
+  return (
+    <div className="space-y-6">
+      {list.map((r: any, i: number) => (
+        <DSCard key={i} title={r.name || `Report ${i + 1}`} subtitle="Looker Studio">
+          {/\/embed\/reporting\//.test(r.url || '') ? (
+            <iframe
+              src={r.url}
+              title={r.name || `looker-${i}`}
+              className="w-full rounded-lg border border-line"
+              style={{ height: 640 }}
+              allow="fullscreen"
+            />
+          ) : (
+            <div className="text-xs text-mute p-4 text-center">
+              URL bukan tautan embed. Buka report di Settings → Pixel &amp; Tracking, pastikan “Enable embedding” aktif dan URL berbentuk <code>/embed/reporting/…</code>.
+            </div>
+          )}
+        </DSCard>
+      ))}
     </div>
   );
 }

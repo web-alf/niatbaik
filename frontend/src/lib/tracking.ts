@@ -189,6 +189,11 @@ export function getUTM(): Record<string, string> {
   if (fbc) stored.fbclid = fbc;           // _fbc is already fb.1.<ts>.<fbclid>
   if (fbp) stored.fbp = fbp;
   if (ttp) stored.ttp = ttp;
+  // GA4 client id: the _ga cookie is "GA1.1.<clientId>" where clientId is "<rand>.<ts>".
+  // Strip the "GAx.y." version/scope prefix to get the exact client_id the server-side
+  // Measurement Protocol purchase must send for GA4 session/Ads attribution stitching.
+  const ga = readCookie('_ga');
+  if (ga) { const cid = ga.replace(/^GA\d+\.\d+\./, ''); if (cid && cid !== ga) stored.ga_client_id = cid; }
   return stored;
 }
 

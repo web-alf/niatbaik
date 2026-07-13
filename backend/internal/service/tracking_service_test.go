@@ -37,12 +37,12 @@ func TestSha256Hex_NormalizesInput(t *testing.T) {
 // normalizePhoneE164 converts Indonesian local numbers to +62 form (Meta/TikTok expect E.164).
 func TestNormalizePhoneE164(t *testing.T) {
 	cases := map[string]string{
-		"081234567890":    "+6281234567890",
-		"6281234567890":   "+6281234567890",
-		"+6281234567890":  "+6281234567890",
+		"081234567890":     "+6281234567890",
+		"6281234567890":    "+6281234567890",
+		"+6281234567890":   "+6281234567890",
 		" 0812 3456 7890 ": "+6281234567890", // spaces stripped
-		"0215551234":      "+62215551234",
-		"":                "", // empty stays empty (donor with no phone)
+		"0215551234":       "+62215551234",
+		"":                 "", // empty stays empty (donor with no phone)
 	}
 	for in, want := range cases {
 		if got := normalizePhoneE164(in); got != want {
@@ -165,7 +165,9 @@ func TestSendMetaCAPI_HTTPError(t *testing.T) {
 	repo := newMockTrackingRepo()
 	svc := &TrackingService{repo: repo}
 	s := &model.Setting{MetaCAPIEnabled: true, MetaPixelID: "PIXEL123", MetaCAPIToken: "tok"}
-	svc.sendMetaCAPI(s, &model.Invoice{InvoiceNumber: "INV-ERR", Total: 1000})
+	// DonorEmail supplies the >=1 user_data match key Meta requires; without it sendMetaCAPI
+	// skips the dispatch (nothing to match on) and never reaches the HTTP error path.
+	svc.sendMetaCAPI(s, &model.Invoice{InvoiceNumber: "INV-ERR", DonorEmail: "d@example.com", Total: 1000})
 
 	if len(repo.created) != 1 || repo.created[0].Success {
 		t.Fatalf("expected 1 failed log, got %+v", repo.created)
@@ -207,13 +209,18 @@ func makeTiktokServer(t *testing.T, status int) (*httptest.Server, *string, *syn
 // originalTiktokEAPIURL saves the production TikTok endpoint for restore.
 var originalTiktokEAPIURL = tiktokEAPIURL
 
+// TikTok server dispatch is presence-gated on pixel id + access token (no enable toggle —
+// the UI never sent one). Missing either → no dispatch logged.
 func TestSendTiktokEAPI_GatedOff(t *testing.T) {
-	svc := &TrackingService{}
-	s := &model.Setting{TiktokEAPIEnabled: false, TiktokPixelID: "px", TiktokAccessToken: "tok"}
-	svc.sendTiktokEAPI(s, &model.Invoice{InvoiceNumber: "INV-1"})
-	s.TiktokEAPIEnabled = true
-	s.TiktokAccessToken = ""
-	svc.sendTiktokEAPI(s, &model.Invoice{InvoiceNumber: "INV-1"})
+	repo := newMockTrackingRepo()
+	svc := &TrackingService{repo: repo}
+	// No access token → skip.
+	svc.sendTiktokEAPI(&model.Setting{TiktokPixelID: "px"}, &model.Invoice{InvoiceNumber: "INV-1"})
+	// No pixel id → skip.
+	svc.sendTiktokEAPI(&model.Setting{TiktokAccessToken: "tok"}, &model.Invoice{InvoiceNumber: "INV-1"})
+	if len(repo.created) != 0 {
+		t.Fatalf("expected no dispatch when pixel/token missing, got %+v", repo.created)
+	}
 }
 
 func TestSendTiktokEAPI_Success(t *testing.T) {
@@ -241,6 +248,55 @@ func TestSendTiktokEAPI_Success(t *testing.T) {
 	mu.Unlock()
 	if strings.Contains(b, "donor@example.com") || strings.Contains(b, "081234567890") {
 		t.Error("plaintext PII leaked into TikTok request body")
+	}
+	// Events API 2.0 envelope: top-level event_source_id (the pixel), a data[] wrapper, and
+	// NO legacy "event_code" field.
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(b), &parsed); err != nil {
+		t.Fatalf("body not valid JSON: %v", err)
+	}
+	if parsed["event_source_id"] != "PIXEL123" {
+		t.Errorf("event_source_id = %v, want PIXEL123 (pixel must be in the body)", parsed["event_source_id"])
+	}
+	if parsed["event_source"] != "web" {
+		t.Errorf("event_source = %v, want web", parsed["event_source"])
+	}
+	if _, bogus := parsed["event_code"]; bogus {
+		t.Error("legacy event_code field must not be sent")
+	}
+	data, ok := parsed["data"].([]interface{})
+	if !ok || len(data) != 1 {
+		t.Fatalf("expected data array of 1, got %v", parsed["data"])
+	}
+	if ev, _ := data[0].(map[string]interface{}); ev["event"] != "CompletePayment" {
+		t.Errorf("data[0].event = %v, want CompletePayment", ev["event"])
+	}
+}
+
+// TikTok returns HTTP 200 even when the event is rejected, carrying a non-zero "code" in
+// the body. Such a response must be logged as a FAILURE, not a false success.
+func TestSendTiktokEAPI_LogicalError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"code":40002,"message":"Invalid access token"}`))
+	}))
+	t.Cleanup(srv.Close)
+	defer func() { tiktokEAPIURL = originalTiktokEAPIURL }()
+	tiktokEAPIURL = srv.URL
+
+	repo := newMockTrackingRepo()
+	svc := &TrackingService{repo: repo}
+	s := &model.Setting{TiktokPixelID: "PIXEL123", TiktokAccessToken: "tok"}
+	svc.sendTiktokEAPI(s, &model.Invoice{InvoiceNumber: "INV-TTE", DonorEmail: "d@example.com", Total: 1000})
+
+	if len(repo.created) != 1 {
+		t.Fatalf("expected 1 log, got %+v", repo.created)
+	}
+	if repo.created[0].Success {
+		t.Errorf("HTTP 200 with code!=0 must be logged as failure, got Success=true")
+	}
+	if !strings.Contains(repo.created[0].ErrorMessage, "40002") {
+		t.Errorf("error message should carry the TikTok error body, got %q", repo.created[0].ErrorMessage)
 	}
 }
 

@@ -12,7 +12,7 @@ import (
 // per platform, replacing the hardcoded mock badges.
 type TrackingDispatchLog struct {
 	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	Platform      string     `gorm:"size:20;not null;index" json:"platform"`       // "meta" | "tiktok"
+	Platform      string     `gorm:"size:20;not null;index" json:"platform"`       // "meta" | "tiktok" | "google" (GA4 MP)
 	EventName     string     `gorm:"size:50;not null" json:"event_name"`           // "Purchase" (Meta) / "CompletePayment" (TikTok)
 	InvoiceID     *uuid.UUID `gorm:"type:uuid;index" json:"invoice_id,omitempty"`  // nullable for test events
 	EventID       string     `gorm:"size:100" json:"event_id"`                     // deterministic = invoice_number, platform dedup

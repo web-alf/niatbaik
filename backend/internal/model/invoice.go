@@ -14,26 +14,26 @@ type Invoice struct {
 	PaymentMethodID *uuid.UUID `gorm:"type:uuid;index" json:"payment_method_id"`
 	ReferredBy      *uuid.UUID `gorm:"type:uuid;index" json:"referred_by"`
 
-	Subtotal     int64  `gorm:"default:0" json:"subtotal"`
-	Total        int64  `gorm:"default:0" json:"total"`
-	IsPaid       bool   `gorm:"default:false" json:"is_paid"`
-	Status       string `gorm:"size:50;default:'Menunggu Pembayaran'" json:"status"`
-	IsAnonymous  bool   `gorm:"default:false" json:"is_anonymous"`
+	Subtotal    int64  `gorm:"default:0" json:"subtotal"`
+	Total       int64  `gorm:"default:0" json:"total"`
+	IsPaid      bool   `gorm:"default:false" json:"is_paid"`
+	Status      string `gorm:"size:50;default:'Menunggu Pembayaran'" json:"status"`
+	IsAnonymous bool   `gorm:"default:false" json:"is_anonymous"`
 
-	DonorName  string `gorm:"size:255" json:"donor_name"`
-	DonorPhone string `gorm:"size:20" json:"donor_phone"`
-	DonorEmail string `gorm:"size:255" json:"donor_email"`
+	DonorName  string  `gorm:"size:255" json:"donor_name"`
+	DonorPhone string  `gorm:"size:20" json:"donor_phone"`
+	DonorEmail string  `gorm:"size:255" json:"donor_email"`
 	Message    *string `gorm:"type:text" json:"message"`
 
 	ExpiredAt      time.Time  `json:"expired_at"`
 	ReminderSentAt *time.Time `json:"reminder_sent_at"`
 	PaidAt         *time.Time `json:"paid_at"`
 
-	TypePayment string `gorm:"size:50" json:"type_payment"`
-	Signature   string `gorm:"size:255" json:"signature"`
-	GatewayInfo string `gorm:"type:text" json:"gateway_info"`
-	PayCode     string `gorm:"size:100" json:"pay_code"`
-	QrURL       string `gorm:"type:text" json:"qr_url"`
+	TypePayment    string `gorm:"size:50" json:"type_payment"`
+	Signature      string `gorm:"size:255" json:"signature"`
+	GatewayInfo    string `gorm:"type:text" json:"gateway_info"`
+	PayCode        string `gorm:"size:100" json:"pay_code"`
+	QrURL          string `gorm:"type:text" json:"qr_url"`
 	URLAlternative string `gorm:"size:500" json:"url_alternative"`
 
 	EvidenceStatus string `gorm:"size:50" json:"evidence_status"`
@@ -55,10 +55,10 @@ type Invoice struct {
 	// settings for them (the one-time legacy backlog), never for freshly-settled rows.
 	PaymentSnapshotted bool `gorm:"default:false" json:"payment_snapshotted"`
 
-	PaymentMethodName    string `gorm:"size:100" json:"payment_method_name"`
-	PaymentQrcode        string `gorm:"type:text" json:"payment_qrcode"`
-	DeeplinkURL          string `gorm:"type:text" json:"deeplink_url"`
-	PaymentInstructions  string `gorm:"type:text" json:"payment_instructions"` // JSON string
+	PaymentMethodName   string `gorm:"size:100" json:"payment_method_name"`
+	PaymentQrcode       string `gorm:"type:text" json:"payment_qrcode"`
+	DeeplinkURL         string `gorm:"type:text" json:"deeplink_url"`
+	PaymentInstructions string `gorm:"type:text" json:"payment_instructions"` // JSON string
 
 	IP          string `gorm:"size:45" json:"ip"`
 	UTMSource   string `gorm:"size:100" json:"utm_source"`
@@ -77,7 +77,13 @@ type Invoice struct {
 	Ttclid string `gorm:"size:255" json:"ttclid"`
 	Ttp    string `gorm:"size:255" json:"ttp"`
 	Gclid  string `gorm:"size:255" json:"gclid"`
-	CSNote string `gorm:"type:text" json:"cs_note"`
+	// GAClientID is the GA4 client id parsed from the browser _ga cookie (the <id>.<ts>
+	// suffix after the GAx.y. prefix). Sent as client_id in the server-side Measurement
+	// Protocol purchase so GA4 stitches it to the donor's real web session and can forward
+	// the conversion to Google Ads. Empty for donors with no _ga cookie (falls back to the
+	// invoice number, which still dedups but lands as a session-less (direct) hit).
+	GAClientID string `gorm:"size:100" json:"ga_client_id"`
+	CSNote     string `gorm:"type:text" json:"cs_note"`
 
 	// LeadQuality is a manual CS/admin tag on the lead (invoice), independent of payment
 	// status. Empty = unclassified. Values: "berkualitas" | "invalid".

@@ -484,11 +484,14 @@ export const Empty = ({ icon = 'inbox', title = 'Belum ada data', sub = '', acti
 
 export const Tabs = ({ tabs, value, onChange, variant = 'pill' }: any) => {
   if (variant === 'underline') {
+    // Row scrolls horizontally on narrow screens instead of stretching the page
+    // (many filter tabs + counts overflowed 375px → horizontal page scroll). shrink-0 +
+    // whitespace-nowrap keep each tab intact; no-scrollbar hides the bar but keeps swipe.
     return (
-      <div className="flex items-center gap-6 border-b border-line">
+      <div className="flex items-center gap-6 border-b border-line overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
         {tabs.map((t: any) => (
           <button key={t.value} onClick={() => onChange(t.value)}
-            className={`relative py-2.5 text-sm font-semibold transition-colors ${value === t.value ? 'text-brand-600' : 'text-mute hover:text-ink'}`}>
+            className={`relative py-2.5 text-sm font-semibold whitespace-nowrap shrink-0 transition-colors ${value === t.value ? 'text-brand-600' : 'text-mute hover:text-ink'}`}>
             {t.label}{t.count !== undefined && <span className={`ml-1.5 text-xs ${value === t.value ? 'text-brand-600' : 'text-mute'}`}>({t.count})</span>}
             {value === t.value && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-brand-600 rounded-full" />}
           </button>
@@ -497,10 +500,10 @@ export const Tabs = ({ tabs, value, onChange, variant = 'pill' }: any) => {
     );
   }
   return (
-    <div className="inline-flex p-1 bg-bg2 rounded-lg border border-line">
+    <div className="inline-flex max-w-full overflow-x-auto no-scrollbar p-1 bg-bg2 rounded-lg border border-line">
       {tabs.map((t: any) => (
         <button key={t.value} onClick={() => onChange(t.value)}
-          className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${value === t.value ? 'bg-white text-ink shadow-sm' : 'text-mute hover:text-ink'}`}>
+          className={`px-3 py-1.5 text-sm font-semibold rounded-md whitespace-nowrap shrink-0 transition-colors ${value === t.value ? 'bg-white text-ink shadow-sm' : 'text-mute hover:text-ink'}`}>
           {t.label}
         </button>
       ))}

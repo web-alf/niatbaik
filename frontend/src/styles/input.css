@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 html, body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #1E293B; background: #F7FAFC; }
+/* Off-canvas panels (mobile nav drawer di-translateX ke luar layar) menambah lebar dokumen
+   dan memicu scroll horizontal + teks "kepaksa" di mobile. Kunci sumbu-X di root; scroll
+   vertikal tetap normal. Kontainer yang memang perlu geser-X pakai overflow-x-auto sendiri. */
+html, body { overflow-x: hidden; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 999px; border: 2px solid #F7FAFC; }
 ::-webkit-scrollbar-track { background: transparent; }

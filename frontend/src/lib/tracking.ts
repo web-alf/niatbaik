@@ -114,18 +114,19 @@ export function fireConversion(c: Campaign | null | undefined, phase: 'submit' |
     });
 
     // Resolve the event name per platform. A per-campaign Fire Event config wins; ABSENT
-    // that config we fall back to each platform's STANDARD funnel event for the phase so
-    // EVERY campaign — including a plain Default one — reports the mid-funnel step. This is
-    // what makes "Lead" show up in Meta Events Manager / TikTok Events for normal campaigns
-    // (previously nothing fired here without explicit config). Meta: submit→Lead; TikTok's
-    // standard lead event is SubmitForm. success keeps NO default here so the single
-    // Purchase/CompletePayment fallback below still owns settlement + server-side dedup.
+    // that config we fall back to the STANDARD funnel event for the phase so EVERY campaign
+    // — including a plain Default one — reports the step. The funnel (matching the admin
+    // panel's Default map) is: PageView → Lead (form opened, fired in the campaign page) →
+    // InitiateCheckout (invoice created = this 'submit' phase) → Purchase (paid). So the
+    // 'submit' default is InitiateCheckout on BOTH platforms — NOT Lead (Lead already fired
+    // on form-open; firing it again here would put the funnel out of order). success keeps
+    // NO default so the single Purchase/CompletePayment fallback below owns settlement.
     const metaEvt = (cfg.meta && cfg.meta.enabled && cfg.meta.events && cfg.meta.events[phase])
-      || (phase === 'submit' ? 'Lead' : '');
+      || (phase === 'submit' ? 'InitiateCheckout' : '');
     if (window.fbq && metaEvt) fbOpts ? window.fbq('track', metaEvt, payload, fbOpts) : window.fbq('track', metaEvt, payload);
 
     const ttEvt = (cfg.tiktok && cfg.tiktok.enabled && cfg.tiktok.events && cfg.tiktok.events[phase])
-      || (phase === 'submit' ? 'SubmitForm' : '');
+      || (phase === 'submit' ? 'InitiateCheckout' : '');
     if (window.ttq && ttEvt) ttOpts ? window.ttq.track(ttEvt, payload, ttOpts) : window.ttq.track(ttEvt, payload);
 
     const gads = cfg.gads;

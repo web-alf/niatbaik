@@ -888,17 +888,17 @@ export function CampaignPage({ c: listItem, onNav }: any) {
   // amount they chose isn't silently dropped.
   const seededAmount = Number(listItem && listItem._seedAmount) || 0;
   const [view, setViewRaw] = useState(seededAmount > 0 ? 'form' : 'content'); // 'content' | 'form'
-  // Opening the donation form is the funnel's checkout-start step. Fire a standard
-  // InitiateCheckout (Meta) / InitiateCheckout (TikTok) ONCE per page so it shows up in
-  // Events Manager between PageView and Lead. Guarded so re-opening the form (content↔form
-  // toggling) doesn't flood the pixel — the earlier "no event on open" note was the bug
-  // report: Meta/TikTok never saw the mid-funnel step at all.
-  const checkoutFiredRef = useRef(false);
-  const fireInitiateCheckout = () => {
-    if (checkoutFiredRef.current) return;
-    checkoutFiredRef.current = true;
+  // Opening the donation form is the funnel's LEAD step (admin Default map:
+  // PageView → Lead [form opened] → InitiateCheckout [invoice created] → Purchase [paid]).
+  // Fire a standard Lead ONCE per page so Events Manager sees it in order, right after
+  // PageView and before the InitiateCheckout that fires on invoice-create. Guarded so
+  // re-opening the form (content↔form toggling) doesn't double-fire.
+  const leadFiredRef = useRef(false);
+  const fireFormOpenLead = () => {
+    if (leadFiredRef.current) return;
+    leadFiredRef.current = true;
     try {
-      NBTracking.track('InitiateCheckout', {
+      NBTracking.track('Lead', {
         value: Number(amount) || 0, currency: 'IDR', content_name: (c && c.title) || '',
       });
     } catch { /* pixel fire must never break the page */ }
@@ -907,7 +907,7 @@ export function CampaignPage({ c: listItem, onNav }: any) {
   // whole story, so tapping "Donasi Sekarang" while scrolled down would otherwise
   // render the form at the same offset and land the donor at the footer.
   const setView = (v: any) => {
-    if (v === 'form') fireInitiateCheckout();
+    if (v === 'form') fireFormOpenLead();
     setViewRaw(v);
     try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch {}
   };
@@ -1003,10 +1003,10 @@ export function CampaignPage({ c: listItem, onNav }: any) {
   }, [c && c.id, referralCode]);
 
   // A seeded deep-link (?amount=… or a nominal share link) mounts straight into the form
-  // view without going through setView, so fire InitiateCheckout once on mount in that case
-  // too — otherwise those donors would skip the checkout-start step in the pixel funnel.
+  // view without going through setView, so fire the form-open Lead once on mount in that
+  // case too — otherwise those donors would skip the Lead step in the pixel funnel.
   useEffect(() => {
-    if (view === 'form') fireInitiateCheckout();
+    if (view === 'form') fireFormOpenLead();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1107,12 +1107,12 @@ export function CampaignPage({ c: listItem, onNav }: any) {
         ...NBTracking.getUTM(),
       });
       if (res?.data) {
-        // Lead = invoice created (donor pressed "Lanjut ke Pembayaran"). This is the ONLY
-        // page-2 pixel fire. It is admin-driven: the event name comes from the campaign's
-        // Fire Event → Submit setting (conversion_config.meta.events.submit, default
-        // "Lead"). A Default campaign with no config fires nothing here — exactly what the
-        // admin panel implies. event_id = invoice number so the browser event dedups
-        // against the server-side CAPI/Events API lead.
+        // InitiateCheckout = invoice created (donor pressed "Lanjut ke Pembayaran"). This
+        // is the 'submit' funnel phase, AFTER the Lead that fired when the form opened. It
+        // is admin-driven: the event name comes from the campaign's Fire Event → Submit
+        // setting (conversion_config.meta.events.submit), defaulting to InitiateCheckout for
+        // a Default campaign. event_id = invoice number so the browser event dedups against
+        // the server-side CAPI/Events API event carrying the same id.
         try { NBTracking.fireConversion(c, 'submit', Number(amount) || 0, res.data.invoice_number); } catch {}
         // HOSTED GATEWAY (Flip / Moota / Xendit): the donor pays on the gateway's own
         // hosted page (we only get a redirect URL — VA/QRIS can't be rendered inline). Go

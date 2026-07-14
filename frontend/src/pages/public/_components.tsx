@@ -888,13 +888,26 @@ export function CampaignPage({ c: listItem, onNav }: any) {
   // amount they chose isn't silently dropped.
   const seededAmount = Number(listItem && listItem._seedAmount) || 0;
   const [view, setViewRaw] = useState(seededAmount > 0 ? 'form' : 'content'); // 'content' | 'form'
-  // Opening the form fires NO pixel event by design: the Meta funnel is
-  // PageView → Lead (invoice created) → Contact (WA) → Purchase (paid). Firing
-  // InitiateCheckout/click_donate here just flooded the pixel (Meta Pixel Helper).
+  // Opening the donation form is the funnel's checkout-start step. Fire a standard
+  // InitiateCheckout (Meta) / InitiateCheckout (TikTok) ONCE per page so it shows up in
+  // Events Manager between PageView and Lead. Guarded so re-opening the form (content↔form
+  // toggling) doesn't flood the pixel — the earlier "no event on open" note was the bug
+  // report: Meta/TikTok never saw the mid-funnel step at all.
+  const checkoutFiredRef = useRef(false);
+  const fireInitiateCheckout = () => {
+    if (checkoutFiredRef.current) return;
+    checkoutFiredRef.current = true;
+    try {
+      NBTracking.track('InitiateCheckout', {
+        value: Number(amount) || 0, currency: 'IDR', content_name: (c && c.title) || '',
+      });
+    } catch { /* pixel fire must never break the page */ }
+  };
   // Scroll to top on every view switch: on mobile the sidebar CTA stacks BELOW the
   // whole story, so tapping "Donasi Sekarang" while scrolled down would otherwise
   // render the form at the same offset and land the donor at the footer.
   const setView = (v: any) => {
+    if (v === 'form') fireInitiateCheckout();
     setViewRaw(v);
     try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch {}
   };
@@ -988,6 +1001,14 @@ export function CampaignPage({ c: listItem, onNav }: any) {
     api.refHit(cid, referralCode).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [c && c.id, referralCode]);
+
+  // A seeded deep-link (?amount=… or a nominal share link) mounts straight into the form
+  // view without going through setView, so fire InitiateCheckout once on mount in that case
+  // too — otherwise those donors would skip the checkout-start step in the pixel funnel.
+  useEffect(() => {
+    if (view === 'form') fireInitiateCheckout();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // CS "need help" link: use the configured CS contact (rotator-aware), falling
   // back to the admin WhatsApp from public settings. Avoids the old hardcoded

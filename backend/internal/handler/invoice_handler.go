@@ -230,3 +230,43 @@ func (h *InvoiceHandler) UpdateQuality(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "lead quality updated"))
 }
+
+// Delete soft-deletes a lead (invoice) into Trash (30-day retention). If the lead was
+// already PAID, its bookkeeping is reversed FIRST (campaign balance, foundation balance,
+// fundraiser commission — same locked/idempotent path as un-paying it) so deleting a paid
+// lead never leaves credited funds behind. ReversePayment refuses when the funds were
+// already disbursed via a withdrawal; that refusal is surfaced and the row is NOT deleted.
+// A restore brings the lead back in its reversed (unpaid) state, consistent with the
+// balances. gorm.DeletedAt on the model makes Delete() a soft delete automatically.
+func (h *InvoiceHandler) Delete(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid invoice id"))
+	}
+
+	var invoice model.Invoice
+	if err := h.db.First(&invoice, "id = ?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.JSON(http.StatusNotFound, response.ErrorResponse("invoice not found"))
+		}
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch invoice"))
+	}
+
+	// Reverse the ledgers on a paid lead before trashing it. Use the first configured
+	// unpaid status as the resulting label so a later restore reads as a real unpaid lead.
+	if invoice.IsPaid {
+		newStatus := "Menunggu Pembayaran"
+		if ps, err := h.statusRepo.FindFirstUnpaid(); err == nil && ps != nil {
+			newStatus = ps.Code
+		}
+		if err := h.paymentService.ReversePayment(&invoice, newStatus); err != nil {
+			return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		}
+	}
+
+	if err := h.db.Delete(&model.Invoice{}, "id = ?", id).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to delete invoice"))
+	}
+
+	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "lead dipindahkan ke trash"))
+}

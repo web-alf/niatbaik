@@ -24,6 +24,40 @@ const shortDate = (v: unknown) => {
   return d ? fmtDate(d) : (typeof v === 'string' ? v.slice(0, 10) : '');
 };
 
+// useLeadDelete: shared "hapus lead → Trash" action used by both dashboard tables
+// (the Leads funnel table and the Recent-transactions table). A PAID lead is reversed
+// (campaign/foundation/commission balances) on the backend before it's trashed, so the
+// confirm warns about that. Backend refuses if the funds were already disbursed — the
+// error is surfaced. Restorable from Trash for 30 days.
+function useLeadDelete() {
+  const askConfirm = useUiStore((s) => s.askConfirm);
+  const showToast = useUiStore((s) => s.showToast);
+  const refreshInvoices = useDataStore((s) => s.refreshInvoices);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const deleteLead = async (lead: any) => {
+    if (!lead?.uuid) { showToast('UUID invoice tidak tersedia'); return; }
+    const ok = await askConfirm({
+      title: 'Hapus lead ini?',
+      message: `Pindahkan "${lead.id}" ke Trash?`,
+      confirmLabel: 'Ya, hapus',
+      tone: 'bad',
+      icon: 'trash',
+      note: lead.isPaid
+        ? 'Lead ini LUNAS — saldo campaign, saldo yayasan & komisi fundraiser akan otomatis dikoreksi (dikurangi) sebelum dihapus. Bisa di-restore dari Trash dalam 30 hari.'
+        : 'Bisa di-restore dari Trash dalam 30 hari sebelum dihapus permanen.',
+    });
+    if (!ok) return;
+    setDeletingId(lead.uuid);
+    try {
+      await api.deleteInvoice(lead.uuid);
+      showToast('Lead dipindahkan ke Trash');
+      await refreshInvoices();
+    } catch (e: any) { showToast('Gagal menghapus: ' + (e?.message || '')); }
+    finally { setDeletingId(null); }
+  };
+  return { deleteLead, deletingId };
+}
+
 // Dashboard view - varies per role
 // Hardcoded table tweaks (the design-tool Tweaks panel is dropped in production).
 const TW = {
@@ -285,6 +319,7 @@ export default function DashboardPage() {
               showSumber={tw.txnShowSumber}
               showStatus={tw.txnShowStatus}
               showTanggal={tw.txnShowTanggal}
+              canDelete
             />
             <div className="flex flex-wrap items-center justify-between gap-2 mt-3 text-xs">
               <div className="flex items-center gap-2">
@@ -458,7 +493,11 @@ function TxnTable({
   showSumber = true,
   showStatus = true,
   showTanggal = true,
+  canDelete = false,
 }: any) {
+  // Hook called unconditionally (rules-of-hooks); the delete column only renders when the
+  // caller opts in via canDelete (dashboard Recent-transactions for Admin+CS).
+  const { deleteLead, deletingId } = useLeadDelete();
   const padY = density === 'compact' ? 'py-1.5' : density === 'comfy' ? 'py-4' : 'py-3';
   const headPad = density === 'compact' ? 'py-2' : density === 'comfy' ? 'py-3' : 'py-2.5';
   const stripe = (i: any) => striped && i % 2 === 1 ? 'bg-bg2/40' : '';
@@ -476,7 +515,8 @@ function TxnTable({
             {showMetode && <th className={`${headPad} font-semibold`}>Metode</th>}
             {showSumber && <th className={`${headPad} font-semibold`}>Sumber</th>}
             {showStatus && <th className={`${headPad} font-semibold`}>Status</th>}
-            {showTanggal && <th className={`pr-5 ${headPad} font-semibold text-right`}>Tanggal</th>}
+            {showTanggal && <th className={`${headPad} font-semibold text-right`}>Tanggal</th>}
+            {canDelete && <th className={`pr-5 ${headPad} font-semibold text-right`}>Aksi</th>}
           </tr>
         </thead>
         <tbody>
@@ -500,7 +540,11 @@ function TxnTable({
                   )}
                 </div>
               </td>}
-              {showTanggal && <td className={`pr-5 ${padY} text-right text-xs text-mute whitespace-nowrap`}>{shortDate(r.date)}</td>}
+              {showTanggal && <td className={`${padY} text-right text-xs text-mute whitespace-nowrap`}>{shortDate(r.date)}</td>}
+              {canDelete && <td className={`pr-5 ${padY} text-right`} onClick={(e) => e.stopPropagation()}>
+                <button title="Hapus lead (ke Trash)" disabled={deletingId === r.uuid} onClick={() => deleteLead(r)}
+                  className="h-8 w-8 shrink-0 rounded-lg border border-line inline-flex items-center justify-center text-mute hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 disabled:opacity-40"><Icon name="trash" size={15}/></button>
+              </td>}
             </tr>
           ))}
         </tbody>
@@ -623,6 +667,8 @@ export function LeadsSection({ onOpen, readOnly = false, leads: leadsProp = null
     finally { setBusyId(null); }
   };
 
+  const { deleteLead, deletingId } = useLeadDelete();
+
   return (
     <Card className="p-5">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -723,6 +769,11 @@ export function LeadsSection({ onOpen, readOnly = false, leads: leadsProp = null
                             </div>
                           )}
                           <button title="Lihat detail" onClick={() => onOpen && onOpen(r)} className="h-8 w-8 shrink-0 rounded-lg border border-line inline-flex items-center justify-center text-mute hover:bg-bg2 hover:text-ink"><Icon name="eye" size={15}/></button>
+                          {/* Delete → Trash. Admin+CS only (read-only roles never see it). */}
+                          {!readOnly && (
+                            <button title="Hapus lead (ke Trash)" disabled={busy || deletingId === r.uuid} onClick={() => deleteLead(r)}
+                              className="h-8 w-8 shrink-0 rounded-lg border border-line inline-flex items-center justify-center text-mute hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 disabled:opacity-40"><Icon name="trash" size={15}/></button>
+                          )}
                         </div>
                       </td>
                     </tr>

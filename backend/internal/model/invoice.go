@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type Invoice struct {
@@ -98,6 +99,12 @@ type Invoice struct {
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+	// Soft delete: admin/CS "hapus lead" moves the invoice to Trash (30-day retention)
+	// instead of dropping the row. gorm.DeletedAt auto-scopes EVERY query that goes through
+	// db.Model(&Invoice{}) — list, stats, dashboard, analytics — so a trashed lead vanishes
+	// from all of them without touching each query. The Trash view reads it back with
+	// Unscoped(). json:"-" keeps the null field off the public/API payload.
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Relationships
 	User          *User          `gorm:"foreignKey:UserID;constraint:OnDelete:SET NULL" json:"user,omitempty"`

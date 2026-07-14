@@ -113,10 +113,19 @@ export function fireConversion(c: Campaign | null | undefined, phase: 'submit' |
       ...payload, campaign_slug: (c && (c.slug || c.id)) || '',
     });
 
-    const metaEvt = cfg.meta && cfg.meta.enabled && cfg.meta.events && cfg.meta.events[phase];
+    // Resolve the event name per platform. A per-campaign Fire Event config wins; ABSENT
+    // that config we fall back to each platform's STANDARD funnel event for the phase so
+    // EVERY campaign — including a plain Default one — reports the mid-funnel step. This is
+    // what makes "Lead" show up in Meta Events Manager / TikTok Events for normal campaigns
+    // (previously nothing fired here without explicit config). Meta: submit→Lead; TikTok's
+    // standard lead event is SubmitForm. success keeps NO default here so the single
+    // Purchase/CompletePayment fallback below still owns settlement + server-side dedup.
+    const metaEvt = (cfg.meta && cfg.meta.enabled && cfg.meta.events && cfg.meta.events[phase])
+      || (phase === 'submit' ? 'Lead' : '');
     if (window.fbq && metaEvt) fbOpts ? window.fbq('track', metaEvt, payload, fbOpts) : window.fbq('track', metaEvt, payload);
 
-    const ttEvt = cfg.tiktok && cfg.tiktok.enabled && cfg.tiktok.events && cfg.tiktok.events[phase];
+    const ttEvt = (cfg.tiktok && cfg.tiktok.enabled && cfg.tiktok.events && cfg.tiktok.events[phase])
+      || (phase === 'submit' ? 'SubmitForm' : '');
     if (window.ttq && ttEvt) ttOpts ? window.ttq.track(ttEvt, payload, ttOpts) : window.ttq.track(ttEvt, payload);
 
     const gads = cfg.gads;

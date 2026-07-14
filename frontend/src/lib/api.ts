@@ -317,6 +317,8 @@ export const api = {
   updateInvoiceStatus(id: string | number, status: string) { return this.put('/invoices/' + id + '/status', { status }); },
   addInvoiceNote(id: string | number, note: string) { return this.put('/invoices/' + id + '/note', { note }); },
   updateInvoiceQuality(id: string | number, quality: string) { return this.put('/invoices/' + id + '/quality', { quality }); },
+  // Soft-delete a lead into Trash. Backend reverses ledgers first if the lead was paid.
+  deleteInvoice(id: string | number) { return this.del('/invoices/' + id); },
 
   // Analytics
   analyticsOverview() { return this.get<any>('/analytics/overview'); },

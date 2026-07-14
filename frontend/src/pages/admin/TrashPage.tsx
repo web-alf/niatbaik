@@ -38,8 +38,8 @@ export default function TrashPage() {
         type: i.type,
         name: i.name || i.title || 'Unknown',
         meta: i.deleted_at ? daysUntilExpiry(i.deleted_at) : '',
-        icon: i.type === 'campaign' ? 'megaphone' : 'user',
-        tone: i.type === 'campaign' ? 'brand' : 'sky',
+        icon: i.type === 'campaign' ? 'megaphone' : i.type === 'transaction' ? 'wallet' : 'user',
+        tone: i.type === 'campaign' ? 'brand' : i.type === 'transaction' ? 'ok' : 'sky',
         size: i.detail || '',
         deletedAt: i.deleted_at,
       })));
@@ -62,6 +62,7 @@ export default function TrashPage() {
     all: items.length,
     campaign: items.filter((i) => i.type === 'campaign').length,
     user: items.filter((i) => i.type === 'user').length,
+    transaction: items.filter((i) => i.type === 'transaction').length,
   }), [items]);
 
   const filtered = useMemo(() => {
@@ -123,6 +124,7 @@ export default function TrashPage() {
             { value: 'all', label: 'Semua', count: typeCounts.all },
             { value: 'campaign', label: 'Campaigns', count: typeCounts.campaign },
             { value: 'user', label: 'Users', count: typeCounts.user },
+            { value: 'transaction', label: 'Transaksi', count: typeCounts.transaction },
           ]}/>
           <div className="ml-auto w-full sm:w-auto flex flex-wrap items-center gap-2">
             <SearchInput placeholder="Cari di trash…" value={q} onChange={setQ} className="w-full sm:w-64"/>

@@ -24,6 +24,18 @@ func (r *TrashRepo) FindDeletedCampaigns() ([]model.Campaign, error) {
 	return campaigns, err
 }
 
+// FindDeletedInvoices returns soft-deleted leads (invoices) for the Trash view.
+// Preload Campaign so the row can show which program the lead belonged to.
+func (r *TrashRepo) FindDeletedInvoices() ([]model.Invoice, error) {
+	var invoices []model.Invoice
+	err := r.db.Unscoped().
+		Where("deleted_at IS NOT NULL").
+		Preload("Campaign").
+		Order("deleted_at desc").
+		Find(&invoices).Error
+	return invoices, err
+}
+
 func (r *TrashRepo) FindDeletedUsers() ([]model.User, error) {
 	var users []model.User
 	err := r.db.Unscoped().
@@ -45,6 +57,17 @@ func (r *TrashRepo) RestoreUser(id uuid.UUID) error {
 		Model(&model.User{}).
 		Where("id = ?", id).
 		Update("deleted_at", nil).Error
+}
+
+func (r *TrashRepo) RestoreInvoice(id uuid.UUID) error {
+	return r.db.Unscoped().
+		Model(&model.Invoice{}).
+		Where("id = ?", id).
+		Update("deleted_at", nil).Error
+}
+
+func (r *TrashRepo) PermanentDeleteInvoice(id uuid.UUID) error {
+	return r.db.Unscoped().Delete(&model.Invoice{}, "id = ?", id).Error
 }
 
 func (r *TrashRepo) PermanentDeleteCampaign(id uuid.UUID) error {

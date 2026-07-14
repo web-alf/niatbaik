@@ -36,6 +36,18 @@ func (r *PaymentStatusRepo) FindByCode(code string) (*model.PaymentStatus, error
 	return &s, nil
 }
 
+// FindFirstUnpaid returns the first non-paid status by sort order — the canonical
+// "unpaid" label to stamp on a lead whose payment is being reversed (delete/un-pay).
+// Falls back with a gorm error if the master list has no unpaid status configured.
+func (r *PaymentStatusRepo) FindFirstUnpaid() (*model.PaymentStatus, error) {
+	var s model.PaymentStatus
+	if err := r.db.Where("is_paid = ?", false).
+		Order("sort_order asc, created_at asc").First(&s).Error; err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
 // CodeExists reports whether a status with this code exists, optionally excluding an ID.
 func (r *PaymentStatusRepo) CodeExists(code string, excludeID *uuid.UUID) bool {
 	q := r.db.Model(&model.PaymentStatus{}).Where("code = ?", code)

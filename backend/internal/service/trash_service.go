@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/repository"
@@ -22,9 +23,9 @@ func NewTrashService(trashRepo *repository.TrashRepo) *TrashService {
 // 30-day retention countdown.
 type TrashItem struct {
 	ID        uuid.UUID  `json:"id"`
-	Type      string     `json:"type"`   // "campaign" | "user"
-	Name      string     `json:"name"`   // campaign title / user name
-	Detail    string     `json:"detail"` // secondary line (slug / email)
+	Type      string     `json:"type"`   // "campaign" | "user" | "transaction"
+	Name      string     `json:"name"`   // campaign title / user name / invoice number
+	Detail    string     `json:"detail"` // secondary line (slug / email / campaign · nominal)
 	DeletedAt *time.Time `json:"deleted_at"`
 }
 
@@ -37,8 +38,12 @@ func (s *TrashService) GetAll() ([]TrashItem, error) {
 	if err != nil {
 		return nil, err
 	}
+	invoices, err := s.trashRepo.FindDeletedInvoices()
+	if err != nil {
+		return nil, err
+	}
 
-	items := make([]TrashItem, 0, len(campaigns)+len(users))
+	items := make([]TrashItem, 0, len(campaigns)+len(users)+len(invoices))
 	for _, c := range campaigns {
 		var del *time.Time
 		if c.DeletedAt.Valid {
@@ -55,7 +60,42 @@ func (s *TrashService) GetAll() ([]TrashItem, error) {
 		}
 		items = append(items, TrashItem{ID: u.ID, Type: "user", Name: u.Name, Detail: u.Email, DeletedAt: del})
 	}
+	for _, inv := range invoices {
+		var del *time.Time
+		if inv.DeletedAt.Valid {
+			t := inv.DeletedAt.Time
+			del = &t
+		}
+		// Detail = program + nominal so a trashed lead is identifiable without opening it.
+		detail := inv.Campaign.Title
+		if detail != "" {
+			detail += " · "
+		}
+		detail += "Rp " + formatThousands(inv.Total)
+		items = append(items, TrashItem{ID: inv.ID, Type: "transaction", Name: inv.InvoiceNumber, Detail: detail, DeletedAt: del})
+	}
 	return items, nil
+}
+
+// formatThousands renders an int64 rupiah amount with dot thousand-separators
+// (1234567 → "1.234.567") for the Trash detail line.
+func formatThousands(n int64) string {
+	neg := n < 0
+	if neg {
+		n = -n
+	}
+	digits := strconv.FormatInt(n, 10)
+	var out []byte
+	for i, c := range []byte(digits) {
+		if i > 0 && (len(digits)-i)%3 == 0 {
+			out = append(out, '.')
+		}
+		out = append(out, c)
+	}
+	if neg {
+		return "-" + string(out)
+	}
+	return string(out)
 }
 
 func (s *TrashService) Restore(itemType string, id uuid.UUID) error {
@@ -64,6 +104,8 @@ func (s *TrashService) Restore(itemType string, id uuid.UUID) error {
 		return s.trashRepo.RestoreCampaign(id)
 	case "user":
 		return s.trashRepo.RestoreUser(id)
+	case "transaction":
+		return s.trashRepo.RestoreInvoice(id)
 	default:
 		return errors.New("invalid item type")
 	}
@@ -75,6 +117,8 @@ func (s *TrashService) PermanentDelete(itemType string, id uuid.UUID) error {
 		return s.trashRepo.PermanentDeleteCampaign(id)
 	case "user":
 		return s.trashRepo.PermanentDeleteUser(id)
+	case "transaction":
+		return s.trashRepo.PermanentDeleteInvoice(id)
 	default:
 		return errors.New("invalid item type")
 	}

@@ -260,6 +260,8 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	cs.PUT("/invoices/:id/status", invoiceHandler.UpdateStatus)
 	cs.PUT("/invoices/:id/note", invoiceHandler.AddNote)
 	cs.PUT("/invoices/:id/quality", invoiceHandler.UpdateQuality)
+	// Soft-delete a lead into Trash (reverses ledgers first if paid). Admin+CS only.
+	cs.DELETE("/invoices/:id", invoiceHandler.Delete)
 
 	// Fundraiser self-service: a fundraiser reads their own affiliate records + commission
 	// via /fundraisers/me. On `protected` (any authed user); the handler scopes to the

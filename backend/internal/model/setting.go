@@ -146,7 +146,11 @@ type Setting struct {
 	MetaCAPIEnabled       bool   `gorm:"default:false" json:"meta_capi_enabled"`
 	GTMID                 string `gorm:"size:100" json:"gtm_id"`
 	GoogleAdsConversionID string `gorm:"size:100" json:"google_ads_conversion_id"`
-	GA4MeasurementID      string `gorm:"size:100" json:"ga4_measurement_id"`
+	// Google Ads conversion action LABEL (the "AbC-D_efG" in send_to: AW-<id>/<label>).
+	// Without it a Default campaign can't fire a real gtag conversion, so Google Ads
+	// never verifies the tag. Public (non-secret) — it's just the conversion action id.
+	GoogleAdsConversionLabel string `gorm:"size:100" json:"google_ads_conversion_label"`
+	GA4MeasurementID         string `gorm:"size:100" json:"ga4_measurement_id"`
 	TiktokPixelID         string `gorm:"size:100" json:"tiktok_pixel_id"`
 	TiktokEAPIEnabled     bool   `gorm:"default:false" json:"tiktok_eapi_enabled"`
 	LookerStudioEmbed     string `gorm:"type:text" json:"looker_studio_embed"`

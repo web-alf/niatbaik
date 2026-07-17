@@ -142,6 +142,7 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 	set(&setting.MetaPixelID, req.MetaPixelID)
 	set(&setting.GTMID, req.GTMID)
 	set(&setting.GoogleAdsConversionID, req.GoogleAdsConversionID)
+	set(&setting.GoogleAdsConversionLabel, req.GoogleAdsConversionLabel)
 	set(&setting.GA4MeasurementID, req.GA4MeasurementID)
 	set(&setting.TiktokPixelID, req.TiktokPixelID)
 	set(&setting.LookerStudioEmbed, req.LookerStudioEmbed)

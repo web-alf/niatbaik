@@ -25,6 +25,35 @@ function readCookie(name: string): string {
 // while never double-loading the SAME id.
 const _loadedIds = new Set<string>();
 
+// Global Google Ads conversion (id + label) captured from public settings in initPixels,
+// so fireConversion's success phase can fire the org-wide conversion for a Default campaign
+// that carries no per-campaign gads config. Without this Google Ads never receives a
+// conversion → "tag belum terverifikasi" forever.
+let _globalGads: { id: string; label: string } = { id: '', label: '' };
+
+// awId normalizes a Google Ads conversion id to the "AW-<digits>" form gtag requires.
+// Admins routinely paste just the numeric id (e.g. "334842554"); gtag('config','334842554')
+// silently no-ops, so the tag never fires.
+function awId(raw: unknown): string {
+  const v = String(raw || '').trim();
+  if (!v) return '';
+  return /^AW-/i.test(v) ? v : 'AW-' + v;
+}
+
+// fireGads sends ONE Google Ads conversion via gtag. Needs both the AW id and the
+// conversion-action label (send_to: AW-<id>/<label>) — a bare id can't fire a conversion.
+function fireGads(id: unknown, label: unknown, val: number, eventId?: string) {
+  const aw = awId(id);
+  const lbl = String(label || '').trim();
+  if (!window.gtag || !aw || !lbl) return;
+  window.gtag('event', 'conversion', {
+    send_to: aw + '/' + lbl,
+    value: val,
+    currency: 'IDR',
+    ...(eventId ? { transaction_id: eventId } : {}),
+  });
+}
+
 // Seed with the STATIC GTM container injected by index.html (<head>) so neither
 // initPixels nor initCampaignPixels re-injects it (double gtm.js → duplicate tags).
 try {
@@ -48,10 +77,18 @@ export function initPixels(s: Settings | null | undefined) {
     injectGtag(s.ga4_measurement_id as string);
     _loadedIds.add('aw:' + s.ga4_measurement_id);
   }
-  if (s.google_ads_conversion_id && window.gtag) {
-    window.gtag('config', s.google_ads_conversion_id);
-    _loadedIds.add('aw:' + s.google_ads_conversion_id);
+  // Google Ads conversion. Two bugs fixed here: (1) admins paste a bare numeric id, so
+  // normalize to "AW-<id>"; (2) GTM does NOT create window.gtag, so the old
+  // `&& window.gtag` guard meant a GTM-only install (GA4 empty) never configured Ads at
+  // all → gtag('event','conversion') could never fire. Inject gtag.js ourselves when it's
+  // missing so the conversion works regardless of GTM.
+  const aw = awId(s.google_ads_conversion_id);
+  if (aw && !_loadedIds.has('aw:' + aw)) {
+    _loadedIds.add('aw:' + aw);
+    if (!window.gtag) injectGtag(aw);
+    else window.gtag('config', aw);
   }
+  _globalGads = { id: aw, label: String((s as any).google_ads_conversion_label || '').trim() };
   if (s.tiktok_pixel_id && !window.ttq) {
     injectTtq(s.tiktok_pixel_id as string);
     _loadedIds.add('tt:' + s.tiktok_pixel_id);
@@ -79,7 +116,7 @@ export function initCampaignPixels(c: Campaign | null | undefined) {
       injectScript('https://www.googletagmanager.com/gtm.js?id=' + c.gtm_id);
     }
     const cfg = parseConversion(c.conversion_config);
-    const adsId = cfg.gads && cfg.gads.enabled && cfg.gads.conversion_id;
+    const adsId = cfg.gads && cfg.gads.enabled && awId(cfg.gads.conversion_id);
     if (adsId && !_loadedIds.has('aw:' + adsId)) {
       _loadedIds.add('aw:' + adsId);
       if (!window.gtag) injectGtag(adsId);
@@ -129,20 +166,26 @@ export function fireConversion(c: Campaign | null | undefined, phase: 'submit' |
       || (phase === 'submit' ? 'InitiateCheckout' : '');
     if (window.ttq && ttEvt) ttOpts ? window.ttq.track(ttEvt, payload, ttOpts) : window.ttq.track(ttEvt, payload);
 
+    // Google Ads conversion. A per-campaign gads config wins (its own id/label per phase);
+    // absent that, a Default campaign falls back to the GLOBAL id+label on the SUCCESS
+    // phase so Google Ads still gets a conversion (otherwise its tag never verifies). No
+    // submit-phase global fallback — Google Ads has no standard "initiate checkout"
+    // conversion action, so firing one there would just report noise.
     const gads = cfg.gads;
     const label = gads && gads.enabled && gads.labels && gads.labels[phase];
-    if (window.gtag && gads && gads.conversion_id && label) {
-      window.gtag('event', 'conversion', {
-        send_to: gads.conversion_id + '/' + label,
-        value: val,
-        currency: 'IDR',
-      });
+    let gadsFired = false;
+    if (gads && gads.enabled && gads.conversion_id && label) {
+      fireGads(gads.conversion_id, label, val, eventId);
+      gadsFired = true;
+    } else if (phase === 'success' && _globalGads.id && _globalGads.label) {
+      fireGads(_globalGads.id, _globalGads.label, val, eventId);
+      gadsFired = true;
     }
 
     // Fallback (success only): a Default campaign with no per-campaign config still
     // reports a conversion to whatever global pixels loaded. No submit fallback —
     // InitiateCheckout/AddPaymentInfo already fire, so it would double-count.
-    if (phase === 'success' && !metaEvt && !ttEvt && !(gads && gads.enabled)) {
+    if (phase === 'success' && !metaEvt && !ttEvt && !gadsFired) {
       track('Purchase', payload, eventId);
     }
   } catch { /* conversion fire must never break the donation UX */ }

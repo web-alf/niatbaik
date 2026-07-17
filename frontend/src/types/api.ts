@@ -144,6 +144,7 @@ export interface Settings {
   meta_pixel_id?: string;
   ga4_measurement_id?: string;
   google_ads_conversion_id?: string;
+  google_ads_conversion_label?: string;
   tiktok_pixel_id?: string;
   [k: string]: unknown;
 }

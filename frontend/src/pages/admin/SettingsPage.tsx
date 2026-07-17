@@ -1463,6 +1463,7 @@ function TrackingPanel({ settings, onSave }: any) {
     { name:'Meta Pixel',            status:'not', brand:'meta' },
     { name:'Google Tag Manager',    status:'not', brand:'gtm' },
     { name:'Google Ads Conversion', status:'not', brand:'googleads' },
+    { name:'Google Ads Label',      status:'not', brand:'googleads' },
     { name:'Google Analytics 4',    status:'not', brand:'ga4' },
     { name:'TikTok Pixel',          status:'not', brand:'tiktok' },
   ];
@@ -1476,6 +1477,7 @@ function TrackingPanel({ settings, onSave }: any) {
     'Meta Conversions API': 'https://business.facebook.com/events_manager2',
     'Google Tag Manager': 'https://tagmanager.google.com/',
     'Google Ads Conversion': 'https://ads.google.com/aw/conversions',
+    'Google Ads Label': 'https://ads.google.com/aw/conversions',
     'Google Analytics 4': 'https://analytics.google.com/',
     'TikTok Pixel': 'https://ads.tiktok.com/i18n/events_manager',
     'TikTok Events API': 'https://ads.tiktok.com/i18n/events_manager',
@@ -1497,6 +1499,7 @@ function TrackingPanel({ settings, onSave }: any) {
       'Meta Pixel': settings.meta_pixel_id || '',
       'Google Tag Manager': settings.gtm_id || '',
       'Google Ads Conversion': settings.google_ads_conversion_id || '',
+      'Google Ads Label': settings.google_ads_conversion_label || '',
       'Google Analytics 4': settings.ga4_measurement_id || '',
       'TikTok Pixel': settings.tiktok_pixel_id || '',
     });
@@ -1645,6 +1648,7 @@ function TrackingPanel({ settings, onSave }: any) {
             event_tracking_config: JSON.stringify(metaEvents),
             gtm_id: pixelIds['Google Tag Manager'] || '',
             google_ads_conversion_id: pixelIds['Google Ads Conversion'] || '',
+            google_ads_conversion_label: pixelIds['Google Ads Label'] || '',
             ga4_measurement_id: pixelIds['Google Analytics 4'] || '',
             ga4_api_secret: pixelIds.ga4_api_secret || undefined,
             tiktok_pixel_id: pixelIds['TikTok Pixel'] || '',

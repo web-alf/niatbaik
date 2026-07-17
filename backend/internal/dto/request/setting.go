@@ -115,8 +115,9 @@ type UpdateSettingRequest struct {
 	MetaPixelID           *string `json:"meta_pixel_id"`
 	MetaCAPIEnabled       *bool   `json:"meta_capi_enabled"`
 	GTMID                 *string `json:"gtm_id"`
-	GoogleAdsConversionID *string `json:"google_ads_conversion_id"`
-	GA4MeasurementID      *string `json:"ga4_measurement_id"`
+	GoogleAdsConversionID    *string `json:"google_ads_conversion_id"`
+	GoogleAdsConversionLabel *string `json:"google_ads_conversion_label"`
+	GA4MeasurementID         *string `json:"ga4_measurement_id"`
 	TiktokPixelID         *string `json:"tiktok_pixel_id"`
 	TiktokEAPIEnabled     *bool   `json:"tiktok_eapi_enabled"`
 	MetaCAPIToken       *string `json:"meta_capi_token"`

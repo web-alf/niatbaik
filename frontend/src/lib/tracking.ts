@@ -42,16 +42,17 @@ function awId(raw: unknown): string {
 
 // fireGads sends ONE Google Ads conversion via gtag. Needs both the AW id and the
 // conversion-action label (send_to: AW-<id>/<label>) — a bare id can't fire a conversion.
-function fireGads(id: unknown, label: unknown, val: number, eventId?: string) {
+function fireGads(id: unknown, label: unknown, val: number, eventId?: string): boolean {
   const aw = awId(id);
   const lbl = String(label || '').trim();
-  if (!window.gtag || !aw || !lbl) return;
+  if (!window.gtag || !aw || !lbl) return false;
   window.gtag('event', 'conversion', {
     send_to: aw + '/' + lbl,
     value: val,
     currency: 'IDR',
     ...(eventId ? { transaction_id: eventId } : {}),
   });
+  return true;
 }
 
 // Seed with the STATIC GTM container injected by index.html (<head>) so neither
@@ -136,7 +137,7 @@ function parseConversion(raw: unknown): any {
 
 // fireConversion fires the per-campaign conversion event for a funnel phase
 // (phase ∈ {'submit','success'}) to every configured platform. Never throws.
-export function fireConversion(c: Campaign | null | undefined, phase: 'submit' | 'success', value: number, eventId?: string) {
+export function fireConversion(c: Campaign | null | undefined, phase: 'submit' | 'success', value: number, eventId?: string): { googleAdsAttempted: boolean } {
   try {
     const cfg = parseConversion(c && c.conversion_config);
     const val = Number(value) || 0;
@@ -175,11 +176,9 @@ export function fireConversion(c: Campaign | null | undefined, phase: 'submit' |
     const label = gads && gads.enabled && gads.labels && gads.labels[phase];
     let gadsFired = false;
     if (gads && gads.enabled && gads.conversion_id && label) {
-      fireGads(gads.conversion_id, label, val, eventId);
-      gadsFired = true;
+      gadsFired = fireGads(gads.conversion_id, label, val, eventId);
     } else if (phase === 'success' && _globalGads.id && _globalGads.label) {
-      fireGads(_globalGads.id, _globalGads.label, val, eventId);
-      gadsFired = true;
+      gadsFired = fireGads(_globalGads.id, _globalGads.label, val, eventId);
     }
 
     // Fallback (success only): a Default campaign with no per-campaign config still
@@ -188,7 +187,9 @@ export function fireConversion(c: Campaign | null | undefined, phase: 'submit' |
     if (phase === 'success' && !metaEvt && !ttEvt && !gadsFired) {
       track('Purchase', payload, eventId);
     }
+    return { googleAdsAttempted: gadsFired };
   } catch { /* conversion fire must never break the donation UX */ }
+  return { googleAdsAttempted: false };
 }
 
 // captureUTM reads utm_* from the URL once on landing → sessionStorage, so the

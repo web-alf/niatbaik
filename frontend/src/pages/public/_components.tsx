@@ -2041,7 +2041,12 @@ export function InvoiceConfirmation({ c, invoice: invoiceProp, amount, paymentMe
       successFiredRef.current = true;
       // Pass the invoice number as the dedup event_id so this browser Purchase collapses
       // with the server-side CAPI/Events API Purchase (same id) — one conversion, not two.
-      try { NBTracking.fireConversion(c, 'success', subtotal, invoice.invoice_number); } catch {}
+      try {
+        const result = NBTracking.fireConversion(c, 'success', subtotal, invoice.invoice_number);
+        if (result.googleAdsAttempted) {
+          void api.acknowledgeGoogleAdsClientDispatch(invoice.invoice_number).catch(() => {});
+        }
+      } catch {}
     }
   }, [isPaid]);
 

@@ -485,6 +485,41 @@ func (s *DonationService) GetPaymentStatus(invoiceNumber string) (*model.Invoice
 	return s.invoiceRepo.FindByInvoiceNumber(invoiceNumber)
 }
 
+func acknowledgeGoogleAdsClientDispatch(inv *model.Invoice, now time.Time) error {
+	if !inv.IsPaid {
+		return fmt.Errorf("invoice belum dibayar")
+	}
+	switch inv.GoogleAdsConversionStatus {
+	case model.GoogleAdsConversionPendingCredentials:
+		inv.GoogleAdsConversionStatus = model.GoogleAdsConversionClientSent
+		if inv.GoogleAdsConversionAttemptedAt == nil {
+			inv.GoogleAdsConversionAttemptedAt = &now
+		}
+	case model.GoogleAdsConversionClientSent, model.GoogleAdsConversionServerSent, model.GoogleAdsConversionFailed:
+		return nil
+	default:
+		return fmt.Errorf("invoice tidak memiliki atribusi Google Ads")
+	}
+	return nil
+}
+
+func (s *DonationService) AcknowledgeGoogleAdsClientDispatch(invoiceNumber string) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var inv model.Invoice
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&inv, "invoice_number = ?", invoiceNumber).Error; err != nil {
+			return err
+		}
+		if err := acknowledgeGoogleAdsClientDispatch(&inv, time.Now()); err != nil {
+			return err
+		}
+		return tx.Model(&inv).Updates(map[string]any{
+			"google_ads_conversion_status":       inv.GoogleAdsConversionStatus,
+			"google_ads_conversion_attempted_at": inv.GoogleAdsConversionAttemptedAt,
+		}).Error
+	})
+}
+
 // csContact is one entry from settings.cs_contacts (admin-managed CS WhatsApp list).
 type csContact struct {
 	Phone string `json:"phone"`

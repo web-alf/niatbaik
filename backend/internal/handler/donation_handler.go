@@ -54,6 +54,14 @@ func (h *DonationHandler) SimulatePayment(c echo.Context) error {
 	))
 }
 
+func (h *DonationHandler) AcknowledgeGoogleAdsClientDispatch(c echo.Context) error {
+	err := h.donationService.AcknowledgeGoogleAdsClientDispatch(c.Param("invoice"))
+	if err != nil {
+		return c.JSON(http.StatusConflict, response.ErrorResponse(err.Error()))
+	}
+	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "success"))
+}
+
 func (h *DonationHandler) GetPaymentStatus(c echo.Context) error {
 	invoiceNumber := c.Param("invoice")
 	invoice, err := h.donationService.GetPaymentStatus(invoiceNumber)

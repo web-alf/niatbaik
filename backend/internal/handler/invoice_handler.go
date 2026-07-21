@@ -1,8 +1,12 @@
 package handler
 
 import (
+	"bytes"
+	"encoding/csv"
 	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
@@ -26,11 +30,7 @@ func NewInvoiceHandler(db *gorm.DB, paymentService *service.PaymentService, stat
 	return &InvoiceHandler{db: db, paymentService: paymentService, statusRepo: statusRepo}
 }
 
-func (h *InvoiceHandler) List(c echo.Context) error {
-	params := pagination.GetPaginationParams(c)
-
-	query := h.db.Model(&model.Invoice{})
-
+func applyInvoiceFilters(query *gorm.DB, c echo.Context) *gorm.DB {
 	// Filter by status
 	if status := c.QueryParam("status"); status != "" {
 		query = query.Where("status = ?", status)
@@ -65,6 +65,12 @@ func (h *InvoiceHandler) List(c echo.Context) error {
 		like := "%" + search + "%"
 		query = query.Where("donor_name ILIKE ? OR invoice_number ILIKE ?", like, like)
 	}
+	return query
+}
+
+func (h *InvoiceHandler) List(c echo.Context) error {
+	params := pagination.GetPaginationParams(c)
+	query := applyInvoiceFilters(h.db.Model(&model.Invoice{}), c)
 
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
@@ -83,6 +89,83 @@ func (h *InvoiceHandler) List(c echo.Context) error {
 
 	p := pagination.Paginate(params, total)
 	return c.JSON(http.StatusOK, response.PaginatedResponse(response.ToInvoiceListResponse(invoices), p))
+}
+
+var invoiceCSVHeader = []string{
+	"invoice", "tanggal", "donatur", "campaign", "nominal", "metode", "status",
+	"fundraiser", "whatsapp", "email", "utm_source", "utm_medium", "utm_campaign",
+	"utm_content", "utm_term", "utm_id", "pesan", "note", "gclid", "ga_client_id",
+	"google_ads_conversion_status", "google_ads_conversion_attempted_at",
+	"google_ads_conversion_sent_at", "google_ads_conversion_error",
+}
+
+func spreadsheetSafe(value string) string {
+	if value == "" {
+		return ""
+	}
+	switch value[0] {
+	case '=', '+', '-', '@':
+		return "'" + value
+	default:
+		return value
+	}
+}
+
+func csvTime(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339)
+}
+
+func invoiceCSVRecord(inv model.Invoice) []string {
+	message := ""
+	if inv.Message != nil {
+		message = *inv.Message
+	}
+	campaign, fundraiser := inv.Campaign.Title, ""
+	if inv.Referrer != nil {
+		fundraiser = inv.Referrer.Name
+	}
+	return []string{
+		spreadsheetSafe(inv.InvoiceNumber), inv.CreatedAt.UTC().Format(time.RFC3339),
+		spreadsheetSafe(inv.DonorName), spreadsheetSafe(campaign), strconv.FormatInt(inv.Total, 10),
+		spreadsheetSafe(inv.PaymentMethodName), spreadsheetSafe(inv.Status), spreadsheetSafe(fundraiser),
+		spreadsheetSafe(inv.DonorPhone), spreadsheetSafe(inv.DonorEmail), spreadsheetSafe(inv.UTMSource),
+		spreadsheetSafe(inv.UTMMedium), spreadsheetSafe(inv.UTMCampaign), spreadsheetSafe(inv.UTMContent),
+		spreadsheetSafe(inv.UTMTerm), spreadsheetSafe(inv.UTMID), spreadsheetSafe(message),
+		spreadsheetSafe(inv.CSNote), spreadsheetSafe(inv.Gclid), spreadsheetSafe(inv.GAClientID),
+		spreadsheetSafe(inv.GoogleAdsConversionStatus), csvTime(inv.GoogleAdsConversionAttemptedAt),
+		csvTime(inv.GoogleAdsConversionSentAt), spreadsheetSafe(inv.GoogleAdsConversionError),
+	}
+}
+
+func (h *InvoiceHandler) Export(c echo.Context) error {
+	var invoices []model.Invoice
+	query := applyInvoiceFilters(h.db.Model(&model.Invoice{}), c).
+		Preload("Campaign").Preload("PaymentMethod").Preload("Referrer").
+		Order(pagination.SanitizeSort(c.QueryParam("sort")))
+	if err := query.Find(&invoices).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to export invoices"))
+	}
+
+	var buf bytes.Buffer
+	w := csv.NewWriter(&buf)
+	if err := w.Write(invoiceCSVHeader); err != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to create export"))
+	}
+	for i := range invoices {
+		if err := w.Write(invoiceCSVRecord(invoices[i])); err != nil {
+			return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to create export"))
+		}
+	}
+	w.Flush()
+	if err := w.Error(); err != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to create export"))
+	}
+	c.Response().Header().Set(echo.HeaderContentType, "text/csv; charset=utf-8")
+	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf(`attachment; filename="niatbaik_transaksi_%s.csv"`, time.Now().Format("2006-01-02")))
+	return c.Blob(http.StatusOK, "text/csv; charset=utf-8", buf.Bytes())
 }
 
 func (h *InvoiceHandler) GetDetail(c echo.Context) error {

@@ -115,6 +115,8 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	api.POST("/fundraisers/ref-hit", fundraiserHandler.RefHit)
 	api.POST("/donations", donationHandler.CreateDonation)
 	api.GET("/donations/:invoice", donationHandler.GetPaymentStatus)
+	api.POST("/donations/:invoice/google-ads/client-dispatch", donationHandler.AcknowledgeGoogleAdsClientDispatch)
+
 	// Public AI-CS chat (Cekat Ai). AI-first; returns handoff=true → route to human WA CS.
 	api.POST("/cs/chat", cekatAIHandler.Chat)
 
@@ -255,6 +257,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	staffInv := protected.Group("")
 	staffInv.Use(middleware.RequireStaff())
 	staffInv.GET("/invoices", invoiceHandler.List)
+	staffInv.GET("/invoices/export", invoiceHandler.Export)
 	staffInv.GET("/invoices/:id", invoiceHandler.GetDetail)
 
 	cs.PUT("/invoices/:id/status", invoiceHandler.UpdateStatus)

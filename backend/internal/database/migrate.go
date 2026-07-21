@@ -58,6 +58,18 @@ func Migrate(db *gorm.DB) error {
 		return fmt.Errorf("auto-migration failed: %w", err)
 	}
 
+	if err := db.Exec(`
+		UPDATE invoices
+		SET google_ads_conversion_status = CASE
+			WHEN BTRIM(COALESCE(gclid, '')) = '' THEN 'not_attributed'
+			ELSE 'pending_credentials'
+		END
+		WHERE is_paid = TRUE
+		  AND COALESCE(google_ads_conversion_status, '') = ''
+	`).Error; err != nil {
+		return fmt.Errorf("backfill Google Ads conversion statuses: %w", err)
+	}
+
 	// KYC/verification feature removed: drop its table and the users.verification_status
 	// column. Idempotent (IF EXISTS) so it's safe on fresh DBs and re-runs. AutoMigrate
 	// never drops columns/tables on its own, so this is required to actually reclaim them.

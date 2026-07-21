@@ -120,6 +120,12 @@ export function mapInvoice(inv: any): Invoice {
     email: inv.donor_email || inv.email || '',
     note: inv.cs_note || inv.note || '',
     clickId: inv.click_id || inv.clickId || '',
+    gclid: inv.gclid || '',
+    gaClientId: inv.ga_client_id || '',
+    googleAdsConversionStatus: inv.google_ads_conversion_status || '',
+    googleAdsConversionAttemptedAt: inv.google_ads_conversion_attempted_at || null,
+    googleAdsConversionSentAt: inv.google_ads_conversion_sent_at || null,
+    googleAdsConversionError: inv.google_ads_conversion_error || '',
     anon: inv.is_anonymous ?? inv.anon ?? false,
     message: inv.message || '',
   };

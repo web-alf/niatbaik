@@ -80,6 +80,12 @@ export interface Invoice {
   email: string;
   note: string;
   clickId?: string;
+  gclid?: string;
+  gaClientId?: string;
+  googleAdsConversionStatus?: string;
+  googleAdsConversionAttemptedAt?: string | null;
+  googleAdsConversionSentAt?: string | null;
+  googleAdsConversionError?: string;
   anon: boolean;
   message: string;
   referrer?: string; // fundraiser name when donation came via ?ref= link

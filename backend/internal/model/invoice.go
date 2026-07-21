@@ -7,6 +7,14 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	GoogleAdsConversionNotAttributed      = "not_attributed"
+	GoogleAdsConversionPendingCredentials = "pending_credentials"
+	GoogleAdsConversionClientSent         = "client_sent"
+	GoogleAdsConversionServerSent         = "server_sent"
+	GoogleAdsConversionFailed             = "failed"
+)
+
 type Invoice struct {
 	ID              uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	InvoiceNumber   string     `gorm:"size:50;uniqueIndex;not null" json:"invoice_number"`
@@ -83,8 +91,12 @@ type Invoice struct {
 	// Protocol purchase so GA4 stitches it to the donor's real web session and can forward
 	// the conversion to Google Ads. Empty for donors with no _ga cookie (falls back to the
 	// invoice number, which still dedups but lands as a session-less (direct) hit).
-	GAClientID string `gorm:"size:100" json:"ga_client_id"`
-	CSNote     string `gorm:"type:text" json:"cs_note"`
+	GAClientID                     string     `gorm:"size:100" json:"ga_client_id"`
+	GoogleAdsConversionStatus      string     `gorm:"size:32;default:''" json:"google_ads_conversion_status"`
+	GoogleAdsConversionAttemptedAt *time.Time `json:"google_ads_conversion_attempted_at"`
+	GoogleAdsConversionSentAt      *time.Time `json:"google_ads_conversion_sent_at"`
+	GoogleAdsConversionError       string     `gorm:"size:1000" json:"google_ads_conversion_error"`
+	CSNote                         string     `gorm:"type:text" json:"cs_note"`
 
 	// LeadQuality is a manual CS/admin tag on the lead (invoice), independent of payment
 	// status. Empty = unclassified. Values: "berkualitas" | "invalid".

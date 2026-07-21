@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/model"
@@ -10,6 +11,24 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func initializeGoogleAdsConversionStatus(inv *model.Invoice) {
+	if inv.GoogleAdsConversionStatus != "" {
+		return
+	}
+	if strings.TrimSpace(inv.Gclid) == "" {
+		inv.GoogleAdsConversionStatus = model.GoogleAdsConversionNotAttributed
+		return
+	}
+	inv.GoogleAdsConversionStatus = model.GoogleAdsConversionPendingCredentials
+}
+
+func clearGoogleAdsConversionAudit(inv *model.Invoice) {
+	inv.GoogleAdsConversionStatus = ""
+	inv.GoogleAdsConversionAttemptedAt = nil
+	inv.GoogleAdsConversionSentAt = nil
+	inv.GoogleAdsConversionError = ""
+}
 
 type PaymentService struct {
 	db             *gorm.DB
@@ -67,6 +86,7 @@ func (s *PaymentService) ProcessPayment(invoice *model.Invoice) error {
 		lockedInvoice.Status = "Terbayar"
 		lockedInvoice.PaidAt = &now
 		lockedInvoice.ReminderSentAt = nil
+		initializeGoogleAdsConversionStatus(&lockedInvoice)
 
 		// Guard against a misconfigured admin fee corrupting balances: a fee larger
 		// than the donation must never make the campaign/org "receive" a negative
@@ -405,14 +425,18 @@ func (s *PaymentService) ReversePayment(invoice *model.Invoice, newStatus string
 		// 4. Flip the invoice unpaid, clear the snapshots + referral flag so a later
 		//    re-payment starts clean and re-credits everything correctly.
 		if err := tx.Model(&inv).Updates(map[string]any{
-			"status":              newStatus,
-			"is_paid":             false,
-			"paid_at":             nil,
-			"referral_processed":  false,
-			"payment_snapshotted": false,
-			"campaign_credited":   0,
-			"master_credited":     0,
-			"commission_credited": 0,
+			"status":                             newStatus,
+			"is_paid":                            false,
+			"paid_at":                            nil,
+			"referral_processed":                 false,
+			"payment_snapshotted":                false,
+			"campaign_credited":                  0,
+			"master_credited":                    0,
+			"commission_credited":                0,
+			"google_ads_conversion_status":       "",
+			"google_ads_conversion_attempted_at": nil,
+			"google_ads_conversion_sent_at":      nil,
+			"google_ads_conversion_error":        "",
 		}).Error; err != nil {
 			return fmt.Errorf("failed to reverse invoice status: %w", err)
 		}

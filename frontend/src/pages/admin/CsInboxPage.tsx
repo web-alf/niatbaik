@@ -4,7 +4,7 @@ import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { fmtIDR, fmtIDRShort, fmtNum } from '@/lib/format';
 import { parseTxnDate, formatRangeLabel, getDateRange } from '@/lib/date';
-import { exportCSV, exportExcel } from '@/lib/export';
+import { downloadBlob, exportCSV, exportExcel } from '@/lib/export';
 import { txnExportRows } from '@/lib/txnExport';
 import { Card, StatCard, Badge, StatusBadge, Btn, SearchInput, Modal, PageHeader, Empty, Toggle, SourcePill, Icon, DateRangePill } from '@/components';
 
@@ -101,12 +101,25 @@ export default function CsInboxPage() {
   const shown = filtered.slice(0, visible);
 
   // Full export (same columns as admin) of the currently-filtered rows.
-  const exportTxns = (kind: 'csv' | 'xls') => {
-    const rows = txnExportRows(filtered);
-    if (!rows.length) { showToast('Tidak ada data untuk diekspor'); return; }
-    if (kind === 'csv') exportCSV(rows, 'niatbaik_cs_inbox', getDateRange());
-    else exportExcel(rows, 'niatbaik_cs_inbox', getDateRange(), 'CS Inbox');
-    showToast(`${rows.length} baris diekspor ke ${kind.toUpperCase()}`);
+  const exportTxns = async (kind: 'csv' | 'xls') => {
+    const advancedClientFilters = activeAdvCount > 0 || filter !== 'all';
+    if (advancedClientFilters || kind === 'xls') {
+      const rows = txnExportRows(filtered);
+      if (!rows.length) { showToast('Tidak ada data untuk diekspor'); return; }
+      if (kind === 'csv') exportCSV(rows, 'niatbaik_cs_inbox', getDateRange());
+      else exportExcel(rows, 'niatbaik_cs_inbox', getDateRange(), 'CS Inbox');
+      showToast(`${rows.length} baris termuat diekspor; filter lanjutan belum mendukung export penuh.`);
+      return;
+    }
+    const params = new URLSearchParams();
+    if (search.trim()) params.set('search', search.trim());
+    try {
+      const result = await api.exportInvoices(params.toString());
+      downloadBlob(result.blob, result.filename);
+      showToast('Export transaksi lengkap selesai');
+    } catch (e: any) {
+      showToast('Export gagal: ' + (e?.message || ''));
+    }
   };
 
   // Once the list loads (or the selection falls out of the filtered set), select a valid

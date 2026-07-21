@@ -244,6 +244,20 @@ export const api = {
     }
   },
 
+  async exportInvoices(params = ''): Promise<{ blob: Blob; filename: string }> {
+    const headers: Record<string, string> = {};
+    if (authToken) headers.Authorization = 'Bearer ' + authToken;
+    const res = await fetch(API_BASE + '/invoices/export' + (params ? '?' + params : ''), { headers });
+    if (!res.ok) {
+      let data: any = null;
+      try { data = await res.json(); } catch {}
+      throw { status: res.status, message: data?.message || `Error ${res.status}` } as ApiError;
+    }
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || 'niatbaik_transaksi.csv';
+    return { blob: await res.blob(), filename };
+  },
+
   get<T = unknown>(path: string) { return this.request<T>('GET', path); },
   post<T = unknown>(path: string, body?: unknown) { return this.request<T>('POST', path, body); },
   put<T = unknown>(path: string, body?: unknown) { return this.request<T>('PUT', path, body); },
@@ -284,6 +298,9 @@ export const api = {
   createDonation(data: unknown) { return this.post<any>('/donations', data); },
   paymentStatus(invoice: string) { return this.get<any>('/donations/' + invoice); },
   simulatePayment(invoice: string) { return this.post('/donations/' + invoice + '/simulate-payment', {}); },
+  acknowledgeGoogleAdsClientDispatch(invoice: string) {
+    return this.post(`/donations/${encodeURIComponent(invoice)}/google-ads/client-dispatch`, {});
+  },
 
   // Dashboard
   dashboardStats() { return this.get<any>('/dashboard/stats'); },

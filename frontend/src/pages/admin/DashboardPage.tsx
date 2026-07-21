@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { fmtIDR, fmtIDRShort, fmtNum, paymentMethods, isAutoConfirmMethod } from '@/lib/format';
 import { campaignBgStyle } from '@/lib/mappers';
 import { useSharedDateRange, parseTxnDate, fmtDate } from '@/lib/date';
-import { exportCSV, exportExcel, filterByRange } from '@/lib/export';
+import { downloadBlob, exportCSV, exportExcel, filterByRange } from '@/lib/export';
 import { txnExportRows } from '@/lib/txnExport';
 import { Card, StatCard, Badge, StatusBadge, Progress, Btn, SearchInput, Select, LineChart, Donut, PageHeader, Tabs, SourcePill, Icon, DateRangePill } from '@/components';
 import AdvertiserPage from '@/pages/admin/AdvertiserPage';
@@ -159,12 +159,22 @@ export default function DashboardPage() {
 
   // Export respects all active filters (date range + query/status/method). Uses the shared
   // full column set so every role exports the same columns as admin.
-  const handleExport = (kind: any) => {
-    const rows = txnExportRows(visibleTxns);
-    if (!rows.length) { showToast('Tidak ada data pada rentang tanggal'); return; }
-    if (kind === 'csv') exportCSV(rows, 'niatbaik_transaksi', range);
-    else exportExcel(rows, 'niatbaik_transaksi', range, 'Transaksi');
-    showToast(`${rows.length} baris diekspor ke ${kind.toUpperCase()}`);
+  const handleExport = async (_kind: any) => {
+    const params = new URLSearchParams();
+    if (txnQuery.trim()) params.set('search', txnQuery.trim());
+    if (txnMethodFilter !== 'all') params.set('payment_method', txnMethodFilter);
+    if (range?.start) params.set('from', range.start.toISOString().slice(0, 10));
+    if (range?.end) params.set('to', range.end.toISOString().slice(0, 10));
+    if (txnStatusFilter !== 'all') {
+      showToast('Filter status memakai kategori tampilan; export status dinonaktifkan agar data tidak salah.');
+    }
+    try {
+      const result = await api.exportInvoices(params.toString());
+      downloadBlob(result.blob, result.filename);
+      showToast('Export transaksi selesai');
+    } catch (e: any) {
+      showToast('Export gagal: ' + (e?.message || ''));
+    }
   };
 
   // Role-specific dashboards. Fundraiser now gets the same advertiser-style dashboard

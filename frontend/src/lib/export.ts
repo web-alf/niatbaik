@@ -3,8 +3,8 @@ import { parseTxnDate, rangeStamp, type DateRange } from '@/lib/date';
 
 type Row = Record<string, unknown>;
 
-const downloadBlob = (content: string, filename: string, mime: string) => {
-  const blob = new Blob([content], { type: mime });
+export const downloadBlob = (content: BlobPart | Blob, filename: string, mime = 'application/octet-stream') => {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = filename;

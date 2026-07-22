@@ -23,16 +23,16 @@ type Setting struct {
 
 	// General settings (edited in the admin General panel) — previously sent by the
 	// frontend but had no column, so they silently reverted on refresh.
-	Domain          string `gorm:"size:255" json:"domain"`
-	Timezone        string `gorm:"size:64" json:"timezone"`
-	Currency        string `gorm:"size:16" json:"currency"`
-	SEOTitle        string `gorm:"size:255" json:"seo_title"`
-	SEODescription  string `gorm:"type:text" json:"seo_description"`
-	Maintenance     bool   `gorm:"default:false" json:"maintenance"`
-	FormPageName    string `gorm:"size:64;default:'donasi'" json:"form_page_name"`
+	Domain           string `gorm:"size:255" json:"domain"`
+	Timezone         string `gorm:"size:64" json:"timezone"`
+	Currency         string `gorm:"size:16" json:"currency"`
+	SEOTitle         string `gorm:"size:255" json:"seo_title"`
+	SEODescription   string `gorm:"type:text" json:"seo_description"`
+	Maintenance      bool   `gorm:"default:false" json:"maintenance"`
+	FormPageName     string `gorm:"size:64;default:'donasi'" json:"form_page_name"`
 	ThankyouPageName string `gorm:"size:64;default:'invoice'" json:"thankyou_page_name"`
-	LookerReports   string `gorm:"type:text" json:"looker_reports"`
-	AdminFee       int       `gorm:"default:0" json:"admin_fee"`
+	LookerReports    string `gorm:"type:text" json:"looker_reports"`
+	AdminFee         int    `gorm:"default:0" json:"admin_fee"`
 
 	FundraiserCommissionPercent int `gorm:"default:0" json:"fundraiser_commission_percent"`
 
@@ -73,21 +73,21 @@ type Setting struct {
 
 	// Payment gateway — Duitku (hosted redirect / VA). Merchant code + API key for
 	// create-transaction; callback key verifies the return webhook signature.
-	DuitkuEnabled    bool   `gorm:"default:false" json:"duitku_enabled"`
-	DuitkuMode       string `gorm:"size:20;default:'sandbox'" json:"duitku_mode"`
-	DuitkuMerchant   string `gorm:"size:50" json:"duitku_merchant"`
-	DuitkuAPIKey     string `gorm:"type:text" json:"-"`
+	DuitkuEnabled     bool   `gorm:"default:false" json:"duitku_enabled"`
+	DuitkuMode        string `gorm:"size:20;default:'sandbox'" json:"duitku_mode"`
+	DuitkuMerchant    string `gorm:"size:50" json:"duitku_merchant"`
+	DuitkuAPIKey      string `gorm:"type:text" json:"-"`
 	DuitkuCallbackKey string `gorm:"type:text" json:"-"`
-	DuitkuBaseURL    string `gorm:"size:255;default:'https://passport.duitku.com'" json:"duitku_base_url"`
+	DuitkuBaseURL     string `gorm:"size:255;default:'https://passport.duitku.com'" json:"duitku_base_url"`
 
 	// CS Cekat Ai (generic AI CS) — AI-first donor support with human-WA fallback.
 	// Endpoint + key + system prompt drive a server-side chat-completion proxy so the
 	// key never reaches the browser. When disabled, the donor CS flow uses the WA
 	// rotator (CS manusia) directly.
-	CekatAIEnabled    bool   `gorm:"default:false" json:"cekat_ai_enabled"`
-	CekatAIEndpoint   string `gorm:"size:255" json:"cekat_ai_endpoint"`
-	CekatAIKey        string `gorm:"type:text" json:"-"`
-	CekatAIModel      string `gorm:"size:100" json:"cekat_ai_model"`
+	CekatAIEnabled      bool   `gorm:"default:false" json:"cekat_ai_enabled"`
+	CekatAIEndpoint     string `gorm:"size:255" json:"cekat_ai_endpoint"`
+	CekatAIKey          string `gorm:"type:text" json:"-"`
+	CekatAIModel        string `gorm:"size:100" json:"cekat_ai_model"`
 	CekatAISystemPrompt string `gorm:"type:text" json:"cekat_ai_system_prompt"`
 
 	// SMTP
@@ -99,9 +99,9 @@ type Setting struct {
 	SMTPName     string `gorm:"size:255" json:"smtp_name"`
 
 	// WhatsApp
-	WhatsappProvider         string `gorm:"size:50" json:"whatsapp_provider"`
-	WhatsappToken            string `gorm:"type:text" json:"-"`
-	WhatsappTokenStarsender  string `gorm:"type:text" json:"-"`
+	WhatsappProvider        string `gorm:"size:50" json:"whatsapp_provider"`
+	WhatsappToken           string `gorm:"type:text" json:"-"`
+	WhatsappTokenStarsender string `gorm:"type:text" json:"-"`
 
 	// Theme
 	PaymentProvider    string `gorm:"size:50" json:"payment_provider"`
@@ -111,9 +111,9 @@ type Setting struct {
 	PoweredBy          bool   `gorm:"default:true" json:"powered_by"`
 	SocialproofSetting bool   `gorm:"default:false" json:"socialproof_setting"`
 
-	FontFamily          string `gorm:"size:100" json:"font_family"`
-	BorderRadius        int    `gorm:"default:12" json:"border_radius"`
-	ButtonStyle         string `gorm:"size:50" json:"button_style"`
+	FontFamily   string `gorm:"size:100" json:"font_family"`
+	BorderRadius int    `gorm:"default:12" json:"border_radius"`
+	ButtonStyle  string `gorm:"size:50" json:"button_style"`
 	// Public donation-form display styles (admin-selectable, global). FormDisplayStyle:
 	// "normal" | "bold" (bolder font + thicker field borders). PaymentDisplayStyle:
 	// "card" | "dropdown" (how the payment-method selector renders). Exposed via
@@ -136,10 +136,10 @@ type Setting struct {
 	TelegramChatID   string `gorm:"size:100" json:"telegram_chat_id"`
 
 	// Donor greeting + CS contact rotator
-	DonorGreeting string `gorm:"type:text" json:"donor_greeting"`            // greeting message shown to donor
-	CSContacts    string `gorm:"type:text" json:"cs_contacts"`              // JSON array of CS WA contacts (rotator)
-	CSRotatorMode string `gorm:"size:20;default:'default'" json:"cs_rotator_mode"` // "default" | "rotator" | "least"
-	CSRotatorIndex int64 `gorm:"default:0" json:"-"`                              // round-robin cursor, server-incremented atomically
+	DonorGreeting  string `gorm:"type:text" json:"donor_greeting"`                  // greeting message shown to donor
+	CSContacts     string `gorm:"type:text" json:"cs_contacts"`                     // JSON array of CS WA contacts (rotator)
+	CSRotatorMode  string `gorm:"size:20;default:'default'" json:"cs_rotator_mode"` // "default" | "rotator" | "least"
+	CSRotatorIndex int64  `gorm:"default:0" json:"-"`                               // round-robin cursor, server-incremented atomically
 
 	// Ads tracking & pixels
 	MetaPixelID           string `gorm:"size:100" json:"meta_pixel_id"`
@@ -149,12 +149,16 @@ type Setting struct {
 	// Google Ads conversion action LABEL (the "AbC-D_efG" in send_to: AW-<id>/<label>).
 	// Without it a Default campaign can't fire a real gtag conversion, so Google Ads
 	// never verifies the tag. Public (non-secret) — it's just the conversion action id.
-	GoogleAdsConversionLabel string `gorm:"size:100" json:"google_ads_conversion_label"`
-	GA4MeasurementID         string `gorm:"size:100" json:"ga4_measurement_id"`
-	TiktokPixelID         string `gorm:"size:100" json:"tiktok_pixel_id"`
-	TiktokEAPIEnabled     bool   `gorm:"default:false" json:"tiktok_eapi_enabled"`
-	LookerStudioEmbed     string `gorm:"type:text" json:"looker_studio_embed"`
-	EventTrackingConfig   string `gorm:"type:text" json:"event_tracking_config"` // JSON
+	GoogleAdsConversionLabel           string `gorm:"size:100" json:"google_ads_conversion_label"`
+	GoogleAdsCustomerID                string `gorm:"size:10" json:"google_ads_customer_id"`
+	GoogleAdsLoginCustomerID           string `gorm:"size:10" json:"google_ads_login_customer_id"`
+	GoogleAdsDefaultConversionActionID string `gorm:"size:32" json:"google_ads_default_conversion_action_id"`
+	GoogleAdsServerUploadEnabled       bool   `gorm:"default:false" json:"google_ads_server_upload_enabled"`
+	GA4MeasurementID                   string `gorm:"size:100" json:"ga4_measurement_id"`
+	TiktokPixelID                      string `gorm:"size:100" json:"tiktok_pixel_id"`
+	TiktokEAPIEnabled                  bool   `gorm:"default:false" json:"tiktok_eapi_enabled"`
+	LookerStudioEmbed                  string `gorm:"type:text" json:"looker_studio_embed"`
+	EventTrackingConfig                string `gorm:"type:text" json:"event_tracking_config"` // JSON
 
 	// Server-side conversion credentials (CAPI / EAPI). Tokens are TEXT + json:"-"
 	// (never echoed on GET) — same secret pattern as Moota/Flip gateway keys above.

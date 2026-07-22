@@ -9,7 +9,10 @@ import (
 
 const (
 	GoogleAdsConversionNotAttributed      = "not_attributed"
-	GoogleAdsConversionPendingCredentials = "pending_credentials"
+	GoogleAdsConversionPendingCredentials = "pending_configuration"
+	GoogleAdsConversionPendingUpload      = "pending_upload"
+	GoogleAdsConversionProcessing         = "processing"
+	GoogleAdsConversionRetryable          = "retryable"
 	GoogleAdsConversionClientSent         = "client_sent"
 	GoogleAdsConversionServerSent         = "server_sent"
 	GoogleAdsConversionFailed             = "failed"
@@ -81,11 +84,26 @@ type Invoice struct {
 	// (fbc/fbp) and TikTok Events API (ttclid/ttp) so a settled donation is attributable to
 	// the ad that drove it. Without these the server conversions carry only hashed PII and
 	// the dashboards can't tie them to a click.
-	Fbclid string `gorm:"size:255" json:"fbclid"`
-	Fbp    string `gorm:"size:255" json:"fbp"`
-	Ttclid string `gorm:"size:255" json:"ttclid"`
-	Ttp    string `gorm:"size:255" json:"ttp"`
-	Gclid  string `gorm:"size:255" json:"gclid"`
+	Fbclid                               string     `gorm:"size:255" json:"fbclid"`
+	Fbp                                  string     `gorm:"size:255" json:"fbp"`
+	Ttclid                               string     `gorm:"size:255" json:"ttclid"`
+	Ttp                                  string     `gorm:"size:255" json:"ttp"`
+	Gclid                                string     `gorm:"size:255" json:"gclid"`
+	Gbraid                               string     `gorm:"size:255" json:"gbraid"`
+	Wbraid                               string     `gorm:"size:255" json:"wbraid"`
+	GoogleAdsCustomerIDSnapshot          string     `gorm:"size:10" json:"google_ads_customer_id"`
+	GoogleAdsLoginCustomerIDSnapshot     string     `gorm:"size:10" json:"-"`
+	GoogleAdsConversionActionIDSnapshot  string     `gorm:"size:32" json:"google_ads_conversion_action_id"`
+	GoogleAdsServerUploadEnabledSnapshot bool       `gorm:"default:false" json:"-"`
+	GoogleAdsClientAttemptedAt           *time.Time `json:"google_ads_client_attempted_at"`
+	GoogleAdsServerStatus                string     `gorm:"size:32;default:''" json:"google_ads_server_status"`
+	GoogleAdsServerAttemptedAt           *time.Time `json:"google_ads_server_attempted_at"`
+	GoogleAdsServerSentAt                *time.Time `json:"google_ads_server_sent_at"`
+	GoogleAdsServerError                 string     `gorm:"size:1000" json:"google_ads_server_error"`
+	GoogleAdsServerRequestID             string     `gorm:"size:255" json:"google_ads_server_request_id"`
+	GoogleAdsServerAttemptCount          int        `gorm:"default:0" json:"google_ads_server_attempt_count"`
+	GoogleAdsServerNextAttemptAt         *time.Time `json:"google_ads_server_next_attempt_at"`
+	GoogleAdsServerProcessingAt          *time.Time `json:"google_ads_server_processing_at"`
 	// GAClientID is the GA4 client id parsed from the browser _ga cookie (the <id>.<ts>
 	// suffix after the GAx.y. prefix). Sent as client_id in the server-side Measurement
 	// Protocol purchase so GA4 stitches it to the donor's real web session and can forward

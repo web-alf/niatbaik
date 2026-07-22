@@ -58,15 +58,7 @@ func Migrate(db *gorm.DB) error {
 		return fmt.Errorf("auto-migration failed: %w", err)
 	}
 
-	if err := db.Exec(`
-		UPDATE invoices
-		SET google_ads_conversion_status = CASE
-			WHEN BTRIM(COALESCE(gclid, '')) = '' THEN 'not_attributed'
-			ELSE 'pending_credentials'
-		END
-		WHERE is_paid = TRUE
-		  AND COALESCE(google_ads_conversion_status, '') = ''
-	`).Error; err != nil {
+	if err := db.Exec(googleAdsAuditMigrationSQL()).Error; err != nil {
 		return fmt.Errorf("backfill Google Ads conversion statuses: %w", err)
 	}
 
@@ -123,4 +115,17 @@ func backfillUsernames(db *gorm.DB) error {
 		}
 	}
 	return nil
+}
+
+func googleAdsAuditMigrationSQL() string {
+	return `UPDATE invoices SET
+ google_ads_client_attempted_at = COALESCE(google_ads_client_attempted_at, google_ads_conversion_attempted_at),
+ google_ads_server_status = CASE
+ WHEN google_ads_server_status = 'server_sent' OR google_ads_conversion_status = 'server_sent' THEN 'server_sent'
+ WHEN is_paid = FALSE THEN COALESCE(google_ads_server_status, '')
+ WHEN BTRIM(COALESCE(gclid,'')) = '' AND BTRIM(COALESCE(gbraid,'')) = '' AND BTRIM(COALESCE(wbraid,'')) = '' THEN 'not_attributed'
+ WHEN google_ads_server_upload_enabled_snapshot = TRUE AND BTRIM(COALESCE(google_ads_customer_id_snapshot,'')) <> '' AND BTRIM(COALESCE(google_ads_conversion_action_id_snapshot,'')) <> '' THEN 'pending_upload'
+ ELSE 'pending_configuration' END,
+ google_ads_server_next_attempt_at = CASE WHEN google_ads_server_status = 'server_sent' OR google_ads_conversion_status = 'server_sent' THEN google_ads_server_next_attempt_at WHEN is_paid AND google_ads_server_upload_enabled_snapshot AND BTRIM(COALESCE(google_ads_customer_id_snapshot,'')) <> '' AND BTRIM(COALESCE(google_ads_conversion_action_id_snapshot,'')) <> '' AND (BTRIM(COALESCE(gclid,'')) <> '' OR BTRIM(COALESCE(gbraid,'')) <> '' OR BTRIM(COALESCE(wbraid,'')) <> '') THEN COALESCE(google_ads_server_next_attempt_at,NOW()) ELSE google_ads_server_next_attempt_at END
+ WHERE is_paid = TRUE OR google_ads_conversion_attempted_at IS NOT NULL OR google_ads_conversion_status = 'server_sent'`
 }

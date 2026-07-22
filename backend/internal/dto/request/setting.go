@@ -71,24 +71,24 @@ type UpdateSettingRequest struct {
 	IpaymuBaseURL *string `json:"ipaymu_base_url" validate:"omitempty,max=255"`
 
 	// Duitku (api key + callback key are secrets → blank = keep)
-	DuitkuEnabled    *bool  `json:"duitku_enabled"`
-	DuitkuMode       *string `json:"duitku_mode" validate:"omitempty,oneof=sandbox production"`
-	DuitkuMerchant   *string `json:"duitku_merchant" validate:"omitempty,max=50"`
-	DuitkuAPIKey     string  `json:"duitku_api_key"`
-	DuitkuCallbackKey string `json:"duitku_callback_key"`
-	DuitkuBaseURL    *string `json:"duitku_base_url" validate:"omitempty,max=255"`
+	DuitkuEnabled     *bool   `json:"duitku_enabled"`
+	DuitkuMode        *string `json:"duitku_mode" validate:"omitempty,oneof=sandbox production"`
+	DuitkuMerchant    *string `json:"duitku_merchant" validate:"omitempty,max=50"`
+	DuitkuAPIKey      string  `json:"duitku_api_key"`
+	DuitkuCallbackKey string  `json:"duitku_callback_key"`
+	DuitkuBaseURL     *string `json:"duitku_base_url" validate:"omitempty,max=255"`
 
 	// Cekat Ai (api key is a secret → blank = keep)
-	CekatAIEnabled      *bool  `json:"cekat_ai_enabled"`
+	CekatAIEnabled      *bool   `json:"cekat_ai_enabled"`
 	CekatAIEndpoint     *string `json:"cekat_ai_endpoint" validate:"omitempty,max=255"`
 	CekatAIKey          string  `json:"cekat_ai_key"`
 	CekatAIModel        *string `json:"cekat_ai_model" validate:"omitempty,max=100"`
 	CekatAISystemPrompt *string `json:"cekat_ai_system_prompt"`
 
 	// Theme extended
-	FontFamily          *string `json:"font_family"`
-	BorderRadius        *int    `json:"border_radius"`
-	ButtonStyle         *string `json:"button_style"`
+	FontFamily   *string `json:"font_family"`
+	BorderRadius *int    `json:"border_radius"`
+	ButtonStyle  *string `json:"button_style"`
 	// Public-form display styles (admin-selectable, global)
 	FormDisplayStyle    *string `json:"form_display_style" validate:"omitempty,oneof=normal bold"`
 	PaymentDisplayStyle *string `json:"payment_display_style" validate:"omitempty,oneof=card dropdown"`
@@ -112,21 +112,25 @@ type UpdateSettingRequest struct {
 	FundraisingConfig  *string `json:"fundraising_config" validate:"omitempty,max=65536"`
 
 	// Ads tracking & pixels (public IDs — clearable to disable an integration)
-	MetaPixelID           *string `json:"meta_pixel_id"`
-	MetaCAPIEnabled       *bool   `json:"meta_capi_enabled"`
-	GTMID                 *string `json:"gtm_id"`
-	GoogleAdsConversionID    *string `json:"google_ads_conversion_id"`
-	GoogleAdsConversionLabel *string `json:"google_ads_conversion_label"`
-	GA4MeasurementID         *string `json:"ga4_measurement_id"`
-	TiktokPixelID         *string `json:"tiktok_pixel_id"`
-	TiktokEAPIEnabled     *bool   `json:"tiktok_eapi_enabled"`
-	MetaCAPIToken       *string `json:"meta_capi_token"`
-	MetaTestEventCode   *string `json:"meta_test_event_code"`
-	TiktokAccessToken   *string `json:"tiktok_access_token"`
-	TiktokTestEventCode *string `json:"tiktok_test_event_code"`
-	GA4APISecret        *string `json:"ga4_api_secret"`
-	LookerStudioEmbed     *string `json:"looker_studio_embed" validate:"omitempty,max=65536"`
-	EventTrackingConfig   *string `json:"event_tracking_config" validate:"omitempty,max=65536"`
+	MetaPixelID                        *string `json:"meta_pixel_id"`
+	MetaCAPIEnabled                    *bool   `json:"meta_capi_enabled"`
+	GTMID                              *string `json:"gtm_id"`
+	GoogleAdsConversionID              *string `json:"google_ads_conversion_id"`
+	GoogleAdsConversionLabel           *string `json:"google_ads_conversion_label"`
+	GoogleAdsCustomerID                *string `json:"google_ads_customer_id" validate:"omitempty,max=20"`
+	GoogleAdsLoginCustomerID           *string `json:"google_ads_login_customer_id" validate:"omitempty,max=20"`
+	GoogleAdsDefaultConversionActionID *string `json:"google_ads_default_conversion_action_id" validate:"omitempty,max=32"`
+	GoogleAdsServerUploadEnabled       *bool   `json:"google_ads_server_upload_enabled"`
+	GA4MeasurementID                   *string `json:"ga4_measurement_id"`
+	TiktokPixelID                      *string `json:"tiktok_pixel_id"`
+	TiktokEAPIEnabled                  *bool   `json:"tiktok_eapi_enabled"`
+	MetaCAPIToken                      *string `json:"meta_capi_token"`
+	MetaTestEventCode                  *string `json:"meta_test_event_code"`
+	TiktokAccessToken                  *string `json:"tiktok_access_token"`
+	TiktokTestEventCode                *string `json:"tiktok_test_event_code"`
+	GA4APISecret                       *string `json:"ga4_api_secret"`
+	LookerStudioEmbed                  *string `json:"looker_studio_embed" validate:"omitempty,max=65536"`
+	EventTrackingConfig                *string `json:"event_tracking_config" validate:"omitempty,max=65536"`
 
 	// Moota / Flip detail
 	MootaEndpoint         *string `json:"moota_endpoint"`

@@ -31,3 +31,7 @@ func (r *SettingRepo) Update(setting *model.Setting) error {
 	// false" semantics the settings service relies on.
 	return r.db.Omit("total_money", "cs_rotator_index").Save(setting).Error
 }
+
+func (r *SettingRepo) UpdateGoogleAds(fields map[string]any) error {
+	return r.db.Model(&model.Setting{}).Where("id = (SELECT id FROM settings ORDER BY created_at LIMIT 1)").Updates(fields).Error
+}

@@ -1,15 +1,19 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/anrdart/niatbaik-api/internal/config"
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/internal/repository"
 	"github.com/anrdart/niatbaik-api/pkg/mailer"
+	"github.com/google/uuid"
 )
 
 // validCSContacts returns true when s is empty or a JSON array of CS contacts
@@ -45,10 +49,36 @@ var ErrValidation = errors.New("validation error")
 
 type SettingService struct {
 	settingRepo *repository.SettingRepo
+	cfg         *config.Config
+	dataManager DataManagerClient
 }
 
-func NewSettingService(settingRepo *repository.SettingRepo) *SettingService {
-	return &SettingService{settingRepo: settingRepo}
+func NewSettingService(settingRepo *repository.SettingRepo, cfg *config.Config, clients ...DataManagerClient) *SettingService {
+	s := &SettingService{settingRepo: settingRepo, cfg: cfg}
+	if len(clients) > 0 {
+		s.dataManager = clients[0]
+	}
+	return s
+}
+
+func (s *SettingService) TestGoogleAds(ctx context.Context) (map[string]string, error) {
+	setting, err := s.Get()
+	if err != nil {
+		return nil, err
+	}
+	if !s.GoogleAdsCredentialsConfigured() || setting.GoogleAdsCustomerID == "" || setting.GoogleAdsDefaultConversionActionID == "" || s.dataManager == nil {
+		return nil, fmt.Errorf("%w: konfigurasi Google Ads belum lengkap", ErrValidation)
+	}
+	id, err := s.dataManager.Ingest(ctx, GoogleAdsConversion{CustomerID: setting.GoogleAdsCustomerID, LoginCustomerID: setting.GoogleAdsLoginCustomerID, ConversionActionID: setting.GoogleAdsDefaultConversionActionID, Timestamp: time.Now(), Value: 1, Currency: "IDR", TransactionID: "VALIDATE-" + uuid.NewString()}, true)
+	if err != nil {
+		return nil, err
+	}
+	_ = id
+	return map[string]string{"customer_id": setting.GoogleAdsCustomerID, "conversion_action_id": setting.GoogleAdsDefaultConversionActionID, "status": "valid"}, nil
+}
+
+func (s *SettingService) GoogleAdsCredentialsConfigured() bool {
+	return s.cfg != nil && s.cfg.GoogleDataManagerCredentialsConfigured()
 }
 
 func (s *SettingService) Get() (*model.Setting, error) {
@@ -67,6 +97,7 @@ func (s *SettingService) SendTestEmail(to string) error {
 	if err != nil {
 		return err
 	}
+
 	if setting.SMTPHost == "" || setting.SMTPEmail == "" || setting.SMTPPassword == "" || setting.SMTPPort == 0 {
 		return fmt.Errorf("%w: SMTP belum dikonfigurasi (host/email/password/port)", ErrValidation)
 	}
@@ -94,6 +125,42 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 		return err
 	}
 
+	googleFields := map[string]any{}
+	customer, login, action, enabled := setting.GoogleAdsCustomerID, setting.GoogleAdsLoginCustomerID, setting.GoogleAdsDefaultConversionActionID, setting.GoogleAdsServerUploadEnabled
+	if req.GoogleAdsCustomerID != nil {
+		customer, err = normalizeGoogleCustomerID(*req.GoogleAdsCustomerID, true)
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrValidation, err)
+		}
+		googleFields["google_ads_customer_id"] = customer
+	}
+	if req.GoogleAdsLoginCustomerID != nil {
+		login, err = normalizeGoogleCustomerID(*req.GoogleAdsLoginCustomerID, true)
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrValidation, err)
+		}
+		googleFields["google_ads_login_customer_id"] = login
+	}
+	if req.GoogleAdsDefaultConversionActionID != nil {
+		action, err = normalizeGoogleActionID(*req.GoogleAdsDefaultConversionActionID, true)
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrValidation, err)
+		}
+		googleFields["google_ads_default_conversion_action_id"] = action
+	}
+	if req.GoogleAdsServerUploadEnabled != nil {
+		enabled = *req.GoogleAdsServerUploadEnabled
+		googleFields["google_ads_server_upload_enabled"] = enabled
+	}
+	if enabled && (!s.GoogleAdsCredentialsConfigured() || customer == "" || action == "") {
+		return fmt.Errorf("%w: OAuth environment, Customer ID, dan default Conversion Action ID wajib dikonfigurasi sebelum server upload diaktifkan", ErrValidation)
+	}
+	if len(googleFields) > 0 {
+		if err := s.settingRepo.UpdateGoogleAds(googleFields); err != nil {
+			return err
+		}
+		setting.GoogleAdsCustomerID, setting.GoogleAdsLoginCustomerID, setting.GoogleAdsDefaultConversionActionID, setting.GoogleAdsServerUploadEnabled = customer, login, action, enabled
+	}
 	// Display/config string fields use *string semantics: nil = key absent in this
 	// patch (leave unchanged), non-nil = set to the given value (empty string CLEARS
 	// it). This is what lets an admin remove a logo, blank a pixel id, etc. — the old

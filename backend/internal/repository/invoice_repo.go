@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
@@ -108,6 +110,62 @@ func (r *InvoiceRepo) FindAll(params request.PaginationParams) ([]model.Invoice,
 
 func (r *InvoiceRepo) Update(invoice *model.Invoice) error {
 	return r.db.Save(invoice).Error
+}
+
+type GoogleAdsSnapshot struct {
+	CustomerID, LoginCustomerID, ConversionActionID string
+	Enabled                                         bool
+}
+
+func affected(res *gorm.DB, action string) error {
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected != 1 {
+		return fmt.Errorf("%s: transition lost", action)
+	}
+	return nil
+}
+
+func (r *InvoiceRepo) ClaimGoogleAdsDue(ctx context.Context, now time.Time) (*model.Invoice, error) {
+	var inv model.Invoice
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		stale := now.Add(-10 * time.Minute)
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+			Where("is_paid = ? AND ((google_ads_server_status IN ? AND (google_ads_server_next_attempt_at IS NULL OR google_ads_server_next_attempt_at <= ?)) OR (google_ads_server_status = ? AND google_ads_server_processing_at <= ?))", true, []string{model.GoogleAdsConversionPendingUpload, model.GoogleAdsConversionRetryable}, now, model.GoogleAdsConversionProcessing, stale).
+			Order("COALESCE(google_ads_server_next_attempt_at, created_at) ASC").First(&inv).Error
+		if err != nil {
+			return err
+		}
+		return affected(tx.Model(&model.Invoice{}).Where("id = ? AND google_ads_server_status = ?", inv.ID, inv.GoogleAdsServerStatus).Updates(map[string]any{"google_ads_server_status": model.GoogleAdsConversionProcessing, "google_ads_server_processing_at": now}), "claim")
+	})
+	if err != nil {
+		return nil, err
+	}
+	inv.GoogleAdsServerStatus, inv.GoogleAdsServerProcessingAt = model.GoogleAdsConversionProcessing, &now
+	return &inv, nil
+}
+
+func (r *InvoiceRepo) StartGoogleAdsSubmission(ctx context.Context, id uuid.UUID, now time.Time) error {
+	return affected(r.db.WithContext(ctx).Model(&model.Invoice{}).Where("id = ? AND google_ads_server_status = ? AND google_ads_server_request_id = ''", id, model.GoogleAdsConversionProcessing).Updates(map[string]any{"google_ads_server_attempt_count": gorm.Expr("google_ads_server_attempt_count + 1"), "google_ads_server_attempted_at": now}), "start submission")
+}
+func (r *InvoiceRepo) PersistGoogleAdsRequestID(ctx context.Context, id uuid.UUID, requestID string, now time.Time) error {
+	return affected(r.db.WithContext(ctx).Model(&model.Invoice{}).Where("id = ? AND google_ads_server_status = ? AND google_ads_server_request_id = ''", id, model.GoogleAdsConversionProcessing).Updates(map[string]any{"google_ads_server_request_id": requestID, "google_ads_server_next_attempt_at": now}), "persist request")
+}
+func (r *InvoiceRepo) MarkGoogleAdsSent(ctx context.Context, id uuid.UUID, now time.Time) error {
+	return affected(r.db.WithContext(ctx).Model(&model.Invoice{}).Where("id = ? AND google_ads_server_status = ?", id, model.GoogleAdsConversionProcessing).Updates(map[string]any{"google_ads_server_status": model.GoogleAdsConversionServerSent, "google_ads_server_sent_at": now, "google_ads_server_error": "", "google_ads_server_next_attempt_at": nil, "google_ads_server_processing_at": nil}), "mark sent")
+}
+func (r *InvoiceRepo) MarkGoogleAdsRetryable(ctx context.Context, id uuid.UUID, summary string, due time.Time) error {
+	return affected(r.db.WithContext(ctx).Model(&model.Invoice{}).Where("id = ? AND google_ads_server_status = ?", id, model.GoogleAdsConversionProcessing).Updates(map[string]any{"google_ads_server_status": model.GoogleAdsConversionRetryable, "google_ads_server_error": summary, "google_ads_server_next_attempt_at": due, "google_ads_server_processing_at": nil}), "mark retryable")
+}
+func (r *InvoiceRepo) MarkGoogleAdsFailed(ctx context.Context, id uuid.UUID, summary string) error {
+	return affected(r.db.WithContext(ctx).Model(&model.Invoice{}).Where("id = ? AND google_ads_server_status = ?", id, model.GoogleAdsConversionProcessing).Updates(map[string]any{"google_ads_server_status": model.GoogleAdsConversionFailed, "google_ads_server_error": summary, "google_ads_server_next_attempt_at": nil, "google_ads_server_processing_at": nil}), "mark failed")
+}
+func (r *InvoiceRepo) ReleaseGoogleAdsClaim(ctx context.Context, id uuid.UUID, due time.Time) error {
+	return affected(r.db.WithContext(ctx).Model(&model.Invoice{}).Where("id = ? AND google_ads_server_status = ?", id, model.GoogleAdsConversionProcessing).Updates(map[string]any{"google_ads_server_status": model.GoogleAdsConversionRetryable, "google_ads_server_next_attempt_at": due, "google_ads_server_processing_at": nil}), "release claim")
+}
+func (r *InvoiceRepo) RetryGoogleAdsInvoice(ctx context.Context, id uuid.UUID, snap GoogleAdsSnapshot, now time.Time) error {
+	return affected(r.db.WithContext(ctx).Model(&model.Invoice{}).Where("id = ? AND is_paid = ? AND google_ads_server_status <> ? AND (gclid <> '' OR gbraid <> '' OR wbraid <> '')", id, true, model.GoogleAdsConversionServerSent).Updates(map[string]any{"google_ads_customer_id_snapshot": snap.CustomerID, "google_ads_login_customer_id_snapshot": snap.LoginCustomerID, "google_ads_conversion_action_id_snapshot": snap.ConversionActionID, "google_ads_server_upload_enabled_snapshot": snap.Enabled, "google_ads_server_status": model.GoogleAdsConversionPendingUpload, "google_ads_server_request_id": "", "google_ads_server_error": "", "google_ads_server_attempt_count": 0, "google_ads_server_attempted_at": nil, "google_ads_server_sent_at": nil, "google_ads_server_next_attempt_at": now, "google_ads_server_processing_at": nil}), "retry invoice")
 }
 
 // ExpireStale flips unpaid invoices whose ExpiredAt has passed to the "Kadaluarsa"

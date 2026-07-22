@@ -6,7 +6,6 @@ import (
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
-	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/internal/service"
 	"github.com/labstack/echo/v4"
 )
@@ -28,7 +27,7 @@ func (h *SettingHandler) Get(c echo.Context) error {
 
 	// Include gateway status (keys are json:"-" so we add status manually)
 	type SettingWithGateway struct {
-		*model.Setting
+		response.AdminSettingResponse
 		MootaConfigured      bool `json:"moota_configured"`
 		FlipConfigured       bool `json:"flip_configured"`
 		XenditConfigured     bool `json:"xendit_configured"`
@@ -41,7 +40,7 @@ func (h *SettingHandler) Get(c echo.Context) error {
 	}
 
 	resp := SettingWithGateway{
-		Setting:              setting,
+		AdminSettingResponse: response.NewAdminSettingResponse(setting, h.service.GoogleAdsCredentialsConfigured()),
 		MootaConfigured:      setting.MootaAPIKey != "",
 		FlipConfigured:       setting.FlipSecretKey != "",
 		XenditConfigured:     setting.XenditSecretKey != "",
@@ -58,6 +57,17 @@ func (h *SettingHandler) Get(c echo.Context) error {
 
 // TestEmail sends a test email via the saved SMTP settings so an admin can verify
 // the configuration without waiting for a real donation receipt to fail.
+func (h *SettingHandler) TestGoogleAds(c echo.Context) error {
+	result, err := h.service.TestGoogleAds(c.Request().Context())
+	if err != nil {
+		if errors.Is(err, service.ErrValidation) {
+			return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		}
+		return c.JSON(http.StatusBadGateway, response.ErrorResponse("Google Data Manager menolak validasi"))
+	}
+	return c.JSON(http.StatusOK, response.SuccessResponse(result, "valid"))
+}
+
 func (h *SettingHandler) TestEmail(c echo.Context) error {
 	var req struct {
 		To string `json:"to"`

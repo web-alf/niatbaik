@@ -3,7 +3,6 @@ package service
 import (
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/model"
@@ -13,31 +12,39 @@ import (
 )
 
 func initializeGoogleAdsConversionStatus(inv *model.Invoice) {
-	if inv.GoogleAdsConversionStatus != "" {
+	if inv.GoogleAdsServerStatus != "" {
 		return
 	}
-	if strings.TrimSpace(inv.Gclid) == "" {
-		inv.GoogleAdsConversionStatus = model.GoogleAdsConversionNotAttributed
-		return
+	inv.GoogleAdsServerStatus = initialGoogleAdsServerStatus(inv, inv.GoogleAdsServerUploadEnabledSnapshot)
+	if inv.GoogleAdsServerStatus == model.GoogleAdsConversionPendingUpload {
+		now := time.Now()
+		inv.GoogleAdsServerNextAttemptAt = &now
 	}
-	inv.GoogleAdsConversionStatus = model.GoogleAdsConversionPendingCredentials
 }
 
 func clearGoogleAdsConversionAudit(inv *model.Invoice) {
-	inv.GoogleAdsConversionStatus = ""
-	inv.GoogleAdsConversionAttemptedAt = nil
-	inv.GoogleAdsConversionSentAt = nil
-	inv.GoogleAdsConversionError = ""
+	inv.GoogleAdsServerStatus = ""
+	inv.GoogleAdsClientAttemptedAt = nil
+	inv.GoogleAdsServerAttemptedAt = nil
+	inv.GoogleAdsServerSentAt = nil
+	inv.GoogleAdsServerError = ""
+	inv.GoogleAdsServerRequestID = ""
+	inv.GoogleAdsServerAttemptCount = 0
+	inv.GoogleAdsServerNextAttemptAt = nil
+	inv.GoogleAdsServerProcessingAt = nil
 }
 
+type ConversionSignaler interface{ Signal() }
+
 type PaymentService struct {
-	db             *gorm.DB
-	invoiceRepo    *repository.InvoiceRepo
-	campaignRepo   *repository.CampaignRepo
-	settingRepo    *repository.SettingRepo
-	fundraiserRepo *repository.FundraiserRepo
-	commissionRepo *repository.CommissionRepo
-	trackingSvc    *TrackingService
+	db                 *gorm.DB
+	invoiceRepo        *repository.InvoiceRepo
+	campaignRepo       *repository.CampaignRepo
+	settingRepo        *repository.SettingRepo
+	fundraiserRepo     *repository.FundraiserRepo
+	commissionRepo     *repository.CommissionRepo
+	trackingSvc        *TrackingService
+	conversionSignaler ConversionSignaler
 }
 
 func NewPaymentService(
@@ -48,8 +55,9 @@ func NewPaymentService(
 	fundraiserRepo *repository.FundraiserRepo,
 	commissionRepo *repository.CommissionRepo,
 	trackingSvc *TrackingService,
+	signalers ...ConversionSignaler,
 ) *PaymentService {
-	return &PaymentService{
+	svc := &PaymentService{
 		db:             db,
 		invoiceRepo:    invoiceRepo,
 		campaignRepo:   campaignRepo,
@@ -58,6 +66,10 @@ func NewPaymentService(
 		commissionRepo: commissionRepo,
 		trackingSvc:    trackingSvc,
 	}
+	if len(signalers) > 0 {
+		svc.conversionSignaler = signalers[0]
+	}
+	return svc
 }
 
 func (s *PaymentService) ProcessPayment(invoice *model.Invoice) error {
@@ -230,6 +242,9 @@ func (s *PaymentService) ProcessPayment(invoice *model.Invoice) error {
 	// Snapshot the invoice value (the caller's pointer may be reused later). Anonymous
 	// donations still fire — value/currency + event_id are enough for attribution, and
 	// their PII fields are simply empty in the hashed user_data (valid for Meta/TikTok).
+	if invoice.GoogleAdsServerStatus == model.GoogleAdsConversionPendingUpload && s.conversionSignaler != nil {
+		s.conversionSignaler.Signal()
+	}
 	if s.trackingSvc != nil {
 		snap := *invoice
 		go func() {

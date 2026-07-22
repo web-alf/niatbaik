@@ -1,7 +1,9 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"path"
 	"strings"
 	"time"
@@ -12,6 +14,60 @@ import (
 	"github.com/anrdart/niatbaik-api/pkg/slug"
 	"github.com/google/uuid"
 )
+
+var forbiddenConversionKeys = map[string]bool{"client_secret": true, "refresh_token": true, "developer_token": true, "access_token": true}
+
+func normalizeConversionConfig(raw string) (string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return "", nil
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
+		return "", fmt.Errorf("conversion_config JSON tidak valid")
+	}
+	var walk func(any) error
+	walk = func(value any) error {
+		switch value := value.(type) {
+		case map[string]any:
+			for key, child := range value {
+				if forbiddenConversionKeys[strings.ToLower(key)] {
+					return fmt.Errorf("conversion_config tidak boleh menyimpan %s", key)
+				}
+				if err := walk(child); err != nil {
+					return err
+				}
+			}
+		case []any:
+			for _, child := range value {
+				if err := walk(child); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	if err := walk(cfg); err != nil {
+		return "", err
+	}
+	if gads, ok := cfg["gads"].(map[string]any); ok {
+		if value, exists := gads["conversion_action_id"]; exists {
+			text, ok := value.(string)
+			if !ok {
+				return "", fmt.Errorf("conversion_action_id harus berupa string numerik")
+			}
+			normalized, err := normalizeGoogleActionID(text, true)
+			if err != nil {
+				return "", err
+			}
+			gads["conversion_action_id"] = normalized
+		}
+	}
+	out, err := json.Marshal(cfg)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
 
 // sanitizeImageRef reduces a campaign image reference to a safe bare filename,
 // stripping any directory/traversal components ("../", absolute or "/uploads/"
@@ -47,6 +103,10 @@ func (s *CampaignService) Create(req *request.CreateCampaignRequest, userID uuid
 		return nil, errors.New("donasi minimal tidak boleh lebih besar dari donasi maksimal")
 	}
 
+	normalizedConversionConfig, err := normalizeConversionConfig(req.ConversionConfig)
+	if err != nil {
+		return nil, err
+	}
 	campaignSlug := slug.GenerateUnique(req.Title, s.campaignRepo.SlugExists)
 
 	now := time.Now()
@@ -84,7 +144,7 @@ func (s *CampaignService) Create(req *request.CreateCampaignRequest, userID uuid
 		PaymentConfig:    req.PaymentConfig,
 		PixelConfig:      req.PixelConfig,
 		FormItemsConfig:  req.FormItemsConfig,
-		ConversionConfig: req.ConversionConfig,
+		ConversionConfig: normalizedConversionConfig,
 	}
 
 	if req.Target != nil {
@@ -207,7 +267,11 @@ func (s *CampaignService) Update(id uuid.UUID, req *request.UpdateCampaignReques
 		c.FormItemsConfig = req.FormItemsConfig
 	}
 	if req.ConversionConfig != nil {
-		c.ConversionConfig = *req.ConversionConfig
+		normalized, err := normalizeConversionConfig(*req.ConversionConfig)
+		if err != nil {
+			return nil, err
+		}
+		c.ConversionConfig = normalized
 	}
 	if req.WANotification != nil {
 		c.WANotification = *req.WANotification

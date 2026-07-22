@@ -24,10 +24,24 @@ type InvoiceHandler struct {
 	db             *gorm.DB
 	paymentService *service.PaymentService
 	statusRepo     *repository.PaymentStatusRepo
+	invoiceRepo    *repository.InvoiceRepo
+	settingRepo    *repository.SettingRepo
+	signaler       service.ConversionSignaler
 }
 
-func NewInvoiceHandler(db *gorm.DB, paymentService *service.PaymentService, statusRepo *repository.PaymentStatusRepo) *InvoiceHandler {
-	return &InvoiceHandler{db: db, paymentService: paymentService, statusRepo: statusRepo}
+func NewInvoiceHandler(db *gorm.DB, paymentService *service.PaymentService, statusRepo *repository.PaymentStatusRepo, deps ...any) *InvoiceHandler {
+	h := &InvoiceHandler{db: db, paymentService: paymentService, statusRepo: statusRepo}
+	for _, dep := range deps {
+		switch v := dep.(type) {
+		case *repository.InvoiceRepo:
+			h.invoiceRepo = v
+		case *repository.SettingRepo:
+			h.settingRepo = v
+		case service.ConversionSignaler:
+			h.signaler = v
+		}
+	}
+	return h
 }
 
 func applyInvoiceFilters(query *gorm.DB, c echo.Context) *gorm.DB {
@@ -96,7 +110,9 @@ var invoiceCSVHeader = []string{
 	"fundraiser", "whatsapp", "email", "utm_source", "utm_medium", "utm_campaign",
 	"utm_content", "utm_term", "utm_id", "pesan", "note", "gclid", "ga_client_id",
 	"google_ads_conversion_status", "google_ads_conversion_attempted_at",
-	"google_ads_conversion_sent_at", "google_ads_conversion_error",
+	"google_ads_conversion_sent_at", "google_ads_conversion_error", "gbraid", "wbraid",
+	"google_ads_customer_id", "google_ads_conversion_action_id", "google_ads_client_attempted_at",
+	"google_ads_server_status", "google_ads_server_attempted_at", "google_ads_server_sent_at", "google_ads_server_error",
 }
 
 func spreadsheetSafe(value string) string {
@@ -136,7 +152,9 @@ func invoiceCSVRecord(inv model.Invoice) []string {
 		spreadsheetSafe(inv.UTMTerm), spreadsheetSafe(inv.UTMID), spreadsheetSafe(message),
 		spreadsheetSafe(inv.CSNote), spreadsheetSafe(inv.Gclid), spreadsheetSafe(inv.GAClientID),
 		spreadsheetSafe(inv.GoogleAdsConversionStatus), csvTime(inv.GoogleAdsConversionAttemptedAt),
-		csvTime(inv.GoogleAdsConversionSentAt), spreadsheetSafe(inv.GoogleAdsConversionError),
+		csvTime(inv.GoogleAdsConversionSentAt), spreadsheetSafe(inv.GoogleAdsConversionError), spreadsheetSafe(inv.Gbraid), spreadsheetSafe(inv.Wbraid),
+		spreadsheetSafe(inv.GoogleAdsCustomerIDSnapshot), spreadsheetSafe(inv.GoogleAdsConversionActionIDSnapshot), csvTime(inv.GoogleAdsClientAttemptedAt),
+		spreadsheetSafe(inv.GoogleAdsServerStatus), csvTime(inv.GoogleAdsServerAttemptedAt), csvTime(inv.GoogleAdsServerSentAt), spreadsheetSafe(service.SafeGoogleAdsSummary(inv.GoogleAdsServerError)),
 	}
 }
 
@@ -189,6 +207,44 @@ func (h *InvoiceHandler) GetDetail(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, response.SuccessResponse(response.ToInvoiceResponse(&invoice), "success"))
+}
+
+func (h *InvoiceHandler) RetryGoogleAds(c echo.Context) error {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid invoice id"))
+	}
+	var inv model.Invoice
+	if err := h.db.Preload("Campaign").First(&inv, "id = ?", id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.JSON(http.StatusNotFound, response.ErrorResponse("invoice not found"))
+		}
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch invoice"))
+	}
+	if !inv.IsPaid {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("invoice belum dibayar"))
+	}
+	if inv.GoogleAdsServerStatus == model.GoogleAdsConversionServerSent {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("conversion sudah terkirim"))
+	}
+	if inv.Gclid == "" && inv.Gbraid == "" && inv.Wbraid == "" {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("invoice tidak memiliki atribusi Google"))
+	}
+	setting, err := h.settingRepo.Get()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch settings"))
+	}
+	customer, login, action, enabled := service.ResolveGoogleAdsSnapshot(setting, inv.Campaign.ConversionConfig)
+	if !enabled || customer == "" || action == "" {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("konfigurasi Google Ads belum lengkap"))
+	}
+	if err := h.invoiceRepo.RetryGoogleAdsInvoice(c.Request().Context(), id, repository.GoogleAdsSnapshot{CustomerID: customer, LoginCustomerID: login, ConversionActionID: action, Enabled: enabled}, time.Now()); err != nil {
+		return c.JSON(http.StatusConflict, response.ErrorResponse("invoice tidak dapat diantrekan"))
+	}
+	if h.signaler != nil {
+		h.signaler.Signal()
+	}
+	return c.JSON(http.StatusOK, response.SuccessResponse(nil, "conversion queued"))
 }
 
 func (h *InvoiceHandler) UpdateStatus(c echo.Context) error {

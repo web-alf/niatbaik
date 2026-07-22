@@ -41,6 +41,15 @@ type InvoiceResponse struct {
 	UTMID                          string     `json:"utm_id"`
 	ClickID                        string     `json:"click_id"`
 	Gclid                          string     `json:"gclid"`
+	Gbraid                         string     `json:"gbraid"`
+	Wbraid                         string     `json:"wbraid"`
+	GoogleAdsCustomerID            string     `json:"google_ads_customer_id"`
+	GoogleAdsConversionActionID    string     `json:"google_ads_conversion_action_id"`
+	GoogleAdsClientAttemptedAt     *time.Time `json:"google_ads_client_attempted_at"`
+	GoogleAdsServerStatus          string     `json:"google_ads_server_status"`
+	GoogleAdsServerAttemptedAt     *time.Time `json:"google_ads_server_attempted_at"`
+	GoogleAdsServerSentAt          *time.Time `json:"google_ads_server_sent_at"`
+	GoogleAdsServerError           string     `json:"google_ads_server_error"`
 	GAClientID                     string     `json:"ga_client_id"`
 	GoogleAdsConversionStatus      string     `json:"google_ads_conversion_status"`
 	GoogleAdsConversionAttemptedAt *time.Time `json:"google_ads_conversion_attempted_at"`
@@ -106,6 +115,15 @@ func ToInvoiceResponse(inv *model.Invoice) InvoiceResponse {
 		UTMID:                          inv.UTMID,
 		ClickID:                        inv.ClickID,
 		Gclid:                          inv.Gclid,
+		Gbraid:                         inv.Gbraid,
+		Wbraid:                         inv.Wbraid,
+		GoogleAdsCustomerID:            inv.GoogleAdsCustomerIDSnapshot,
+		GoogleAdsConversionActionID:    inv.GoogleAdsConversionActionIDSnapshot,
+		GoogleAdsClientAttemptedAt:     inv.GoogleAdsClientAttemptedAt,
+		GoogleAdsServerStatus:          inv.GoogleAdsServerStatus,
+		GoogleAdsServerAttemptedAt:     inv.GoogleAdsServerAttemptedAt,
+		GoogleAdsServerSentAt:          inv.GoogleAdsServerSentAt,
+		GoogleAdsServerError:           safeInvoiceError(inv.GoogleAdsServerError),
 		GAClientID:                     inv.GAClientID,
 		GoogleAdsConversionStatus:      inv.GoogleAdsConversionStatus,
 		GoogleAdsConversionAttemptedAt: inv.GoogleAdsConversionAttemptedAt,
@@ -116,6 +134,14 @@ func ToInvoiceResponse(inv *model.Invoice) InvoiceResponse {
 		ExpiredAt:                      inv.ExpiredAt,
 		CreatedAt:                      inv.CreatedAt,
 	}
+}
+
+func safeInvoiceError(s string) string {
+	r := []rune(s)
+	if len(r) > 1000 {
+		return string(r[:1000])
+	}
+	return s
 }
 
 func referrerName(inv *model.Invoice) string {

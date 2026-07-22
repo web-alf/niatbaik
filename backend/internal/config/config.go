@@ -19,8 +19,8 @@ type Config struct {
 	DBPassword string
 	DBName     string
 
-	JWTSecret       string
-	JWTExpiry       time.Duration
+	JWTSecret        string
+	JWTExpiry        time.Duration
 	JWTRefreshExpiry time.Duration
 
 	AppPort string
@@ -42,6 +42,10 @@ type Config struct {
 	// emails (password reset, welcome). Configurable so non-production / custom-domain
 	// deploys don't hardcode the donasi.niatbaik.org production host.
 	FrontendBaseURL string
+
+	GoogleAdsClientID             string
+	GoogleAdsClientSecret         string
+	GoogleDataManagerRefreshToken string
 }
 
 func Load() *Config {
@@ -69,12 +73,20 @@ func Load() *Config {
 		FlipValidationToken: getEnv("FLIP_VALIDATION_TOKEN", ""),
 		// Host-only (no /v2 or /v3): flip_service appends the version per endpoint.
 		// A legacy value with a version segment is normalized by flipBaseHost anyway.
-		FlipBaseURL:         getEnv("FLIP_BASE_URL", "https://bigflip.id/api"),
+		FlipBaseURL: getEnv("FLIP_BASE_URL", "https://bigflip.id/api"),
 
 		CORSOrigins: getEnv("CORS_ORIGINS", "http://localhost:3000"),
 
 		FrontendBaseURL: strings.TrimRight(getEnv("FRONTEND_BASE_URL", "https://donasi.niatbaik.org"), "/"),
+
+		GoogleAdsClientID:             getEnv("GOOGLE_ADS_CLIENT_ID", ""),
+		GoogleAdsClientSecret:         getEnv("GOOGLE_ADS_CLIENT_SECRET", ""),
+		GoogleDataManagerRefreshToken: getEnv("GOOGLE_DATA_MANAGER_REFRESH_TOKEN", ""),
 	}
+}
+
+func (c *Config) GoogleDataManagerCredentialsConfigured() bool {
+	return strings.TrimSpace(c.GoogleAdsClientID) != "" && strings.TrimSpace(c.GoogleAdsClientSecret) != "" && strings.TrimSpace(c.GoogleDataManagerRefreshToken) != ""
 }
 
 func (c *Config) IsProduction() bool {

@@ -16,6 +16,9 @@ services:
       - JWT_SECRET=dev-jwt-secret-change-in-prod
       - CORS_ORIGINS=http://localhost:3000
       - UPLOAD_DIR=/app/uploads
+      - GOOGLE_ADS_CLIENT_ID=${GOOGLE_ADS_CLIENT_ID:-}
+      - GOOGLE_ADS_CLIENT_SECRET=${GOOGLE_ADS_CLIENT_SECRET:-}
+      - GOOGLE_DATA_MANAGER_REFRESH_TOKEN=${GOOGLE_DATA_MANAGER_REFRESH_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -41,6 +46,9 @@ func main() {
 	// Seed default data
 	database.Seed(db)
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	// Background sweeper: flip unpaid invoices past their 24h window to "Kadaluarsa"
 	// so stale pending donations age out instead of lingering forever. Runs once at
 	// boot, then hourly. Best-effort — log on error, never crash the server.
@@ -56,8 +64,13 @@ func main() {
 		sweep()
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
-		for range ticker.C {
-			sweep()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				sweep()
+			}
 		}
 	}()
 
@@ -110,12 +123,30 @@ func main() {
 	e.Static("/uploads", cfg.UploadDir)
 
 	// Setup routes
-	router.Setup(e, db, cfg)
+	worker := router.Setup(e, db, cfg)
+	go func() {
+		if err := worker.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			log.Printf("[google-ads] worker stopped: %v", err)
+		}
+	}()
 
-	// Start server
 	addr := fmt.Sprintf(":%s", cfg.AppPort)
 	log.Printf("NIATBAIK API starting on %s", addr)
-	if err := e.Start(addr); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	serverDone := make(chan error, 1)
+	go func() { serverDone <- e.Start(addr) }()
+	select {
+	case <-ctx.Done():
+	case err := <-serverDone:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("server stopped: %v", err)
+		}
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := e.Shutdown(shutdownCtx); err != nil {
+		log.Printf("server shutdown: %v", err)
+	}
+	if sqlDB, err := db.DB(); err == nil {
+		_ = sqlDB.Close()
 	}
 }

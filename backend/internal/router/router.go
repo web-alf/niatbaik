@@ -12,7 +12,7 @@ import (
 	"github.com/anrdart/niatbaik-api/pkg/realtime"
 )
 
-func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
+func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) *service.GoogleAdsWorker {
 	// Initialize repositories
 	userRepo := repository.NewUserRepo(db)
 	campaignRepo := repository.NewCampaignRepo(db)
@@ -37,10 +37,12 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	processedWebhookRepo := repository.NewProcessedWebhookRepo(db)
 	trackingRepo := repository.NewTrackingRepo(db)
 	trackingService := service.NewTrackingService(trackingRepo, settingRepo, cfg)
+	dataManagerClient := service.NewGoogleDataManagerClient(nil, "https://oauth2.googleapis.com/token", "https://datamanager.googleapis.com", cfg.GoogleAdsClientID, cfg.GoogleAdsClientSecret, cfg.GoogleDataManagerRefreshToken)
+	googleAdsWorker := service.NewGoogleAdsWorker(invoiceRepo, dataManagerClient)
 
 	// Initialize services
 	authService := service.NewAuthService(db, cfg, revokedTokenRepo)
-	paymentService := service.NewPaymentService(db, invoiceRepo, campaignRepo, settingRepo, fundraiserRepo, commissionRepo, trackingService)
+	paymentService := service.NewPaymentService(db, invoiceRepo, campaignRepo, settingRepo, fundraiserRepo, commissionRepo, trackingService, googleAdsWorker)
 	mootaService := service.NewMootaService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
 	flipService := service.NewFlipService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
 	xenditService := service.NewXenditService(cfg, paymentService, invoiceRepo, settingRepo, processedWebhookRepo)
@@ -52,7 +54,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	userService := service.NewUserService(userRepo, settingRepo)
 	analyticsService := service.NewAnalyticsService(statsRepo, adCostRepo, pageVisitRepo)
 	withdrawalService := service.NewWithdrawalService(db, withdrawalRepo)
-	settingService := service.NewSettingService(settingRepo)
+	settingService := service.NewSettingService(settingRepo, cfg, dataManagerClient)
 	siteContentService := service.NewSiteContentService(siteContentRepo)
 	trashService := service.NewTrashService(trashRepo)
 	notificationService := service.NewNotificationService(notificationRepo)
@@ -76,7 +78,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	siteContentHandler := handler.NewSiteContentHandler(siteContentService)
 	withdrawalHandler := handler.NewWithdrawalHandler(withdrawalService, withdrawalRepo)
 	trashHandler := handler.NewTrashHandler(trashService)
-	invoiceHandler := handler.NewInvoiceHandler(db, paymentService, paymentStatusRepo)
+	invoiceHandler := handler.NewInvoiceHandler(db, paymentService, paymentStatusRepo, invoiceRepo, settingRepo, googleAdsWorker)
 	fundraiserHandler := handler.NewFundraiserHandler(fundraiserRepo, commissionRepo, userRepo, userService)
 	profileHandler := handler.NewProfileHandler(profileService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
@@ -225,10 +227,12 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	admin.GET("/site-content", siteContentHandler.GetAll)
 	admin.PUT("/site-content/:key", siteContentHandler.Update)
 	admin.POST("/settings/test-email", settingHandler.TestEmail)
+	admin.POST("/settings/google-ads/test", settingHandler.TestGoogleAds)
 	admin.GET("/settings/moota-balance", settingHandler.GetMootaBalance)
 	admin.GET("/cs/cekat-ai/status", cekatAIHandler.Status)
 	admin.POST("/cs/cekat-ai/test", cekatAIHandler.Test)
 	admin.GET("/settings/moota-accounts", settingHandler.GetMootaGatewayAccounts)
+	admin.POST("/invoices/:id/google-ads/retry", invoiceHandler.RetryGoogleAds)
 
 	admin.GET("/admin/payment-methods", paymentMethodHandler.List)
 	admin.POST("/admin/payment-methods", paymentMethodHandler.Create)
@@ -304,4 +308,5 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) {
 	ds.GET("/google", dataStudioHandler.GetGoogle)
 	ds.GET("/tiktok", dataStudioHandler.GetTiktok)
 	ds.GET("/geo", dataStudioHandler.GetGeo)
+	return googleAdsWorker
 }

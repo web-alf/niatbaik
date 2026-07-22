@@ -464,7 +464,8 @@ function CSDetail({ t, onOpen, onCopy, onMarkPaid, onSaveNote, onSetQuality, sho
   // Controlled internal note. Previously this was an uncontrolled defaultValue
   // textarea with no save wiring, so anything CS typed vanished on reload.
   const [note, setNote] = useState(t.note || '');
-  const [noteSaving, setNoteSaving] = useState(false);
+	const [noteSaving, setNoteSaving] = useState(false);
+	const [retryingGoogle, setRetryingGoogle] = useState(false);
 
   // Normalize Indonesian WA number: drop non-digits, replace leading 0/8 → 628
   const normalizeWa = (raw: any) => {
@@ -568,7 +569,9 @@ function CSDetail({ t, onOpen, onCopy, onMarkPaid, onSaveNote, onSetQuality, sho
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-line">
+	  {t.googleAdsServerStatus && <div className="rounded-lg bg-bg2 p-3 text-xs space-y-1"><div className="font-bold text-ink">Google Ads server: {t.googleAdsServerStatus}</div><div>Customer: {t.googleAdsCustomerId || '—'} · Action: {t.googleAdsConversionActionId || '—'}</div><div>Attempted: {t.googleAdsServerAttemptedAt || '—'} · Sent: {t.googleAdsServerSentAt || '—'}</div>{t.googleAdsServerError && <div className="text-danger">{t.googleAdsServerError}</div>}</div>}
+
+	  <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-line">
         <Btn icon="wa" tone="ok" onClick={() => setWaOpen(true)} disabled={!waValid}>Balas WhatsApp</Btn>
         {t.status !== 'Paid' && (
           <Btn variant="outline" tone="ink" icon="refresh" onClick={() => setConfirmPaid(true)}>Update status → Paid</Btn>
@@ -576,7 +579,8 @@ function CSDetail({ t, onOpen, onCopy, onMarkPaid, onSaveNote, onSetQuality, sho
         {t.status === 'Paid' && (
           <Badge tone="ok" dot>Status Paid</Badge>
         )}
-        <Btn variant="outline" tone="ink" icon="eye" onClick={onOpen}>Detail Invoice</Btn>
+		<Btn variant="outline" tone="ink" icon="eye" onClick={onOpen}>Detail Invoice</Btn>
+		{['failed','pending_configuration','retryable'].includes(t.googleAdsServerStatus) && <Btn variant="outline" tone="ink" icon="refresh" disabled={retryingGoogle} onClick={async()=>{if(!window.confirm('Antrekan ulang conversion Google Ads?'))return;setRetryingGoogle(true);try{await api.retryGoogleAdsConversion(t.uuid);showToast('Conversion Google Ads diantrekan ulang');onOpen();}catch(e:any){showToast(e?.message||'Retry gagal')}finally{setRetryingGoogle(false)}}}>{retryingGoogle?'Memproses…':'Retry Google Ads'}</Btn>}
         <Btn variant="ghost" tone="ink" icon="copy" onClick={() => onCopy(t)}>Salin invoice</Btn>
       </div>
 

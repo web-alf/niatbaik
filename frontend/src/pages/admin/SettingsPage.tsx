@@ -1453,6 +1453,9 @@ function TrackingPanel({ settings, onSave }: any) {
   // are secret and never echoed back). Drives the "Tersimpan" badge on credential inputs.
   const [tokenSet, setTokenSet] = useState<any>({});
   const [showToken, setShowToken] = useState<any>({});
+	const [googleServer, setGoogleServer] = useState<any>({});
+	const [googleTest, setGoogleTest] = useState<any>(null);
+	const [googleTesting, setGoogleTesting] = useState(false);
   // No demo IDs — each input is driven by real saved state (pixelIds, loaded from
   // settings below). Status starts neutral until a real ID is entered.
   // Client-side pixel/tag IDs only. Meta CAPI + TikTok Events API tokens live in the
@@ -1503,6 +1506,7 @@ function TrackingPanel({ settings, onSave }: any) {
       'Google Analytics 4': settings.ga4_measurement_id || '',
       'TikTok Pixel': settings.tiktok_pixel_id || '',
     });
+    setGoogleServer({ customer: settings.google_ads_customer_id || '', login: settings.google_ads_login_customer_id || '', action: settings.google_ads_default_conversion_action_id || '', enabled: !!settings.google_ads_server_upload_enabled, credentials: !!settings.google_ads_credentials_configured });
     setTokenSet({
       meta: !!settings.meta_capi_token_set,
       tiktok: !!settings.tiktok_access_token_set,
@@ -1580,11 +1584,21 @@ function TrackingPanel({ settings, onSave }: any) {
             </div>
           ))}
         </div>
+        <div className="mt-5 pt-4 border-t border-line">
+          <div className="flex items-center justify-between"><div><div className="text-sm font-bold text-ink">Google Ads Server-side</div><div className="text-xs text-mute">OAuth tetap di backend environment; nilai rahasia tidak pernah dikirim ke browser.</div></div><Badge tone={googleServer.credentials ? 'ok' : 'bad'} size="sm">{googleServer.credentials ? 'Configured' : 'Missing environment secrets'}</Badge></div>
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div><label className="text-xs font-semibold text-mute">Customer ID</label><input className="field mt-1 font-mono" value={googleServer.customer || ''} onChange={(e) => setGoogleServer({...googleServer, customer:e.target.value})} placeholder="123-456-7890"/></div>
+            <div><label className="text-xs font-semibold text-mute">Login Customer ID (opsional/MCC)</label><input className="field mt-1 font-mono" value={googleServer.login || ''} onChange={(e) => setGoogleServer({...googleServer, login:e.target.value})} placeholder="123-456-7890"/></div>
+            <div><label className="text-xs font-semibold text-mute">Default Conversion Action ID</label><input inputMode="numeric" className="field mt-1 font-mono" value={googleServer.action || ''} onChange={(e) => setGoogleServer({...googleServer, action:e.target.value.replace(/\D/g,'')})} placeholder="987654321"/></div>
+          </div>
+		  <div className="mt-3 flex items-center justify-between"><div className="text-xs text-mute">Konfigurasikan seluruh OAuth environment variables pada backend.</div><Toggle value={!!googleServer.enabled} onChange={(v:any) => setGoogleServer({...googleServer, enabled:v})} disabled={!googleServer.credentials || !googleServer.customer.trim() || !googleServer.action.trim()} label="Enable Server-side Upload"/></div>
+		  <div className="mt-3 flex items-center gap-3"><Btn variant="outline" disabled={googleTesting} onClick={async()=>{setGoogleTesting(true);setGoogleTest(null);try{const r=await api.testGoogleAdsConnection();setGoogleTest(r?.data);showToast('Google Data Manager valid')}catch(e:any){showToast(e?.message||'Test koneksi gagal')}finally{setGoogleTesting(false)}}}>{googleTesting?'Menguji…':'Test Connection'}</Btn>{googleTest&&<span className="text-xs text-ok">{googleTest.status}: Customer {googleTest.customer_id}, Action {googleTest.conversion_action_id}</span>}</div>
+        </div>
         {/* Server-side conversion credentials (CAPI / EAPI) — secrets, never echoed back.
             Empty input = keep existing token (backend maps only non-nil pointer fields). */}
         <div className="mt-5 pt-4 border-t border-line">
           <div className="text-sm font-bold text-ink mb-1">Server-side Conversion Credentials</div>
-          <div className="text-xs text-mute mb-3">Token rahasia untuk Meta CAPI & TikTok Events API. Disimpan terenkripsi di server; kosongkan jika tidak ingin mengganti token yang sudah ada.</div>
+          <div className="text-xs text-mute mb-3">Token rahasia untuk Meta CAPI & TikTok Events API. Disimpan di server; kosongkan jika tidak ingin mengganti token yang sudah ada.</div>
           {[
             { tokenKey:'meta_capi_token', testKey:'meta_test_event_code', label:'Meta CAPI Access Token', placeholder:'EAAG…', saved: tokenSet.meta },
             { tokenKey:'tiktok_access_token', testKey:'tiktok_test_event_code', label:'TikTok Events API Token', placeholder:'tt…', saved: tokenSet.tiktok },
@@ -1654,6 +1668,10 @@ function TrackingPanel({ settings, onSave }: any) {
             tiktok_pixel_id: pixelIds['TikTok Pixel'] || '',
             tiktok_access_token: pixelIds.tiktok_access_token || undefined,
             tiktok_test_event_code: pixelIds.tiktok_test_event_code || undefined,
+            google_ads_customer_id: googleServer.customer || '',
+            google_ads_login_customer_id: googleServer.login || '',
+            google_ads_default_conversion_action_id: googleServer.action || '',
+            google_ads_server_upload_enabled: !!googleServer.enabled,
           })}>Simpan Semua Tracking</SaveButton>
         </div>
       </Section>

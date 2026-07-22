@@ -81,7 +81,16 @@ export interface Invoice {
   note: string;
   clickId?: string;
   gclid?: string;
+  gbraid?: string;
+  wbraid?: string;
   gaClientId?: string;
+  googleAdsCustomerId?: string;
+  googleAdsConversionActionId?: string;
+  googleAdsClientAttemptedAt?: string | null;
+  googleAdsServerStatus?: 'not_attributed' | 'pending_configuration' | 'pending_upload' | 'processing' | 'server_sent' | 'retryable' | 'failed' | string;
+  googleAdsServerAttemptedAt?: string | null;
+  googleAdsServerSentAt?: string | null;
+  googleAdsServerError?: string;
   googleAdsConversionStatus?: string;
   googleAdsConversionAttemptedAt?: string | null;
   googleAdsConversionSentAt?: string | null;
@@ -151,6 +160,11 @@ export interface Settings {
   ga4_measurement_id?: string;
   google_ads_conversion_id?: string;
   google_ads_conversion_label?: string;
+  google_ads_customer_id?: string;
+  google_ads_login_customer_id?: string;
+  google_ads_default_conversion_action_id?: string;
+  google_ads_server_upload_enabled?: boolean;
+  google_ads_credentials_configured?: boolean;
   tiktok_pixel_id?: string;
   [k: string]: unknown;
 }

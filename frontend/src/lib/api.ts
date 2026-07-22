@@ -333,7 +333,8 @@ export const api = {
   invoice(id: string | number) { return this.get<any>('/invoices/' + id); },
   updateInvoiceStatus(id: string | number, status: string) { return this.put('/invoices/' + id + '/status', { status }); },
   addInvoiceNote(id: string | number, note: string) { return this.put('/invoices/' + id + '/note', { note }); },
-  updateInvoiceQuality(id: string | number, quality: string) { return this.put('/invoices/' + id + '/quality', { quality }); },
+	updateInvoiceQuality(id: string | number, quality: string) { return this.put('/invoices/' + id + '/quality', { quality }); },
+	retryGoogleAdsConversion(invoiceUuid: string) { return this.post('/invoices/' + encodeURIComponent(invoiceUuid) + '/google-ads/retry', {}); },
   // Soft-delete a lead into Trash. Backend reverses ledgers first if the lead was paid.
   deleteInvoice(id: string | number) { return this.del('/invoices/' + id); },
 
@@ -347,7 +348,8 @@ export const api = {
   createAdCost(data: unknown) { return this.post('/analytics/ad-costs', data); },
 
   // Settings
-  settings() { return this.get<any>('/settings'); },
+	settings() { return this.get<any>('/settings'); },
+	testGoogleAdsConnection() { return this.post<{ customer_id: string; conversion_action_id: string; status: string }>('/settings/google-ads/test', {}); },
   updateSettings(data: unknown) { return this.put('/settings', data); },
   siteContent() { return this.get<any>('/site-content'); },
   updateSiteContent(key: string, data: unknown) { return this.put('/site-content/' + key, data); },

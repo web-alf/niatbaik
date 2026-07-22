@@ -280,6 +280,7 @@ function CampaignEditorForm({ campaign }: any) {
     tiktokSuccessEvent: (savedConv.tiktok && savedConv.tiktok.events && savedConv.tiktok.events.success) || 'CompletePayment',
     gadsEnabled: savedConv.gads ? savedConv.gads.enabled !== false : false,
     gadsConversionId: (savedConv.gads && savedConv.gads.conversion_id) || '',
+    gadsConversionActionId: (savedConv.gads && savedConv.gads.conversion_action_id) || '',
     gadsSubmitLabel: (savedConv.gads && savedConv.gads.labels && savedConv.gads.labels.submit) || '',
     gadsSuccessLabel: (savedConv.gads && savedConv.gads.labels && savedConv.gads.labels.success) || '',
     waFlyingNumber: '', waFlyingText: 'Chat via WhatsApp',
@@ -404,7 +405,7 @@ function CampaignEditorForm({ campaign }: any) {
       payload.conversion_config = JSON.stringify({
         meta: { enabled: advCustom.metaFireEnabled, events: { submit: advCustom.metaSubmitEvent, success: advCustom.metaSuccessEvent } },
         tiktok: { enabled: advCustom.tiktokFireEnabled, events: { submit: advCustom.tiktokSubmitEvent, success: advCustom.tiktokSuccessEvent } },
-        gads: { enabled: advCustom.gadsEnabled, conversion_id: advCustom.gadsConversionId.trim(), labels: { submit: advCustom.gadsSubmitLabel.trim(), success: advCustom.gadsSuccessLabel.trim() } },
+        gads: { enabled: advCustom.gadsEnabled, conversion_id: advCustom.gadsConversionId.trim(), conversion_action_id: advCustom.gadsConversionActionId.trim(), labels: { submit: advCustom.gadsSubmitLabel.trim(), success: advCustom.gadsSuccessLabel.trim() } },
       });
     } else {
       // Default → clear ALL per-campaign fire config so the campaign inherits the global
@@ -791,6 +792,7 @@ function CampaignEditorForm({ campaign }: any) {
                             <input value={advCustom.gadsConversionId} onChange={(e) => setAdvCustom({...advCustom, gadsConversionId: e.target.value})} className="field mt-1 bg-white font-mono" placeholder="AW-829360860"/>
                             <div className="text-[11px] text-mute mt-1">Format: AW-XXXXXXXXX (dari Google Ads → Tools → Conversions).</div>
                           </div>
+                          <div><label className="text-xs font-semibold text-mute">Conversion Action ID Override</label><input inputMode="numeric" pattern="[0-9]*" value={advCustom.gadsConversionActionId} onChange={(e) => setAdvCustom({...advCustom, gadsConversionActionId: e.target.value.replace(/\D/g, '')})} className="field mt-1 bg-white font-mono" placeholder="Kosong = gunakan default global"/></div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div><label className="text-xs font-semibold text-mute">Conversion Label — Submit</label>
                               <input value={advCustom.gadsSubmitLabel} onChange={(e) => setAdvCustom({...advCustom, gadsSubmitLabel: e.target.value})} className="field mt-1 bg-white font-mono" placeholder="(opsional)"/>

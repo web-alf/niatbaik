@@ -131,6 +131,7 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 	}
 
 	settingsForPay, _ := s.settingRepo.Get()
+	googleCustomer, googleLogin, googleAction, googleEnabled := ResolveGoogleAdsSnapshot(settingsForPay, campaign.ConversionConfig)
 
 	// Assign a CS WhatsApp contact to this donation (rotator). Done server-side + stored on
 	// the invoice so the donor sees the SAME number on every screen + after reload, the
@@ -215,36 +216,42 @@ func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip 
 		var lastErr error
 		for attempt := 0; attempt < 3; attempt++ {
 			invoice = model.Invoice{
-				InvoiceNumber:       "INV-" + randomAlphanumeric(8),
-				CampaignID:          campaign.ID,
-				Subtotal:            req.Amount,
-				Total:               totalAmount,
-				DonorName:           req.DonorName,
-				DonorPhone:          req.DonorPhone,
-				DonorEmail:          req.DonorEmail,
-				Message:             &msg,
-				IsAnonymous:         req.IsAnonymous,
-				ExpiredAt:           time.Now().Add(24 * time.Hour),
-				Status:              "Menunggu Pembayaran",
-				IP:                  ip,
-				ReferredBy:          referredBy,
-				PaymentMethodID:     paymentMethodID,
-				PaymentMethodName:   paymentMethodName,
-				PaymentInstructions: paymentInstructions,
-				CSPhone:             csPhone,
-				CSName:              csName,
-				UTMSource:           req.UTMSource,
-				UTMMedium:           req.UTMMedium,
-				UTMCampaign:         req.UTMCampaign,
-				UTMContent:          req.UTMContent,
-				UTMTerm:             req.UTMTerm,
-				UTMID:               req.UTMID,
-				Fbclid:              req.Fbclid,
-				Fbp:                 req.Fbp,
-				Ttclid:              req.Ttclid,
-				Ttp:                 req.Ttp,
-				GAClientID:          req.GAClientID,
-				Gclid:               req.Gclid,
+				InvoiceNumber:                        "INV-" + randomAlphanumeric(8),
+				CampaignID:                           campaign.ID,
+				Subtotal:                             req.Amount,
+				Total:                                totalAmount,
+				DonorName:                            req.DonorName,
+				DonorPhone:                           req.DonorPhone,
+				DonorEmail:                           req.DonorEmail,
+				Message:                              &msg,
+				IsAnonymous:                          req.IsAnonymous,
+				ExpiredAt:                            time.Now().Add(24 * time.Hour),
+				Status:                               "Menunggu Pembayaran",
+				IP:                                   ip,
+				ReferredBy:                           referredBy,
+				PaymentMethodID:                      paymentMethodID,
+				PaymentMethodName:                    paymentMethodName,
+				PaymentInstructions:                  paymentInstructions,
+				CSPhone:                              csPhone,
+				CSName:                               csName,
+				UTMSource:                            req.UTMSource,
+				UTMMedium:                            req.UTMMedium,
+				UTMCampaign:                          req.UTMCampaign,
+				UTMContent:                           req.UTMContent,
+				UTMTerm:                              req.UTMTerm,
+				UTMID:                                req.UTMID,
+				Fbclid:                               req.Fbclid,
+				Fbp:                                  req.Fbp,
+				Ttclid:                               req.Ttclid,
+				Ttp:                                  req.Ttp,
+				GAClientID:                           req.GAClientID,
+				Gclid:                                req.Gclid,
+				Gbraid:                               req.Gbraid,
+				Wbraid:                               req.Wbraid,
+				GoogleAdsCustomerIDSnapshot:          googleCustomer,
+				GoogleAdsLoginCustomerIDSnapshot:     googleLogin,
+				GoogleAdsConversionActionIDSnapshot:  googleAction,
+				GoogleAdsServerUploadEnabledSnapshot: googleEnabled,
 			}
 			lastErr = tx.Create(&invoice).Error
 			if lastErr == nil {
@@ -489,16 +496,11 @@ func acknowledgeGoogleAdsClientDispatch(inv *model.Invoice, now time.Time) error
 	if !inv.IsPaid {
 		return fmt.Errorf("invoice belum dibayar")
 	}
-	switch inv.GoogleAdsConversionStatus {
-	case model.GoogleAdsConversionPendingCredentials:
-		inv.GoogleAdsConversionStatus = model.GoogleAdsConversionClientSent
-		if inv.GoogleAdsConversionAttemptedAt == nil {
-			inv.GoogleAdsConversionAttemptedAt = &now
-		}
-	case model.GoogleAdsConversionClientSent, model.GoogleAdsConversionServerSent, model.GoogleAdsConversionFailed:
-		return nil
-	default:
+	if _, value := selectGoogleAdsIdentifier(inv); value == "" {
 		return fmt.Errorf("invoice tidak memiliki atribusi Google Ads")
+	}
+	if inv.GoogleAdsClientAttemptedAt == nil {
+		inv.GoogleAdsClientAttemptedAt = &now
 	}
 	return nil
 }

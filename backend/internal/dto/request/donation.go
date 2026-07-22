@@ -27,7 +27,9 @@ type CreateDonationRequest struct {
 	Fbp    string `json:"fbp"`
 	Ttclid string `json:"ttclid"`
 	Ttp    string `json:"ttp"`
-	Gclid  string `json:"gclid"`
+	Gclid  string `json:"gclid" validate:"omitempty,max=255"`
+	Gbraid string `json:"gbraid" validate:"omitempty,max=255"`
+	Wbraid string `json:"wbraid" validate:"omitempty,max=255"`
 	// GAClientID is the GA4 client id (the <id>.<ts> tail of the _ga cookie) so the
 	// server-side Measurement Protocol purchase stitches to the donor's web session.
 	GAClientID string `json:"ga_client_id"`

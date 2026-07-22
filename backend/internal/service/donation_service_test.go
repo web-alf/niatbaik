@@ -7,45 +7,31 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/model"
 )
 
-func TestAcknowledgeGoogleAdsClientDispatch(t *testing.T) {
+func TestGoogleAdsClientDispatchIndependent(t *testing.T) {
 	now := time.Date(2026, 7, 21, 10, 0, 0, 0, time.UTC)
-	inv := &model.Invoice{IsPaid: true, GoogleAdsConversionStatus: model.GoogleAdsConversionPendingCredentials}
+	inv := &model.Invoice{IsPaid: true, Gbraid: "click", GoogleAdsServerStatus: model.GoogleAdsConversionPendingUpload}
 	if err := acknowledgeGoogleAdsClientDispatch(inv, now); err != nil {
 		t.Fatal(err)
 	}
-	if inv.GoogleAdsConversionStatus != model.GoogleAdsConversionClientSent ||
-		inv.GoogleAdsConversionAttemptedAt == nil || !inv.GoogleAdsConversionAttemptedAt.Equal(now) {
-		t.Fatalf("unexpected invoice: %#v", inv)
+	if inv.GoogleAdsClientAttemptedAt == nil || !inv.GoogleAdsClientAttemptedAt.Equal(now) {
+		t.Fatal("client attempt missing")
 	}
-	first := inv.GoogleAdsConversionAttemptedAt
+	if inv.GoogleAdsServerStatus != model.GoogleAdsConversionPendingUpload {
+		t.Fatal("server status changed")
+	}
+	first := inv.GoogleAdsClientAttemptedAt
 	if err := acknowledgeGoogleAdsClientDispatch(inv, now.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	if inv.GoogleAdsConversionAttemptedAt != first {
+	if inv.GoogleAdsClientAttemptedAt != first {
 		t.Fatal("attempt timestamp changed")
 	}
 }
 
-func TestAcknowledgeGoogleAdsClientDispatchRejectsInvalidState(t *testing.T) {
-	tests := []model.Invoice{
-		{GoogleAdsConversionStatus: model.GoogleAdsConversionPendingCredentials},
-		{IsPaid: true, GoogleAdsConversionStatus: model.GoogleAdsConversionNotAttributed},
-	}
-	for i := range tests {
-		if err := acknowledgeGoogleAdsClientDispatch(&tests[i], time.Now()); err == nil {
+func TestGoogleAdsClientDispatchGuards(t *testing.T) {
+	for i, inv := range []model.Invoice{{Gclid: "click"}, {IsPaid: true}} {
+		if err := acknowledgeGoogleAdsClientDispatch(&inv, time.Now()); err == nil {
 			t.Fatalf("case %d: expected error", i)
-		}
-	}
-}
-
-func TestAcknowledgeGoogleAdsClientDispatchPreservesTerminalState(t *testing.T) {
-	for _, status := range []string{model.GoogleAdsConversionServerSent, model.GoogleAdsConversionFailed} {
-		inv := &model.Invoice{IsPaid: true, GoogleAdsConversionStatus: status}
-		if err := acknowledgeGoogleAdsClientDispatch(inv, time.Now()); err != nil {
-			t.Fatal(err)
-		}
-		if inv.GoogleAdsConversionStatus != status {
-			t.Fatalf("status = %q, want %q", inv.GoogleAdsConversionStatus, status)
 		}
 	}
 }

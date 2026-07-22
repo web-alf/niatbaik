@@ -6,7 +6,7 @@ import type { Campaign, Settings } from '@/types/api';
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id'];
 // Ad click-IDs captured from the landing URL alongside utm_*. These are what let Meta /
 // TikTok attribute a server-side (CAPI/Events API) conversion back to the paid click.
-const CLICK_KEYS = ['fbclid', 'ttclid', 'gclid'];
+const CLICK_KEYS = ['fbclid', 'ttclid', 'gclid', 'gbraid', 'wbraid'];
 const STORE_KEY = 'nb_utm';
 
 // readCookie returns a browser cookie value (or ''). Used for the Meta _fbc/_fbp and

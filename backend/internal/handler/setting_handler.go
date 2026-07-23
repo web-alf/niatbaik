@@ -55,6 +55,14 @@ func (h *SettingHandler) Get(c echo.Context) error {
 	return c.JSON(http.StatusOK, response.SuccessResponse(resp, "success"))
 }
 
+func safeGoogleAdsTestError(err error) string {
+	var dispatchErr *service.DispatchError
+	if errors.As(err, &dispatchErr) {
+		return "Google Data Manager: " + dispatchErr.Category + " (" + dispatchErr.Summary + ")"
+	}
+	return "Google Data Manager menolak validasi"
+}
+
 // TestEmail sends a test email via the saved SMTP settings so an admin can verify
 // the configuration without waiting for a real donation receipt to fail.
 func (h *SettingHandler) TestGoogleAds(c echo.Context) error {
@@ -63,7 +71,8 @@ func (h *SettingHandler) TestGoogleAds(c echo.Context) error {
 		if errors.Is(err, service.ErrValidation) {
 			return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
 		}
-		return c.JSON(http.StatusBadGateway, response.ErrorResponse("Google Data Manager menolak validasi"))
+		return c.JSON(http.StatusBadGateway, response.ErrorResponse(safeGoogleAdsTestError(err)))
+
 	}
 	return c.JSON(http.StatusOK, response.SuccessResponse(result, "valid"))
 }

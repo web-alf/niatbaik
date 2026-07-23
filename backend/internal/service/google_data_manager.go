@@ -135,13 +135,25 @@ func (c *GoogleDataManagerClient) do(ctx context.Context, method, endpoint strin
 }
 
 func (c *GoogleDataManagerClient) Ingest(ctx context.Context, conversion GoogleAdsConversion, validateOnly bool) (string, error) {
-	identifier := map[string]string{conversion.IdentifierKind: conversion.IdentifierValue}
-	if conversion.IdentifierKind == "" {
-		identifier = map[string]string{}
+	destination := map[string]any{
+		"operatingAccount":     map[string]string{"accountType": "GOOGLE_ADS", "accountId": conversion.CustomerID},
+		"productDestinationId": conversion.ConversionActionID,
+	}
+	if conversion.LoginCustomerID != "" {
+		destination["loginAccount"] = map[string]string{"accountType": "GOOGLE_ADS", "accountId": conversion.LoginCustomerID}
+	}
+	event := map[string]any{
+		"eventTimestamp":  conversion.Timestamp.UTC().Format(time.RFC3339),
+		"transactionId":   conversion.TransactionID,
+		"conversionValue": conversion.Value,
+		"currency":        conversion.Currency,
+	}
+	if conversion.IdentifierKind != "" && conversion.IdentifierValue != "" {
+		event["adIdentifiers"] = map[string]string{conversion.IdentifierKind: conversion.IdentifierValue}
 	}
 	payload := map[string]any{
-		"destinations": []any{map[string]any{"linkedAccount": map[string]string{"loginAccount": "customers/" + conversion.LoginCustomerID, "operatingAccount": "customers/" + conversion.CustomerID}, "productDestinationId": conversion.ConversionActionID}},
-		"events":       []any{map[string]any{"eventTimestamp": conversion.Timestamp.UTC().Format(time.RFC3339), "transactionId": conversion.TransactionID, "conversionValue": map[string]any{"value": conversion.Value, "currencyCode": conversion.Currency}, "adIdentifiers": []any{identifier}}},
+		"destinations": []any{destination},
+		"events":       []any{event},
 		"validateOnly": validateOnly,
 	}
 	b, err := json.Marshal(payload)
@@ -162,18 +174,33 @@ func (c *GoogleDataManagerClient) Ingest(ctx context.Context, conversion GoogleA
 
 func (c *GoogleDataManagerClient) RetrieveStatus(ctx context.Context, requestID string) (DataManagerRequestStatus, error) {
 	var out struct {
-		State   string `json:"state"`
-		Summary string `json:"summary"`
-		Result  struct {
-			Message string `json:"message"`
-		} `json:"result"`
+		Statuses []struct {
+			State     string `json:"requestStatus"`
+			ErrorInfo struct {
+				Counts []struct {
+					Reason string `json:"reason"`
+					Count  string `json:"count"`
+				} `json:"errorCounts"`
+			} `json:"errorInfo"`
+			WarningInfo struct {
+				Counts []struct {
+					Reason string `json:"reason"`
+					Count  string `json:"count"`
+				} `json:"warningCounts"`
+			} `json:"warningInfo"`
+		} `json:"requestStatusPerDestination"`
 	}
 	endpoint := c.apiBase + "/v1/requestStatus:retrieve?requestId=" + url.QueryEscape(requestID)
 	if err := c.do(ctx, http.MethodGet, endpoint, nil, &out); err != nil {
 		return DataManagerRequestStatus{}, err
 	}
-	if out.Summary == "" {
-		out.Summary = out.Result.Message
+	if len(out.Statuses) != 1 || out.Statuses[0].State == "" {
+		return DataManagerRequestStatus{}, dispatchError("malformed_response", false, 0)
 	}
-	return DataManagerRequestStatus{State: out.State, Summary: safeSummary(out.Summary)}, nil
+	status := out.Statuses[0]
+	parts := make([]string, 0, len(status.ErrorInfo.Counts)+len(status.WarningInfo.Counts))
+	for _, count := range append(status.ErrorInfo.Counts, status.WarningInfo.Counts...) {
+		parts = append(parts, count.Reason+"="+count.Count)
+	}
+	return DataManagerRequestStatus{State: status.State, Summary: safeSummary(strings.Join(parts, ", "))}, nil
 }

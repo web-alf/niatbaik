@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func TestDataManagerOAuthAndIngest(t *testing.T) {
+func TestDataManagerOAuthAndIngestUsesOfficialSchema(t *testing.T) {
 	var tokenSeen, ingestSeen bool
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -22,27 +22,41 @@ func TestDataManagerOAuthAndIngest(t *testing.T) {
 			if r.Form.Get("grant_type") != "refresh_token" || r.Form.Get("client_id") != "client" || r.Form.Get("client_secret") != "secret" || r.Form.Get("refresh_token") != "refresh" {
 				t.Fatalf("bad oauth form: %#v", r.Form)
 			}
-			json.NewEncoder(w).Encode(map[string]any{"access_token": "access", "expires_in": 3600, "token_type": "Bearer"})
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "access", "expires_in": 3600})
 		case "/v1/events:ingest":
 			ingestSeen = true
-			if r.Header.Get("Authorization") != "Bearer access" {
-				t.Fatalf("authorization=%q", r.Header.Get("Authorization"))
+			var body struct {
+				Destinations []map[string]any `json:"destinations"`
+				Events       []map[string]any `json:"events"`
 			}
-			if r.Header.Get("developer-token") != "" || r.Header.Get("login-customer-id") != "" {
-				t.Fatal("legacy ads headers present")
-			}
-			var body map[string]any
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				t.Fatal(err)
 			}
-			b, _ := json.Marshal(body)
-			got := string(b)
-			for _, want := range []string{`"loginAccount":"customers/2222222222"`, `"operatingAccount":"customers/1111111111"`, `"productDestinationId":"333"`, `"transactionId":"INV-1"`, `"currencyCode":"IDR"`, `"value":125000`, `"gclid":"click"`} {
-				if !strings.Contains(got, want) {
-					t.Errorf("payload missing %s: %s", want, got)
+			d := body.Destinations[0]
+			if _, exists := d["linkedAccount"]; exists {
+				t.Fatal("linkedAccount must be absent")
+			}
+			for key, id := range map[string]string{"loginAccount": "2222222222", "operatingAccount": "1111111111"} {
+				account := d[key].(map[string]any)
+				if account["accountType"] != "GOOGLE_ADS" || account["accountId"] != id {
+					t.Fatalf("%s=%#v", key, account)
 				}
 			}
-			json.NewEncoder(w).Encode(map[string]string{"requestId": "req-1"})
+			if d["productDestinationId"] != "333" {
+				t.Fatalf("destination=%#v", d)
+			}
+			e := body.Events[0]
+			if e["conversionValue"] != float64(125000) || e["currency"] != "IDR" {
+				t.Fatalf("event=%#v", e)
+			}
+			if _, exists := e["currencyCode"]; exists {
+				t.Fatal("currencyCode must be absent")
+			}
+			ids := e["adIdentifiers"].(map[string]any)
+			if ids["gclid"] != "click" {
+				t.Fatalf("adIdentifiers=%#v", ids)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]string{"requestId": "req-1"})
 		default:
 			http.NotFound(w, r)
 		}
@@ -51,35 +65,63 @@ func TestDataManagerOAuthAndIngest(t *testing.T) {
 	c := NewGoogleDataManagerClient(s.Client(), s.URL+"/token", s.URL, "client", "secret", "refresh")
 	id, err := c.Ingest(context.Background(), GoogleAdsConversion{CustomerID: "1111111111", LoginCustomerID: "2222222222", ConversionActionID: "333", Timestamp: time.Date(2026, 7, 22, 1, 2, 3, 0, time.UTC), Value: 125000, Currency: "IDR", TransactionID: "INV-1", IdentifierKind: "gclid", IdentifierValue: "click"}, false)
 	if err != nil || id != "req-1" || !tokenSeen || !ingestSeen {
-		t.Fatalf("id=%q err=%v token=%v ingest=%v", id, err, tokenSeen, ingestSeen)
+		t.Fatalf("id=%q err=%v", id, err)
 	}
 }
 
-func TestDataManagerRetrieveStatusAndSafeErrors(t *testing.T) {
+func TestDataManagerValidateOnlyOmitsEmptyAdIdentifiers(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/token" {
-			json.NewEncoder(w).Encode(map[string]any{"access_token": "access", "expires_in": 3600})
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "access", "expires_in": 3600})
 			return
 		}
-		if r.URL.Query().Get("requestId") != "req/one" {
-			t.Fatalf("request id=%q", r.URL.Query().Get("requestId"))
+		var body struct {
+			ValidateOnly bool             `json:"validateOnly"`
+			Events       []map[string]any `json:"events"`
 		}
-		json.NewEncoder(w).Encode(map[string]any{"state": "SUCCESS", "result": map[string]string{"message": "accepted"}})
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if !body.ValidateOnly {
+			t.Fatal("validateOnly=false")
+		}
+		if _, exists := body.Events[0]["adIdentifiers"]; exists {
+			t.Fatal("empty adIdentifiers must be omitted")
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{"requestId": "validation"})
 	}))
 	defer s.Close()
-	c := NewGoogleDataManagerClient(s.Client(), s.URL+"/token", s.URL, "client-secret-value", "secret-value", "refresh-value")
+	c := NewGoogleDataManagerClient(s.Client(), s.URL+"/token", s.URL, "client", "secret", "refresh")
+	_, err := c.Ingest(context.Background(), GoogleAdsConversion{CustomerID: "1111111111", ConversionActionID: "333", Timestamp: time.Now(), Value: 1, Currency: "IDR", TransactionID: "VALIDATE"}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDataManagerRetrieveOfficialStatus(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "access", "expires_in": 3600})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"requestStatusPerDestination": []any{map[string]any{"requestStatus": "FAILED", "errorInfo": map[string]any{"errorCounts": []any{map[string]any{"reason": "INVALID_GCLID", "count": "1"}}}}}})
+	}))
+	defer s.Close()
+	c := NewGoogleDataManagerClient(s.Client(), s.URL+"/token", s.URL, "client", "secret", "refresh")
 	st, err := c.RetrieveStatus(context.Background(), "req/one")
-	if err != nil || st.State != "SUCCESS" {
+	if err != nil || st.State != "FAILED" || !strings.Contains(st.Summary, "INVALID_GCLID") {
 		t.Fatalf("status=%+v err=%v", st, err)
 	}
+}
 
+func TestDataManagerSafeErrors(t *testing.T) {
 	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusTooManyRequests)
-		w.Write([]byte("raw-click-id\nsecret-value"))
+		_, _ = w.Write([]byte("raw-click-id\nsecret-value"))
 	}))
 	defer bad.Close()
-	c = NewGoogleDataManagerClient(bad.Client(), bad.URL, bad.URL, "client-secret-value", "secret-value", "refresh-value")
-	_, err = c.RetrieveStatus(context.Background(), "request-secret")
+	c := NewGoogleDataManagerClient(bad.Client(), bad.URL, bad.URL, "client", "secret-value", "refresh-value")
+	_, err := c.RetrieveStatus(context.Background(), "request-secret")
 	de, ok := err.(*DispatchError)
 	if !ok || !de.Retryable || strings.Contains(err.Error(), "raw-click-id") || strings.Contains(err.Error(), "secret-value") || strings.Contains(err.Error(), "request-secret") {
 		t.Fatalf("unsafe/untyped error: %v", err)

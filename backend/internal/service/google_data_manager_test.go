@@ -114,6 +114,33 @@ func TestDataManagerRetrieveOfficialStatus(t *testing.T) {
 	}
 }
 
+func TestDataManagerParsesAndRedactsOfficialError(t *testing.T) {
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "access-secret", "expires_in": 3600})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{
+			"code": 404, "status": "NOT_FOUND",
+			"message": "Customer 1111111111 action 333 transaction INV-1 click click-secret was not found",
+			"details": []any{map[string]any{"refresh_token": "refresh-secret"}},
+		}})
+	}))
+	defer bad.Close()
+	c := NewGoogleDataManagerClient(bad.Client(), bad.URL+"/token", bad.URL, "client-id", "client-secret", "refresh-secret")
+	_, err := c.Ingest(context.Background(), GoogleAdsConversion{CustomerID: "1111111111", ConversionActionID: "333", Timestamp: time.Now(), Value: 1, Currency: "IDR", TransactionID: "INV-1", IdentifierKind: "gclid", IdentifierValue: "click-secret"}, true)
+	de, ok := err.(*DispatchError)
+	if !ok || de.Retryable || !strings.Contains(de.Summary, "NOT_FOUND") || !strings.Contains(de.Summary, "[REDACTED]") {
+		t.Fatalf("missing safe diagnostic: %#v", err)
+	}
+	for _, secret := range []string{"1111111111", "333", "INV-1", "click-secret", "refresh-secret", "client-secret", "access-secret"} {
+		if strings.Contains(err.Error(), secret) {
+			t.Fatalf("error exposed %q: %v", secret, err)
+		}
+	}
+}
+
 func TestDataManagerSafeErrors(t *testing.T) {
 	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusTooManyRequests)

@@ -61,6 +61,33 @@ func dispatchError(category string, retryable bool, status int) error {
 	return &DispatchError{Category: category, Retryable: retryable, Summary: safeSummary(summary)}
 }
 
+func upstreamError(resp *http.Response, sensitive ...string) error {
+	retryable := resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500
+	summary := fmt.Sprintf("upstream HTTP %d", resp.StatusCode)
+	var envelope struct {
+		Error struct {
+			Status  string `json:"status"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxDataManagerResponse)).Decode(&envelope); err == nil && envelope.Error.Status != "" {
+		status := envelope.Error.Status
+		if strings.Trim(status, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") == "" && len(status) <= 64 {
+			message := envelope.Error.Message
+			for _, value := range sensitive {
+				if value != "" {
+					message = strings.ReplaceAll(message, value, "[REDACTED]")
+				}
+			}
+			summary += "; " + status
+			if message != "" {
+				summary += ": " + message
+			}
+		}
+	}
+	return &DispatchError{Category: "upstream_rejected", Retryable: retryable, Summary: safeSummary(summary)}
+}
+
 type GoogleDataManagerClient struct {
 	http                                                    *http.Client
 	tokenURL, apiBase, clientID, clientSecret, refreshToken string
@@ -107,7 +134,7 @@ func (c *GoogleDataManagerClient) token(ctx context.Context) (string, error) {
 	return c.accessToken, nil
 }
 
-func (c *GoogleDataManagerClient) do(ctx context.Context, method, endpoint string, body io.Reader, out any) error {
+func (c *GoogleDataManagerClient) do(ctx context.Context, method, endpoint string, body io.Reader, out any, sensitive ...string) error {
 	token, err := c.token(ctx)
 	if err != nil {
 		return err
@@ -126,7 +153,7 @@ func (c *GoogleDataManagerClient) do(ctx context.Context, method, endpoint strin
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return dispatchError("upstream_rejected", resp.StatusCode == 429 || resp.StatusCode >= 500, resp.StatusCode)
+		return upstreamError(resp, append([]string{token, c.clientID, c.clientSecret, c.refreshToken}, sensitive...)...)
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxDataManagerResponse)).Decode(out); err != nil {
 		return dispatchError("malformed_response", false, 0)
@@ -163,7 +190,9 @@ func (c *GoogleDataManagerClient) Ingest(ctx context.Context, conversion GoogleA
 	var out struct {
 		RequestID string `json:"requestId"`
 	}
-	if err := c.do(ctx, http.MethodPost, c.apiBase+"/v1/events:ingest", strings.NewReader(string(b)), &out); err != nil {
+	if err := c.do(ctx, http.MethodPost, c.apiBase+"/v1/events:ingest", strings.NewReader(string(b)), &out,
+		conversion.CustomerID, conversion.LoginCustomerID, conversion.ConversionActionID,
+		conversion.TransactionID, conversion.IdentifierValue); err != nil {
 		return "", err
 	}
 	if out.RequestID == "" {
@@ -191,7 +220,7 @@ func (c *GoogleDataManagerClient) RetrieveStatus(ctx context.Context, requestID 
 		} `json:"requestStatusPerDestination"`
 	}
 	endpoint := c.apiBase + "/v1/requestStatus:retrieve?requestId=" + url.QueryEscape(requestID)
-	if err := c.do(ctx, http.MethodGet, endpoint, nil, &out); err != nil {
+	if err := c.do(ctx, http.MethodGet, endpoint, nil, &out, requestID); err != nil {
 		return DataManagerRequestStatus{}, err
 	}
 	if len(out.Statuses) != 1 || out.Statuses[0].State == "" {

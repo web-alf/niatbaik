@@ -9,6 +9,23 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/model"
 )
 
+// googleAdsReadinessError names the single missing prerequisite so an operator can
+// act on the 422 without reading server logs. Order matters: environment secrets
+// first, because the other three are pointless without them.
+func googleAdsReadinessError(credentialsConfigured bool, customerID, actionID string, clientReady bool) error {
+	switch {
+	case !credentialsConfigured:
+		return fmt.Errorf("%w: OAuth environment variables Google Ads belum lengkap di backend", ErrValidation)
+	case strings.TrimSpace(customerID) == "":
+		return fmt.Errorf("%w: Customer ID belum tersimpan, isi lalu simpan pengaturan terlebih dahulu", ErrValidation)
+	case strings.TrimSpace(actionID) == "":
+		return fmt.Errorf("%w: Default Conversion Action ID belum tersimpan, isi lalu simpan pengaturan terlebih dahulu", ErrValidation)
+	case !clientReady:
+		return fmt.Errorf("%w: Data Manager client tidak aktif di server", ErrValidation)
+	}
+	return nil
+}
+
 func normalizeGoogleCustomerID(value string, optional bool) (string, error) {
 	value = strings.ReplaceAll(strings.TrimSpace(value), "-", "")
 	if value == "" && optional {
@@ -41,7 +58,7 @@ func selectGoogleAdsIdentifier(inv *model.Invoice) (kind, value string) {
 }
 
 func initialGoogleAdsServerStatus(inv *model.Invoice, enabled bool) string {
-	if inv.GoogleAdsServerStatus == model.GoogleAdsConversionServerSent {
+	if inv.GoogleAdsServerStatus == model.GoogleAdsConversionServerSent || inv.GoogleAdsServerStatus == model.GoogleAdsConversionAcceptedUntracked {
 		return inv.GoogleAdsServerStatus
 	}
 	if _, value := selectGoogleAdsIdentifier(inv); value == "" {

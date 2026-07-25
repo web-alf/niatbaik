@@ -66,8 +66,8 @@ func (s *SettingService) TestGoogleAds(ctx context.Context) (map[string]string, 
 	if err != nil {
 		return nil, err
 	}
-	if !s.GoogleAdsCredentialsConfigured() || setting.GoogleAdsCustomerID == "" || setting.GoogleAdsDefaultConversionActionID == "" || s.dataManager == nil {
-		return nil, fmt.Errorf("%w: konfigurasi Google Ads belum lengkap", ErrValidation)
+	if err := googleAdsReadinessError(s.GoogleAdsCredentialsConfigured(), setting.GoogleAdsCustomerID, setting.GoogleAdsDefaultConversionActionID, s.dataManager != nil); err != nil {
+		return nil, err
 	}
 	id, err := s.dataManager.Ingest(ctx, GoogleAdsConversion{CustomerID: setting.GoogleAdsCustomerID, LoginCustomerID: setting.GoogleAdsLoginCustomerID, ConversionActionID: setting.GoogleAdsDefaultConversionActionID, Timestamp: time.Now(), Value: 1, Currency: "IDR", TransactionID: "VALIDATE-" + uuid.NewString()}, true)
 	if err != nil {

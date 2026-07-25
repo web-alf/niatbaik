@@ -224,8 +224,8 @@ func (h *InvoiceHandler) RetryGoogleAds(c echo.Context) error {
 	if !inv.IsPaid {
 		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("invoice belum dibayar"))
 	}
-	if inv.GoogleAdsServerStatus == model.GoogleAdsConversionServerSent {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("conversion sudah terkirim"))
+	if inv.GoogleAdsServerStatus == model.GoogleAdsConversionServerSent || inv.GoogleAdsServerStatus == model.GoogleAdsConversionAcceptedUntracked {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("conversion tidak dapat dikirim ulang"))
 	}
 	if inv.Gclid == "" && inv.Gbraid == "" && inv.Wbraid == "" {
 		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("invoice tidak memiliki atribusi Google"))

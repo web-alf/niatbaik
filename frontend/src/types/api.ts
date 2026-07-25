@@ -87,7 +87,9 @@ export interface Invoice {
   googleAdsCustomerId?: string;
   googleAdsConversionActionId?: string;
   googleAdsClientAttemptedAt?: string | null;
-  googleAdsServerStatus?: 'not_attributed' | 'pending_configuration' | 'pending_upload' | 'processing' | 'server_sent' | 'retryable' | 'failed' | string;
+  googleAdsServerStatus?: 'not_attributed' | 'pending_configuration' | 'pending_upload' | 'processing' | 'server_sent' | 'retryable' | 'failed' | 'accepted_untracked' | string;
+  googleAdsServerAttemptCount?: number;
+  googleAdsPollAttemptCount?: number;
   googleAdsServerAttemptedAt?: string | null;
   googleAdsServerSentAt?: string | null;
   googleAdsServerError?: string;

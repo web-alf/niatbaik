@@ -30,6 +30,7 @@ func clearGoogleAdsConversionAudit(inv *model.Invoice) {
 	inv.GoogleAdsServerError = ""
 	inv.GoogleAdsServerRequestID = ""
 	inv.GoogleAdsServerAttemptCount = 0
+	inv.GoogleAdsPollAttemptCount = 0
 	inv.GoogleAdsServerNextAttemptAt = nil
 	inv.GoogleAdsServerProcessingAt = nil
 }

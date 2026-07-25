@@ -17,13 +17,19 @@ func TestToInvoiceResponseExposesGoogleAdsAudit(t *testing.T) {
 		GoogleAdsConversionAttemptedAt: &attempted,
 		GoogleAdsConversionSentAt:      &sent,
 		GoogleAdsConversionError:       "bounded error",
+		GoogleAdsServerStatus:          model.GoogleAdsConversionAcceptedUntracked,
+		GoogleAdsServerAttemptCount:    2,
+		GoogleAdsPollAttemptCount:      4,
 	}
 	got := ToInvoiceResponse(inv)
 	if got.Gclid != inv.Gclid || got.GAClientID != inv.GAClientID ||
 		got.GoogleAdsConversionStatus != inv.GoogleAdsConversionStatus ||
 		got.GoogleAdsConversionAttemptedAt != inv.GoogleAdsConversionAttemptedAt ||
 		got.GoogleAdsConversionSentAt != inv.GoogleAdsConversionSentAt ||
-		got.GoogleAdsConversionError != inv.GoogleAdsConversionError {
+		got.GoogleAdsConversionError != inv.GoogleAdsConversionError ||
+		got.GoogleAdsServerStatus != inv.GoogleAdsServerStatus ||
+		got.GoogleAdsServerAttemptCount != 2 || got.GoogleAdsPollAttemptCount != 4 {
+
 		t.Fatalf("audit mapping mismatch: %#v", got)
 	}
 }

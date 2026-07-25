@@ -17,6 +17,9 @@ type GoogleAdsQueueRepository interface {
 	MarkGoogleAdsSent(context.Context, uuid.UUID, time.Time) error
 	MarkGoogleAdsRetryable(context.Context, uuid.UUID, string, time.Time) error
 	MarkGoogleAdsFailed(context.Context, uuid.UUID, string) error
+	MarkGoogleAdsPollRetryable(context.Context, uuid.UUID, string, time.Time) error
+	MarkGoogleAdsPollFailed(context.Context, uuid.UUID, string) error
+	MarkGoogleAdsAcceptedUntracked(context.Context, uuid.UUID, string) error
 	ReleaseGoogleAdsClaim(context.Context, uuid.UUID, time.Time) error
 	RetryGoogleAdsInvoice(context.Context, uuid.UUID, repository.GoogleAdsSnapshot, time.Time) error
 }
@@ -104,13 +107,23 @@ func (w *GoogleAdsWorker) ProcessOne(ctx context.Context) (bool, error) {
 			return true, fail(err, true)
 		}
 		if err := w.repo.PersistGoogleAdsRequestID(ctx, inv.ID, requestID, now.Add(w.pollEvery)); err != nil {
-			return true, err
+			fallbackErr := w.repo.MarkGoogleAdsAcceptedUntracked(ctx, inv.ID, "request ID persistence failed")
+			return true, errors.Join(err, fallbackErr)
 		}
+
 		return true, nil
 	}
 	st, err := w.client.RetrieveStatus(ctx, inv.GoogleAdsServerRequestID)
 	if err != nil {
-		return true, fail(err, false)
+		summary, retryable := "dispatch failed", false
+		if d, ok := err.(*DispatchError); ok {
+			summary, retryable = d.Summary, d.Retryable
+		}
+		attempt := inv.GoogleAdsPollAttemptCount + 1
+		if !retryable || attempt >= len(retryDelays) {
+			return true, w.repo.MarkGoogleAdsPollFailed(ctx, inv.ID, safeSummary(summary))
+		}
+		return true, w.repo.MarkGoogleAdsPollRetryable(ctx, inv.ID, safeSummary(summary), now.Add(retryDelays[attempt-1]))
 	}
 	switch st.State {
 	case "SUCCESS":

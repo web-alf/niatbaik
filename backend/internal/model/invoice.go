@@ -16,6 +16,7 @@ const (
 	GoogleAdsConversionClientSent         = "client_sent"
 	GoogleAdsConversionServerSent         = "server_sent"
 	GoogleAdsConversionFailed             = "failed"
+	GoogleAdsConversionAcceptedUntracked  = "accepted_untracked"
 )
 
 type Invoice struct {
@@ -102,6 +103,7 @@ type Invoice struct {
 	GoogleAdsServerError                 string     `gorm:"size:1000" json:"google_ads_server_error"`
 	GoogleAdsServerRequestID             string     `gorm:"size:255" json:"google_ads_server_request_id"`
 	GoogleAdsServerAttemptCount          int        `gorm:"default:0" json:"google_ads_server_attempt_count"`
+	GoogleAdsPollAttemptCount            int        `gorm:"default:0;not null" json:"google_ads_poll_attempt_count"`
 	GoogleAdsServerNextAttemptAt         *time.Time `json:"google_ads_server_next_attempt_at"`
 	GoogleAdsServerProcessingAt          *time.Time `json:"google_ads_server_processing_at"`
 	// GAClientID is the GA4 client id parsed from the browser _ga cookie (the <id>.<ts>

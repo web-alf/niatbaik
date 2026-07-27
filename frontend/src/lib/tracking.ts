@@ -2,12 +2,12 @@
 // Pixels (fbq/ttq/gtag/dataLayer) are real runtime globals on window — typed in
 // types/globals.d.ts — injected on demand here.
 import type { Campaign, Settings } from '@/types/api';
+import { readAttribution, writeAttribution } from './attribution-store.mjs';
 
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id'];
 // Ad click-IDs captured from the landing URL alongside utm_*. These are what let Meta /
 // TikTok attribute a server-side (CAPI/Events API) conversion back to the paid click.
 const CLICK_KEYS = ['fbclid', 'ttclid', 'gclid', 'gbraid', 'wbraid'];
-const STORE_KEY = 'nb_utm';
 
 // readCookie returns a browser cookie value (or ''). Used for the Meta _fbc/_fbp and
 // TikTok _ttp cookies the pixels set — these are the correctly-formatted click/browser
@@ -192,21 +192,28 @@ export function fireConversion(c: Campaign | null | undefined, phase: 'submit' |
   return { googleAdsAttempted: false };
 }
 
-// captureUTM reads utm_* from the URL once on landing → sessionStorage, so the
+// captureUTM reads utm_* from the URL once on landing → durable storage, so the
 // donation POST (possibly on a different route) still carries attribution.
 export function captureUTM() {
   try {
     const params = new URLSearchParams(window.location.search);
     // Merge into any already-captured values so a later in-app navigation without the
-    // query string doesn't wipe the landing attribution.
-    const found: Record<string, string> = getUTM();
+    // query string doesn't wipe the landing attribution. readStored() reads the raw
+    // persisted record (no live-cookie enrichment) so we round-trip only the URL params.
+    const found: Record<string, string> = readStored();
     let any = Object.keys(found).length > 0;
     [...UTM_KEYS, ...CLICK_KEYS].forEach((k) => {
       const v = params.get(k);
       if (v) { found[k] = v; any = true; }
     });
-    if (any) sessionStorage.setItem(STORE_KEY, JSON.stringify(found));
-  } catch { /* sessionStorage unavailable — attribution silently absent */ }
+    if (any) writeAttribution(found);
+  } catch { /* storage unavailable — attribution silently absent */ }
+}
+
+// readStored returns the persisted utm_*/click-id record (durable, TTL-checked),
+// without the live pixel-cookie enrichment getUTM adds. Used by captureUTM's merge.
+function readStored(): Record<string, string> {
+  return readAttribution();
 }
 
 // trackVisit records a public page view server-side (POST /api/track/visit) so the
@@ -234,8 +241,7 @@ export function trackVisit(campaignSlug?: string) {
 // server-side CAPI/Events API can forward correctly-formatted click/browser ids — these
 // cookies are set by the pixels after they load, so they may not exist at landing.
 export function getUTM(): Record<string, string> {
-  let stored: Record<string, string> = {};
-  try { stored = JSON.parse(sessionStorage.getItem(STORE_KEY) || '{}'); } catch { /* ignore */ }
+  const stored: Record<string, string> = readStored();
   const fbc = readCookie('_fbc');
   const fbp = readCookie('_fbp');
   const ttp = readCookie('_ttp');

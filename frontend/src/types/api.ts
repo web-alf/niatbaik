@@ -167,6 +167,7 @@ export interface Settings {
   google_ads_default_conversion_action_id?: string;
   google_ads_server_upload_enabled?: boolean;
   google_ads_credentials_configured?: boolean;
+  google_ads_connected_email?: string;
   tiktok_pixel_id?: string;
   [k: string]: unknown;
 }

@@ -46,6 +46,9 @@ type Config struct {
 	GoogleAdsClientID             string
 	GoogleAdsClientSecret         string
 	GoogleDataManagerRefreshToken string
+	// GoogleAdsOAuthRedirectURL is the exact redirect_uri registered in Google Cloud
+	// Console for the "Connect Google Ads" flow. Empty = derive from FrontendBaseURL.
+	GoogleAdsOAuthRedirectURL string
 }
 
 func Load() *Config {
@@ -82,11 +85,29 @@ func Load() *Config {
 		GoogleAdsClientID:             getEnv("GOOGLE_ADS_CLIENT_ID", ""),
 		GoogleAdsClientSecret:         getEnv("GOOGLE_ADS_CLIENT_SECRET", ""),
 		GoogleDataManagerRefreshToken: getEnv("GOOGLE_DATA_MANAGER_REFRESH_TOKEN", ""),
+		GoogleAdsOAuthRedirectURL:     strings.TrimRight(getEnv("GOOGLE_ADS_OAUTH_REDIRECT_URL", ""), "/"),
 	}
+}
+
+// GoogleAdsRedirectURI returns the OAuth callback URL Google must redirect to,
+// preferring an explicit override and otherwise deriving it from the frontend
+// origin (nginx routes /api to the backend on the same host).
+func (c *Config) GoogleAdsRedirectURI() string {
+	if c.GoogleAdsOAuthRedirectURL != "" {
+		return c.GoogleAdsOAuthRedirectURL
+	}
+	return c.FrontendBaseURL + "/api/settings/google-ads/oauth/callback"
 }
 
 func (c *Config) GoogleDataManagerCredentialsConfigured() bool {
 	return strings.TrimSpace(c.GoogleAdsClientID) != "" && strings.TrimSpace(c.GoogleAdsClientSecret) != "" && strings.TrimSpace(c.GoogleDataManagerRefreshToken) != ""
+}
+
+// GoogleAdsOAuthConfigured reports whether the OAuth app identity (client
+// id/secret) is present — the prerequisite for the "Connect Google Ads" flow.
+// The refresh token itself may come from either env or the database.
+func (c *Config) GoogleAdsOAuthConfigured() bool {
+	return strings.TrimSpace(c.GoogleAdsClientID) != "" && strings.TrimSpace(c.GoogleAdsClientSecret) != ""
 }
 
 func (c *Config) IsProduction() bool {

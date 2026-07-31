@@ -12,6 +12,7 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/anrdart/niatbaik-api/internal/repository"
+	"github.com/anrdart/niatbaik-api/pkg/jwt"
 	"github.com/anrdart/niatbaik-api/pkg/mailer"
 	"github.com/google/uuid"
 )
@@ -47,18 +48,116 @@ func validCSContacts(s string) bool {
 // distinguishing it from server/DB failures (HTTP 500).
 var ErrValidation = errors.New("validation error")
 
+// GoogleAdsConnector is the subset of the Data Manager client used by the
+// "Connect Google Ads" OAuth flow. Kept narrow so the service depends only on
+// what it needs and tests can fake it.
+type GoogleAdsConnector interface {
+	AuthCodeURL(redirectURI, state string) string
+	ExchangeCode(ctx context.Context, code, redirectURI string) (refreshToken, email string, err error)
+	SetRefreshToken(token string)
+}
+
 type SettingService struct {
 	settingRepo *repository.SettingRepo
 	cfg         *config.Config
 	dataManager DataManagerClient
+	connector   GoogleAdsConnector
+}
+
+// googleAdsTokenReady reports whether server-side upload can authenticate: the
+// OAuth app identity must exist AND a refresh token must be available from
+// either the database (Connect flow) or the environment (legacy).
+func googleAdsTokenReady(oauthConfigured bool, envToken, dbToken string) bool {
+	return oauthConfigured && (strings.TrimSpace(envToken) != "" || strings.TrimSpace(dbToken) != "")
+}
+
+// interpretTestConnection maps a validate-only probe result to a pass/fail.
+// The probe carries no click id on purpose, so NO_IDENTIFIERS_PROVIDED means the
+// destination was reachable and authorized — a success for connection testing.
+func interpretTestConnection(err error) error {
+	if err == nil {
+		return nil
+	}
+	var de *DispatchError
+	if errors.As(err, &de) && strings.Contains(de.Summary, "NO_IDENTIFIERS_PROVIDED") {
+		return nil
+	}
+	return err
 }
 
 func NewSettingService(settingRepo *repository.SettingRepo, cfg *config.Config, clients ...DataManagerClient) *SettingService {
 	s := &SettingService{settingRepo: settingRepo, cfg: cfg}
 	if len(clients) > 0 {
 		s.dataManager = clients[0]
+		if connector, ok := clients[0].(GoogleAdsConnector); ok {
+			s.connector = connector
+		}
 	}
 	return s
+}
+
+// FrontendSettingsURL is the admin settings page the OAuth callback redirects to.
+func (s *SettingService) FrontendSettingsURL() string {
+	return s.cfg.FrontendBaseURL + "/settings"
+}
+
+// SeedGoogleAdsToken loads a DB-stored refresh token (from a prior Connect) into
+// the live client at startup so it takes precedence over the env token without a
+// restart. No-op when the DB has none.
+func (s *SettingService) SeedGoogleAdsToken() {
+	if s.connector == nil {
+		return
+	}
+	setting, err := s.settingRepo.Get()
+	if err != nil || setting == nil {
+		return
+	}
+	if strings.TrimSpace(setting.GoogleAdsRefreshToken) != "" {
+		s.connector.SetRefreshToken(setting.GoogleAdsRefreshToken)
+	}
+}
+
+// googleAdsOAuthStateRole tags the short-lived state JWT so it can't be confused
+// with a normal auth token.
+const googleAdsOAuthStateRole = "google_ads_oauth_state"
+
+// GoogleAdsOAuthStartURL builds the consent-screen URL with a signed, short-lived
+// state param bound to the initiating admin — this doubles as CSRF protection for
+// the unauthenticated callback.
+func (s *SettingService) GoogleAdsOAuthStartURL(userID uuid.UUID) (string, error) {
+	if s.connector == nil || !s.cfg.GoogleAdsOAuthConfigured() {
+		return "", fmt.Errorf("%w: OAuth client belum dikonfigurasi di backend", ErrValidation)
+	}
+	state, err := jwt.GenerateAccessToken(userID, "", googleAdsOAuthStateRole, s.cfg.JWTSecret, 10*time.Minute)
+	if err != nil {
+		return "", err
+	}
+	return s.connector.AuthCodeURL(s.cfg.GoogleAdsRedirectURI(), state), nil
+}
+
+// ConnectGoogleAds verifies the state, exchanges the OAuth code for a refresh
+// token, persists it plus the granting account email, and swaps it into the live
+// client immediately.
+func (s *SettingService) ConnectGoogleAds(ctx context.Context, code, state string) (string, error) {
+	if s.connector == nil || !s.cfg.GoogleAdsOAuthConfigured() {
+		return "", fmt.Errorf("%w: OAuth client belum dikonfigurasi di backend", ErrValidation)
+	}
+	claims, err := jwt.ParseToken(state, s.cfg.JWTSecret)
+	if err != nil || claims.Role != googleAdsOAuthStateRole {
+		return "", fmt.Errorf("%w: state OAuth tidak valid atau kedaluwarsa", ErrValidation)
+	}
+	token, email, err := s.connector.ExchangeCode(ctx, code, s.cfg.GoogleAdsRedirectURI())
+	if err != nil {
+		return "", err
+	}
+	if err := s.settingRepo.UpdateGoogleAds(map[string]any{
+		"google_ads_refresh_token":   token,
+		"google_ads_connected_email": email,
+	}); err != nil {
+		return "", err
+	}
+	s.connector.SetRefreshToken(token)
+	return email, nil
 }
 
 func (s *SettingService) TestGoogleAds(ctx context.Context) (map[string]string, error) {
@@ -69,16 +168,26 @@ func (s *SettingService) TestGoogleAds(ctx context.Context) (map[string]string, 
 	if err := googleAdsReadinessError(s.GoogleAdsCredentialsConfigured(), setting.GoogleAdsCustomerID, setting.GoogleAdsDefaultConversionActionID, s.dataManager != nil); err != nil {
 		return nil, err
 	}
-	id, err := s.dataManager.Ingest(ctx, GoogleAdsConversion{CustomerID: setting.GoogleAdsCustomerID, LoginCustomerID: setting.GoogleAdsLoginCustomerID, ConversionActionID: setting.GoogleAdsDefaultConversionActionID, Timestamp: time.Now(), Value: 1, Currency: "IDR", TransactionID: "VALIDATE-" + uuid.NewString()}, true)
-	if err != nil {
+	// eventSource=WEB and no ad identifier: a well-configured destination answers
+	// NO_IDENTIFIERS_PROVIDED, which interpretTestConnection treats as reachable.
+	// This proves auth + destination permission + a valid conversion action without
+	// fabricating a click id.
+	_, err = s.dataManager.Ingest(ctx, GoogleAdsConversion{CustomerID: setting.GoogleAdsCustomerID, LoginCustomerID: setting.GoogleAdsLoginCustomerID, ConversionActionID: setting.GoogleAdsDefaultConversionActionID, Timestamp: time.Now(), Value: 1, Currency: "IDR", TransactionID: "VALIDATE-" + uuid.NewString(), EventSource: "WEB"}, true)
+	if err := interpretTestConnection(err); err != nil {
 		return nil, err
 	}
-	_ = id
 	return map[string]string{"customer_id": setting.GoogleAdsCustomerID, "conversion_action_id": setting.GoogleAdsDefaultConversionActionID, "status": "valid"}, nil
 }
 
 func (s *SettingService) GoogleAdsCredentialsConfigured() bool {
-	return s.cfg != nil && s.cfg.GoogleDataManagerCredentialsConfigured()
+	if s.cfg == nil {
+		return false
+	}
+	dbToken := ""
+	if setting, err := s.settingRepo.Get(); err == nil && setting != nil {
+		dbToken = setting.GoogleAdsRefreshToken
+	}
+	return googleAdsTokenReady(s.cfg.GoogleAdsOAuthConfigured(), s.cfg.GoogleDataManagerRefreshToken, dbToken)
 }
 
 func (s *SettingService) Get() (*model.Setting, error) {

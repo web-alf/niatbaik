@@ -154,11 +154,17 @@ type Setting struct {
 	GoogleAdsLoginCustomerID           string `gorm:"size:10" json:"google_ads_login_customer_id"`
 	GoogleAdsDefaultConversionActionID string `gorm:"size:32" json:"google_ads_default_conversion_action_id"`
 	GoogleAdsServerUploadEnabled       bool   `gorm:"default:false" json:"google_ads_server_upload_enabled"`
-	GA4MeasurementID                   string `gorm:"size:100" json:"ga4_measurement_id"`
-	TiktokPixelID                      string `gorm:"size:100" json:"tiktok_pixel_id"`
-	TiktokEAPIEnabled                  bool   `gorm:"default:false" json:"tiktok_eapi_enabled"`
-	LookerStudioEmbed                  string `gorm:"type:text" json:"looker_studio_embed"`
-	EventTrackingConfig                string `gorm:"type:text" json:"event_tracking_config"` // JSON
+	// GoogleAdsRefreshToken is obtained via the "Connect Google Ads" OAuth flow and
+	// takes precedence over the env token. Secret (TEXT + json:"-"), never echoed on GET.
+	GoogleAdsRefreshToken string `gorm:"type:text" json:"-"`
+	// GoogleAdsConnectedEmail is the Google account that authorized the connection.
+	// Non-secret; shown in the UI as the "connected as" indicator.
+	GoogleAdsConnectedEmail string `gorm:"size:255" json:"google_ads_connected_email"`
+	GA4MeasurementID        string `gorm:"size:100" json:"ga4_measurement_id"`
+	TiktokPixelID           string `gorm:"size:100" json:"tiktok_pixel_id"`
+	TiktokEAPIEnabled       bool   `gorm:"default:false" json:"tiktok_eapi_enabled"`
+	LookerStudioEmbed       string `gorm:"type:text" json:"looker_studio_embed"`
+	EventTrackingConfig     string `gorm:"type:text" json:"event_tracking_config"` // JSON
 
 	// Server-side conversion credentials (CAPI / EAPI). Tokens are TEXT + json:"-"
 	// (never echoed on GET) — same secret pattern as Moota/Flip gateway keys above.

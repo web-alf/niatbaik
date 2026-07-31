@@ -350,6 +350,7 @@ export const api = {
   // Settings
 	settings() { return this.get<any>('/settings'); },
 	testGoogleAdsConnection() { return this.post<{ customer_id: string; conversion_action_id: string; status: string }>('/settings/google-ads/test', {}); },
+	startGoogleAdsOAuth() { return this.post<{ url: string }>('/settings/google-ads/oauth/start', {}); },
   updateSettings(data: unknown) { return this.put('/settings', data); },
   siteContent() { return this.get<any>('/site-content'); },
   updateSiteContent(key: string, data: unknown) { return this.put('/site-content/' + key, data); },

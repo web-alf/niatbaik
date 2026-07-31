@@ -128,6 +128,25 @@ export default function SettingsPage() {
     })();
   }, []);
 
+  // Handle the return from the Google Ads "Connect" OAuth redirect. The backend
+  // bounces the browser back to /settings?google_ads_connected=1|0&reason=... —
+  // surface the outcome, refresh settings so the connected email/status updates,
+  // then strip the query so a reload doesn't re-toast.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get('google_ads_connected');
+    if (!connected) return;
+    (async () => {
+      if (connected === '1') {
+        showToast('Google Ads berhasil terhubung');
+        try { const fresh = await api.settings(); if (fresh?.data) setSettings(fresh.data); } catch { /* keep current */ }
+      } else {
+        showToast('Gagal menghubungkan Google Ads: ' + (params.get('reason') || 'unknown'));
+      }
+      window.history.replaceState({}, '', window.location.pathname);
+    })();
+  }, []);
+
   // Returns true on success / false on failure so panels can drive a saving spinner
   // and avoid clearing their dirty flag on error.
   const saveSettings = async (patch: any) => {
@@ -1506,7 +1525,7 @@ function TrackingPanel({ settings, onSave }: any) {
       'Google Analytics 4': settings.ga4_measurement_id || '',
       'TikTok Pixel': settings.tiktok_pixel_id || '',
     });
-    setGoogleServer({ customer: settings.google_ads_customer_id || '', login: settings.google_ads_login_customer_id || '', action: settings.google_ads_default_conversion_action_id || '', enabled: !!settings.google_ads_server_upload_enabled, credentials: !!settings.google_ads_credentials_configured });
+    setGoogleServer({ customer: settings.google_ads_customer_id || '', login: settings.google_ads_login_customer_id || '', action: settings.google_ads_default_conversion_action_id || '', enabled: !!settings.google_ads_server_upload_enabled, credentials: !!settings.google_ads_credentials_configured, connectedEmail: settings.google_ads_connected_email || '' });
     setTokenSet({
       meta: !!settings.meta_capi_token_set,
       tiktok: !!settings.tiktok_access_token_set,
@@ -1585,13 +1604,17 @@ function TrackingPanel({ settings, onSave }: any) {
           ))}
         </div>
         <div className="mt-5 pt-4 border-t border-line">
-          <div className="flex items-center justify-between"><div><div className="text-sm font-bold text-ink">Google Ads Server-side</div><div className="text-xs text-mute">OAuth tetap di backend environment; nilai rahasia tidak pernah dikirim ke browser.</div></div><Badge tone={googleServer.credentials ? 'ok' : 'bad'} size="sm">{googleServer.credentials ? 'Configured' : 'Missing environment secrets'}</Badge></div>
+          <div className="flex items-center justify-between"><div><div className="text-sm font-bold text-ink">Google Ads Server-side</div><div className="text-xs text-mute">Hubungkan akun Google lewat tombol; refresh token disimpan aman di server, tidak pernah dikirim ke browser.</div></div><Badge tone={googleServer.credentials ? 'ok' : 'bad'} size="sm">{googleServer.credentials ? (googleServer.connectedEmail ? 'Connected' : 'Configured') : 'Not connected'}</Badge></div>
+          <div className="mt-3 flex items-center gap-3">
+            <Btn variant="outline" onClick={async()=>{try{const r=await api.startGoogleAdsOAuth();const u=r?.data?.url;if(u){window.location.href=u}else{showToast('Gagal memulai koneksi')}}catch(e:any){showToast(e?.message||'Gagal memulai koneksi Google')}}}>{googleServer.connectedEmail ? 'Hubungkan Ulang Google' : 'Connect Google Account'}</Btn>
+            {googleServer.connectedEmail && <span className="text-xs text-ok">Terhubung sebagai {googleServer.connectedEmail}</span>}
+          </div>
           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
             <div><label className="text-xs font-semibold text-mute">Customer ID <span className="text-bad">*</span></label><input className="field mt-1 font-mono" value={googleServer.customer || ''} onChange={(e) => setGoogleServer({...googleServer, customer:e.target.value})} placeholder="123-456-7890"/><div className="mt-1 text-[11px] text-mute">Akun iklan tujuan konversi.</div></div>
             <div><label className="text-xs font-semibold text-mute">Login Customer ID (MCC)</label><input className="field mt-1 font-mono" value={googleServer.login || ''} onChange={(e) => setGoogleServer({...googleServer, login:e.target.value})} placeholder="123-456-7890"/><div className="mt-1 text-[11px] text-mute">Wajib jika akun iklan berada di bawah akun manager/MCC.</div></div>
             <div><label className="text-xs font-semibold text-mute">Default Conversion Action ID <span className="text-bad">*</span></label><input inputMode="numeric" className="field mt-1 font-mono" value={googleServer.action || ''} onChange={(e) => setGoogleServer({...googleServer, action:e.target.value.replace(/\D/g,'')})} placeholder="987654321"/><div className="mt-1 text-[11px] text-mute">Angka setelah <span className="font-mono">ctId=</span> pada URL conversion action.</div></div>
           </div>
-		  <div className="mt-3 flex items-center justify-between"><div className="text-xs text-mute">Konfigurasikan seluruh OAuth environment variables pada backend.</div><Toggle value={!!googleServer.enabled} onChange={(v:any) => setGoogleServer({...googleServer, enabled:v})} disabled={!googleServer.credentials || !(googleServer.customer || '').trim() || !(googleServer.action || '').trim()} label="Enable Server-side Upload"/></div>
+		  <div className="mt-3 flex items-center justify-between"><div className="text-xs text-mute">Hubungkan akun Google terlebih dahulu sebelum mengaktifkan upload server-side.</div><Toggle value={!!googleServer.enabled} onChange={(v:any) => setGoogleServer({...googleServer, enabled:v})} disabled={!googleServer.credentials || !(googleServer.customer || '').trim() || !(googleServer.action || '').trim()} label="Enable Server-side Upload"/></div>
 		  <div className="mt-3 flex items-center gap-3"><Btn variant="outline" disabled={googleTesting} onClick={async()=>{setGoogleTesting(true);setGoogleTest(null);try{const r=await api.testGoogleAdsConnection();setGoogleTest(r?.data);showToast('Google Data Manager valid')}catch(e:any){showToast(e?.message||'Test koneksi gagal')}finally{setGoogleTesting(false)}}}>{googleTesting?'Menguji…':'Test Connection'}</Btn>{googleTest&&<span className="text-xs text-ok">{googleTest.status}: Customer {googleTest.customer_id}, Action {googleTest.conversion_action_id}</span>}</div>
 		  <div className="mt-2 text-[11px] text-mute">Test Connection menguji konfigurasi yang tersimpan. Simpan dulu bila baru diubah.</div>
         </div>

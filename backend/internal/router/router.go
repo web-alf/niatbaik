@@ -55,6 +55,9 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) *service.GoogleAdsWork
 	analyticsService := service.NewAnalyticsService(statsRepo, adCostRepo, pageVisitRepo)
 	withdrawalService := service.NewWithdrawalService(db, withdrawalRepo)
 	settingService := service.NewSettingService(settingRepo, cfg, dataManagerClient)
+	// A refresh token from a prior "Connect Google Ads" flow lives in the DB and must
+	// take precedence over the env token on every boot.
+	settingService.SeedGoogleAdsToken()
 	siteContentService := service.NewSiteContentService(siteContentRepo)
 	trashService := service.NewTrashService(trashRepo)
 	notificationService := service.NewNotificationService(notificationRepo)
@@ -135,6 +138,10 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) *service.GoogleAdsWork
 	api.POST("/webhooks/xendit", webhookHandler.HandleXendit)
 	api.POST("/webhooks/ipaymu", webhookHandler.HandleIpaymu)
 	api.POST("/webhooks/duitku", webhookHandler.HandleDuitku)
+
+	// Google Ads OAuth callback — browser redirect from Google, carries no bearer
+	// token, authenticated via the signed state param inside the handler.
+	api.GET("/settings/google-ads/oauth/callback", settingHandler.GoogleAdsOAuthCallback)
 
 	// Auth routes. Credential-guessing surfaces (login/forgot/reset) get a tight
 	// per-IP rate limit to blunt brute-force and reset-spam; register is also
@@ -228,6 +235,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) *service.GoogleAdsWork
 	admin.PUT("/site-content/:key", siteContentHandler.Update)
 	admin.POST("/settings/test-email", settingHandler.TestEmail)
 	admin.POST("/settings/google-ads/test", settingHandler.TestGoogleAds)
+	admin.POST("/settings/google-ads/oauth/start", settingHandler.StartGoogleAdsOAuth)
 	admin.GET("/settings/moota-balance", settingHandler.GetMootaBalance)
 	admin.GET("/cs/cekat-ai/status", cekatAIHandler.Status)
 	admin.POST("/cs/cekat-ai/test", cekatAIHandler.Test)

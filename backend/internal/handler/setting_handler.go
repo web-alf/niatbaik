@@ -6,6 +6,7 @@ import (
 
 	"github.com/anrdart/niatbaik-api/internal/dto/request"
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
+	"github.com/anrdart/niatbaik-api/internal/middleware"
 	"github.com/anrdart/niatbaik-api/internal/service"
 	"github.com/labstack/echo/v4"
 )
@@ -61,6 +62,45 @@ func safeGoogleAdsTestError(err error) string {
 		return "Google Data Manager: " + dispatchErr.Category + " (" + dispatchErr.Summary + ")"
 	}
 	return "Google Data Manager menolak validasi"
+}
+
+// StartGoogleAdsOAuth returns the Google consent URL for the "Connect Google Ads"
+// flow. Admin-guarded; the returned URL carries a signed state bound to this admin.
+func (h *SettingHandler) StartGoogleAdsOAuth(c echo.Context) error {
+	claims := middleware.GetUserFromContext(c)
+	if claims == nil {
+		return c.JSON(http.StatusUnauthorized, response.ErrorResponse("unauthorized"))
+	}
+	url, err := h.service.GoogleAdsOAuthStartURL(claims.UserID)
+	if err != nil {
+		if errors.Is(err, service.ErrValidation) {
+			return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(err.Error()))
+		}
+		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to start Google Ads connect"))
+	}
+	return c.JSON(http.StatusOK, response.SuccessResponse(map[string]string{"url": url}, "ok"))
+}
+
+// GoogleAdsOAuthCallback is the browser-facing redirect target Google calls after
+// consent. It carries no bearer token, so it lives on the unauthenticated group and
+// authenticates via the signed state. It always redirects back to the settings page.
+func (h *SettingHandler) GoogleAdsOAuthCallback(c echo.Context) error {
+	base := h.service.FrontendSettingsURL()
+	if errParam := c.QueryParam("error"); errParam != "" {
+		return c.Redirect(http.StatusFound, base+"?google_ads_connected=0&reason=consent_denied")
+	}
+	code, state := c.QueryParam("code"), c.QueryParam("state")
+	if code == "" || state == "" {
+		return c.Redirect(http.StatusFound, base+"?google_ads_connected=0&reason=missing_code")
+	}
+	if _, err := h.service.ConnectGoogleAds(c.Request().Context(), code, state); err != nil {
+		reason := "exchange_failed"
+		if errors.Is(err, service.ErrValidation) {
+			reason = "invalid_state"
+		}
+		return c.Redirect(http.StatusFound, base+"?google_ads_connected=0&reason="+reason)
+	}
+	return c.Redirect(http.StatusFound, base+"?google_ads_connected=1")
 }
 
 // TestEmail sends a test email via the saved SMTP settings so an admin can verify

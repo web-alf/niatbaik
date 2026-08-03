@@ -165,6 +165,10 @@ type Setting struct {
 	TiktokEAPIEnabled       bool   `gorm:"default:false" json:"tiktok_eapi_enabled"`
 	LookerStudioEmbed       string `gorm:"type:text" json:"looker_studio_embed"`
 	EventTrackingConfig     string `gorm:"type:text" json:"event_tracking_config"` // JSON
+	// TrackingConfig is the unified domain-level tracker array (supports multiple
+	// ids of the same type). JSON array of {type,value,label?}. Source of truth;
+	// the discrete fields above are kept as backfilled fallback during transition.
+	TrackingConfig string `gorm:"type:text" json:"tracking_config"` // JSON array
 
 	// Server-side conversion credentials (CAPI / EAPI). Tokens are TEXT + json:"-"
 	// (never echoed on GET) — same secret pattern as Moota/Flip gateway keys above.

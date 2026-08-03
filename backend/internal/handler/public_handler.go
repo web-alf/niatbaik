@@ -172,53 +172,56 @@ func (h *PublicHandler) GetPublicSettings(c echo.Context) error {
 	}
 
 	publicSettings := map[string]interface{}{
-		"site_name":           settings.SiteName,
-		"logo":                settings.Logo,
-		"primary_color":       settings.PrimaryColor,
-		"secondary_color":     settings.SecondaryColor,
-		"theme_color":         settings.ThemeColor,
-		"button_color":        settings.ButtonColor,
-		"progressbar_color":   settings.ProgressbarColor,
-		"font_family":         settings.FontFamily,
-		"border_radius":       settings.BorderRadius,
-		"description":         settings.Description,
+		"site_name":         settings.SiteName,
+		"logo":              settings.Logo,
+		"primary_color":     settings.PrimaryColor,
+		"secondary_color":   settings.SecondaryColor,
+		"theme_color":       settings.ThemeColor,
+		"button_color":      settings.ButtonColor,
+		"progressbar_color": settings.ProgressbarColor,
+		"font_family":       settings.FontFamily,
+		"border_radius":     settings.BorderRadius,
+		"description":       settings.Description,
 		// Form config
-		"form_fields_config":  settings.FormFieldsConfig,
-		"nominal_presets":     settings.NominalPresets,
+		"form_fields_config": settings.FormFieldsConfig,
+		"nominal_presets":    settings.NominalPresets,
 		// Public-form display styles (admin-selectable, global): font/border weight +
 		// payment-method selector layout (card vs dropdown).
 		"form_display_style":    settings.FormDisplayStyle,
 		"payment_display_style": settings.PaymentDisplayStyle,
-		"min_donation_global": settings.MinDonationGlobal,
-		"anonymous_default":   settings.AnonymousDefault,
-		"message_enabled":     settings.MessageEnabled,
-		"social_proof_enabled": settings.SocialProofEnabled,
-		"social_proof_config":  settings.SocialProofConfig,
+		"min_donation_global":   settings.MinDonationGlobal,
+		"anonymous_default":     settings.AnonymousDefault,
+		"message_enabled":       settings.MessageEnabled,
+		"social_proof_enabled":  settings.SocialProofEnabled,
+		"social_proof_config":   settings.SocialProofConfig,
 		// Tracking (public IDs, not secrets)
-		"meta_pixel_id":          settings.MetaPixelID,
-		"meta_capi_enabled":      settings.MetaCAPIEnabled,
-		"gtm_id":                 settings.GTMID,
+		"meta_pixel_id":               settings.MetaPixelID,
+		"meta_capi_enabled":           settings.MetaCAPIEnabled,
+		"gtm_id":                      settings.GTMID,
 		"google_ads_conversion_id":    settings.GoogleAdsConversionID,
 		"google_ads_conversion_label": settings.GoogleAdsConversionLabel,
-		"ga4_measurement_id":     settings.GA4MeasurementID,
-		"tiktok_pixel_id":        settings.TiktokPixelID,
-			"event_tracking_config":  settings.EventTrackingConfig,
-			// Server-side token presence (not values) so the admin form can show
-			// "tersimpan" without leaking the secret.
-			"meta_capi_token_set":     settings.MetaCAPIToken != "",
-			"tiktok_access_token_set": settings.TiktokAccessToken != "",
+		"ga4_measurement_id":          settings.GA4MeasurementID,
+		"tiktok_pixel_id":             settings.TiktokPixelID,
+		"event_tracking_config":       settings.EventTrackingConfig,
+		// Unified multi-id tracker array (source of truth); the discrete fields
+		// above stay exposed as fallback for older clients during transition.
+		"tracking_config": settings.TrackingConfig,
+		// Server-side token presence (not values) so the admin form can show
+		// "tersimpan" without leaking the secret.
+		"meta_capi_token_set":     settings.MetaCAPIToken != "",
+		"tiktok_access_token_set": settings.TiktokAccessToken != "",
 		// Contact + donor greeting / CS rotator
-		"whatsapp_admin":  settings.WhatsappAdmin,
-		"donor_greeting":  settings.DonorGreeting,
-		"cs_contacts":     settings.CSContacts,
-		"cs_rotator_mode": settings.CSRotatorMode,
+		"whatsapp_admin":   settings.WhatsappAdmin,
+		"donor_greeting":   settings.DonorGreeting,
+		"cs_contacts":      settings.CSContacts,
+		"cs_rotator_mode":  settings.CSRotatorMode,
 		"cekat_ai_enabled": settings.CekatAIEnabled && settings.CekatAIEndpoint != "" && settings.CekatAIKey != "",
 		// Manual bank-transfer destination (shown on the confirmation page when Flip
 		// is off). Public, non-secret — it's the org's donation account.
-		"bank_name":         settings.BankName,
-		"bank_number":       settings.BankNumber,
-		"bank_account_name": settings.BankAccountName,
-		"flip_enabled":      settings.FlipEnabled,
+		"bank_name":          settings.BankName,
+		"bank_number":        settings.BankNumber,
+		"bank_account_name":  settings.BankAccountName,
+		"flip_enabled":       settings.FlipEnabled,
 		"flip_auto_redirect": settings.FlipAutoRedirect,
 		// Per-channel gateway routing map + Moota-as-gateway flag, so the donor form can
 		// show the right fee text per method and the confirmation page can treat a Moota
@@ -466,4 +469,3 @@ func flipChannelState(cfgJSON, key string) (bool, string) {
 	}
 	return entry.Enabled, code
 }
-

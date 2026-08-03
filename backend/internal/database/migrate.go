@@ -1,6 +1,7 @@
 package database
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -82,7 +83,59 @@ func Migrate(db *gorm.DB) error {
 	// "sisa hari" computes correctly once a duration is present (was collapsing to 0).
 	db.Exec(`UPDATE campaigns SET posted_at = created_at WHERE posted_at IS NULL`)
 
+	if err := backfillTrackingConfig(db); err != nil {
+		// Non-fatal: unified trackers fall back to the discrete fields at render time,
+		// so a backfill hiccup never breaks tracking.
+		log.Printf("tracking_config backfill warning: %v", err)
+	}
+
 	log.Println("Database migrations completed")
+	return nil
+}
+
+// backfillTrackingConfig seeds the unified tracking_config array from the legacy
+// discrete pixel fields, once. Idempotent: only rows with an empty tracking_config
+// are touched, so re-runs are no-ops and an admin who already curated the array is
+// never overwritten.
+func backfillTrackingConfig(db *gorm.DB) error {
+	var settings []model.Setting
+	if err := db.Where("tracking_config IS NULL OR tracking_config = ''").Find(&settings).Error; err != nil {
+		return err
+	}
+	for i := range settings {
+		s := &settings[i]
+		type tracker struct {
+			Type  string `json:"type"`
+			Value string `json:"value"`
+			Label string `json:"label,omitempty"`
+		}
+		var arr []tracker
+		add := func(typ, value, label string) {
+			if strings.TrimSpace(value) == "" {
+				return
+			}
+			arr = append(arr, tracker{Type: typ, Value: strings.TrimSpace(value), Label: strings.TrimSpace(label)})
+		}
+		add("gtm", s.GTMID, "")
+		add("meta", s.MetaPixelID, "")
+		add("ga4", s.GA4MeasurementID, "")
+		add("tiktok", s.TiktokPixelID, "")
+		// google_ads only backfills when a label exists — a conversion tag without a
+		// label can't fire, so it's not a valid unified entry.
+		if strings.TrimSpace(s.GoogleAdsConversionID) != "" && strings.TrimSpace(s.GoogleAdsConversionLabel) != "" {
+			add("google_ads", s.GoogleAdsConversionID, s.GoogleAdsConversionLabel)
+		}
+		if len(arr) == 0 {
+			continue
+		}
+		encoded, err := json.Marshal(arr)
+		if err != nil {
+			return err
+		}
+		if err := db.Model(&model.Setting{}).Where("id = ?", s.ID).Update("tracking_config", string(encoded)).Error; err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

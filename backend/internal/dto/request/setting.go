@@ -131,6 +131,7 @@ type UpdateSettingRequest struct {
 	GA4APISecret                       *string `json:"ga4_api_secret"`
 	LookerStudioEmbed                  *string `json:"looker_studio_embed" validate:"omitempty,max=65536"`
 	EventTrackingConfig                *string `json:"event_tracking_config" validate:"omitempty,max=65536"`
+	TrackingConfig                     *string `json:"tracking_config" validate:"omitempty,max=65536"`
 
 	// Moota / Flip detail
 	MootaEndpoint         *string `json:"moota_endpoint"`

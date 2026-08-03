@@ -441,6 +441,13 @@ func (s *SettingService) Update(req *request.UpdateSettingRequest) error {
 		}
 		setting.CSContacts = *req.CSContacts
 	}
+	if req.TrackingConfig != nil {
+		norm, err := normalizeTrackingConfig(*req.TrackingConfig)
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrValidation, err)
+		}
+		setting.TrackingConfig = norm
+	}
 	if req.CSRotatorMode != nil {
 		setting.CSRotatorMode = *req.CSRotatorMode
 	}

@@ -169,6 +169,7 @@ export interface Settings {
   google_ads_credentials_configured?: boolean;
   google_ads_connected_email?: string;
   tiktok_pixel_id?: string;
+  tracking_config?: string;
   [k: string]: unknown;
 }
 

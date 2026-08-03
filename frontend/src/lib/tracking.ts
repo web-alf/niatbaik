@@ -3,6 +3,7 @@
 // types/globals.d.ts — injected on demand here.
 import type { Campaign, Settings } from '@/types/api';
 import { readAttribution, writeAttribution } from './attribution-store.mjs';
+import { parseTrackers } from './tracking-config.mjs';
 
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id'];
 // Ad click-IDs captured from the landing URL alongside utm_*. These are what let Meta /
@@ -25,11 +26,11 @@ function readCookie(name: string): string {
 // while never double-loading the SAME id.
 const _loadedIds = new Set<string>();
 
-// Global Google Ads conversion (id + label) captured from public settings in initPixels,
-// so fireConversion's success phase can fire the org-wide conversion for a Default campaign
-// that carries no per-campaign gads config. Without this Google Ads never receives a
-// conversion → "tag belum terverifikasi" forever.
-let _globalGads: { id: string; label: string } = { id: '', label: '' };
+// Global Google Ads conversions (id + label) captured from public settings in initPixels.
+// An ARRAY so a domain can carry MULTIPLE Ads accounts — fireConversion's success fallback
+// fires every one. Without this Google Ads never receives a conversion for a Default
+// campaign that carries no per-campaign gads config → "tag belum terverifikasi" forever.
+let _globalGads: { id: string; label: string }[] = [];
 
 // awId normalizes a Google Ads conversion id to the "AW-<digits>" form gtag requires.
 // Admins routinely paste just the numeric id (e.g. "334842554"); gtag('config','334842554')
@@ -61,39 +62,55 @@ try {
   if (typeof window !== 'undefined' && window.__NB_STATIC_GTM) _loadedIds.add('gtm:' + window.__NB_STATIC_GTM);
 } catch { /* ignore */ }
 
-// initPixels injects the GLOBAL pixel base scripts once. s is the public settings.
+// loadGtm adds one GTM container, deduped. Multiple containers coexist.
+function loadGtm(id: string) {
+  if (!id || _loadedIds.has('gtm:' + id)) return;
+  _loadedIds.add('gtm:' + id);
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+  // id is validated against ^GTM-[A-Z0-9]+$ before reaching here, but encode anyway
+  // so nothing user-derived can alter the script URL.
+  injectScript('https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(id));
+}
+
+// loadMeta adds one Meta pixel. fbq('init') fans out subsequent track() to all
+// pixels, so bootstrap the base once then init each additional id.
+function loadMeta(id: string) {
+  if (!id || _loadedIds.has('fb:' + id)) return;
+  _loadedIds.add('fb:' + id);
+  if (!window.fbq) injectFbq(id);
+  else { window.fbq('init', id); window.fbq('track', 'PageView'); }
+}
+
+// loadTiktok adds one TikTok pixel (ttq.load registers a per-id instance).
+function loadTiktok(id: string) {
+  if (!id || _loadedIds.has('tt:' + id)) return;
+  _loadedIds.add('tt:' + id);
+  if (!window.ttq) injectTtq(id);
+  else { try { window.ttq.load(id); window.ttq.page(); } catch { /* ignore */ } }
+}
+
+// loadGtagTarget adds one gtag config target (GA4 or Google Ads AW-). gtag supports
+// many config targets; each additional id is just another gtag('config', id).
+function loadGtagTarget(id: string) {
+  if (!id || _loadedIds.has('aw:' + id)) return;
+  _loadedIds.add('aw:' + id);
+  if (!window.gtag) injectGtag(id);
+  else window.gtag('config', id);
+}
+
+// initPixels injects the GLOBAL pixel base scripts once, driven by the unified
+// tracking_config array (falling back to the legacy discrete fields). Supports
+// MULTIPLE ids of the same type.
 export function initPixels(s: Settings | null | undefined) {
   if (!s) return;
-  if (s.gtm_id && !_loadedIds.has('gtm:' + s.gtm_id)) {
-    _loadedIds.add('gtm:' + s.gtm_id);
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
-    injectScript('https://www.googletagmanager.com/gtm.js?id=' + s.gtm_id);
-  }
-  if (s.meta_pixel_id && !window.fbq) {
-    injectFbq(s.meta_pixel_id);
-    _loadedIds.add('fb:' + s.meta_pixel_id);
-  }
-  if (s.ga4_measurement_id && !window.gtag && !s.gtm_id) {
-    injectGtag(s.ga4_measurement_id as string);
-    _loadedIds.add('aw:' + s.ga4_measurement_id);
-  }
-  // Google Ads conversion. Two bugs fixed here: (1) admins paste a bare numeric id, so
-  // normalize to "AW-<id>"; (2) GTM does NOT create window.gtag, so the old
-  // `&& window.gtag` guard meant a GTM-only install (GA4 empty) never configured Ads at
-  // all → gtag('event','conversion') could never fire. Inject gtag.js ourselves when it's
-  // missing so the conversion works regardless of GTM.
-  const aw = awId(s.google_ads_conversion_id);
-  if (aw && !_loadedIds.has('aw:' + aw)) {
-    _loadedIds.add('aw:' + aw);
-    if (!window.gtag) injectGtag(aw);
-    else window.gtag('config', aw);
-  }
-  _globalGads = { id: aw, label: String((s as any).google_ads_conversion_label || '').trim() };
-  if (s.tiktok_pixel_id && !window.ttq) {
-    injectTtq(s.tiktok_pixel_id as string);
-    _loadedIds.add('tt:' + s.tiktok_pixel_id);
-  }
+  const groups = parseTrackers((s as any).tracking_config, s as any);
+  groups.gtm.forEach(loadGtm);
+  groups.meta.forEach(loadMeta);
+  groups.ga4.forEach(loadGtagTarget);
+  groups.googleAds.forEach((g) => loadGtagTarget(g.id));
+  groups.tiktok.forEach(loadTiktok);
+  _globalGads = groups.googleAds.slice();
 }
 
 // initCampaignPixels injects the campaign's OWN tracking scripts ADDITIVELY.
@@ -177,8 +194,13 @@ export function fireConversion(c: Campaign | null | undefined, phase: 'submit' |
     let gadsFired = false;
     if (gads && gads.enabled && gads.conversion_id && label) {
       gadsFired = fireGads(gads.conversion_id, label, val, eventId);
-    } else if (phase === 'success' && _globalGads.id && _globalGads.label) {
-      gadsFired = fireGads(_globalGads.id, _globalGads.label, val, eventId);
+    } else if (phase === 'success') {
+      // Fire EVERY globally-configured Ads conversion (a domain may run multiple Ads
+      // accounts). gadsFired is true if at least one fired — the server-side ack still
+      // means "client already reported", so it stands down for all.
+      for (const g of _globalGads) {
+        if (fireGads(g.id, g.label, val, eventId)) gadsFired = true;
+      }
     }
 
     // Fallback (success only): a Default campaign with no per-campaign config still

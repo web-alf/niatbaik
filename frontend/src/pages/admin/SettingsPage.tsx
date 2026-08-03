@@ -1468,6 +1468,9 @@ function SecretInput({ label, value, onChange, configured, placeholder }: any) {
 function TrackingPanel({ settings, onSave }: any) {
   const showToast = useUiStore((s) => s.showToast);
   const [pixelIds, setPixelIds] = useState<any>({});
+  // Unified domain trackers (multiple ids of the same type). Source of truth saved as
+  // tracking_config JSON; the discrete pixelIds above stay synced for transition fallback.
+  const [trackers, setTrackers] = useState<{ type: string; value: string; label: string }[]>([]);
   // Server-side token presence flags (read-only booleans from backend; token values
   // are secret and never echoed back). Drives the "Tersimpan" badge on credential inputs.
   const [tokenSet, setTokenSet] = useState<any>({});
@@ -1526,6 +1529,24 @@ function TrackingPanel({ settings, onSave }: any) {
       'TikTok Pixel': settings.tiktok_pixel_id || '',
     });
     setGoogleServer({ customer: settings.google_ads_customer_id || '', login: settings.google_ads_login_customer_id || '', action: settings.google_ads_default_conversion_action_id || '', enabled: !!settings.google_ads_server_upload_enabled, credentials: !!settings.google_ads_credentials_configured, connectedEmail: settings.google_ads_connected_email || '' });
+    // Seed the unified trackers from tracking_config; fall back to the discrete fields
+    // so a not-yet-migrated install still shows its existing pixels in the new editor.
+    let seeded: { type: string; value: string; label: string }[] = [];
+    try {
+      const parsed = settings.tracking_config ? JSON.parse(settings.tracking_config) : null;
+      if (Array.isArray(parsed)) seeded = parsed.map((t: any) => ({ type: String(t?.type || ''), value: String(t?.value || ''), label: String(t?.label || '') }));
+    } catch { /* fall through to discrete */ }
+    if (seeded.length === 0) {
+      const disc: [string, string, string][] = [
+        ['gtm', settings.gtm_id || '', ''],
+        ['meta', settings.meta_pixel_id || '', ''],
+        ['ga4', settings.ga4_measurement_id || '', ''],
+        ['tiktok', settings.tiktok_pixel_id || '', ''],
+        ['google_ads', settings.google_ads_conversion_id || '', settings.google_ads_conversion_label || ''],
+      ];
+      seeded = disc.filter(([, v]) => v.trim()).map(([type, value, label]) => ({ type, value, label }));
+    }
+    setTrackers(seeded);
     setTokenSet({
       meta: !!settings.meta_capi_token_set,
       tiktok: !!settings.tiktok_access_token_set,
@@ -1579,30 +1600,49 @@ function TrackingPanel({ settings, onSave }: any) {
   return (
     <>
       <Section title="Pixel & Tracking Integrations" sub="Hubungkan Meta, Google, dan TikTok untuk optimasi iklan.">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {pixels.map((p) => (
-            <div key={p.name} className="rounded-xl border border-line p-4">
-              <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-lg bg-white border border-line flex items-center justify-center overflow-hidden shrink-0"><PixelBrandLogo brand={p.brand} size={24}/></div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <div className="font-bold text-ink">{p.name}</div>
-                    {(() => {
-                      // Status reflects whether a real ID has been entered/saved.
-                      const st = (pixelIds[p.name] || '').trim() ? 'active' : 'not';
-                      return <Badge tone={statusMap[st].tone} dot={statusMap[st].dot} size="sm">{statusMap[st].label}</Badge>;
-                    })()}
+        {(() => {
+          const TYPES = [
+            { v: 'gtm', label: 'Google Tag Manager', ph: 'GTM-XXXXXXX' },
+            { v: 'meta', label: 'Meta Pixel', ph: '123456789012345' },
+            { v: 'ga4', label: 'Google Analytics 4', ph: 'G-XXXXXXX' },
+            { v: 'google_ads', label: 'Google Ads Conversion', ph: 'AW-123456789' },
+            { v: 'tiktok', label: 'TikTok Pixel', ph: 'CXXXXXXXXXXXXX' },
+          ];
+          const RE: any = { gtm: /^GTM-[A-Z0-9]+$/, meta: /^\d{6,20}$/, ga4: /^G-[A-Z0-9]+$/, google_ads: /^AW-\d+$/, tiktok: /^[A-Z0-9]+$/ };
+          const norm = (type: string, value: string) => (type === 'google_ads' && value.trim() && !/^AW-/i.test(value.trim()) ? 'AW-' + value.trim() : value.trim());
+          const rowError = (t: { type: string; value: string; label: string }) => {
+            const v = norm(t.type, t.value);
+            if (!v) return 'ID wajib diisi';
+            if (!RE[t.type]?.test(v)) return 'Format ID tidak valid';
+            if (t.type === 'google_ads' && !/^[A-Za-z0-9_-]+$/.test((t.label || '').trim())) return 'Label wajib untuk Google Ads';
+            return '';
+          };
+          const update = (i: number, patch: Partial<{ type: string; value: string; label: string }>) =>
+            setTrackers((prev) => prev.map((t, j) => (j === i ? { ...t, ...patch } : t)));
+          return (
+            <div className="space-y-3">
+              <div className="text-xs text-mute">Domain-level trackers. Bisa menambahkan lebih dari satu ID untuk tipe yang sama (mis. 2 GTM atau 2 Google Ads).</div>
+              {trackers.length === 0 && <div className="rounded-xl border border-dashed border-line p-4 text-center text-xs text-mute">Belum ada tracker. Klik "Tambah Tracker".</div>}
+              {trackers.map((t, i) => {
+                const err = rowError(t);
+                return (
+                  <div key={i} className="rounded-xl border border-line p-3">
+                    <div className="flex flex-wrap items-start gap-2">
+                      <select className="field font-mono text-xs w-44" value={t.type} onChange={(e) => update(i, { type: e.target.value })}>
+                        {TYPES.map((ty) => <option key={ty.v} value={ty.v}>{ty.label}</option>)}
+                      </select>
+                      <input className="field font-mono text-xs flex-1 min-w-[10rem]" value={t.value} onChange={(e) => update(i, { value: e.target.value })} placeholder={TYPES.find((ty) => ty.v === t.type)?.ph || 'ID…'}/>
+                      {t.type === 'google_ads' && <input className="field font-mono text-xs w-40" value={t.label} onChange={(e) => update(i, { label: e.target.value })} placeholder="Conversion label"/>}
+                      <button type="button" className="h-9 w-9 rounded-md hover:bg-rose-50 text-mute hover:text-rose-600 shrink-0" title="Hapus" onClick={() => setTrackers((prev) => prev.filter((_, j) => j !== i))}><Icon name="trash" size={14}/></button>
+                    </div>
+                    {err && <div className="mt-1 text-[11px] text-rose-600">{err}</div>}
                   </div>
-                  <input className="field mt-2 font-mono text-xs" value={pixelIds[p.name] ?? ''} onChange={(e) => setPixelIds((prev: any) => ({...prev, [p.name]: e.target.value}))} placeholder="Masukkan ID…"/>
-                </div>
-              </div>
-              <div className="mt-2 flex items-center justify-between text-xs">
-                <span className="text-mute">{(pixelIds[p.name] || '').trim() ? 'ID tersimpan — verifikasi event live di tool resmi' : 'Belum dikonfigurasi'}</span>
-                <a className="text-brand-600 font-semibold hover:underline" href={PIXEL_VERIFY_URL[p.name] || '#'} target="_blank" rel="noopener noreferrer">Cara verifikasi</a>
-              </div>
+                );
+              })}
+              <Btn variant="outline" onClick={() => setTrackers((prev) => [...prev, { type: 'gtm', value: '', label: '' }])}>+ Tambah Tracker</Btn>
             </div>
-          ))}
-        </div>
+          );
+        })()}
         <div className="mt-5 pt-4 border-t border-line">
           <div className="flex items-center justify-between"><div><div className="text-sm font-bold text-ink">Google Ads Server-side</div><div className="text-xs text-mute">Hubungkan akun Google lewat tombol; refresh token disimpan aman di server, tidak pernah dikirim ke browser.</div></div><Badge tone={googleServer.credentials ? 'ok' : 'bad'} size="sm">{googleServer.credentials ? (googleServer.connectedEmail ? 'Connected' : 'Configured') : 'Not connected'}</Badge></div>
           <div className="mt-3 flex items-center gap-3">
@@ -1676,27 +1716,48 @@ function TrackingPanel({ settings, onSave }: any) {
           </div>
         </div>
         <div className="flex justify-end mt-4">
-          <SaveButton onClick={() => onSave({
-            meta_pixel_id: pixelIds['Meta Pixel'] || '',
-            meta_capi_enabled: capiEnabled,
-            // Credential secrets: send only when the admin typed a value; undefined keeps
-            // the existing stored token (backend maps non-nil pointer fields only).
-            meta_capi_token: pixelIds.meta_capi_token || undefined,
-            meta_test_event_code: pixelIds.meta_test_event_code || undefined,
-            event_tracking_config: JSON.stringify(metaEvents),
-            gtm_id: pixelIds['Google Tag Manager'] || '',
-            google_ads_conversion_id: pixelIds['Google Ads Conversion'] || '',
-            google_ads_conversion_label: pixelIds['Google Ads Label'] || '',
-            ga4_measurement_id: pixelIds['Google Analytics 4'] || '',
-            ga4_api_secret: pixelIds.ga4_api_secret || undefined,
-            tiktok_pixel_id: pixelIds['TikTok Pixel'] || '',
-            tiktok_access_token: pixelIds.tiktok_access_token || undefined,
-            tiktok_test_event_code: pixelIds.tiktok_test_event_code || undefined,
-            google_ads_customer_id: googleServer.customer || '',
-            google_ads_login_customer_id: googleServer.login || '',
-            google_ads_default_conversion_action_id: googleServer.action || '',
-            google_ads_server_upload_enabled: !!googleServer.enabled,
-          })}>Simpan Semua Tracking</SaveButton>
+          <SaveButton onClick={() => {
+            // Normalize + validate the unified trackers before save. Reject on any bad row
+            // so an invalid id never reaches the backend (defense-in-depth; backend re-checks).
+            const RE: any = { gtm: /^GTM-[A-Z0-9]+$/, meta: /^\d{6,20}$/, ga4: /^G-[A-Z0-9]+$/, google_ads: /^AW-\d+$/, tiktok: /^[A-Z0-9]+$/ };
+            const clean = trackers
+              .map((t) => {
+                let v = (t.value || '').trim();
+                if (t.type === 'google_ads' && v && !/^AW-/i.test(v)) v = 'AW-' + v;
+                return { type: t.type, value: v, label: (t.label || '').trim() };
+              })
+              .filter((t) => t.value);
+            for (const t of clean) {
+              if (!RE[t.type]?.test(t.value) || (t.type === 'google_ads' && !/^[A-Za-z0-9_-]+$/.test(t.label))) {
+                showToast('Ada tracker dengan format ID/label tidak valid');
+                return false;
+              }
+            }
+            const first = (type: string) => clean.find((t) => t.type === type);
+            // Keep the discrete fields synced (transition fallback) with the first id of each type.
+            return onSave({
+              tracking_config: JSON.stringify(clean.map((t) => (t.type === 'google_ads' ? t : { type: t.type, value: t.value }))),
+              meta_pixel_id: first('meta')?.value || '',
+              meta_capi_enabled: capiEnabled,
+              // Credential secrets: send only when the admin typed a value; undefined keeps
+              // the existing stored token (backend maps non-nil pointer fields only).
+              meta_capi_token: pixelIds.meta_capi_token || undefined,
+              meta_test_event_code: pixelIds.meta_test_event_code || undefined,
+              event_tracking_config: JSON.stringify(metaEvents),
+              gtm_id: first('gtm')?.value || '',
+              google_ads_conversion_id: first('google_ads')?.value || '',
+              google_ads_conversion_label: first('google_ads')?.label || '',
+              ga4_measurement_id: first('ga4')?.value || '',
+              ga4_api_secret: pixelIds.ga4_api_secret || undefined,
+              tiktok_pixel_id: first('tiktok')?.value || '',
+              tiktok_access_token: pixelIds.tiktok_access_token || undefined,
+              tiktok_test_event_code: pixelIds.tiktok_test_event_code || undefined,
+              google_ads_customer_id: googleServer.customer || '',
+              google_ads_login_customer_id: googleServer.login || '',
+              google_ads_default_conversion_action_id: googleServer.action || '',
+              google_ads_server_upload_enabled: !!googleServer.enabled,
+            });
+          }}>Simpan Semua Tracking</SaveButton>
         </div>
       </Section>
 

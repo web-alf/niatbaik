@@ -114,9 +114,25 @@ export function initPixels(s: Settings | null | undefined) {
 }
 
 // initCampaignPixels injects the campaign's OWN tracking scripts ADDITIVELY.
-export function initCampaignPixels(c: Campaign | null | undefined) {
+export function initCampaignPixels(c: Campaign | null | undefined, domainSettings?: any) {
   if (!c) return;
   try {
+    // Domain-level trackers scoped to THIS campaign (scope=campaigns matching c.slug).
+    // scope=global was already injected by initPixels; scope=off is never injected.
+    const slug = (c.slug || c.id || '') + '';
+    const scoped = parseTrackers(domainSettings && domainSettings.tracking_config, null, slug);
+    scoped.gtm.forEach(loadGtm);
+    scoped.meta.forEach(loadMeta);
+    scoped.ga4.forEach(loadGtagTarget);
+    scoped.googleAds.forEach((g) => loadGtagTarget(g.id));
+    scoped.tiktok.forEach(loadTiktok);
+    // Merge any newly-injected scoped Ads ids into the global fire set so the success
+    // fallback reports to them too.
+    if (scoped.googleAds.length) {
+      const existing = new Set(_globalGads.map((g) => g.id));
+      for (const g of scoped.googleAds) if (!existing.has(g.id)) _globalGads.push(g);
+    }
+
     if (c.meta_pixel_id && !_loadedIds.has('fb:' + c.meta_pixel_id)) {
       _loadedIds.add('fb:' + c.meta_pixel_id);
       if (!window.fbq) injectFbq(c.meta_pixel_id as string);
@@ -128,18 +144,11 @@ export function initCampaignPixels(c: Campaign | null | undefined) {
       else { try { window.ttq.load(c.tiktok_pixel_id as string); window.ttq.page(); } catch { /* ignore */ } }
     }
     if (c.gtm_id && !_loadedIds.has('gtm:' + c.gtm_id)) {
-      _loadedIds.add('gtm:' + c.gtm_id);
-      window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
-      injectScript('https://www.googletagmanager.com/gtm.js?id=' + c.gtm_id);
+      loadGtm(c.gtm_id as string);
     }
     const cfg = parseConversion(c.conversion_config);
     const adsId = cfg.gads && cfg.gads.enabled && awId(cfg.gads.conversion_id);
-    if (adsId && !_loadedIds.has('aw:' + adsId)) {
-      _loadedIds.add('aw:' + adsId);
-      if (!window.gtag) injectGtag(adsId);
-      else window.gtag('config', adsId);
-    }
+    if (adsId) loadGtagTarget(adsId);
   } catch { /* pixel init must never break the page */ }
 }
 

@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { mapCampaign } from '@/lib/mappers';
 import { NBTracking } from '@/lib/tracking';
+import { useDataStore } from '@/store/data';
 import { Icon, Logo } from '@/components';
 import { InvoiceConfirmation, Footer, usePublicDark } from './_components';
 
@@ -50,7 +51,7 @@ export default function DonationInvoicePage() {
               // invoice page (e.g. returning from a Flip redirect) without passing through
               // the campaign page where initCampaignPixels normally runs. Needed so the
               // success conversion (fired in InvoiceConfirmation) has the right pixels.
-              try { NBTracking.initCampaignPixels(mapped); } catch {}
+              try { NBTracking.initCampaignPixels(mapped, useDataStore.getState().publicSettings); } catch {}
             }
           } catch (e) {
             console.error('Failed to load campaign for invoice:', e);

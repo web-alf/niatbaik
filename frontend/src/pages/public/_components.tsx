@@ -971,7 +971,7 @@ export function CampaignPage({ c: listItem, onNav }: any) {
           });
           // Load this campaign's OWN pixels (Meta/TikTok/GTM/Google Ads) so per-campaign
           // "Fire Event" tracking actually fires — initPixels() only loaded the GLOBAL ones.
-          try { NBTracking.initCampaignPixels(d); } catch {}
+          try { NBTracking.initCampaignPixels(d, useDataStore.getState().publicSettings); } catch {}
           // No ViewContent/view_campaign here — landing on a campaign already fires the
           // pixel's own PageView (injectFbq / initCampaignPixels). Firing extra standard
           // events on top just duplicated the hit in Meta Pixel Helper (funnel: PageView →

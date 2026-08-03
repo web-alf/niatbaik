@@ -80,3 +80,34 @@ test('never throws on garbage input', () => {
     assert.deepEqual(g.googleAds, []);
   }
 });
+
+test('scope=global included by default and off excluded', () => {
+  const raw = JSON.stringify([
+    { type: 'gtm', value: 'GTM-AAAA111' },                              // global default
+    { type: 'meta', value: '123456789', scope: 'off' },                 // never injected
+    { type: 'gtm', value: 'GTM-BBBB222', scope: 'campaigns', campaigns: ['wakaf-sumur'] },
+  ]);
+  // No campaign context => only global trackers.
+  const g = parseTrackers(raw, null);
+  assert.deepEqual(g.gtm, ['GTM-AAAA111']);
+  assert.deepEqual(g.meta, []);
+});
+
+test('scope=campaigns only included when the active campaign matches', () => {
+  const raw = JSON.stringify([
+    { type: 'gtm', value: 'GTM-AAAA111', scope: 'campaigns', campaigns: ['wakaf-sumur', 'yatim'] },
+  ]);
+  assert.deepEqual(parseTrackers(raw, null, 'wakaf-sumur').gtm, ['GTM-AAAA111']);
+  assert.deepEqual(parseTrackers(raw, null, 'bencana').gtm, []);
+  // no campaign given => scoped tracker excluded
+  assert.deepEqual(parseTrackers(raw, null).gtm, []);
+});
+
+test('global tracker still injected on a campaign page (scope additive)', () => {
+  const raw = JSON.stringify([
+    { type: 'gtm', value: 'GTM-GLOB' },                                  // global
+    { type: 'gtm', value: 'GTM-CAMP', scope: 'campaigns', campaigns: ['a'] },
+  ]);
+  const g = parseTrackers(raw, null, 'a');
+  assert.deepEqual(g.gtm, ['GTM-GLOB', 'GTM-CAMP']);
+});

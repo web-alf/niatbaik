@@ -11,4 +11,5 @@ export interface TrackerGroups {
 export function parseTrackers(
   raw: unknown,
   fallbackSettings: Record<string, unknown> | null | undefined,
+  campaignSlug?: string,
 ): TrackerGroups;

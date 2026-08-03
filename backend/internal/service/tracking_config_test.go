@@ -105,3 +105,63 @@ func TestNormalizeTrackingConfigEnforcesLimit(t *testing.T) {
 		t.Fatalf("expected rejection past limit of %d", maxTrackers)
 	}
 }
+
+func TestNormalizeTrackingConfigScopeGlobalDefaultAndCampaigns(t *testing.T) {
+	in := `[
+		{"type":"gtm","value":"GTM-AAAA111"},
+		{"type":"meta","value":"123456789","scope":"campaigns","campaigns":["wakaf-sumur","yatim"]},
+		{"type":"ga4","value":"G-ABCDE12","scope":"off"}
+	]`
+	out, err := normalizeTrackingConfig(in)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var arr []map[string]any
+	if err := json.Unmarshal([]byte(out), &arr); err != nil {
+		t.Fatal(err)
+	}
+	if arr[0]["scope"] != "global" {
+		t.Fatalf("missing scope default global: %v", arr[0])
+	}
+	if arr[1]["scope"] != "campaigns" {
+		t.Fatalf("want campaigns scope: %v", arr[1])
+	}
+	camps, _ := arr[1]["campaigns"].([]any)
+	if len(camps) != 2 {
+		t.Fatalf("want 2 campaigns, got %v", arr[1]["campaigns"])
+	}
+	if arr[2]["scope"] != "off" {
+		t.Fatalf("want off scope: %v", arr[2])
+	}
+	// global/off entries must not carry a campaigns array
+	if _, ok := arr[0]["campaigns"]; ok {
+		t.Fatalf("global tracker must not carry campaigns: %v", arr[0])
+	}
+}
+
+func TestNormalizeTrackingConfigScopeRejections(t *testing.T) {
+	bad := []string{
+		`[{"type":"gtm","value":"GTM-A1","scope":"weird"}]`,                               // unknown scope
+		`[{"type":"gtm","value":"GTM-A1","scope":"campaigns"}]`,                           // campaigns scope, no campaigns
+		`[{"type":"gtm","value":"GTM-A1","scope":"campaigns","campaigns":[]}]`,            // empty
+		`[{"type":"gtm","value":"GTM-A1","scope":"campaigns","campaigns":["bad slug!"]}]`, // bad slug chars
+	}
+	for _, in := range bad {
+		if _, err := normalizeTrackingConfig(in); err == nil {
+			t.Fatalf("expected rejection for %q", in)
+		}
+	}
+}
+
+func TestNormalizeTrackingConfigDedupesCampaigns(t *testing.T) {
+	in := `[{"type":"gtm","value":"GTM-A1","scope":"campaigns","campaigns":["a","a","b"]}]`
+	out, err := normalizeTrackingConfig(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var arr []map[string]any
+	_ = json.Unmarshal([]byte(out), &arr)
+	if camps, _ := arr[0]["campaigns"].([]any); len(camps) != 2 {
+		t.Fatalf("campaigns not deduped: %v", arr[0]["campaigns"])
+	}
+}

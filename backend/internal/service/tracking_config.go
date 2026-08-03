@@ -26,6 +26,13 @@ var trackerValuePattern = map[string]*regexp.Regexp{
 // the slash in send_to: AW-<id>/<label>).
 var trackerLabelPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
+// trackerSlugPattern validates a campaign slug used to scope a tracker.
+var trackerSlugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+
+// validTrackerScopes are the allowed scope values. Empty input defaults to "global"
+// (applies everywhere), preserving backward compatibility.
+var validTrackerScopes = map[string]bool{"global": true, "campaigns": true, "off": true}
+
 // forbiddenTrackerKeys mirrors normalizeConversionConfig: a public, browser-bound
 // blob must never carry secrets even if a client tries to smuggle them in.
 var forbiddenTrackerKeys = map[string]bool{
@@ -54,9 +61,11 @@ func normalizeTrackingConfig(raw string) (string, error) {
 	}
 
 	type tracker struct {
-		Type  string `json:"type"`
-		Value string `json:"value"`
-		Label string `json:"label,omitempty"`
+		Type      string   `json:"type"`
+		Value     string   `json:"value"`
+		Label     string   `json:"label,omitempty"`
+		Scope     string   `json:"scope"`
+		Campaigns []string `json:"campaigns,omitempty"`
 	}
 	out := make([]tracker, 0, len(items))
 	seen := map[string]bool{}
@@ -92,12 +101,47 @@ func normalizeTrackingConfig(raw string) (string, error) {
 		} else {
 			label = ""
 		}
-		key := typ + "|" + value
-		if seen[key] {
+
+		// Scope: global (default) | campaigns (restrict to selected slugs) | off (saved, not injected).
+		scope, _ := item["scope"].(string)
+		scope = strings.TrimSpace(strings.ToLower(scope))
+		if scope == "" {
+			scope = "global"
+		}
+		if !validTrackerScopes[scope] {
+			return "", fmt.Errorf("tracking_config scope tidak dikenal: %q", scope)
+		}
+		var campaigns []string
+		if scope == "campaigns" {
+			rawList, _ := item["campaigns"].([]any)
+			seenCamp := map[string]bool{}
+			for _, c := range rawList {
+				slug, _ := c.(string)
+				slug = strings.TrimSpace(slug)
+				if !trackerSlugPattern.MatchString(slug) {
+					return "", fmt.Errorf("tracking_config campaign slug tidak valid: %q", slug)
+				}
+				if seenCamp[slug] {
+					continue // silently collapse repeats within one tracker
+				}
+				seenCamp[slug] = true
+				campaigns = append(campaigns, slug)
+			}
+			if len(campaigns) == 0 {
+				return "", fmt.Errorf("tracking_config scope=campaigns wajib minimal satu campaign")
+			}
+		}
+
+		// Dedup key includes scope+campaigns so the same id can exist as global AND scoped.
+		dedupKey := typ + "|" + value + "|" + scope
+		if scope == "campaigns" {
+			dedupKey += "|" + strings.Join(campaigns, ",")
+		}
+		if seen[dedupKey] {
 			continue
 		}
-		seen[key] = true
-		out = append(out, tracker{Type: typ, Value: value, Label: label})
+		seen[dedupKey] = true
+		out = append(out, tracker{Type: typ, Value: value, Label: label, Scope: scope, Campaigns: campaigns})
 	}
 
 	if len(out) == 0 {

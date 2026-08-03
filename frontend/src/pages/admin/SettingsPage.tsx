@@ -1470,7 +1470,7 @@ function TrackingPanel({ settings, onSave }: any) {
   const [pixelIds, setPixelIds] = useState<any>({});
   // Unified domain trackers (multiple ids of the same type). Source of truth saved as
   // tracking_config JSON; the discrete pixelIds above stay synced for transition fallback.
-  const [trackers, setTrackers] = useState<{ type: string; value: string; label: string }[]>([]);
+  const [trackers, setTrackers] = useState<{ type: string; value: string; label: string; scope: string; campaigns: string[] }[]>([]);
   // Server-side token presence flags (read-only booleans from backend; token values
   // are secret and never echoed back). Drives the "Tersimpan" badge on credential inputs.
   const [tokenSet, setTokenSet] = useState<any>({});
@@ -1531,10 +1531,16 @@ function TrackingPanel({ settings, onSave }: any) {
     setGoogleServer({ customer: settings.google_ads_customer_id || '', login: settings.google_ads_login_customer_id || '', action: settings.google_ads_default_conversion_action_id || '', enabled: !!settings.google_ads_server_upload_enabled, credentials: !!settings.google_ads_credentials_configured, connectedEmail: settings.google_ads_connected_email || '' });
     // Seed the unified trackers from tracking_config; fall back to the discrete fields
     // so a not-yet-migrated install still shows its existing pixels in the new editor.
-    let seeded: { type: string; value: string; label: string }[] = [];
+    let seeded: { type: string; value: string; label: string; scope: string; campaigns: string[] }[] = [];
     try {
       const parsed = settings.tracking_config ? JSON.parse(settings.tracking_config) : null;
-      if (Array.isArray(parsed)) seeded = parsed.map((t: any) => ({ type: String(t?.type || ''), value: String(t?.value || ''), label: String(t?.label || '') }));
+      if (Array.isArray(parsed)) seeded = parsed.map((t: any) => ({
+        type: String(t?.type || ''),
+        value: String(t?.value || ''),
+        label: String(t?.label || ''),
+        scope: String(t?.scope || 'global'),
+        campaigns: Array.isArray(t?.campaigns) ? t.campaigns.map(String) : [],
+      }));
     } catch { /* fall through to discrete */ }
     if (seeded.length === 0) {
       const disc: [string, string, string][] = [
@@ -1544,7 +1550,7 @@ function TrackingPanel({ settings, onSave }: any) {
         ['tiktok', settings.tiktok_pixel_id || '', ''],
         ['google_ads', settings.google_ads_conversion_id || '', settings.google_ads_conversion_label || ''],
       ];
-      seeded = disc.filter(([, v]) => v.trim()).map(([type, value, label]) => ({ type, value, label }));
+      seeded = disc.filter(([, v]) => v.trim()).map(([type, value, label]) => ({ type, value, label, scope: 'global', campaigns: [] }));
     }
     setTrackers(seeded);
     setTokenSet({
@@ -1610,18 +1616,27 @@ function TrackingPanel({ settings, onSave }: any) {
           ];
           const RE: any = { gtm: /^GTM-[A-Z0-9]+$/, meta: /^\d{6,20}$/, ga4: /^G-[A-Z0-9]+$/, google_ads: /^AW-\d+$/, tiktok: /^[A-Z0-9]+$/ };
           const norm = (type: string, value: string) => (type === 'google_ads' && value.trim() && !/^AW-/i.test(value.trim()) ? 'AW-' + value.trim() : value.trim());
-          const rowError = (t: { type: string; value: string; label: string }) => {
+          const rowError = (t: any) => {
             const v = norm(t.type, t.value);
             if (!v) return 'ID wajib diisi';
             if (!RE[t.type]?.test(v)) return 'Format ID tidak valid';
             if (t.type === 'google_ads' && !/^[A-Za-z0-9_-]+$/.test((t.label || '').trim())) return 'Label wajib untuk Google Ads';
+            if (t.scope === 'campaigns' && (!Array.isArray(t.campaigns) || t.campaigns.length === 0)) return 'Pilih minimal satu campaign untuk scope=campaigns';
             return '';
           };
-          const update = (i: number, patch: Partial<{ type: string; value: string; label: string }>) =>
+          const allCampaigns = (useDataStore.getState().campaigns || []).map((c: any) => c.slug).filter(Boolean);
+          const update = (i: number, patch: any) =>
             setTrackers((prev) => prev.map((t, j) => (j === i ? { ...t, ...patch } : t)));
+          const toggleCampaign = (i: number, slug: string) =>
+            setTrackers((prev) => prev.map((t, j) => {
+              if (j !== i) return t;
+              const set = new Set(t.campaigns || []);
+              if (set.has(slug)) set.delete(slug); else set.add(slug);
+              return { ...t, campaigns: Array.from(set) };
+            }));
           return (
             <div className="space-y-3">
-              <div className="text-xs text-mute">Domain-level trackers. Bisa menambahkan lebih dari satu ID untuk tipe yang sama (mis. 2 GTM atau 2 Google Ads).</div>
+              <div className="text-xs text-mute">Domain-level trackers. Bisa menambahkan lebih dari satu ID untuk tipe yang sama (mis. 2 GTM atau 2 Google Ads). Scope: <b>Global</b> (semua halaman), <b>Campaigns</b> (hanya campaign terpilih), atau <b>Off</b> (simpan tanpa inject).</div>
               {trackers.length === 0 && <div className="rounded-xl border border-dashed border-line p-4 text-center text-xs text-mute">Belum ada tracker. Klik "Tambah Tracker".</div>}
               {trackers.map((t, i) => {
                 const err = rowError(t);
@@ -1633,13 +1648,27 @@ function TrackingPanel({ settings, onSave }: any) {
                       </select>
                       <input className="field font-mono text-xs flex-1 min-w-[10rem]" value={t.value} onChange={(e) => update(i, { value: e.target.value })} placeholder={TYPES.find((ty) => ty.v === t.type)?.ph || 'ID…'}/>
                       {t.type === 'google_ads' && <input className="field font-mono text-xs w-40" value={t.label} onChange={(e) => update(i, { label: e.target.value })} placeholder="Conversion label"/>}
+                      <select className="field font-mono text-xs w-36" value={t.scope || 'global'} onChange={(e) => update(i, { scope: e.target.value, campaigns: e.target.value === 'campaigns' ? (t.campaigns || []) : [] })}>
+                        <option value="global">Global</option>
+                        <option value="campaigns">Campaigns…</option>
+                        <option value="off">Off</option>
+                      </select>
                       <button type="button" className="h-9 w-9 rounded-md hover:bg-rose-50 text-mute hover:text-rose-600 shrink-0" title="Hapus" onClick={() => setTrackers((prev) => prev.filter((_, j) => j !== i))}><Icon name="trash" size={14}/></button>
                     </div>
+                    {t.scope === 'campaigns' && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {allCampaigns.length === 0 && <span className="text-[11px] text-mute">Memuat daftar campaign…</span>}
+                        {allCampaigns.map((slug: string) => (
+                          <button key={slug} type="button" onClick={() => toggleCampaign(i, slug)}
+                            className={'px-2 py-0.5 rounded-full text-[11px] font-mono border ' + ((t.campaigns || []).includes(slug) ? 'bg-brand-600 text-white border-brand-600' : 'border-line text-mute hover:bg-slate-50')}>{slug}</button>
+                        ))}
+                      </div>
+                    )}
                     {err && <div className="mt-1 text-[11px] text-rose-600">{err}</div>}
                   </div>
                 );
               })}
-              <Btn variant="outline" onClick={() => setTrackers((prev) => [...prev, { type: 'gtm', value: '', label: '' }])}>+ Tambah Tracker</Btn>
+              <Btn variant="outline" onClick={() => setTrackers((prev) => [...prev, { type: 'gtm', value: '', label: '', scope: 'global', campaigns: [] }])}>+ Tambah Tracker</Btn>
             </div>
           );
         })()}
@@ -1724,7 +1753,9 @@ function TrackingPanel({ settings, onSave }: any) {
               .map((t) => {
                 let v = (t.value || '').trim();
                 if (t.type === 'google_ads' && v && !/^AW-/i.test(v)) v = 'AW-' + v;
-                return { type: t.type, value: v, label: (t.label || '').trim() };
+                const scope = (t.scope || 'global').trim().toLowerCase();
+                const campaigns = scope === 'campaigns' ? (t.campaigns || []).map((s) => s.trim()).filter(Boolean) : [];
+                return { type: t.type, value: v, label: (t.label || '').trim(), scope, campaigns };
               })
               .filter((t) => t.value);
             for (const t of clean) {
@@ -1732,11 +1763,20 @@ function TrackingPanel({ settings, onSave }: any) {
                 showToast('Ada tracker dengan format ID/label tidak valid');
                 return false;
               }
+              if (t.scope === 'campaigns' && t.campaigns.length === 0) {
+                showToast('Tracker scope=Campaigns wajib pilih minimal satu campaign');
+                return false;
+              }
             }
-            const first = (type: string) => clean.find((t) => t.type === type);
-            // Keep the discrete fields synced (transition fallback) with the first id of each type.
+            const first = (type: string, scope?: string) => clean.find((t) => t.type === type && (!scope || t.scope === scope));
+            // Keep the discrete fields synced (transition fallback) with the first global id of each type.
             return onSave({
-              tracking_config: JSON.stringify(clean.map((t) => (t.type === 'google_ads' ? t : { type: t.type, value: t.value }))),
+              tracking_config: JSON.stringify(clean.map((t) => {
+                const base: any = { type: t.type, value: t.value, scope: t.scope };
+                if (t.type === 'google_ads') base.label = t.label;
+                if (t.scope === 'campaigns') base.campaigns = t.campaigns;
+                return base;
+              })),
               meta_pixel_id: first('meta')?.value || '',
               meta_capi_enabled: capiEnabled,
               // Credential secrets: send only when the admin typed a value; undefined keeps

@@ -45,8 +45,10 @@ function pushValid(groups, seen, type, value, label) {
 }
 
 // parseTrackers turns the JSON array (or, when absent, the legacy discrete fields)
-// into validated per-platform groups. Never throws.
-export function parseTrackers(raw, fallbackSettings) {
+// into validated per-platform groups. When campaignSlug is given, only
+// scope=global and scope=campaigns (matching that slug) entries are included;
+// scope=off is always excluded. Never throws.
+export function parseTrackers(raw, fallbackSettings, campaignSlug) {
   const groups = emptyGroups();
   const seen = new Set();
 
@@ -58,12 +60,19 @@ export function parseTrackers(raw, fallbackSettings) {
 
   if (items && items.length) {
     for (const it of items) {
-      if (it && typeof it === 'object') pushValid(groups, seen, it.type, it.value, it.label);
+      if (!it || typeof it !== 'object') continue;
+      const scope = String(it.scope || 'global').trim().toLowerCase();
+      if (scope === 'off') continue; // saved but not injected
+      if (scope === 'campaigns') {
+        const camps = Array.isArray(it.campaigns) ? it.campaigns : [];
+        if (!campaignSlug || !camps.includes(campaignSlug)) continue;
+      }
+      pushValid(groups, seen, it.type, it.value, it.label);
     }
     return groups;
   }
 
-  // Backward-compat: derive from the discrete settings fields.
+  // Backward-compat: derive from the discrete settings fields (always global).
   const s = fallbackSettings || {};
   pushValid(groups, seen, 'gtm', s.gtm_id, '');
   pushValid(groups, seen, 'meta', s.meta_pixel_id, '');

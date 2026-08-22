@@ -3,7 +3,7 @@
 // /kebijakan-privasi, /disklaimer. Content is plain data (no HTML injection).
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Navbar, Footer } from './_components';
+import { Navbar, Footer, MobileBottomNav, getKontakHref } from './_components';
 
 type Section = { h: string; p?: string[]; ul?: string[] };
 type Doc = { title: string; intro: string; sections: Section[] };
@@ -212,6 +212,15 @@ export default function LegalPage({ kind }: { kind: 'terms' | 'privacy' | 'discl
         </div>
       </main>
       <Footer/>
+      <MobileBottomNav
+        onHome={() => navigate('/')}
+        goSection={(hash: string) => {
+          navigate('/');
+          const id = hash.replace('#', '');
+          setTimeout(() => { try { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); } catch {} }, 250);
+        }}
+        waHref={getKontakHref()}
+      />
     </div>
   );
 }

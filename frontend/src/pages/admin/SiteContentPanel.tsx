@@ -20,7 +20,7 @@ const DEFAULTS: Record<string, any> = {
       { label: 'Testimoni', href: '#testi' },
       { label: 'FAQ', href: '#faq' },
     ],
-    ctaPrimary: 'Donasi Sekarang', loginLabel: 'Masuk',
+    ctaPrimary: 'Donasi Sekarang',
   },
   hero: {
     badge: '{{donors}} donatur aktif', badgeSub: '· Update real-time',
@@ -211,7 +211,7 @@ export default function SiteContentPanel() {
             fields={[{ key: 'label', label: 'Label' }, { key: 'href', label: 'Href (mis. #campaigns)' }]}/>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Text label="Tombol utama" value={d.ctaPrimary} onChange={(v: any) => patch({ ctaPrimary: v })}/>
-            <Text label="Label login" value={d.loginLabel} onChange={(v: any) => patch({ loginLabel: v })}/>
+            <div className="text-[11px] text-mute self-end leading-snug">Tombol login di navbar sudah dihapus — akses dashboard kini lewat link &ldquo;Masuk&rdquo; di footer situs publik.</div>
           </div>
         </>)}/>
 

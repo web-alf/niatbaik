@@ -110,6 +110,14 @@ const normalizeWa = (n: any) => {
   if (d.startsWith('8')) return '62' + d;
   return d;
 };
+// Shared WhatsApp contact href (configured CS contact — rotator-aware — else the admin
+// WhatsApp). Used by the footer contact link and the mobile bottom nav's Bantuan tab.
+export const getKontakHref = () => {
+  const publicSettings = useDataStore.getState().publicSettings;
+  const cs = pickCsContact();
+  const waNum = normalizeWa((cs && cs.phone) || (publicSettings && publicSettings.whatsapp_admin) || '');
+  return waNum ? `https://wa.me/${waNum}` : '';
+};
 
 // Resolve a campaign's display image: the dedicated uploaded `img`, else any image
 // path stuffed into `thumb`. Returns '' when there's only a gradient/no image.
@@ -181,7 +189,6 @@ export function usePublicDark(): [boolean, () => void] {
 export function Navbar({ onNav, onHome }: any) {
   const [open, setOpen] = useState(false);
   const [dark, toggleDark] = usePublicDark();
-  const navigate = useNavigate();
   // Lock body scroll while the mobile drawer is open.
   useEffect(() => {
     if (!open) return;
@@ -200,7 +207,6 @@ export function Navbar({ onNav, onHome }: any) {
     { label:'FAQ', href:'#faq' },
   ]).map((x: any) => ({ l: x.label, h: x.href }));
   const ctaPrimary = cms.ctaPrimary || 'Donasi Sekarang';
-  const loginLabel = cms.loginLabel || 'Masuk';
   // Section-link click. On the landing page let the native anchor jump handle it. On a
   // campaign page, go home first, then scroll to the target section after it renders.
   const goSection = (e: any, hash: string) => {
@@ -228,9 +234,8 @@ export function Navbar({ onNav, onHome }: any) {
           className="hidden lg:flex h-9 w-9 rounded-lg border border-line bg-white hover:bg-bg2 items-center justify-center text-ink">
           <Icon name={dark ? 'sun' : 'moon'} size={16}/>
         </button>
-        <button onClick={() => navigate('/dashboard')} className="hidden lg:inline-flex items-center gap-1 text-sm font-semibold text-mute hover:text-ink">
-          <Icon name="user" size={16}/> {loginLabel}
-        </button>
+        {/* No login button here: public-facing pages deliberately don't advertise the
+            dashboard. Staff reach it via the discreet "Masuk" link in the footer. */}
         <PrimaryBtn size="sm" onClick={() => onNav('campaign', getFirstCampaign())}>
           <Icon name="heart" size={16}/> {ctaPrimary}
         </PrimaryBtn>
@@ -260,9 +265,6 @@ export function Navbar({ onNav, onHome }: any) {
           <button onClick={toggleDark} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2 text-left flex items-center gap-2">
             <Icon name={dark ? 'sun' : 'moon'} size={16}/> {dark ? 'Light Mode' : 'Dark Mode'}
           </button>
-          <button onClick={() => { setOpen(false); navigate('/dashboard'); }} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-mute text-left flex items-center gap-2">
-            <Icon name="user" size={16}/> Masuk Dashboard
-          </button>
         </div>
         <div className="p-4 border-t border-line">
           <PrimaryBtn size="md" className="w-full justify-center" onClick={() => { setOpen(false); onNav('campaign', getFirstCampaign()); }}>
@@ -272,6 +274,64 @@ export function Navbar({ onNav, onHome }: any) {
       </aside>
       </>, document.body)}
     </header>
+  );
+}
+
+// -------- Mobile bottom navigation --------
+// App-style bottom tab bar (mobile-first pattern popularized by donation platforms like
+// adaorangbaik.com): Beranda / Campaign / raised center Donasi FAB / Cara / Bantuan.
+// Desktop keeps the top navbar only — this bar is hidden ≥lg. `onDonate` is contextual:
+// landing scrolls to the campaign list, a campaign page opens the donation form. When
+// omitted (e.g. the invoice page) the FAB slot collapses into four even tabs.
+// `trackSections` (landing) highlights the tab whose section is in view.
+export function MobileBottomNav({ onHome, onDonate, goSection, waHref, trackSections }: any) {
+  // '#' is the campaign page's "no CS number" sentinel — treat it as absent so the tab
+  // falls back to FAQ instead of linking to a dead hash.
+  const helpHref = (typeof waHref === 'string' && waHref && waHref !== '#') ? waHref : '';
+  const [active, setActive] = useState('home');
+  useEffect(() => {
+    if (!trackSections) return;
+    const ids = ['campaigns', 'how', 'testi', 'faq'];
+    const els = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
+    // A section counts as "current" while it crosses the middle band of the viewport.
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) setActive(e.target.id === 'testi' ? 'how' : e.target.id); });
+    }, { rootMargin: '-40% 0px -50% 0px' });
+    els.forEach((el) => io.observe(el));
+    const onScroll = () => { if (window.scrollY < 240) setActive('home'); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => { io.disconnect(); window.removeEventListener('scroll', onScroll); };
+  }, [trackSections]);
+
+  const item = (key: string, icon: string, label: string, onClick: any, href?: string) => {
+    const cls = `flex-1 h-full flex flex-col items-center justify-center gap-0.5 transition-colors ${
+      active === key ? 'text-brand-600' : 'text-mute'}`;
+    const inner = <><Icon name={icon} size={20}/><span className="text-[10px] font-bold leading-none">{label}</span></>;
+    return href
+      ? <a key={key} href={href} target="_blank" rel="noopener noreferrer" className={cls} aria-label={label}>{inner}</a>
+      : <button key={key} onClick={onClick} aria-label={label} className={cls}>{inner}</button>;
+  };
+  return (
+    <nav aria-label="Navigasi utama"
+      className="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-white/95 backdrop-blur border-t border-line shadow-[0_-6px_24px_rgba(15,23,42,.09)] pb-safe">
+      <div className="flex items-stretch h-16 max-w-md mx-auto px-1">
+        {item('home', 'home', 'Beranda', onHome)}
+        {item('campaigns', 'megaphone', 'Campaign', () => goSection('#campaigns'))}
+        {onDonate ? (
+          <div className="relative flex-1">
+            <button onClick={onDonate} aria-label="Donasi sekarang"
+              className="absolute left-1/2 -translate-x-1/2 -top-5 h-14 w-14 rounded-2xl bg-brand-600 text-white shadow-pop flex flex-col items-center justify-center gap-0.5 active:scale-95 transition-transform">
+              <Icon name="heart" size={20}/>
+              <span className="text-[9px] font-extrabold leading-none">Donasi</span>
+            </button>
+          </div>
+        ) : item('donasi', 'heart', 'Donasi', () => goSection('#campaigns'))}
+        {item('how', 'book', 'Cara', () => goSection('#how'))}
+        {helpHref
+          ? item('help', 'wa', 'Bantuan', null, helpHref)
+          : item('faq', 'quote', 'FAQ', () => goSection('#faq'))}
+      </div>
+    </nav>
   );
 }
 
@@ -299,7 +359,7 @@ export function Hero({ onNav }: any) {
           {cms.badgeSub !== '' && <span className="text-mute font-normal hidden sm:inline">{cms.badgeSub || '· Update real-time'}</span>}
         </div>
 
-        <h1 className="mt-5 text-4xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-ink max-w-2xl">
+        <h1 className="mt-5 text-3xl sm:text-4xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-ink max-w-2xl">
           {cms.headline || 'Salurkan'} <span className="text-brand-600">{cms.headlineAccent || 'Niat Baik'}</span> {cms.headlineTail || 'Anda, wujudkan kebaikan nyata.'}
         </h1>
         <p className="mt-5 text-lg text-mute max-w-xl leading-relaxed">{paragraph}</p>
@@ -432,16 +492,19 @@ export function CampaignsSection({ onNav }: any) {
   return (
     <section id="campaigns" className="py-14 lg:py-20 bg-bg2">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
-        <div className="flex flex-wrap items-end justify-between gap-3 mb-6">
+        {/* Mobile-first: heading stacks above a single-row, edge-to-edge scrollable chip
+            rail (wrapping chips ate two rows on phones); ≥lg it goes back beside the
+            heading. -mx-4/px-4 matches the section padding so chips scroll under it. */}
+        <div className="mb-6 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
           <div>
             <div className="text-xs font-bold uppercase tracking-widest text-brand-600">Campaign aktif</div>
-            <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold text-ink tracking-tight">Mari bersama wujudkan kebaikan</h2>
+            <h2 className="mt-2 text-2xl sm:text-2xl sm:text-3xl lg:text-4xl font-extrabold text-ink tracking-tight">Mari bersama wujudkan kebaikan</h2>
             <p className="mt-2 text-mute">Pilih salah satu campaign terverifikasi di bawah ini.</p>
           </div>
-          <div className="flex flex-wrap gap-1.5 overflow-x-auto pb-1">
+          <div className="-mx-4 px-4 lg:mx-0 lg:px-0 flex gap-2 overflow-x-auto no-scrollbar lg:flex-wrap lg:overflow-visible pb-1">
             {filterTabs.map((t) => (
               <button key={t.v} onClick={() => setTab(t.v)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${tab===t.v ? 'bg-ink text-white' : 'bg-white text-ink border border-line hover:bg-brand-50'}`}>
+                className={`shrink-0 px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${tab===t.v ? 'bg-ink text-white' : 'bg-white text-ink border border-line hover:bg-brand-50'}`}>
                 {t.l}
               </button>
             ))}
@@ -514,7 +577,7 @@ export function HowToSection() {
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="text-center max-w-2xl mx-auto">
           <div className="text-xs font-bold uppercase tracking-widest text-brand-600">{eyebrow}</div>
-          <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold text-ink tracking-tight">{heading}</h2>
+          <h2 className="mt-2 text-2xl sm:text-3xl lg:text-4xl font-extrabold text-ink tracking-tight">{heading}</h2>
           <p className="mt-2 text-mute">{sub}</p>
         </div>
 
@@ -557,7 +620,7 @@ export function TestimonialsSection() {
         <div className="grid lg:grid-cols-2 gap-10 items-start">
           <div>
             <div className="text-xs font-bold uppercase tracking-widest text-sky2-100">{eyebrow}</div>
-            <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold tracking-tight">{heading}</h2>
+            <h2 className="mt-2 text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight">{heading}</h2>
             <p className="mt-3 text-white/85">{sub}</p>
             <div className="mt-6 grid grid-cols-3 gap-3 max-w-md">
               <div><div className="text-2xl font-extrabold">{fmtNum(totals.donors || 0)}</div><div className="text-xs text-white/75">Donatur</div></div>
@@ -602,7 +665,7 @@ export function FAQ() {
       <div className="max-w-3xl mx-auto px-4 lg:px-6">
         <div className="text-center">
           <div className="text-xs font-bold uppercase tracking-widest text-brand-600">{eyebrow}</div>
-          <h2 className="mt-2 text-3xl lg:text-4xl font-extrabold text-ink tracking-tight">{heading}</h2>
+          <h2 className="mt-2 text-2xl sm:text-3xl lg:text-4xl font-extrabold text-ink tracking-tight">{heading}</h2>
         </div>
         <div className="mt-8 space-y-3">
           {items.map((f: any, i: number) => (
@@ -632,10 +695,10 @@ export function FinalCTA({ onNav }: any) {
         <div className="relative rounded-3xl bg-brand-600 p-8 lg:p-12 text-white overflow-hidden">
           <div className="relative grid lg:grid-cols-3 gap-6 items-center">
             <div className="lg:col-span-2">
-              <h3 className="text-3xl lg:text-4xl font-extrabold leading-tight">{headline}</h3>
+              <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold leading-tight">{headline}</h3>
               <p className="mt-3 text-white/85">{sub}</p>
             </div>
-            <button onClick={() => onNav('campaign', getFirstCampaign())} className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl text-base font-extrabold bg-white text-brand-600 hover:scale-[1.02] transition-transform shadow-pop">
+            <button onClick={() => onNav('campaign', getFirstCampaign())} className="w-full lg:w-auto inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl text-base font-extrabold bg-white text-brand-600 hover:scale-[1.02] transition-transform shadow-pop">
               <Icon name="heart" size={20}/> {buttonLabel}
             </button>
           </div>
@@ -653,9 +716,7 @@ export function Footer() {
   // site, a "Kebijakan privasi" link that goes nowhere erodes trust (and is a legal gap).
   const publicSettings = useDataStore((s) => s.publicSettings);
   const cms = useDataStore((s) => s.siteContent)?.footer || {};
-  const cs = pickCsContact();
-  const waNum = normalizeWa((cs && cs.phone) || (publicSettings && publicSettings.whatsapp_admin) || '');
-  const kontakHref = waNum ? `https://wa.me/${waNum}` : '';
+  const kontakHref = useMemo(getKontakHref, [publicSettings]);
 
   const blurb = cms.blurb || 'Platform donasi & crowdfunding terpercaya. Salurkan zakat, sedekah, wakaf, dan donasi kemanusiaan dengan mudah.';
   const waCtaLabel = cms.waCtaLabel || 'Hubungi kami via WhatsApp';
@@ -676,7 +737,7 @@ export function Footer() {
     : <span className="text-white/45" title="Segera hadir">{children}</span>;
 
   return (
-    <footer className="bg-ink text-white pt-14 pb-8">
+    <footer className="bg-ink text-white pt-14 pb-28 lg:pb-8">
       <div className="max-w-7xl mx-auto px-4 lg:px-6 grid grid-cols-2 lg:grid-cols-5 gap-8">
         <div className="col-span-2">
           {/* Logo on a white chip so its real brand colors stay correct on the dark footer
@@ -705,7 +766,10 @@ export function Footer() {
       </div>
       <div className="max-w-7xl mx-auto px-4 lg:px-6 mt-10 pt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs text-white/55">
         <div>{copyright}</div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-4">
+          {/* Discreet staff entry point — deliberately low-contrast so the login panel
+              isn't advertised to donors (replaces the old navbar Masuk button). */}
+          <a href="/login" className="text-white/40 hover:text-white/80 font-semibold transition-colors">Masuk</a>
           <span className="inline-flex items-center gap-1.5"><Icon name="shield" size={14}/> {sslNote}</span>
         </div>
       </div>
@@ -1307,9 +1371,24 @@ export function CampaignPage({ c: listItem, onNav }: any) {
 
       <SocialPopup/>
       {/* Sticky "Donasi Sekarang" bar removed per feedback — donors use the CTA on the
-          donation card; the compensating bottom padding was reduced accordingly. */}
+          donation card; the compensating bottom padding was reduced accordingly. The
+          mobile bottom nav carries the same contextual action via its center FAB. */}
 
       <Footer/>
+      {/* Bottom nav only on the content view: during the form/invoice the submit button
+          is the single action and a fixed bar would collide with the mobile keyboard. */}
+      {view === 'content' && (
+        <MobileBottomNav
+          onHome={() => onNav('home')}
+          onDonate={() => setView('form')}
+          goSection={(hash: string) => {
+            onNav('home');
+            const id = hash.replace('#', '');
+            setTimeout(() => { try { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); } catch {} }, 200);
+          }}
+          waHref={csHelpHref}
+        />
+      )}
     </>
   );
 }

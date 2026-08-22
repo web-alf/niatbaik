@@ -3,7 +3,7 @@
 import { useNavigate } from 'react-router-dom';
 import {
   Navbar, Hero, TrustStrip, StatsSection, CampaignsSection, HowToSection,
-  TestimonialsSection, FAQ, FinalCTA, Footer, SocialPopup,
+  TestimonialsSection, FAQ, FinalCTA, Footer, SocialPopup, MobileBottomNav, getKontakHref,
 } from './_components';
 
 export default function LandingPage() {
@@ -20,7 +20,9 @@ export default function LandingPage() {
     // 'home' (and anything else): we're already on the landing route — just scroll to top.
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
-
+  const scrollTo = (id: string) => {
+    try { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); } catch {}
+  };
   return (
     <div className="min-h-screen flex flex-col bg-white">
       <Navbar onNav={onNav}/>
@@ -36,6 +38,13 @@ export default function LandingPage() {
         <Footer/>
       </main>
       <SocialPopup/>
+      <MobileBottomNav
+        trackSections
+        onHome={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        onDonate={() => scrollTo('campaigns')}
+        goSection={(hash: string) => scrollTo(hash.replace('#', ''))}
+        waHref={getKontakHref()}
+      />
     </div>
   );
 }

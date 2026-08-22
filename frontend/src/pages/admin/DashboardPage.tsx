@@ -4,7 +4,7 @@ import { api } from '@/lib/api';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
 import { useAuth } from '@/context/AuthContext';
-import { fmtIDR, fmtIDRShort, fmtNum, paymentMethods, isAutoConfirmMethod } from '@/lib/format';
+import { fmtIDR, fmtIDRShort, fmtNum, paymentMethods, isAutoConfirmMethod, normalizeWaID, formatWaID } from '@/lib/format';
 import { campaignBgStyle } from '@/lib/mappers';
 import { useSharedDateRange, parseTxnDate, fmtDate } from '@/lib/date';
 import { downloadBlob, exportCSV, exportExcel, filterByRange } from '@/lib/export';
@@ -12,9 +12,10 @@ import { txnExportRows } from '@/lib/txnExport';
 import { Card, StatCard, Badge, StatusBadge, Progress, Btn, SearchInput, Select, LineChart, Donut, PageHeader, Tabs, SourcePill, Icon, DateRangePill } from '@/components';
 import AdvertiserPage from '@/pages/admin/AdvertiserPage';
 
-// wa.me deep-link from an Indonesian number (0xxx → 62xxx, strip non-digits).
+// wa.me deep-link. Uses the shared normalizer so a stored "812…" (donor dropped the
+// leading 0) also resolves to 62812… instead of a broken wa.me/812… link.
 const waLink = (phone: string) => {
-  const d = (phone || '').replace(/[^0-9]/g, '').replace(/^0/, '62');
+  const d = normalizeWaID(phone);
   return d ? `https://wa.me/${d}` : '';
 };
 
@@ -737,7 +738,7 @@ export function LeadsSection({ onOpen, readOnly = false, leads: leadsProp = null
                       <td className="py-3 whitespace-nowrap">
                         {r.whatsapp ? (
                           <a href={wa} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-emerald-600 font-medium hover:underline" onClick={(e) => e.stopPropagation()}>
-                            <Icon name="wa" size={13}/> {r.whatsapp}
+                            <Icon name="wa" size={13}/> {formatWaID(r.whatsapp) || r.whatsapp}
                           </a>
                         ) : <span className="text-mute">—</span>}
                       </td>

@@ -67,6 +67,19 @@ func NewDonationService(
 }
 
 func (s *DonationService) CreateDonation(req *request.CreateDonationRequest, ip string) (*model.Invoice, error) {
+	// Canonicalize the donor phone to bare E.164 ("62812…") before it is used for
+	// anything. The web form already normalizes, but this endpoint is also hit by
+	// older clients and integrations that still post "0812…"/"+62 812…". Storing
+	// mixed shapes breaks the 60s duplicate guard below (same person, different
+	// string) and inflates COUNT(DISTINCT donor_phone) in the donor stat.
+	req.DonorPhone = normalizeWA(req.DonorPhone)
+	if req.DonorPhone == "" {
+		return nil, fmt.Errorf("no. WhatsApp wajib diisi")
+	}
+	if !isValidDonorPhone(req.DonorPhone) {
+		return nil, fmt.Errorf("no. WhatsApp tidak valid")
+	}
+
 	campaign, err := s.campaignRepo.FindBySlug(req.CampaignSlug)
 	if err != nil {
 		return nil, fmt.Errorf("campaign not found")
@@ -526,6 +539,23 @@ func (s *DonationService) AcknowledgeGoogleAdsClientDispatch(invoiceNumber strin
 type csContact struct {
 	Phone string `json:"phone"`
 	Name  string `json:"name"`
+}
+
+// isValidDonorPhone checks an already-normalized (62-form) donor number. Indonesian
+// mobiles are 8xxxxxxxx…, 9–13 digits after the 62 prefix. A non-62 number is a donor
+// abroad, so it only gets a length sanity check. Mirrors isValidWaID in lib/format.ts.
+func isValidDonorPhone(normalized string) bool {
+	if normalized == "" {
+		return false
+	}
+	if !strings.HasPrefix(normalized, "62") {
+		return len(normalized) >= 8 && len(normalized) <= 15
+	}
+	nat := normalized[2:]
+	if len(nat) < 9 || len(nat) > 13 || !strings.HasPrefix(nat, "8") {
+		return false
+	}
+	return true
 }
 
 // normalizeWA strips non-digits and maps a leading 0 → 62 (Indonesia), matching the

@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { fmtIDR, fmtIDRShort, fmtNum, NOMINAL_PRESETS } from '@/lib/format';
+import { fmtIDR, fmtIDRShort, fmtNum, NOMINAL_PRESETS, normalizeWaID, formatWaID, isValidWaID } from '@/lib/format';
 import { api, mediaUrl, sanitizeHTML, normalizeRichTextColors } from '@/lib/api';
 import { NBTracking } from '@/lib/tracking';
 import { Icon, Logo } from '@/components';
@@ -1127,9 +1127,14 @@ export function CampaignPage({ c: listItem, onNav }: any) {
     // (not blocking alert() dialogs) so the donor sees exactly what to fix.
     const errs: any = {};
     const wa = (donor.wa || '').trim();
-    const digits = wa.replace(/[^0-9]/g, '');
+    // Normalize to 62-form once; that same value is what gets submitted so the
+    // backend dedup + donor stats see one canonical format per person.
+    const waNormalized = normalizeWaID(wa);
     if (!wa) errs.wa = 'No. WhatsApp wajib diisi';
-    else if (digits.length < 8 || digits.length > 15) errs.wa = 'No. WhatsApp tidak valid (8–15 digit)';
+    else if (!/\d/.test(wa)) errs.wa = 'No. WhatsApp hanya boleh berisi angka';
+    else if (waNormalized.startsWith('62') && !/^8/.test(waNormalized.slice(2)))
+      errs.wa = 'Nomor HP Indonesia diawali 8 (cth 0812…, bukan 021…)';
+    else if (!isValidWaID(wa)) errs.wa = 'No. WhatsApp tidak valid — cek jumlah digitnya';
     if (!anon) {
       const nm = (donor.name || '').trim();
       if (nm && nm.length < 2) errs.name = 'Nama minimal 2 karakter';
@@ -1156,7 +1161,7 @@ export function CampaignPage({ c: listItem, onNav }: any) {
       const res = await api.createDonation({
         campaign_slug: c.slug || c.id,
         donor_name: anon ? 'Hamba Allah' : (donor.name || 'Hamba Allah'),
-        donor_phone: donor.wa,
+        donor_phone: waNormalized,
         donor_email: donor.email || '',
         amount: Number(amount),
         message: donor.message || '',
@@ -1776,6 +1781,55 @@ function PaymentSelector({ grouped, paymentMethod, setPaymentMethod, isSelected,
   );
 }
 
+// WaField is the donor's WhatsApp input. Indonesian donors type the number in many
+// shapes ("0812…", "+62 812…", "62812…", "812…"); the field shows a fixed +62 prefix
+// and keeps only the NATIONAL part in the box, so what they see always matches what
+// is sent. A pasted 0-/62-/+62-prefixed number has its prefix absorbed rather than
+// producing "+62 62812…". Digits are grouped (812-3456-7890) purely for readability.
+function WaField({ value, onChange, error, fieldCls }: any) {
+  // National digits held in state: value is the canonical 62-form (or '' when empty).
+  const national = (() => {
+    const d = normalizeWaID(value);
+    if (!d) return '';
+    return d.startsWith('62') ? d.slice(2) : d;
+  })();
+  const grouped = national
+    ? [national.slice(0, 3), national.slice(3, 7), national.slice(7, 11), national.slice(11)].filter(Boolean).join('-')
+    : '';
+
+  const handle = (raw: string) => {
+    // Strip separators, then absorb a leading 0 / 62 / +62 the donor typed or pasted
+    // so it never stacks on top of the visible +62 prefix.
+    let d = raw.replace(/\D/g, '');
+    if (d.startsWith('62')) d = d.slice(2);
+    else if (d.startsWith('0')) d = d.slice(1);
+    d = d.slice(0, 13); // national numbers never exceed 13 digits
+    onChange(d ? '62' + d : '');
+  };
+
+  return (
+    <div>
+      <div className={`${fieldCls} ${error ? 'border-rose-400' : ''} flex items-center gap-2 py-0 pl-0 overflow-hidden`}>
+        <span className="shrink-0 self-stretch flex items-center px-3 bg-bg2 border-r border-line text-sm font-bold text-ink">
+          +62
+        </span>
+        <input
+          type="tel" inputMode="numeric" autoComplete="tel-national"
+          className="flex-1 min-w-0 bg-transparent border-0 outline-none py-2 pr-3 text-sm text-ink placeholder:text-mute"
+          placeholder="812-3456-7890"
+          aria-label="Nomor WhatsApp"
+          aria-invalid={!!error}
+          value={grouped}
+          onChange={(e) => handle(e.target.value)}
+        />
+      </div>
+      {error
+        ? <div className="mt-1 text-xs text-rose-600">{error}</div>
+        : <div className="mt-1 text-[11px] text-mute">Untuk kirim bukti &amp; verifikasi donasi; tidak ditampilkan publik.</div>}
+    </div>
+  );
+}
+
 export function DonationForm({ c, presets, amount, setAmount, donor, setDonor, anon, setAnon, paymentMethod, setPaymentMethod, submitting, errors = {}, setErrors, onBack, onSubmit }: any) {
   const clearErr = (k: any) => { if (setErrors && errors[k]) setErrors({ ...errors, [k]: undefined }); };
   // Per-campaign payment override (campaign.payment_config) else the global public list —
@@ -1871,12 +1925,12 @@ export function DonationForm({ c, presets, amount, setAmount, donor, setDonor, a
             <input className={`${fieldCls} ${errors.name ? 'border-rose-400' : ''}`} placeholder="Nama (cth: Hamba Allah)" value={donor.name} onChange={(e) => { setDonor({...donor, name:e.target.value}); clearErr('name'); }} disabled={anon}/>
             {errors.name && <div className="mt-1 text-xs text-rose-600">{errors.name}</div>}
           </div>
-          <div>
-            <input className={`${fieldCls} ${errors.wa ? 'border-rose-400' : ''}`} placeholder="No. WhatsApp · cth 08123… (wajib)" value={donor.wa} onChange={(e) => { setDonor({...donor, wa:e.target.value}); clearErr('wa'); }}/>
-            {errors.wa
-              ? <div className="mt-1 text-xs text-rose-600">{errors.wa}</div>
-              : <div className="mt-1 text-[11px] text-mute">Untuk kirim bukti &amp; verifikasi donasi; tidak ditampilkan publik.</div>}
-          </div>
+          <WaField
+            value={donor.wa}
+            onChange={(v: string) => { setDonor({ ...donor, wa: v }); clearErr('wa'); }}
+            error={errors.wa}
+            fieldCls={fieldCls}
+          />
           {/* Email / anonim / comment honor the admin's Advanced > Form > Custom field
               toggles (form_fields_config). When _custom is set, hidden fields are omitted;
               otherwise everything shows (back-compat for campaigns with no custom config). */}

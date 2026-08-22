@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { useUiStore } from '@/store/ui';
 import { useDataStore } from '@/store/data';
-import { fmtIDR, fmtIDRShort, fmtNum } from '@/lib/format';
+import { fmtIDR, fmtIDRShort, fmtNum, normalizeWaID, isValidWaID } from '@/lib/format';
 import { parseTxnDate, formatRangeLabel, getDateRange } from '@/lib/date';
 import { downloadBlob, exportCSV, exportExcel } from '@/lib/export';
 import { txnExportRows } from '@/lib/txnExport';
@@ -467,17 +467,10 @@ function CSDetail({ t, onOpen, onCopy, onMarkPaid, onSaveNote, onSetQuality, sho
 	const [noteSaving, setNoteSaving] = useState(false);
 	const [retryingGoogle, setRetryingGoogle] = useState(false);
 
-  // Normalize Indonesian WA number: drop non-digits, replace leading 0/8 → 628
-  const normalizeWa = (raw: any) => {
-    if (!raw) return '';
-    let d = (raw + '').replace(/\D/g,'');
-    if (d.startsWith('62')) return d;
-    if (d.startsWith('0')) return '62' + d.slice(1);
-    if (d.startsWith('8')) return '62' + d;
-    return d;
-  };
-  const waNumber = normalizeWa(t.whatsapp);
-  const waValid = waNumber.length >= 10 && waNumber.length <= 15;
+  // Shared with the donor form (lib/format) so CS and the donor never disagree on
+  // what counts as a valid number.
+  const waNumber = normalizeWaID(t.whatsapp);
+  const waValid = isValidWaID(t.whatsapp);
 
   // Pre-built message templates
   const templates = (paid: any) => {

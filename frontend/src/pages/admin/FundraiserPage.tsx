@@ -129,6 +129,7 @@ export default function FundraiserPage() {
           <thead>
             <tr className="text-left text-xs uppercase tracking-wider text-mute border-b border-line bg-bg2/60">
               <th className="px-5 py-3 font-semibold">Fundraiser</th>
+              <th className="py-3 font-semibold">Status</th>
               <th className="py-3 font-semibold">Campaign</th>
               <th className="py-3 font-semibold text-right">Transaksi</th>
               <th className="py-3 font-semibold text-right">Donatur</th>
@@ -140,7 +141,7 @@ export default function FundraiserPage() {
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={8} className="px-5 py-10 text-center text-mute">Belum ada fundraiser.</td></tr>
+              <tr><td colSpan={9} className="px-5 py-10 text-center text-mute">Belum ada fundraiser.</td></tr>
             )}
             {filtered.map((f: any) => (
               <tr key={f.id} className="border-b border-line last:border-0">
@@ -154,6 +155,11 @@ export default function FundraiserPage() {
                       <div className="text-[11px] text-mute">{f.email || ''}</div>
                     </div>
                   </div>
+                </td>
+                <td className="py-3">
+                  {f.status === 'active'
+                    ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700">Aktif</span>
+                    : <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700">Pending Verifikasi</span>}
                 </td>
                 <td className="py-3 text-ink/90">{f.campaign || '—'}</td>
                 <td className="py-3 text-right">{fmtNum(f.txn)}</td>

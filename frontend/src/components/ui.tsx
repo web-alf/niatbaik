@@ -328,12 +328,12 @@ export const Modal = ({ open, onClose, title, children, size = 'md', footer }: a
   // the modal appeared centered in the body, not the screen. Rendering into body
   // escapes that ancestor so `fixed inset-0` truly means the whole viewport.
   //
-  // Overlay is transparent (per request): just an invisible full-screen click-catcher
-  // for click-outside-to-close. The card carries a strong shadow + ring so it still
-  // reads as elevated without a dim backdrop. Body scrolls internally (flex-1 min-h-0,
-  // max-h-[92vh]) so the dialog stays centered and never sinks below the fold.
+  // Dimmed + blurred backdrop so the modal visually separates from the page behind it,
+  // plus doubles as the click-outside-to-close catcher. Body scrolls internally
+  // (flex-1 min-h-0, max-h-[92vh]) so the dialog stays centered and never sinks below
+  // the fold.
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm" onMouseDown={onClose}>
       <div className={`relative bg-white rounded-2xl shadow-pop ring-1 ring-ink/10 border border-line w-full ${sizes[size]} max-h-[92vh] flex flex-col`} onMouseDown={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
           <h3 className="font-bold text-ink">{title}</h3>

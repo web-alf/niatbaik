@@ -167,6 +167,7 @@ export function mapFundraiser(f: any): any {
     pendingPayout: earned,                          // unpaid, awaiting withdrawal
     ref: f.user?.username || f.user_id || '',       // referral code = username (fallback: user id)
     joined: f.created_at || '',
+    status: f.user?.email_verified_at ? 'active' : 'pending', // derived, no dedicated column
   };
 }
 

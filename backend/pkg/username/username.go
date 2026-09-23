@@ -3,17 +3,19 @@
 package username
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
 	"regexp"
 	"strings"
 )
 
 var (
-	validRe   = regexp.MustCompile(`^[a-z0-9_]{3,30}$`)
-	stripRe   = regexp.MustCompile(`[^a-z0-9_]+`)
-	reserved  = map[string]bool{"admin": true, "api": true, "me": true, "null": true, "root": true, "system": true, "niatbaik": true}
-	ErrFormat = errors.New("username hanya boleh berisi huruf kecil, angka, dan garis bawah (3–30 karakter)")
+	validRe     = regexp.MustCompile(`^[a-z0-9_]{3,30}$`)
+	stripRe     = regexp.MustCompile(`[^a-z0-9_]+`)
+	reserved    = map[string]bool{"admin": true, "api": true, "me": true, "null": true, "root": true, "system": true, "niatbaik": true}
+	ErrFormat   = errors.New("username hanya boleh berisi huruf kecil, angka, dan garis bawah (3–30 karakter)")
 	ErrReserved = errors.New("username ini tidak tersedia")
 )
 
@@ -61,4 +63,25 @@ func GenerateUnique(seed string, checkExists func(string) bool) string {
 		candidate = trim + suffix
 	}
 	return candidate
+}
+
+// codeAlphabet is a Crockford-style base32 set (lowercase, digits 2-9; no 0/1/i/l/o) —
+// avoids visually-ambiguous characters in short codes shared over links/chat.
+const codeAlphabet = "23456789abcdefghjkmnpqrstuvwxyz"
+
+// GenerateRandomCode returns a unique 8-character random code from codeAlphabet, unrelated
+// to any seed (email, name, ...). Used for referral handles where a private, non-guessable
+// code is preferred over one derived from a public value. Always satisfies Validate.
+func GenerateRandomCode(checkExists func(string) bool) string {
+	for {
+		buf := make([]byte, 8)
+		for i := range buf {
+			n, _ := rand.Int(rand.Reader, big.NewInt(int64(len(codeAlphabet))))
+			buf[i] = codeAlphabet[n.Int64()]
+		}
+		candidate := string(buf)
+		if !reserved[candidate] && !checkExists(candidate) {
+			return candidate
+		}
+	}
 }

@@ -110,6 +110,26 @@ func (r *UserRepo) Delete(id uuid.UUID) error {
 	return r.db.Delete(&model.User{}, "id = ?", id).Error
 }
 
+// VerifyEmailAndSetPassword atomically consumes an email-verification token (stored in the
+// same ResetToken/ResetTokenExpiry columns AuthService.ForgotPassword uses): only the row
+// still holding this exact, unexpired token is updated — email_verified_at is stamped, the
+// token cleared, and a freshly generated password installed, all in one statement. Returns
+// false (no error) when the token doesn't match/expired, mirroring AuthService.ResetPassword.
+func (r *UserRepo) VerifyEmailAndSetPassword(email, token, hashedPassword string) (bool, error) {
+	result := r.db.Model(&model.User{}).
+		Where("email = ? AND reset_token = ? AND reset_token_expiry > ?", email, token, time.Now()).
+		Updates(map[string]interface{}{
+			"email_verified_at":  time.Now(),
+			"reset_token":        "",
+			"reset_token_expiry": nil,
+			"password":           hashedPassword,
+		})
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
+}
+
 func (r *UserRepo) CountByRole() (map[string]int64, error) {
 	type result struct {
 		Role  string

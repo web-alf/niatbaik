@@ -18,6 +18,20 @@ func TestHashCheck_RoundTrip(t *testing.T) {
 	}
 }
 
+func TestGenerateRandomPassword(t *testing.T) {
+	a, err := GenerateRandomPassword(12)
+	if err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+	if len(a) != 12 {
+		t.Errorf("expected length 12, got %d (%q)", len(a), a)
+	}
+	b, _ := GenerateRandomPassword(12)
+	if a == b {
+		t.Error("two calls produced identical passwords — not random")
+	}
+}
+
 func TestHash_SaltedUnique(t *testing.T) {
 	a, _ := HashPassword("samepass")
 	b, _ := HashPassword("samepass")

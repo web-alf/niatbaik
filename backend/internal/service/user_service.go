@@ -36,13 +36,23 @@ func (s *UserService) Create(req *request.CreateUserRequest) (*model.User, error
 		return nil, err
 	}
 
-	// Resolve the username: an explicit one (validated + unique) or auto-generated from the
-	// email local-part. Every user gets a handle so referral links (?ref=<username>) work.
-	uname, err := s.resolveNewUsername(req.Username, req.Email, req.Name)
-	if err != nil {
-		return nil, err
+	// Resolve the username: an explicit one (validated + unique) always wins. Fundraisers
+	// otherwise get a random 8-char referral code (not derived from email — avoids leaking
+	// or letting anyone guess the address); everyone else falls back to the email local-part.
+	var uname string
+	if strings.TrimSpace(req.Username) == "" && req.Role == "fundraiser" {
+		uname = username.GenerateRandomCode(func(c string) bool { return s.userRepo.UsernameTaken(c, uuid.Nil) })
+	} else {
+		uname, err = s.resolveNewUsername(req.Username, req.Email, req.Name)
+		if err != nil {
+			return nil, err
+		}
 	}
 
+	// Admin-created accounts skip email verification — there is no verify link for this
+	// flow (credentials go straight to the user), so mark verified immediately or the
+	// fundraiser admin list shows it stuck as "Pending Verifikasi" forever.
+	now := time.Now()
 	u := model.User{
 		Name:              req.Name,
 		Email:             req.Email,
@@ -50,6 +60,7 @@ func (s *UserService) Create(req *request.CreateUserRequest) (*model.User, error
 		Password:          hashed,
 		Role:              req.Role,
 		FundraiserEnabled: req.FundraiserEnabled,
+		EmailVerifiedAt:   &now,
 	}
 	if req.Phone != "" {
 		u.Phone = &req.Phone
@@ -60,14 +71,15 @@ func (s *UserService) Create(req *request.CreateUserRequest) (*model.User, error
 	}
 
 	// Best-effort welcome/invite email with login info (only if SMTP configured).
-	s.sendInviteEmail(&u, req.Password)
+	s.sendInviteEmail(&u, req.Password, "Akun Anda telah dibuat oleh admin. Berikut detail login Anda:")
 
 	return &u, nil
 }
 
-// sendInviteEmail notifies a freshly-created user of their login credentials.
-// Best-effort: skipped when SMTP not configured, logs on failure, never fails creation.
-func (s *UserService) sendInviteEmail(u *model.User, plainPassword string) {
+// sendInviteEmail notifies a user of their login credentials. intro is the sentence above the
+// email/password box (differs between an admin-created account and a self-verified one).
+// Best-effort: skipped when SMTP not configured, logs on failure, never fails the caller.
+func (s *UserService) sendInviteEmail(u *model.User, plainPassword, intro string) {
 	if s.settingRepo == nil {
 		return
 	}
@@ -81,7 +93,7 @@ func (s *UserService) sendInviteEmail(u *model.User, plainPassword string) {
 		<div style="font-family:sans-serif;max-width:480px;margin:auto">
 		  <h2 style="color:#2E4191">Selamat Datang di NIATBAIK.ORG</h2>
 		  <p>Halo %s,</p>
-		  <p>Akun Anda telah dibuat oleh admin. Berikut detail login Anda:</p>
+		  <p>%s</p>
 		  <p style="background:#F1F5F9;padding:12px 16px;border-radius:8px">
 		    <strong>Email:</strong> %s<br>
 		    <strong>Password:</strong> %s
@@ -91,7 +103,7 @@ func (s *UserService) sendInviteEmail(u *model.User, plainPassword string) {
 		    <a href="%s" style="background:#2E4191;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold">Login Sekarang</a>
 		  </p>
 		  <p style="color:#64748B;font-size:13px">Jika Anda tidak merasa mendaftar, abaikan email ini.</p>
-		</div>`, u.Name, u.Email, plainPassword, loginURL)
+		</div>`, u.Name, intro, u.Email, plainPassword, loginURL)
 
 	cfg := mailer.Config{
 		Host:     settings.SMTPHost,
@@ -101,8 +113,15 @@ func (s *UserService) sendInviteEmail(u *model.User, plainPassword string) {
 		Name:     settings.SMTPName,
 	}
 	if err := mailer.Send(cfg, u.Email, "Akun NIATBAIK.ORG Anda Telah Dibuat", body); err != nil {
-		log.Printf("[UserService.Create] failed to send invite email to %s: %v", u.Email, err)
+		log.Printf("[UserService] failed to send credentials email to %s: %v", u.Email, err)
 	}
+}
+
+// SendCredentialsEmail sends a freshly-generated login password to a fundraiser right after
+// their self-registered email is verified — same template as the admin-invite email, with an
+// intro line reflecting the self-verification flow.
+func (s *UserService) SendCredentialsEmail(u *model.User, plainPassword string) {
+	s.sendInviteEmail(u, plainPassword, "Email Anda telah terverifikasi. Berikut detail login akun fundraiser Anda:")
 }
 
 func (s *UserService) Update(id uuid.UUID, req *request.UpdateUserRequest) (*model.User, error) {

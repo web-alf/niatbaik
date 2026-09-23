@@ -379,6 +379,9 @@ export const api = {
   fundraiserMine() { return this.get<any>('/fundraisers/me'); },
   // Public share-link click tracking (?ref=). Best-effort — caller ignores failures.
   refHit(campaignId: string | number, ref: string) { return this.post<any>('/fundraisers/ref-hit', { campaign_id: campaignId, ref }); },
+  // Public fundraiser self-registration + email verification.
+  registerFundraiser(data: unknown) { return this.post<any>('/fundraisers/register', data); },
+  verifyFundraiserEmail(data: unknown) { return this.post<any>('/fundraisers/verify-email', data); },
   createWithdrawal(data: unknown) { return this.post<any>('/withdrawals', data); },
 
   // Withdrawals

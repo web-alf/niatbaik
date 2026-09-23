@@ -24,6 +24,8 @@ import LegalPage from '@/pages/public/LegalPage';
 import LoginPage from '@/pages/auth/LoginPage';
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
+import RegisterFundraiserPage from '@/pages/auth/RegisterFundraiserPage';
+import VerifyFundraiserEmailPage from '@/pages/auth/VerifyFundraiserEmailPage';
 
 import DashboardPage from '@/pages/admin/DashboardPage';
 import CampaignsPage from '@/pages/admin/CampaignsPage';
@@ -79,6 +81,8 @@ export const router = createBrowserRouter([
       { path: '/login', element: <LoginPage /> },
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
       { path: '/reset-password', element: <ResetPasswordPage /> },
+      { path: '/register-fundraiser', element: <RegisterFundraiserPage /> },
+      { path: '/verify-fundraiser-email', element: <VerifyFundraiserEmailPage /> },
       {
         element: <RequireAuth />,
         children: [

@@ -19,7 +19,12 @@ func (r *FundraiserRepo) FindAll(params pagination.PaginationParams) ([]model.Fu
 	var fundraisers []model.Fundraiser
 	var total int64
 
-	query := r.db.Model(&model.Fundraiser{})
+	// User.Delete is a soft-delete (sets deleted_at, no cascade to the DB level), so a
+	// deleted user's fundraiser rows survive and Preload("User") silently returns a
+	// zero-value User (blank name/email) for them — showing up as a ghost "—" row. Join
+	// against live users only so deleted fundraisers' rows are excluded outright.
+	query := r.db.Model(&model.Fundraiser{}).
+		Joins("JOIN users ON users.id = fundraisers.user_id AND users.deleted_at IS NULL")
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}

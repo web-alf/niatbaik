@@ -28,6 +28,17 @@ func stripHeaderValue(s string) string {
 // is successfully negotiated; if the server doesn't support STARTTLS, Send fails
 // rather than leaking the password over plaintext.
 func Send(cfg Config, to, subject, htmlBody string) error {
+	return send(cfg, to, subject, htmlBody, false)
+}
+
+// SendImportant is Send plus the standard "high priority" email headers
+// (Importance/X-Priority/X-MSMail-Priority), so mail clients flag it (e.g. red
+// exclamation in Outlook/Gmail). Use for time-sensitive links like email verification.
+func SendImportant(cfg Config, to, subject, htmlBody string) error {
+	return send(cfg, to, subject, htmlBody, true)
+}
+
+func send(cfg Config, to, subject, htmlBody string, important bool) error {
 	if cfg.Host == "" || cfg.Email == "" || cfg.Password == "" || cfg.Port == 0 {
 		return fmt.Errorf("smtp not configured")
 	}
@@ -52,6 +63,11 @@ func Send(cfg Config, to, subject, htmlBody string) error {
 		"Subject":      subject,
 		"MIME-Version": "1.0",
 		"Content-Type": "text/html; charset=\"UTF-8\"",
+	}
+	if important {
+		headers["Importance"] = "high"
+		headers["X-Priority"] = "1"
+		headers["X-MSMail-Priority"] = "High"
 	}
 
 	var msg strings.Builder

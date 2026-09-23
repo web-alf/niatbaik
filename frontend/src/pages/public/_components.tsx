@@ -4,7 +4,7 @@
 // documented in PORT_CONTRACT.md.
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { fmtIDR, fmtIDRShort, fmtNum, NOMINAL_PRESETS, normalizeWaID, formatWaID, isValidWaID } from '@/lib/format';
 import { api, mediaUrl, sanitizeHTML, normalizeRichTextColors } from '@/lib/api';
 import { NBTracking } from '@/lib/tracking';
@@ -189,6 +189,14 @@ export function usePublicDark(): [boolean, () => void] {
 export function Navbar({ onNav, onHome }: any) {
   const [open, setOpen] = useState(false);
   const [dark, toggleDark] = usePublicDark();
+  const navigate = useNavigate();
+  const [q, setQ] = useState('');
+  const doSearch = (e: any) => {
+    e.preventDefault();
+    const query = q.trim();
+    if (!query) return;
+    navigate('/?q=' + encodeURIComponent(query) + '#campaigns');
+  };
   // Lock body scroll while the mobile drawer is open.
   useEffect(() => {
     if (!open) return;
@@ -201,8 +209,8 @@ export function Navbar({ onNav, onHome }: any) {
   // CMS-editable nav links / labels (Settings → Homepage), falling back to the defaults.
   const cms = useDataStore((s) => s.siteContent)?.navbar || {};
   const links = (Array.isArray(cms.links) && cms.links.length ? cms.links : [
-    { label:'Campaign', href:'#campaigns' },
-    { label:'Bagaimana?', href:'#how' },
+    { label:'Program', href:'#campaigns' },
+    { label:'Cara Donasi', href:'#how' },
     { label:'Testimoni', href:'#testi' },
     { label:'FAQ', href:'#faq' },
   ]).map((x: any) => ({ l: x.label, h: x.href }));
@@ -220,26 +228,40 @@ export function Navbar({ onNav, onHome }: any) {
   return (
     <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-line">
       <div className="max-w-7xl mx-auto px-4 lg:px-6 h-16 flex items-center gap-4">
-        <button onClick={() => onNav('home')} className="flex items-center">
-          {navLogo ? <img src={mediaUrl(navLogo)} alt="NIATBAIK.ORG" className="h-8"/> : <Logo size={32}/>}
-        </button>
-        <nav className="hidden lg:flex items-center gap-1 ml-6">
-          {links.map((l) => (
-            <a key={l.l} href={l.h} onClick={(e) => goSection(e, l.h)} className="px-3 py-2 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2 hover:text-ink">{l.l}</a>
-          ))}
-        </nav>
+        {/* Left group: logo + search, hugging the left edge. */}
+        <div className="flex items-center gap-4 shrink-0">
+          <button onClick={() => onNav('home')} className="flex items-center shrink-0">
+            {navLogo ? <img src={mediaUrl(navLogo)} alt="NIATBAIK.ORG" className="h-8"/> : <Logo size={32}/>}
+          </button>
+          <form onSubmit={doSearch} className="hidden sm:block w-56">
+            <div className="relative">
+              <Icon name="search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-mute pointer-events-none"/>
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari program..."
+                className="w-full pl-9 pr-3 py-2 rounded-lg border border-line bg-bg2 text-sm outline-none focus:border-brand-600"/>
+            </div>
+          </form>
+        </div>
+        {/* Empty middle — pushes left group and right group to the edges. */}
         <div className="flex-1"/>
-        {/* Desktop-only: on mobile the drawer already has a Dark Mode item. */}
-        <button onClick={toggleDark} aria-label="Toggle dark mode"
-          className="hidden lg:flex h-9 w-9 rounded-lg border border-line bg-white hover:bg-bg2 items-center justify-center text-ink">
-          <Icon name={dark ? 'sun' : 'moon'} size={16}/>
-        </button>
-        {/* No login button here: public-facing pages deliberately don't advertise the
-            dashboard. Staff reach it via the discreet "Masuk" link in the footer. */}
-        <PrimaryBtn size="sm" onClick={() => onNav('campaign', getFirstCampaign())}>
-          <Icon name="heart" size={16}/> {ctaPrimary}
-        </PrimaryBtn>
-        <button onClick={() => setOpen(!open)} className="lg:hidden h-9 w-9 rounded-lg hover:bg-bg2 flex items-center justify-center"><Icon name="menu" size={20}/></button>
+        {/* Right group: nav links + auth buttons + mobile menu, hugging the right edge. */}
+        <div className="flex items-center gap-4 shrink-0">
+          <nav className="hidden lg:flex items-center gap-1">
+            {links.map((l) => (
+              <a key={l.l} href={l.h} onClick={(e) => goSection(e, l.h)} className="px-3 py-2 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2 hover:text-ink">{l.l}</a>
+            ))}
+          </nav>
+          {/* Theme toggle disabled — replaced by auth buttons below.
+          <button onClick={toggleDark} aria-label="Toggle dark mode"
+            className="hidden lg:flex h-9 w-9 rounded-lg border border-line bg-white hover:bg-bg2 items-center justify-center text-ink">
+            <Icon name={dark ? 'sun' : 'moon'} size={16}/>
+          </button>
+          */}
+          {/* Masuk / Daftar: no self-service register route exists yet, so Daftar also
+              points at /login (ponytail: add a real /register route + link when signup ships). */}
+          <a href="/login" className="hidden lg:inline-flex px-3 py-2 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2 hover:text-ink">Masuk</a>
+          <PrimaryBtn size="sm" className="hidden lg:inline-flex" onClick={() => (window.location.href = '/register-fundraiser')}>Daftar</PrimaryBtn>
+          <button onClick={() => setOpen(!open)} className="lg:hidden h-9 w-9 rounded-lg hover:bg-bg2 flex items-center justify-center"><Icon name="menu" size={20}/></button>
+        </div>
       </div>
       {/* Mobile drawer: slides in from the RIGHT. Kept mounted so the CSS
           transform transition animates both open and close. Portaled to <body>:
@@ -262,14 +284,15 @@ export function Navbar({ onNav, onHome }: any) {
           {links.map((l) => (
             <a key={l.l} href={l.h} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2" onClick={(e) => { if (onHome) goSection(e, l.h); else setOpen(false); }}>{l.l}</a>
           ))}
+          {/* Theme toggle disabled — replaced by auth links below.
           <button onClick={toggleDark} className="px-3 py-2.5 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2 text-left flex items-center gap-2">
             <Icon name={dark ? 'sun' : 'moon'} size={16}/> {dark ? 'Light Mode' : 'Dark Mode'}
           </button>
+          */}
+          <a href="/login" className="px-3 py-2.5 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2">Masuk</a>
         </div>
         <div className="p-4 border-t border-line">
-          <PrimaryBtn size="md" className="w-full justify-center" onClick={() => { setOpen(false); onNav('campaign', getFirstCampaign()); }}>
-            <Icon name="heart" size={16}/> {ctaPrimary}
-          </PrimaryBtn>
+          <PrimaryBtn size="md" className="w-full justify-center" onClick={() => (window.location.href = '/login')}>Daftar</PrimaryBtn>
         </div>
       </aside>
       </>, document.body)}
@@ -336,68 +359,135 @@ export function MobileBottomNav({ onHome, onDonate, goSection, waHref, trackSect
 }
 
 // -------- Hero --------
+// Pure campaign-slider hero (no headline/paragraph/CTA text) — a peek carousel showing
+// up to 3 active campaigns, center slide focused with the neighbors partially visible,
+// each directly clickable into its campaign page.
 export function Hero({ onNav }: any) {
-  const totals = useDataStore((s) => s.totals);
-  const cms = useDataStore((s) => s.siteContent)?.hero || {};
-  const tvars = { donors: fmtNum(totals.donors || 0), raised: fmtIDRShort(totals.raised || 0), activeCampaigns: fmtNum(totals.activeCampaigns || 0) };
-  const badge = interpolate(cms.badge, tvars) || `${fmtNum(totals.donors || 0)} donatur aktif`;
-  const paragraph = cms.paragraph
-    ? interpolate(cms.paragraph, tvars)
-    : `Donasi terverifikasi untuk kemanusiaan, kesehatan, pendidikan, dan wakaf. Transparan, mudah, dan dipercaya${(totals.donors > 0) ? ` oleh ${fmtNum(totals.donors)}+ donatur` : ''} di Indonesia.`;
-  const trustLines = (Array.isArray(cms.trustLines) && cms.trustLines.length ? cms.trustLines : ['SSL Aman', 'Berizin Kemensos', 'Audit publik bulanan']);
-  const ctaPrimary = cms.ctaPrimary || 'Mulai Donasi';
-  const ctaSecondary = cms.ctaSecondary || 'Lihat Campaign';
   return (
-    <section className="relative overflow-hidden bg-bg2 border-b border-line">
-      <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-brand-50 opacity-60 blur-3xl"/>
-      <div className="absolute top-40 -left-32 h-72 w-72 rounded-full bg-brand-100 opacity-50 blur-3xl"/>
-
-      <div className="max-w-4xl mx-auto px-4 lg:px-6 py-12 lg:py-20 text-center relative flex flex-col items-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-line shadow-card text-xs font-bold text-ink">
-          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"/>
-          <span>{badge}</span>
-          {cms.badgeSub !== '' && <span className="text-mute font-normal hidden sm:inline">{cms.badgeSub || '· Update real-time'}</span>}
-        </div>
-
-        <h1 className="mt-5 text-3xl sm:text-4xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-ink max-w-2xl">
-          {cms.headline || 'Salurkan'} <span className="text-brand-600">{cms.headlineAccent || 'Niat Baik'}</span> {cms.headlineTail || 'Anda, wujudkan kebaikan nyata.'}
-        </h1>
-        <p className="mt-5 text-lg text-mute max-w-xl leading-relaxed">{paragraph}</p>
-
-        {/* Mobile: stacked full-width pair (identical size); ≥sm: side by side. */}
-        <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 w-full max-w-md sm:max-w-none sm:w-auto">
-          <PrimaryBtn size="lg" className="ctaPulse w-full sm:w-auto" onClick={() => {
-            const el = document.getElementById('campaigns');
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
-          }}>
-            <Icon name="heart" size={18}/> {ctaPrimary}
-          </PrimaryBtn>
-          {/* Sizing mirrors PrimaryBtn lg so the CTA pair reads as one set. */}
-          <button onClick={() => document.getElementById('campaigns')?.scrollIntoView({behavior:'smooth'})} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl text-lg font-bold text-ink hover:bg-white ring-1 ring-inset ring-line bg-white/60">
-            <Icon name="eye" size={18}/> {ctaSecondary}
-          </button>
-        </div>
-
-        <div className="mt-10 grid grid-cols-3 gap-3 w-full max-w-lg">
-          {[
-            { v: fmtIDRShort(totals.raised || 0), l:'Donasi tersalurkan' },
-            { v: fmtNum(totals.donors || 0) + '+', l:'Donatur bersama' },
-            { v: fmtNum(totals.activeCampaigns || 0), l:'Campaign aktif' },
-          ].map((s, i) => (
-            <div key={i} className="bg-white/80 backdrop-blur border border-line rounded-xl p-3">
-              <div className="text-xl lg:text-2xl font-extrabold text-brand-600 leading-none">{s.v}</div>
-              <div className="text-[11px] text-mute mt-1.5 leading-tight">{s.l}</div>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-5 text-xs text-mute">
-          {trustLines.map((t: string, i: number) => (
-            <span key={i} className="inline-flex items-center gap-1.5"><Icon name={i === 0 ? 'shield' : 'check'} size={14} className="text-emerald-600"/> {t}</span>
-          ))}
-        </div>
-      </div>
+    <section className="relative overflow-hidden bg-bg2 border-b border-line pt-3 pb-10 lg:pt-5 lg:pb-20">
+      <HeroCampaignSlider onNav={onNav}/>
     </section>
+  );
+}
+
+// -------- Hero campaign slider --------
+// Infinite peek carousel of up to 3 active campaigns: the slide list is tripled
+// ([A,B,C,A,B,C,A,B,C]) so the donor can swipe/scroll sideways forever — once they
+// drift into the first or last copy, we silently jump the scroll position back into
+// the middle copy (same content, no visible seam, no animation on the jump).
+// Highlight always tracks whichever slide is nearest the horizontal center.
+// IMPORTANT: positioning uses track.scrollTo/scrollLeft only (never scrollIntoView),
+// because scrollIntoView on an element outside the vertical viewport also drags the
+// whole page back up — that was yanking donors back to the hero while scrolling down.
+const HERO_LOOPS = 3;
+function HeroCampaignSlider({ onNav }: any) {
+  const campaigns = useDataStore((s) => s.campaigns);
+  const slides = (campaigns || [])
+    .filter((c: any) => c.status === 'Running' || c.status === 'Published' || c.status === 'Berjalan')
+    .slice(0, 3);
+  const n = slides.length;
+  const loopSlides = useMemo(() => (
+    n ? Array.from({ length: n * HERO_LOOPS }, (_, i) => slides[i % n]) : []
+  ), [slides, n]);
+
+  const trackRef = useRef<HTMLDivElement>(null);
+  const slideRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [physIdx, setPhysIdx] = useState(n); // start on the middle copy
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeIdx = n ? (((physIdx % n) + n) % n) : 0;
+
+  const scrollToPhys = (i: number, smooth = true) => {
+    const track = trackRef.current, el = slideRefs.current[i];
+    if (!track || !el) return;
+    const left = el.offsetLeft - (track.clientWidth - el.clientWidth) / 2;
+    track.scrollTo({ left, behavior: smooth ? 'smooth' : 'auto' });
+  };
+
+  const goTo = (targetActiveIdx: number) => {
+    const target = (physIdx - activeIdx) + targetActiveIdx;
+    setPhysIdx(target);
+    scrollToPhys(target);
+  };
+
+  // Center the middle copy on mount, with no scroll animation (avoids any flash/jump).
+  useEffect(() => { if (n) scrollToPhys(n, false); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [n]);
+
+  useEffect(() => {
+    if (n < 2) return;
+    const t = setInterval(() => { const next = physIdx + 1; setPhysIdx(next); scrollToPhys(next); }, 4000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [physIdx, n]);
+
+  const onTrackScroll = () => {
+    const track = trackRef.current;
+    if (!track || !n) return;
+    const mid = track.scrollLeft + track.clientWidth / 2;
+    let best = physIdx, bestDist = Infinity;
+    slideRefs.current.forEach((el, i) => {
+      if (!el) return;
+      const dist = Math.abs((el.offsetLeft + el.offsetWidth / 2) - mid);
+      if (dist < bestDist) { bestDist = dist; best = i; }
+    });
+    if (best !== physIdx) setPhysIdx(best);
+
+    // Once the scroll settles, if we've drifted into the first/last copy, snap (no
+    // animation) to the identical slide in the middle copy so scrolling can continue forever.
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(() => {
+      if (best < n || best >= n * (HERO_LOOPS - 1)) {
+        const target = n + (((best % n) + n) % n);
+        const from = slideRefs.current[best], to = slideRefs.current[target];
+        if (from && to) track.scrollLeft += (to.offsetLeft - from.offsetLeft);
+        setPhysIdx(target);
+      }
+    }, 150);
+  };
+  useEffect(() => () => { if (settleTimer.current) clearTimeout(settleTimer.current); }, []);
+
+  if (!n) return null;
+  const active = slides[activeIdx];
+  return (
+    <div className="w-full">
+      <div ref={trackRef} onScroll={onTrackScroll}
+        className="flex gap-0 sm:gap-2 overflow-x-auto snap-x snap-mandatory no-scrollbar px-[6%] sm:px-[8%]">
+        {loopSlides.map((c: any, i: number) => (
+          <button key={c.id + '-' + i} ref={(el) => { slideRefs.current[i] = el; }} onClick={() => onNav('campaign', c)}
+            className="relative shrink-0 w-[88%] sm:w-[84%] aspect-[4/3] sm:aspect-[16/7] rounded-2xl overflow-hidden bg-bg2 snap-center shadow-card transition-transform duration-300"
+            style={{ transform: i === physIdx ? 'scale(1)' : 'scale(0.92)', opacity: i === physIdx ? 1 : 0.6 }}>
+            {/* object-contain (not bg-cover) so the full campaign photo never gets cropped —
+                but a portrait photo inside this landscape box then pillarboxes hard on the
+                sides, which reads as a big "gap" between slides. Fill that empty space with
+                a blurred cover-copy of the SAME photo (Instagram-story style) instead of flat
+                bg-bg2, so slides look edge-to-edge with no visible void; the sharp foreground
+                copy on top stays fully uncropped. */}
+            {hasThumbImage(c) ? (
+              <>
+                <img src={mediaUrl(campaignImage(c))} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-70"/>
+                <img src={mediaUrl(campaignImage(c))} alt={c.title} className="relative w-full h-full object-contain"/>
+              </>
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-white/85" style={thumbStyle(c)}><Icon name={c.icon} size={56} strokeWidth={1.2}/></div>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Caption for the currently centered slide — category + title, clickable into the campaign. */}
+      <button onClick={() => onNav('campaign', active)} className="mt-6 block w-full max-w-2xl mx-auto px-6 text-center group">
+        <div className="text-xs font-bold uppercase tracking-widest text-brand-600">{active.category}</div>
+        <div className="mt-1.5 text-xl lg:text-2xl font-extrabold text-ink line-clamp-2 group-hover:text-brand-600 transition-colors">{active.title}</div>
+      </button>
+
+      {n > 1 && (
+        <div className="mt-4 flex items-center justify-center gap-1.5">
+          {slides.map((_: any, i: number) => (
+            <button key={i} onClick={() => goTo(i)} aria-label={`Slide ${i + 1}`}
+              className={`h-1.5 rounded-full transition-all ${i === activeIdx ? 'w-6 bg-brand-600' : 'w-1.5 bg-line'}`}/>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -484,8 +574,13 @@ export function CampaignsSection({ onNav }: any) {
   const [tab, setTab] = useState('all');
   const [showAll, setShowAll] = useState(false);
   const src = useDataStore((s) => s.campaigns);
+  // ?q= from the navbar search box — filters by title, scrolls here on mount.
+  const [params] = useSearchParams();
+  const q = (params.get('q') || '').trim().toLowerCase();
+  useEffect(() => { if (q) document.getElementById('campaigns')?.scrollIntoView({ behavior: 'smooth' }); }, [q]);
   const campaigns = src.filter((c: any) => c.status === 'Running' || c.status === 'Published' || c.status === 'Berjalan');
-  const filteredAll = tab === 'all' ? campaigns : campaigns.filter((c: any) => c.category === tab);
+  const byTab = tab === 'all' ? campaigns : campaigns.filter((c: any) => c.category === tab);
+  const filteredAll = q ? byTab.filter((c: any) => String(c.title || '').toLowerCase().includes(q)) : byTab;
   // Show only the 6 newest by default; "Lihat semua" reveals the rest in place.
   const filtered = showAll ? filteredAll : filteredAll.slice(0, 6);
 
@@ -1224,9 +1319,11 @@ export function CampaignPage({ c: listItem, onNav }: any) {
           trapped the share dropdown's z-20 under the lg:sticky donation card. Keep the
           section positioned with a z above the content column on desktop instead. */}
       <section className="bg-white/90 backdrop-blur border-b border-line sticky top-0 z-30 lg:relative lg:z-40 lg:bg-bg2">
-        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-3 flex items-center justify-between gap-3">
-          <button onClick={() => onNav('home')} className="inline-flex items-center gap-1.5 text-sm font-semibold text-mute hover:text-ink">
-            <Icon name="chevronL" size={16}/> Kembali ke beranda
+        <div className="max-w-7xl mx-auto px-3 lg:px-6 py-1.5 lg:py-3 flex items-center justify-between gap-2 lg:gap-3">
+          <button onClick={() => onNav('home')} className="inline-flex items-center gap-1 lg:gap-1.5 text-xs lg:text-sm font-semibold text-mute hover:text-ink min-w-0">
+            <Icon name="chevronL" size={14} className="shrink-0 lg:hidden"/>
+            <Icon name="chevronL" size={16} className="shrink-0 hidden lg:inline"/>
+            <span className="truncate">{c.title}</span>
           </button>
           <ShareCampaign c={c} slug={slug}/>
         </div>
@@ -1234,20 +1331,31 @@ export function CampaignPage({ c: listItem, onNav }: any) {
 
       {view === 'content' ? (
         <section className="bg-bg2">
-          <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 lg:py-10 grid lg:grid-cols-5 gap-6">
+          <div className="max-w-7xl mx-auto px-4 lg:px-6 pt-0 pb-6 lg:pb-10 grid lg:grid-cols-5 gap-6">
             {/* Left main */}
             <div className="lg:col-span-3">
-              <div className="relative aspect-[16/9] rounded-2xl overflow-hidden bg-cover bg-center" style={thumbStyle(c)}>
-                {!hasThumbImage(c) && <div className="absolute inset-0 flex items-center justify-center text-white/85"><Icon name={c.icon} size={140} strokeWidth={1}/></div>}
-                {/* Only the top gradient remains — it keeps the category/LIVE badges legible.
-                    The title no longer overlays the photo (it sits below), so the bottom
-                    darkening band was removed. */}
-                <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/40 to-transparent"/>
-                <div className="absolute top-4 left-4 flex gap-2">
-                  <span className="px-2.5 py-1 rounded-md bg-white/95 text-[11px] font-bold text-ink">{c.category}</span>
-                  <span className="px-2.5 py-1 rounded-md bg-emerald-600 text-[11px] font-bold text-white inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse"/>LIVE</span>
-                  {c.isUrgent && <span className="px-2.5 py-1 rounded-md bg-rose-500 text-[11px] font-bold text-white">URGENT</span>}
-                </div>
+              {/* Full image, no crop: real photo uses its natural aspect ratio (w-full
+                  h-auto + object-contain) instead of a fixed aspect-ratio bg-cover box,
+                  so nothing is cut off on either mobile or desktop. Only the no-image
+                  gradient placeholder keeps a fixed aspect box (nothing to crop there). */}
+              <div className="relative overflow-hidden">
+                {hasThumbImage(c) ? (
+                  <img src={mediaUrl(campaignImage(c))} alt={c.title} className="w-full h-auto max-h-[70vh] object-contain bg-bg2"/>
+                ) : (
+                  <div className="aspect-[4/3] sm:aspect-[16/9] flex items-center justify-center text-white/85" style={thumbStyle(c)}>
+                    <Icon name={c.icon} size={140} strokeWidth={1}/>
+                  </div>
+                )}
+                {/* Category/LIVE badges removed — title now shown in the sub-bar next to
+                    the back button instead. Keep the gradient only if URGENT is shown. */}
+                {c.isUrgent && (
+                  <>
+                    <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/40 to-transparent"/>
+                    <div className="absolute top-4 left-4 flex gap-2">
+                      <span className="px-2.5 py-1 rounded-md bg-rose-500 text-[11px] font-bold text-white">URGENT</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Title always sits BELOW the cover (all breakpoints) — no overlap with the
@@ -1566,7 +1674,7 @@ function NominalSelect({ c, presets, amount, setAmount }: any) {
     <div className="mt-3">
       <label className="text-xs font-bold text-mute">Atau masukkan nominal lain</label>
       <div className="mt-1 flex items-center rounded-xl border-2 border-line bg-white focus-within:border-brand-600">
-        <span className="pl-3 text-mute font-bold">Rp</span>
+        <span className="pl-3 pr-1 text-mute font-bold">Rp</span>
         <input type="number" min="0" step="1000" inputMode="numeric" value={amount} onChange={(e) => setAmount(Math.max(0, Math.floor(+e.target.value || 0)))} className="flex-1 px-2 py-3 outline-none font-bold text-ink bg-transparent"/>
       </div>
     </div>
@@ -1934,12 +2042,15 @@ export function DonationForm({ c, presets, amount, setAmount, donor, setDonor, a
           {/* Email / anonim / comment honor the admin's Advanced > Form > Custom field
               toggles (form_fields_config). When _custom is set, hidden fields are omitted;
               otherwise everything shows (back-compat for campaigns with no custom config). */}
+          {/* Email field disabled per request — donor.email stays whatever it was (usually
+              empty), backend still accepts it as optional. Re-enable by uncommenting.
           {showEmail && (
             <div>
               <input className={`${fieldCls} ${errors.email ? 'border-rose-400' : ''}`} placeholder="Email (opsional)" value={donor.email} onChange={(e) => { setDonor({...donor, email:e.target.value}); clearErr('email'); }}/>
               {errors.email && <div className="mt-1 text-xs text-rose-600">{errors.email}</div>}
             </div>
           )}
+          */}
           {showAnonim && (
             <label className="flex items-center gap-2 text-sm text-ink/80">
               <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded border-line"/>

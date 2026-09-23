@@ -82,7 +82,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) *service.GoogleAdsWork
 	withdrawalHandler := handler.NewWithdrawalHandler(withdrawalService, withdrawalRepo)
 	trashHandler := handler.NewTrashHandler(trashService)
 	invoiceHandler := handler.NewInvoiceHandler(db, paymentService, paymentStatusRepo, invoiceRepo, settingRepo, googleAdsWorker)
-	fundraiserHandler := handler.NewFundraiserHandler(fundraiserRepo, commissionRepo, userRepo, userService)
+	fundraiserHandler := handler.NewFundraiserHandler(fundraiserRepo, commissionRepo, userRepo, userService, settingRepo, cfg)
 	profileHandler := handler.NewProfileHandler(profileService)
 	notificationHandler := handler.NewNotificationHandler(notificationService)
 	uploadHandler := handler.NewUploadHandler(uploadService)
@@ -118,6 +118,10 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) *service.GoogleAdsWork
 	api.POST("/track/visit", publicHandler.TrackVisit)
 	// Fundraiser share-link click tracking (public share traffic; best-effort, always 200).
 	api.POST("/fundraisers/ref-hit", fundraiserHandler.RefHit)
+	// Public fundraiser self-registration + email verification. Rate-limited like other
+	// credential-adjacent auth endpoints to curb mass signups / token-guessing.
+	api.POST("/fundraisers/register", fundraiserHandler.Register, middleware.AuthRateLimiter())
+	api.POST("/fundraisers/verify-email", fundraiserHandler.VerifyEmail, middleware.AuthRateLimiter())
 	api.POST("/donations", donationHandler.CreateDonation)
 	api.GET("/donations/:invoice", donationHandler.GetPaymentStatus)
 	api.POST("/donations/:invoice/google-ads/client-dispatch", donationHandler.AcknowledgeGoogleAdsClientDispatch)

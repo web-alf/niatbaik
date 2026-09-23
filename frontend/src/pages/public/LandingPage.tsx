@@ -28,13 +28,13 @@ export default function LandingPage() {
       <Navbar onNav={onNav}/>
       <main className="flex-1">
         <Hero onNav={onNav}/>
-        <TrustStrip/>
         <StatsSection/>
         <CampaignsSection onNav={onNav}/>
         <HowToSection/>
         <TestimonialsSection/>
         <FAQ/>
         <FinalCTA onNav={onNav}/>
+        <TrustStrip/>
         <Footer/>
       </main>
       <SocialPopup/>

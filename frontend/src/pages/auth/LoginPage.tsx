@@ -157,8 +157,9 @@ export default function LoginPage() {
             </form>
           </div>
 
-          <div className="mt-4 text-center text-xs text-muted">
-            <a href="#" onClick={(e) => { e.preventDefault(); navigate('/'); }} className="font-bold text-brand-600 hover:underline">Lihat situs publik &rarr;</a>
+          <div className="mt-4 text-center text-xs text-muted space-y-1.5">
+            <div>Belum punya akun fundraiser? <a href="#" onClick={(e) => { e.preventDefault(); navigate('/register-fundraiser'); }} className="font-bold text-brand-600 hover:underline">Daftar di sini</a></div>
+            <div><a href="#" onClick={(e) => { e.preventDefault(); navigate('/'); }} className="font-bold text-brand-600 hover:underline">Lihat situs publik &rarr;</a></div>
           </div>
         </div>
       </div>

@@ -229,13 +229,15 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) *service.GoogleAdsWork
 	staff.POST("/admin/campaigns/:id/updates", campaignUpdateHandler.Create)
 	staff.DELETE("/admin/campaigns/:id/updates/:updateId", campaignUpdateHandler.Delete)
 
-	// News/articles ("Berita") — editorial content, managed by the same staff roles that
-	// manage campaigns. The public read side is mounted on the unauthenticated group above.
-	staff.GET("/admin/articles", articleHandler.List)
-	staff.GET("/admin/articles/:id", articleHandler.Get)
-	staff.POST("/admin/articles", articleHandler.Create)
-	staff.PUT("/admin/articles/:id", articleHandler.Update)
-	staff.DELETE("/admin/articles/:id", articleHandler.Delete)
+	// News/articles ("Berita") — editorial content: admin + cs + writer. Writer is a
+	// content-only role. The public read side is mounted on the unauthenticated group above.
+	editorial := protected.Group("")
+	editorial.Use(middleware.RequireEditorial())
+	editorial.GET("/admin/articles", articleHandler.List)
+	editorial.GET("/admin/articles/:id", articleHandler.Get)
+	editorial.POST("/admin/articles", articleHandler.Create)
+	editorial.PUT("/admin/articles/:id", articleHandler.Update)
+	editorial.DELETE("/admin/articles/:id", articleHandler.Delete)
 
 	// Admin routes
 	admin := protected.Group("")

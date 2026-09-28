@@ -84,7 +84,7 @@ export const StatusBadge = ({ status, size }: any) => {
 };
 
 export const RoleBadge = ({ role }: any) => {
-  const map: Record<string, string> = { Admin: 'brand', CS: 'sky', Advertiser: 'purple', Fundraiser: 'ok' };
+  const map: Record<string, string> = { Admin: 'brand', CS: 'sky', Advertiser: 'purple', Writer: 'warn', Fundraiser: 'ok' };
   return <Badge tone={map[role] || 'slate'}>{role}</Badge>;
 };
 

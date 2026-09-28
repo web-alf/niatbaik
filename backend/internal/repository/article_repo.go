@@ -39,11 +39,14 @@ func (r *ArticleRepo) FindAll(params pagination.PaginationParams, status, search
 }
 
 // FindPublished is the public list — Published only, newest published first.
-func (r *ArticleRepo) FindPublished(params pagination.PaginationParams, categorySlug, search string) ([]model.Article, int64, error) {
+func (r *ArticleRepo) FindPublished(params pagination.PaginationParams, categorySlug, search string, featured bool) ([]model.Article, int64, error) {
 	var articles []model.Article
 	var total int64
 
 	q := r.db.Model(&model.Article{}).Where("articles.status = ?", "Published")
+	if featured {
+		q = q.Where("articles.featured = ?", true)
+	}
 	if categorySlug != "" {
 		q = q.Joins("JOIN categories ON categories.id = articles.category_id").
 			Where("categories.slug = ?", categorySlug)

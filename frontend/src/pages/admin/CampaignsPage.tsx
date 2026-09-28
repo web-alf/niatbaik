@@ -76,6 +76,17 @@ export default function CampaignsPage() {
     Ended: all.filter((c: any) => c.status==='Ended').length,
   }), [all]);
 
+  // Toggle "tampil di slide hero" (backend `featured`). Landing hero prefers featured campaigns.
+  const toggleHero = async (c: any) => {
+    const next = !c.featured;
+    try {
+      await api.updateCampaign(c.id, { featured: next });
+      setAdminList((list) => (list || []).map((x) => (x.id === c.id ? { ...x, featured: next } : x)));
+      useDataStore.getState().refreshAdmin();
+      showToast(next ? 'Ditampilkan di slide hero' : 'Dihapus dari slide hero');
+    } catch (e: any) { showToast(e?.message || 'Gagal mengubah slide hero'); }
+  };
+
   const filtered = all.filter((c: any) =>
     (tab === 'all' || c.status === tab) &&
     (catFilter === 'all' || c.category === catFilter) &&
@@ -122,7 +133,7 @@ export default function CampaignsPage() {
 
       {view === 'cards' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((c: any) => <CampaignCard key={c.id} c={c} onLeads={() => goLeads(c)} onOpen={() => setCampaignDetail(c)} onEdit={() => goEdit(c)} onAddUpdate={() => setUpdateTarget(c)} onDelete={async () => {
+          {filtered.map((c: any) => <CampaignCard key={c.id} c={c} onLeads={() => goLeads(c)} onOpen={() => setCampaignDetail(c)} onEdit={() => goEdit(c)} onAddUpdate={() => setUpdateTarget(c)} onToggleHero={() => toggleHero(c)} onDelete={async () => {
             if (!(await askConfirm({ title: 'Hapus campaign', message: `Hapus campaign "${c.title}"? Campaign akan dipindah ke Trash.`, confirmLabel: 'Ya, hapus', tone: 'bad', icon: 'trash' }))) return;
             try {
               await api.deleteCampaign(c.id);
@@ -175,7 +186,7 @@ export default function CampaignsPage() {
                     <div className="inline-flex items-center gap-1">
                       <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink" onClick={() => setCampaignDetail(c)}><Icon name="eye" size={16}/></button>
                       <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink" onClick={() => goEdit(c)}><Icon name="edit" size={16}/></button>
-                      <CampaignOptionMenu c={c} onEdit={() => goEdit(c)} onPreview={() => setCampaignDetail(c)} onAddUpdate={() => setUpdateTarget(c)} onDonations={() => goLeads(c)} onDelete={async () => {
+                      <CampaignOptionMenu c={c} onEdit={() => goEdit(c)} onPreview={() => setCampaignDetail(c)} onAddUpdate={() => setUpdateTarget(c)} onDonations={() => goLeads(c)} onToggleHero={() => toggleHero(c)} onDelete={async () => {
                         if (!(await askConfirm({ title: 'Hapus campaign', message: `Hapus campaign "${c.title}"? Campaign akan dipindah ke Trash.`, confirmLabel: 'Ya, hapus', tone: 'bad', icon: 'trash' }))) return;
                         try {
                           await api.deleteCampaign(c.id);
@@ -256,7 +267,7 @@ function AddUpdateModal({ campaign, onClose, onSaved }: any) {
   );
 }
 
-function CampaignCard({ c, onLeads, onOpen, onEdit, onDelete, onAddUpdate }: any) {
+function CampaignCard({ c, onLeads, onOpen, onEdit, onDelete, onAddUpdate, onToggleHero }: any) {
   return (
     <Card className="overflow-hidden hover:shadow-pop transition-shadow group">
       <button type="button" onClick={onLeads} title="Lihat leads campaign ini di dashboard"
@@ -290,7 +301,7 @@ function CampaignCard({ c, onLeads, onOpen, onEdit, onDelete, onAddUpdate }: any
         <div className="mt-4 flex items-center gap-2">
           <Btn size="sm" variant="outline" tone="ink" icon="eye" onClick={onOpen} className="flex-1">Preview</Btn>
           <Btn size="sm" tone="brand" icon="edit" className="flex-1" onClick={onEdit}>Edit</Btn>
-          <CampaignOptionMenu c={c} onEdit={onEdit} onPreview={onOpen} onDelete={onDelete} onAddUpdate={onAddUpdate} onDonations={onLeads}/>
+          <CampaignOptionMenu c={c} onEdit={onEdit} onPreview={onOpen} onDelete={onDelete} onAddUpdate={onAddUpdate} onDonations={onLeads} onToggleHero={onToggleHero}/>
         </div>
       </div>
     </Card>
@@ -298,7 +309,7 @@ function CampaignCard({ c, onLeads, onOpen, onEdit, onDelete, onAddUpdate }: any
 }
 
 // ---------- Option dropdown menu (3-dot) ----------
-function CampaignOptionMenu({ c, onEdit, onPreview, onDelete, onAddUpdate, onDonations, align = 'right' }: any) {
+function CampaignOptionMenu({ c, onEdit, onPreview, onDelete, onAddUpdate, onDonations, onToggleHero, align = 'right' }: any) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<any>(null);   // 'up' | 'down'
   const btnRef = useRef<any>(null);
@@ -330,6 +341,7 @@ function CampaignOptionMenu({ c, onEdit, onPreview, onDelete, onAddUpdate, onDon
   const items: any[] = [
     { l: 'Edit Campaign',              icon: 'edit',     onClick: () => { setOpen(false); onEdit && onEdit(); } },
     { l: `Add Info Update (${updateCount})`, icon: 'pin',      onClick: () => { setOpen(false); onAddUpdate && onAddUpdate(); } },
+    { l: c?.featured ? 'Hapus dari Slide Hero' : 'Tampilkan di Slide Hero', icon: 'star', onClick: () => { setOpen(false); onToggleHero && onToggleHero(); } },
     { l: 'Data Donasi',                icon: 'wallet',   onClick: () => { setOpen(false); onDonations && onDonations(); } },
     { l: 'Preview',                    icon: 'eye',      onClick: () => { setOpen(false); onPreview && onPreview(); } },
     { l: 'Buka di Tab Baru',            icon: 'eye',      onClick: () => { setOpen(false); const u = campaignShareUrl(c); if (u) window.open(u, '_blank'); else showToast('URL campaign belum tersedia'); } },

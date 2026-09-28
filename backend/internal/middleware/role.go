@@ -46,3 +46,9 @@ func RequireAdvertiser() echo.MiddlewareFunc {
 func RequireStaff() echo.MiddlewareFunc {
 	return RequireRole("admin", "cs", "advertiser", "fundraiser")
 }
+
+// RequireEditorial gates news/article ("Berita") management. Writer is a content-only
+// role: it can manage articles but has no campaign/invoice/analytics access.
+func RequireEditorial() echo.MiddlewareFunc {
+	return RequireRole("admin", "cs", "writer")
+}

@@ -34,6 +34,7 @@ type articleInput struct {
 	Image      *string `json:"image"`
 	Status     string  `json:"status"`
 	CategoryID string  `json:"category_id"`
+	Featured   *bool   `json:"featured"`
 }
 
 // validate trims the payload and enforces the shared rules. requireBody is false on
@@ -143,6 +144,9 @@ func (h *ArticleHandler) Create(c echo.Context) error {
 		Image:   deref(req.Image),
 		Status:  status,
 	}
+	if req.Featured != nil {
+		a.Featured = *req.Featured
+	}
 	if status == "Published" {
 		now := time.Now()
 		a.PublishedAt = &now
@@ -189,6 +193,9 @@ func (h *ArticleHandler) Update(c echo.Context) error {
 	if req.Content != "" {
 		a.Content = req.Content
 	}
+	if req.Featured != nil {
+		a.Featured = *req.Featured
+	}
 	if strings.TrimSpace(req.CategoryID) != "" {
 		categoryID, ok := parseCategory(req.CategoryID)
 		if !ok {
@@ -228,7 +235,7 @@ func (h *ArticleHandler) Delete(c echo.Context) error {
 // ListPublic is the public news list — Published rows only.
 func (h *ArticleHandler) ListPublic(c echo.Context) error {
 	params := pagination.GetPaginationParams(c)
-	articles, total, err := h.repo.FindPublished(params, c.QueryParam("category"), c.QueryParam("search"))
+	articles, total, err := h.repo.FindPublished(params, c.QueryParam("category"), c.QueryParam("search"), c.QueryParam("featured") == "1")
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, response.ErrorResponse("failed to fetch articles"))
 	}

@@ -22,6 +22,8 @@ type Article struct {
 	Image      string     `gorm:"size:255" json:"image"`
 	// Status: "Draft" | "Published". Only Published rows are exposed publicly.
 	Status string `gorm:"size:20;not null;default:'Draft';index" json:"status"`
+	// Featured marks the article for the public /berita hero slider (admin toggle).
+	Featured bool `gorm:"default:false" json:"featured"`
 	// PublishedAt is stamped the first time the article goes Published and kept on
 	// later edits, so the public "tanggal terbit" doesn't jump on every re-save.
 	PublishedAt *time.Time `json:"published_at"`

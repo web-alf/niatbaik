@@ -385,9 +385,17 @@ export function Hero({ onNav }: any) {
 const HERO_LOOPS = 3;
 function HeroCampaignSlider({ onNav }: any) {
   const campaigns = useDataStore((s) => s.campaigns);
-  const slides = (campaigns || [])
-    .filter((c: any) => c.status === 'Running' || c.status === 'Published' || c.status === 'Berjalan')
-    .slice(0, 3);
+  const cms = useDataStore((s) => s.siteContent)?.hero || {};
+  const maxSlides = Math.max(1, +cms.maxSlides || 3);
+  const intervalMs = Math.max(2, +cms.intervalSec || 4) * 1000;
+  // Priority: Settings → Homepage manual pick (ordered) → campaigns starred "Tampilkan di
+  // Slide Hero" → first live ones.
+  const live = (campaigns || [])
+    .filter((c: any) => c.status === 'Running' || c.status === 'Published' || c.status === 'Berjalan');
+  const pickedIds: string[] = Array.isArray(cms.campaignIds) ? cms.campaignIds : [];
+  const picked: any[] = pickedIds.map((id) => live.find((c: any) => c.id === id)).filter(Boolean);
+  const starred = live.filter((c: any) => c.featured);
+  const slides = (picked.length ? picked : starred.length ? starred : live).slice(0, maxSlides);
   const n = slides.length;
   const loopSlides = useMemo(() => (
     n ? Array.from({ length: n * HERO_LOOPS }, (_, i) => slides[i % n]) : []
@@ -417,10 +425,10 @@ function HeroCampaignSlider({ onNav }: any) {
 
   useEffect(() => {
     if (n < 2) return;
-    const t = setInterval(() => { const next = physIdx + 1; setPhysIdx(next); scrollToPhys(next); }, 4000);
+    const t = setInterval(() => { const next = physIdx + 1; setPhysIdx(next); scrollToPhys(next); }, intervalMs);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [physIdx, n]);
+  }, [physIdx, n, intervalMs]);
 
   const onTrackScroll = () => {
     const track = trackRef.current;

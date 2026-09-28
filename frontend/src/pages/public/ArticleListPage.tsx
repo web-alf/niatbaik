@@ -7,7 +7,7 @@ import { Navbar, Footer, SocialPopup } from './_components';
 
 type Article = {
   id: string; slug: string; title: string; excerpt?: string; image?: string;
-  published_at?: string | null; created_at?: string;
+  published_at?: string | null; created_at?: string; featured?: boolean;
   category?: { id: string; name: string } | null;
 };
 
@@ -130,6 +130,11 @@ export default function ArticleListPage() {
     () => [ALL_CATEGORIES, ...Array.from(new Set(articles.map((a) => a.category?.name).filter(Boolean) as string[]))],
     [articles]
   );
+  // Slider = admin-starred articles; falls back to the 3 newest when none are starred.
+  const heroArticles = useMemo(() => {
+    const starred = articles.filter((a) => a.featured);
+    return starred.length ? starred : articles.slice(0, 3);
+  }, [articles]);
   const filtered = articles.filter((a) =>
     (category === ALL_CATEGORIES || a.category?.name === category) &&
     a.title.toLowerCase().includes(q.trim().toLowerCase())
@@ -140,7 +145,7 @@ export default function ArticleListPage() {
       <main className="flex-1">
         {articles.length > 0 && (
           <section className="relative overflow-hidden bg-bg2 border-b border-line pt-3 pb-10 lg:pt-5 lg:pb-20">
-            <ArticleHeroSlider articles={articles.slice(0, 3)} onOpen={openArticle} />
+            <ArticleHeroSlider articles={heroArticles} onOpen={openArticle} />
           </section>
         )}
         <section className="py-14 lg:py-20 bg-bg2">

@@ -10,6 +10,7 @@ type Article = {
   status: string;
   slug: string;
   image?: string;
+  featured?: boolean;
   published_at?: string | null;
   user?: { name?: string };
   category?: { id?: string; name?: string };
@@ -50,6 +51,24 @@ export default function ArticlesPage() {
       showToast(err?.message || 'Gagal menghapus berita');
     }
   };
+
+  const toggleFeatured = async (a: Article) => {
+    const next = !a.featured;
+    try {
+      await api.updateArticle(a.id, { featured: next });
+      setArticles((list) => list.map((x) => (x.id === a.id ? { ...x, featured: next } : x)));
+      showToast(next ? 'Ditampilkan di slider' : 'Dihapus dari slider');
+    } catch (err: any) {
+      showToast(err?.message || 'Gagal mengubah slider');
+    }
+  };
+
+  const FeaturedBtn = ({ a }: { a: Article }) => (
+    <button className={`h-8 w-8 rounded-md hover:bg-bg2 ${a.featured ? 'text-amber-500' : 'text-mute hover:text-ink'}`}
+      title={a.featured ? 'Hapus dari slider' : 'Tampilkan di slider'} onClick={() => toggleFeatured(a)}>
+      <Icon name="star" size={16} />
+    </button>
+  );
 
   const counts = {
     all: articles.length,
@@ -114,11 +133,13 @@ export default function ArticlesPage() {
               <div className="p-4 space-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <StatusBadge status={a.status} />
+                  {a.featured && <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Slider</span>}
                   {a.category?.name && <span className="text-xs font-semibold text-brand-600 bg-brand-600/10 px-2 py-0.5 rounded-full">{a.category.name}</span>}
                 </div>
                 <div className="font-semibold text-ink leading-tight line-clamp-2">{a.title}</div>
                 <div className="text-xs text-mute">{a.user?.name || '—'} · {fmtDate(a.published_at)}</div>
                 <div className="flex items-center gap-1 pt-1">
+                  <FeaturedBtn a={a} />
                   <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink disabled:opacity-40" title="Lihat" disabled={a.status !== 'Published'}
                     onClick={() => window.open('/berita/' + a.slug, '_blank')}><Icon name="eye" size={16} /></button>
                   <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink" title="Edit" onClick={() => navigate('/articles/' + a.id + '/edit')}><Icon name="edit" size={16} /></button>
@@ -138,6 +159,7 @@ export default function ArticlesPage() {
                 <th className="py-3 font-semibold">Penulis</th>
                 <th className="py-3 font-semibold">Tanggal Terbit</th>
                 <th className="py-3 font-semibold">Status</th>
+                <th className="py-3 font-semibold">Slider</th>
                 <th className="pr-5 py-3 font-semibold text-right">Aksi</th>
               </tr>
             </thead>
@@ -158,8 +180,10 @@ export default function ArticlesPage() {
                   <td className="py-3 text-mute">{a.user?.name || '—'}</td>
                   <td className="py-3 text-mute">{fmtDate(a.published_at)}</td>
                   <td className="py-3"><StatusBadge status={a.status} /></td>
+                  <td className="py-3 text-xs">{a.featured ? <span className="font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Slider</span> : <span className="text-mute">—</span>}</td>
                   <td className="pr-5 py-3 text-right">
                     <div className="inline-flex items-center gap-1">
+                      <FeaturedBtn a={a} />
                       <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink disabled:opacity-40" title="Lihat" disabled={a.status !== 'Published'}
                         onClick={() => window.open('/berita/' + a.slug, '_blank')}><Icon name="eye" size={16} /></button>
                       <button className="h-8 w-8 rounded-md hover:bg-bg2 text-mute hover:text-ink" title="Edit" onClick={() => navigate('/articles/' + a.id + '/edit')}><Icon name="edit" size={16} /></button>

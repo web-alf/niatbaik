@@ -22,13 +22,9 @@ const DEFAULTS: Record<string, any> = {
     ],
     ctaPrimary: 'Donasi Sekarang',
   },
-  hero: {
-    badge: '{{donors}} donatur aktif', badgeSub: '· Update real-time',
-    headline: 'Salurkan', headlineAccent: 'Niat Baik', headlineTail: 'Anda, wujudkan kebaikan nyata.',
-    paragraph: 'Donasi terverifikasi untuk kemanusiaan, kesehatan, pendidikan, dan wakaf. Transparan, mudah, dan dipercaya oleh {{donors}}+ donatur di Indonesia.',
-    ctaPrimary: 'Mulai Donasi', ctaSecondary: 'Lihat Campaign',
-    trustLines: ['SSL Aman', 'Berizin Kemensos', 'Audit publik bulanan'],
-  },
+  // Hero is now a pure campaign slider (no headline/CTA copy). campaignIds = manual pick;
+  // empty → campaigns starred "Tampilkan di Slide Hero" → first live ones.
+  hero: { maxSlides: 3, intervalSec: 4, campaignIds: [] },
   trust_strip: {
     caption: 'Diliput & dipercaya oleh',
     items: [
@@ -151,6 +147,49 @@ function RowList({ label, rows, fields, onChange, blank }: any) {
   );
 }
 
+// Hero slider settings: slide count, autoplay interval, and manual campaign pick.
+// Campaign list = live campaigns from the public store (same pool the slider reads).
+function HeroSliderFields({ d, patch }: any) {
+  const campaigns = useDataStore((s) => s.campaigns) || [];
+  const live = campaigns.filter((c: any) => ['Running', 'Published', 'Berjalan'].includes(c.status));
+  const ids: string[] = Array.isArray(d.campaignIds) ? d.campaignIds : [];
+  const toggle = (id: string) => patch({ campaignIds: ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id] });
+  const num = (v: string, min: number, max: number, fb: number) => Math.min(max, Math.max(min, parseInt(v, 10) || fb));
+  return (<>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <label className="block">
+        <span className="text-xs font-semibold text-mute">Jumlah slide maksimal</span>
+        <input type="number" min={1} max={10} className="field mt-1" value={d.maxSlides ?? 3} onChange={(e) => patch({ maxSlides: num(e.target.value, 1, 10, 3) })}/>
+      </label>
+      <label className="block">
+        <span className="text-xs font-semibold text-mute">Interval geser otomatis (detik)</span>
+        <input type="number" min={2} max={30} className="field mt-1" value={d.intervalSec ?? 4} onChange={(e) => patch({ intervalSec: num(e.target.value, 2, 30, 4) })}/>
+      </label>
+    </div>
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-semibold text-mute">Pilih campaign untuk slide ({ids.length} dipilih, urut sesuai klik)</span>
+        {ids.length > 0 && <button onClick={() => patch({ campaignIds: [] })} className="text-xs font-bold text-brand-600 hover:underline">Reset</button>}
+      </div>
+      <div className="text-[11px] text-mute mb-2 leading-snug">Kosong = otomatis pakai campaign yang ditandai <b>Tampilkan di Slide Hero</b> di menu Campaigns; kalau tidak ada, campaign aktif terbaru.</div>
+      <div className="max-h-64 overflow-auto rounded-lg border border-line divide-y divide-line">
+        {live.length === 0 && <div className="text-xs text-mute italic p-3">Belum ada campaign aktif.</div>}
+        {live.map((c: any) => {
+          const idx = ids.indexOf(c.id);
+          return (
+            <label key={c.id} className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-bg2/60 cursor-pointer">
+              <input type="checkbox" className="rounded border-line" checked={idx >= 0} onChange={() => toggle(c.id)}/>
+              <span className="flex-1 truncate text-ink">{c.title}</span>
+              {c.featured && <Icon name="star" size={13} className="text-amber-500" />}
+              {idx >= 0 && <span className="text-[10px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-full">#{idx + 1}</span>}
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  </>);
+}
+
 // SectionCard = one editable homepage section. `render` gets (draft, patch) where patch
 // merges a partial into the draft. Save persists the whole draft under `sectionKey`.
 function SectionCard({ title, sub, sectionKey, initial, render }: any) {
@@ -215,26 +254,8 @@ export default function SiteContentPanel() {
           </div>
         </>)}/>
 
-      <SectionCard title="Hero" sub="Bagian utama paling atas" sectionKey="hero" initial={content.hero}
-        render={(d: any, patch: any) => (<>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Text label="Badge" value={d.badge} onChange={(v: any) => patch({ badge: v })} placeholder="{{donors}} donatur aktif"/>
-            <Text label="Badge sub" value={d.badgeSub} onChange={(v: any) => patch({ badgeSub: v })} placeholder="· Update real-time"/>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Text label="Judul (awal)" value={d.headline} onChange={(v: any) => patch({ headline: v })}/>
-            <Text label="Judul (aksen warna)" value={d.headlineAccent} onChange={(v: any) => patch({ headlineAccent: v })}/>
-            <Text label="Judul (akhir)" value={d.headlineTail} onChange={(v: any) => patch({ headlineTail: v })}/>
-          </div>
-          <Text label="Paragraf" area value={d.paragraph} onChange={(v: any) => patch({ paragraph: v })} placeholder="… dipercaya {{donors}}+ donatur …"/>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Text label="Tombol utama" value={d.ctaPrimary} onChange={(v: any) => patch({ ctaPrimary: v })}/>
-            <Text label="Tombol kedua" value={d.ctaSecondary} onChange={(v: any) => patch({ ctaSecondary: v })}/>
-          </div>
-          <RowList label="Trust lines" rows={(d.trustLines || []).map((t: string) => ({ text: t }))}
-            onChange={(v: any) => patch({ trustLines: v.map((r: any) => r.text) })}
-            blank={{ text: '' }} fields={[{ key: 'text', label: 'Teks', full: true }]}/>
-        </>)}/>
+      <SectionCard title="Hero" sub="Slider campaign paling atas" sectionKey="hero" initial={content.hero}
+        render={(d: any, patch: any) => <HeroSliderFields d={d} patch={patch}/>}/>
 
       <SectionCard title="Trust Strip" sub="Logo media/lembaga" sectionKey="trust_strip" initial={content.trust_strip}
         render={(d: any, patch: any) => (<>

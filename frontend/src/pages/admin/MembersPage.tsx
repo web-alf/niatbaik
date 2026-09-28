@@ -114,7 +114,7 @@ export default function MembersPage() {
     <div className="space-y-5">
       <PageHeader
         title="Members / User"
-        subtitle="Tim NIATBAIK.ORG · Admin, CS, dan Advertiser."
+        subtitle="Tim NIATBAIK.ORG · Admin, CS, Advertiser, dan Writer."
         actions={<>
           {(['csv', 'xls'] as const).map((kind) => (
             <Btn key={kind} variant={kind === 'csv' ? 'outline' : undefined} tone="ink" icon="download" onClick={() => {
@@ -136,6 +136,7 @@ export default function MembersPage() {
             { value:'Admin',        label:'Admin',      count: members.filter(m=>m.role==='Admin').length },
             { value:'CS',           label:'CS',         count: members.filter(m=>m.role==='CS').length },
             { value:'Advertiser',   label:'Advertiser', count: members.filter(m=>m.role==='Advertiser').length },
+            { value:'Writer',       label:'Writer',     count: members.filter(m=>m.role==='Writer').length },
             { value:'Fundraiser',   label:'Fundraiser', count: members.filter(m=>m.role==='Fundraiser').length },
           ]}/>
           <div className="ml-auto w-full sm:w-auto"><SearchInput placeholder="Cari nama / email…" value={q} onChange={setQ} className="w-full sm:w-64"/></div>
@@ -205,33 +206,36 @@ export default function MembersPage() {
                 <th className="py-2 font-semibold text-center">Admin</th>
                 <th className="py-2 font-semibold text-center">CS</th>
                 <th className="py-2 font-semibold text-center">Advertiser</th>
+                <th className="py-2 font-semibold text-center">Writer</th>
                 <th className="py-2 font-semibold text-center">Fundraiser</th>
               </tr>
             </thead>
             <tbody>
-              {/* Flags mirror the actual backend RequireRole/RequireStaff groups + frontend
-                  route guards — kept truthful (e.g. CS CAN manage campaigns via the staff
-                  group; Fundraiser only sees its own portal). Reference only; not editable. */}
+              {/* Flags mirror the actual backend RequireRole/RequireStaff/RequireEditorial
+                  groups + frontend route guards — kept truthful (e.g. CS CAN manage campaigns
+                  via the staff group; Writer only manages Berita; Fundraiser only sees its
+                  own portal). Reference only; not editable. */}
               {[
-                { p:'Dashboard', a:1, c:1, ad:1, f:0 },
-                { p:'Kelola Campaign', a:1, c:1, ad:1, f:0 },
-                { p:'Publish/Edit Campaign', a:1, c:1, ad:1, f:0 },
-                { p:'Lihat Transaksi', a:1, c:1, ad:0, f:0 },
-                { p:'Lihat data sensitif donatur (full)', a:1, c:1, ad:0, f:0 },
-                { p:'Update status invoice', a:1, c:1, ad:0, f:0 },
-                { p:'Kirim follow-up WA', a:1, c:1, ad:0, f:0 },
-                { p:'Kelola Payment Method', a:1, c:0, ad:0, f:0 },
-                { p:'Akses Analytics & UTM', a:1, c:0, ad:1, f:0 },
-                { p:'Manage Tracking Pixel', a:1, c:0, ad:1, f:0 },
-                { p:'Kelola Fundraiser', a:1, c:1, ad:0, f:0 },
-                { p:'Portal Fundraiser (referral & komisi)', a:1, c:0, ad:0, f:1 },
-                { p:'Export terbatas (CSV/Excel)', a:1, c:1, ad:1, f:0 },
-                { p:'Kelola Members & Role', a:1, c:0, ad:0, f:0 },
-                { p:'Akses Trash & Restore', a:1, c:0, ad:0, f:0 },
+                { p:'Dashboard', a:1, c:1, ad:1, w:0, f:0 },
+                { p:'Kelola Campaign', a:1, c:1, ad:1, w:0, f:0 },
+                { p:'Publish/Edit Campaign', a:1, c:1, ad:1, w:0, f:0 },
+                { p:'Kelola Berita (artikel)', a:1, c:1, ad:0, w:1, f:0 },
+                { p:'Lihat Transaksi', a:1, c:1, ad:0, w:0, f:0 },
+                { p:'Lihat data sensitif donatur (full)', a:1, c:1, ad:0, w:0, f:0 },
+                { p:'Update status invoice', a:1, c:1, ad:0, w:0, f:0 },
+                { p:'Kirim follow-up WA', a:1, c:1, ad:0, w:0, f:0 },
+                { p:'Kelola Payment Method', a:1, c:0, ad:0, w:0, f:0 },
+                { p:'Akses Analytics & UTM', a:1, c:0, ad:1, w:0, f:0 },
+                { p:'Manage Tracking Pixel', a:1, c:0, ad:1, w:0, f:0 },
+                { p:'Kelola Fundraiser', a:1, c:1, ad:0, w:0, f:0 },
+                { p:'Portal Fundraiser (referral & komisi)', a:1, c:0, ad:0, w:0, f:1 },
+                { p:'Export terbatas (CSV/Excel)', a:1, c:1, ad:1, w:0, f:0 },
+                { p:'Kelola Members & Role', a:1, c:0, ad:0, w:0, f:0 },
+                { p:'Akses Trash & Restore', a:1, c:0, ad:0, w:0, f:0 },
               ].map((r, i) => (
                 <tr key={i} className="border-t border-line">
                   <td className="py-2.5 text-ink font-medium">{r.p}</td>
-                  {[r.a, r.c, r.ad, r.f].map((v, j) => (
+                  {[r.a, r.c, r.ad, r.w, r.f].map((v, j) => (
                     <td key={j} className="py-2.5 text-center">
                       {v ? <span className="inline-flex h-6 w-6 rounded-full bg-emerald-50 text-emerald-600 items-center justify-center"><Icon name="check" size={14} strokeWidth={2.5}/></span>
                          : <span className="inline-flex h-6 w-6 rounded-full bg-slate-100 text-slate-400 items-center justify-center"><Icon name="close" size={14}/></span>}
@@ -276,8 +280,8 @@ export default function MembersPage() {
           </div>
           <div>
             <label className="text-xs font-semibold text-mute">Role</label>
-            <div className="mt-1 grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {['admin','cs','advertiser','fundraiser'].map((r) => (
+            <div className="mt-1 grid grid-cols-2 sm:grid-cols-5 gap-2">
+              {['admin','cs','advertiser','writer','fundraiser'].map((r) => (
                 <button key={r} type="button" onClick={() => setAddForm({...addForm, role: r})}
                   className={`py-2 rounded-lg border text-sm font-bold ${addForm.role === r ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-line hover:bg-bg2'}`}>
                   {r === 'cs' ? 'CS' : r.charAt(0).toUpperCase() + r.slice(1)}

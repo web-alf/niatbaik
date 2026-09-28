@@ -24,7 +24,7 @@ export const NAV: NavItem[] = [
   { key: 'analytics',     label: 'Analytics',        icon: 'chart',      path: '/analytics',     roles: ['Admin', 'Advertiser', 'Fundraiser'] },
   { key: 'data-studio',   label: 'Data Studio',      icon: 'sparkle',    path: '/data-studio',   roles: ['Admin', 'Advertiser', 'Fundraiser'] },
   { key: 'inbox',         label: 'CS Inbox',         icon: 'inbox',      path: '/inbox',         roles: ['Admin', 'CS'] },
-  { key: 'articles',      label: 'Berita',           icon: 'book',       path: '/articles',      roles: ['Admin', 'CS'] },
+  { key: 'articles',      label: 'Berita',           icon: 'book',       path: '/articles',      roles: ['Admin', 'CS', 'Writer'] },
   { key: 'fundraiser',    label: 'Fundraiser',       icon: 'handshake',  path: '/fundraiser',    roles: ['Admin', 'CS'] },
   // Fundraiser portal — the fundraiser's OWN view (referral links, stats, commission,
   // payout). Distinct from the admin '/fundraiser' management page above.
@@ -32,12 +32,12 @@ export const NAV: NavItem[] = [
   { key: 'withdrawals',   label: 'Penarikan Dana',   icon: 'wallet',     path: '/withdrawals',   roles: ['Admin'] },
   { key: 'members',       label: 'Members / User',   icon: 'users',      path: '/members',       roles: ['Admin'] },
   { key: 'gateways',      label: 'Payment Gateways', icon: 'creditcard', path: '/gateways',      roles: ['Admin'] },
-  { key: 'notifications', label: 'Notification',     icon: 'bell',       path: '/notifications', roles: ['Admin', 'CS', 'Advertiser', 'Fundraiser'] },
+  { key: 'notifications', label: 'Notification',     icon: 'bell',       path: '/notifications', roles: ['Admin', 'CS', 'Advertiser', 'Writer', 'Fundraiser'] },
   { key: 'trash',         label: 'Trash',            icon: 'trash',      path: '/trash',         roles: ['Admin'] },
 ];
 
 export const SECONDARY_NAV: NavItem[] = [
-  { key: 'profile',  label: 'Profile',  icon: 'user', path: '/profile',  roles: ['Admin', 'CS', 'Advertiser', 'Fundraiser'] },
+  { key: 'profile',  label: 'Profile',  icon: 'user', path: '/profile',  roles: ['Admin', 'CS', 'Advertiser', 'Writer', 'Fundraiser'] },
   { key: 'settings', label: 'Settings', icon: 'cog',  path: '/settings', roles: ['Admin'] },
 ];
 
@@ -45,12 +45,13 @@ export const ROLE_META: Record<string, { color: string; ring: string; light: str
   Admin:      { color: 'bg-brand-600',  ring: 'ring-brand-600',  light: 'bg-brand-50',  text: 'text-brand-700',  icon: 'shield',    tag: 'Full Access' },
   CS:         { color: 'bg-sky2-500',   ring: 'ring-sky2-500',   light: 'bg-sky2-50',   text: 'text-sky2-600',   icon: 'inbox',     tag: 'Operasional' },
   Advertiser: { color: 'bg-violet-600', ring: 'ring-violet-600', light: 'bg-violet-50', text: 'text-violet-700', icon: 'chart',     tag: 'Marketing' },
+  Writer:     { color: 'bg-amber-600',  ring: 'ring-amber-600',  light: 'bg-amber-50',  text: 'text-amber-700',  icon: 'book',      tag: 'Editorial' },
   Fundraiser: { color: 'bg-emerald-600',ring: 'ring-emerald-600',light: 'bg-emerald-50',text: 'text-emerald-700',icon: 'handshake', tag: 'Mitra' },
 };
 
 // Backend role → design role. admin/cs/advertiser are staff; fundraiser is a partner role
 // that gets its OWN limited shell (portal + payout + profile), NOT the admin nav. Only the
-// donor 'user' role has no design role and is kept out of the shell entirely (RequireAuth).
+// donor 'user' role has no design role and is kept out of the shell entirely (RequireAuth).writer: 'Writer', 
 const ROLE_MAP: Record<string, Role> = { admin: 'Admin', cs: 'CS', advertiser: 'Advertiser', fundraiser: 'Fundraiser' };
 export const isStaffRole = (u: User | null | undefined): boolean =>
   !!u && (!!ROLE_META[u.role as string] || !!ROLE_MAP[(u.role as string)?.toLowerCase?.()]);
@@ -60,8 +61,8 @@ export const toDesignRole = (u: User | null | undefined): Role =>
   (ROLE_META[u?.role as string] ? (u!.role as Role) : (ROLE_MAP[(u?.role as string)?.toLowerCase?.()] || 'Admin'));
 
 // role → allowed nav keys (and the matching first path used as the post-login landing).
-export const NAV_ROLE_KEYS: Record<Role, string[]> = { Admin: [], CS: [], Advertiser: [], Fundraiser: [] };
-(['Admin', 'CS', 'Advertiser', 'Fundraiser'] as Role[]).forEach((r) => {
+export const NAV_ROLE_KEYS: Record<Role, string[]> = { Admin: [], CS: [], Advertiser: [], Writer: [], Fundraiser: [] };
+(['Admin', 'CS', 'Advertiser', 'Writer', 'Fundraiser'] as Role[]).forEach((r) => {
   NAV_ROLE_KEYS[r] = NAV.filter((n) => n.roles.includes(r)).map((n) => n.key);
 });
 

@@ -45,6 +45,26 @@ func (r *TrashRepo) FindDeletedUsers() ([]model.User, error) {
 	return users, err
 }
 
+func (r *TrashRepo) FindDeletedArticles() ([]model.Article, error) {
+	var articles []model.Article
+	err := r.db.Unscoped().
+		Where("deleted_at IS NOT NULL").
+		Order("deleted_at desc").
+		Find(&articles).Error
+	return articles, err
+}
+
+func (r *TrashRepo) RestoreArticle(id uuid.UUID) error {
+	return r.db.Unscoped().
+		Model(&model.Article{}).
+		Where("id = ?", id).
+		Update("deleted_at", nil).Error
+}
+
+func (r *TrashRepo) PermanentDeleteArticle(id uuid.UUID) error {
+	return r.db.Unscoped().Delete(&model.Article{}, "id = ?", id).Error
+}
+
 func (r *TrashRepo) RestoreCampaign(id uuid.UUID) error {
 	return r.db.Unscoped().
 		Model(&model.Campaign{}).

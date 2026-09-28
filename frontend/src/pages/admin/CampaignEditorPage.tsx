@@ -1178,7 +1178,7 @@ function ThumbUploader({ thumb, icon, onChange }: any) {
   );
 }
 
-function RichEditor({ value, onChange }: any) {
+export function RichEditor({ value, onChange }: any) {
   const ref = useRef<any>(null);
   const imgRef = useRef<any>(null);
   const savedRange = useRef<any>(null);

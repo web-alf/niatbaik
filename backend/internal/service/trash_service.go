@@ -23,7 +23,7 @@ func NewTrashService(trashRepo *repository.TrashRepo) *TrashService {
 // 30-day retention countdown.
 type TrashItem struct {
 	ID        uuid.UUID  `json:"id"`
-	Type      string     `json:"type"`   // "campaign" | "user" | "transaction"
+	Type      string     `json:"type"`   // "campaign" | "user" | "transaction" | "article"
 	Name      string     `json:"name"`   // campaign title / user name / invoice number
 	Detail    string     `json:"detail"` // secondary line (slug / email / campaign · nominal)
 	DeletedAt *time.Time `json:"deleted_at"`
@@ -42,8 +42,12 @@ func (s *TrashService) GetAll() ([]TrashItem, error) {
 	if err != nil {
 		return nil, err
 	}
+	articles, err := s.trashRepo.FindDeletedArticles()
+	if err != nil {
+		return nil, err
+	}
 
-	items := make([]TrashItem, 0, len(campaigns)+len(users)+len(invoices))
+	items := make([]TrashItem, 0, len(campaigns)+len(users)+len(invoices)+len(articles))
 	for _, c := range campaigns {
 		var del *time.Time
 		if c.DeletedAt.Valid {
@@ -73,6 +77,14 @@ func (s *TrashService) GetAll() ([]TrashItem, error) {
 		}
 		detail += "Rp " + formatThousands(inv.Total)
 		items = append(items, TrashItem{ID: inv.ID, Type: "transaction", Name: inv.InvoiceNumber, Detail: detail, DeletedAt: del})
+	}
+	for _, a := range articles {
+		var del *time.Time
+		if a.DeletedAt.Valid {
+			t := a.DeletedAt.Time
+			del = &t
+		}
+		items = append(items, TrashItem{ID: a.ID, Type: "article", Name: a.Title, Detail: a.Slug, DeletedAt: del})
 	}
 	return items, nil
 }
@@ -106,6 +118,8 @@ func (s *TrashService) Restore(itemType string, id uuid.UUID) error {
 		return s.trashRepo.RestoreUser(id)
 	case "transaction":
 		return s.trashRepo.RestoreInvoice(id)
+	case "article":
+		return s.trashRepo.RestoreArticle(id)
 	default:
 		return errors.New("invalid item type")
 	}
@@ -117,6 +131,8 @@ func (s *TrashService) PermanentDelete(itemType string, id uuid.UUID) error {
 		return s.trashRepo.PermanentDeleteCampaign(id)
 	case "user":
 		return s.trashRepo.PermanentDeleteUser(id)
+	case "article":
+		return s.trashRepo.PermanentDeleteArticle(id)
 	case "transaction":
 		return s.trashRepo.PermanentDeleteInvoice(id)
 	default:

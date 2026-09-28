@@ -36,6 +36,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) *service.GoogleAdsWork
 	paymentStatusRepo := repository.NewPaymentStatusRepo(db)
 	processedWebhookRepo := repository.NewProcessedWebhookRepo(db)
 	trackingRepo := repository.NewTrackingRepo(db)
+	articleRepo := repository.NewArticleRepo(db)
 	trackingService := service.NewTrackingService(trackingRepo, settingRepo, cfg)
 	dataManagerClient := service.NewGoogleDataManagerClient(nil, "https://oauth2.googleapis.com/token", "https://datamanager.googleapis.com", cfg.GoogleAdsClientID, cfg.GoogleAdsClientSecret, cfg.GoogleDataManagerRefreshToken)
 	googleAdsWorker := service.NewGoogleAdsWorker(invoiceRepo, dataManagerClient)
@@ -92,6 +93,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) *service.GoogleAdsWork
 	dataStudioHandler := handler.NewDataStudioHandler(dataStudioService)
 	cekatAIHandler := handler.NewCekatAIHandler(cekatAIService)
 	trackingHandler := handler.NewTrackingHandler(settingRepo, trackingRepo)
+	articleHandler := handler.NewArticleHandler(articleRepo)
 
 	// Realtime change notifier: a global revision is bumped after every successful
 	// mutating request (RevisionBumper), and long-poll clients block on /events until
@@ -110,6 +112,9 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) *service.GoogleAdsWork
 	api.GET("/campaigns", publicHandler.ListCampaigns)
 	api.GET("/campaigns/:slug", publicHandler.GetCampaign)
 	api.GET("/categories", publicHandler.ListCategories)
+	// Public news ("Berita"). Published rows only — drafts 404 here.
+	api.GET("/articles", articleHandler.ListPublic)
+	api.GET("/articles/:slug", articleHandler.GetPublic)
 	api.GET("/settings/public", publicHandler.GetPublicSettings)
 	api.GET("/site-content/public", siteContentHandler.GetPublic)
 	api.GET("/payment-methods/public", publicHandler.ListPaymentMethods)
@@ -223,6 +228,14 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) *service.GoogleAdsWork
 	staff.GET("/admin/campaigns/:id/updates", campaignUpdateHandler.List)
 	staff.POST("/admin/campaigns/:id/updates", campaignUpdateHandler.Create)
 	staff.DELETE("/admin/campaigns/:id/updates/:updateId", campaignUpdateHandler.Delete)
+
+	// News/articles ("Berita") — editorial content, managed by the same staff roles that
+	// manage campaigns. The public read side is mounted on the unauthenticated group above.
+	staff.GET("/admin/articles", articleHandler.List)
+	staff.GET("/admin/articles/:id", articleHandler.Get)
+	staff.POST("/admin/articles", articleHandler.Create)
+	staff.PUT("/admin/articles/:id", articleHandler.Update)
+	staff.DELETE("/admin/articles/:id", articleHandler.Delete)
 
 	// Admin routes
 	admin := protected.Group("")

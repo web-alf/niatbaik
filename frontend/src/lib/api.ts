@@ -317,6 +317,15 @@ export const api = {
   updateCampaign(id: string | number, data: unknown) { return this.put<any>('/admin/campaigns/' + id, data); },
   deleteCampaign(id: string | number) { return this.del('/admin/campaigns/' + id); },
 
+  // Articles / Berita
+  articles(params = '') { return this.get<any[]>('/articles' + (params ? '?' + params : '')); },
+  article(slug: string) { return this.get<any>('/articles/' + slug); },
+  adminArticles(params = '') { return this.get<any[]>('/admin/articles' + (params ? '?' + params : '')); },
+  adminArticle(id: string | number) { return this.get<any>('/admin/articles/' + id); },
+  createArticle(data: unknown) { return this.post<any>('/admin/articles', data); },
+  updateArticle(id: string | number, data: unknown) { return this.put<any>('/admin/articles/' + id, data); },
+  deleteArticle(id: string | number) { return this.del('/admin/articles/' + id); },
+
   // Per-campaign info updates (detail-page timeline)
   campaignUpdates(id: string | number) { return this.get<any[]>('/admin/campaigns/' + id + '/updates'); },
   createCampaignUpdate(id: string | number, data: unknown) { return this.post<any>('/admin/campaigns/' + id + '/updates', data); },

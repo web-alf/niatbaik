@@ -18,6 +18,8 @@ function Root() {
 }
 
 import LandingPage from '@/pages/public/LandingPage';
+import ArticleListPage from '@/pages/public/ArticleListPage';
+import ArticleDetailPage from '@/pages/public/ArticleDetailPage';
 import CampaignDetailPage from '@/pages/public/CampaignDetailPage';
 import DonationInvoicePage from '@/pages/public/DonationInvoicePage';
 import LegalPage from '@/pages/public/LegalPage';
@@ -35,6 +37,8 @@ import AnalyticsPage from '@/pages/admin/AnalyticsPage';
 import AdvertiserPage from '@/pages/admin/AdvertiserPage';
 import DataStudioPage from '@/pages/admin/DataStudioPage';
 import CsInboxPage from '@/pages/admin/CsInboxPage';
+import ArticlesPage from '@/pages/admin/ArticlesPage';
+import ArticleEditorPage from '@/pages/admin/ArticleEditorPage';
 import FundraiserPage from '@/pages/admin/FundraiserPage';
 import FundraiserPortalPage from '@/pages/fundraiser/FundraiserPortalPage';
 import MembersPage from '@/pages/admin/MembersPage';
@@ -71,6 +75,8 @@ export const router = createBrowserRouter([
         element: <PublicLayout />,
         children: [
           { path: '/', element: <LandingPage /> },
+          { path: '/berita', element: <ArticleListPage /> },
+          { path: '/berita/:slug', element: <ArticleDetailPage /> },
           { path: '/c/:slug', element: <CampaignDetailPage /> },
           { path: '/donations/:invoiceNumber', element: <DonationInvoicePage /> },
           { path: '/syarat-ketentuan', element: <LegalPage kind="terms" /> },
@@ -97,6 +103,9 @@ export const router = createBrowserRouter([
               { path: '/analytics', element: <RequireRole roles={['Admin', 'Advertiser', 'Fundraiser']} allowFundraiser><AnalyticsRoute /></RequireRole> },
               { path: '/data-studio', element: <RequireRole roles={['Admin', 'Advertiser', 'Fundraiser']} allowFundraiser><DataStudioPage /></RequireRole> },
               { path: '/inbox', element: <RequireRole roles={['Admin', 'CS']}><CsInboxPage /></RequireRole> },
+              { path: '/articles', element: <RequireRole roles={['Admin', 'CS']}><ArticlesPage /></RequireRole> },
+              { path: '/articles/new', element: <RequireRole roles={['Admin', 'CS']}><ArticleEditorPage /></RequireRole> },
+              { path: '/articles/:id/edit', element: <RequireRole roles={['Admin', 'CS']}><ArticleEditorPage /></RequireRole> },
               { path: '/fundraiser', element: <RequireRole roles={['Admin', 'CS']}><FundraiserPage /></RequireRole> },
               { path: '/fundraiser-portal', element: <RequireRole roles={['Fundraiser', 'Admin']} allowFundraiser><FundraiserPortalPage /></RequireRole> },
               { path: '/members', element: <RequireRole roles={['Admin']}><MembersPage /></RequireRole> },

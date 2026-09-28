@@ -54,6 +54,7 @@ func Migrate(db *gorm.DB) error {
 		&model.ProcessedWebhook{},
 		&model.PageVisit{},
 		&model.SiteContent{},
+		&model.Article{},
 	)
 	if err != nil {
 		return fmt.Errorf("auto-migration failed: %w", err)

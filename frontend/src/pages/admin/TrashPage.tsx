@@ -38,8 +38,8 @@ export default function TrashPage() {
         type: i.type,
         name: i.name || i.title || 'Unknown',
         meta: i.deleted_at ? daysUntilExpiry(i.deleted_at) : '',
-        icon: i.type === 'campaign' ? 'megaphone' : i.type === 'transaction' ? 'wallet' : 'user',
-        tone: i.type === 'campaign' ? 'brand' : i.type === 'transaction' ? 'ok' : 'sky',
+        icon: i.type === 'campaign' ? 'megaphone' : i.type === 'transaction' ? 'wallet' : i.type === 'article' ? 'book' : 'user',
+        tone: i.type === 'campaign' ? 'brand' : i.type === 'transaction' ? 'ok' : i.type === 'article' ? 'amber' : 'sky',
         size: i.detail || '',
         deletedAt: i.deleted_at,
       })));
@@ -56,12 +56,14 @@ export default function TrashPage() {
     brand: 'bg-brand-50 text-brand-600',
     sky: 'bg-sky2-50 text-sky2-500',
     ok: 'bg-emerald-50 text-emerald-600',
+    amber: 'bg-amber-50 text-amber-600',
   };
 
   const typeCounts = useMemo(() => ({
     all: items.length,
     campaign: items.filter((i) => i.type === 'campaign').length,
     user: items.filter((i) => i.type === 'user').length,
+    article: items.filter((i) => i.type === 'article').length,
     transaction: items.filter((i) => i.type === 'transaction').length,
   }), [items]);
 
@@ -108,7 +110,7 @@ export default function TrashPage() {
     showToast('Trash dikosongkan');
   };
 
-  const typeLabel = (type: string) => ({ campaign: 'Campaign', user: 'User', transaction: 'Transaksi' } as Record<string, string>)[type] || type;
+  const typeLabel = (type: string) => ({ campaign: 'Campaign', user: 'User', transaction: 'Transaksi', article: 'Berita' } as Record<string, string>)[type] || type;
 
   return (
     <div className="space-y-5">
@@ -124,6 +126,7 @@ export default function TrashPage() {
             { value: 'all', label: 'Semua', count: typeCounts.all },
             { value: 'campaign', label: 'Campaigns', count: typeCounts.campaign },
             { value: 'user', label: 'Users', count: typeCounts.user },
+            { value: 'article', label: 'Berita', count: typeCounts.article },
             { value: 'transaction', label: 'Transaksi', count: typeCounts.transaction },
           ]}/>
           <div className="ml-auto w-full sm:w-auto flex flex-wrap items-center gap-2">

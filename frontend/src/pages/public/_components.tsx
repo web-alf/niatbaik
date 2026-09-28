@@ -210,6 +210,7 @@ export function Navbar({ onNav, onHome }: any) {
   const cms = useDataStore((s) => s.siteContent)?.navbar || {};
   const links = (Array.isArray(cms.links) && cms.links.length ? cms.links : [
     { label:'Program', href:'#campaigns' },
+    { label:'Berita', href:'/berita' },
     { label:'Cara Donasi', href:'#how' },
     { label:'Testimoni', href:'#testi' },
     { label:'FAQ', href:'#faq' },
@@ -218,7 +219,9 @@ export function Navbar({ onNav, onHome }: any) {
   // Section-link click. On the landing page let the native anchor jump handle it. On a
   // campaign page, go home first, then scroll to the target section after it renders.
   const goSection = (e: any, hash: string) => {
-    if (!onHome) return; // landing → default anchor behavior
+    // Only hijack in-page hash anchors (#campaigns etc). Real routes (e.g. /berita)
+    // fall through to normal <a> navigation even when onHome (campaign page) is set.
+    if (!onHome || !hash.startsWith('#')) return;
     e.preventDefault();
     setOpen(false);
     onHome();
@@ -2042,15 +2045,12 @@ export function DonationForm({ c, presets, amount, setAmount, donor, setDonor, a
           {/* Email / anonim / comment honor the admin's Advanced > Form > Custom field
               toggles (form_fields_config). When _custom is set, hidden fields are omitted;
               otherwise everything shows (back-compat for campaigns with no custom config). */}
-          {/* Email field disabled per request — donor.email stays whatever it was (usually
-              empty), backend still accepts it as optional. Re-enable by uncommenting.
           {showEmail && (
             <div>
-              <input className={`${fieldCls} ${errors.email ? 'border-rose-400' : ''}`} placeholder="Email (opsional)" value={donor.email} onChange={(e) => { setDonor({...donor, email:e.target.value}); clearErr('email'); }}/>
+              <input type="email" className={`${fieldCls} ${errors.email ? 'border-rose-400' : ''}`} placeholder="Email (opsional)" value={donor.email} onChange={(e) => { setDonor({...donor, email:e.target.value}); clearErr('email'); }}/>
               {errors.email && <div className="mt-1 text-xs text-rose-600">{errors.email}</div>}
             </div>
           )}
-          */}
           {showAnonim && (
             <label className="flex items-center gap-2 text-sm text-ink/80">
               <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} className="rounded border-line"/>

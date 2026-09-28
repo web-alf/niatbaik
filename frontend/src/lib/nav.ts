@@ -24,6 +24,7 @@ export const NAV: NavItem[] = [
   { key: 'analytics',     label: 'Analytics',        icon: 'chart',      path: '/analytics',     roles: ['Admin', 'Advertiser', 'Fundraiser'] },
   { key: 'data-studio',   label: 'Data Studio',      icon: 'sparkle',    path: '/data-studio',   roles: ['Admin', 'Advertiser', 'Fundraiser'] },
   { key: 'inbox',         label: 'CS Inbox',         icon: 'inbox',      path: '/inbox',         roles: ['Admin', 'CS'] },
+  { key: 'articles',      label: 'Berita',           icon: 'book',       path: '/articles',      roles: ['Admin', 'CS'] },
   { key: 'fundraiser',    label: 'Fundraiser',       icon: 'handshake',  path: '/fundraiser',    roles: ['Admin', 'CS'] },
   // Fundraiser portal — the fundraiser's OWN view (referral links, stats, commission,
   // payout). Distinct from the admin '/fundraiser' management page above.

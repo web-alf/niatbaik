@@ -78,10 +78,10 @@ WHERE cm.slug IN ('sumur-bersih-lengkong-ntt','operasi-jantung-aira','beasiswa-1
 -- PAID INVOICES + DONATIONS (12 donations across campaigns)
 -- These drive: dashboard stats, recent transactions, campaign donor lists.
 -- ============================================================
-INSERT INTO invoices (id, invoice_number, campaign_id, subtotal, unique_amount, total, is_paid, status, is_anonymous, donor_name, donor_phone, donor_email, expired_at, paid_at, type_payment, payment_method_name, utm_source, utm_medium, utm_campaign, created_at, updated_at)
+INSERT INTO invoices (id, invoice_number, campaign_id, subtotal, total, is_paid, status, is_anonymous, donor_name, donor_phone, donor_email, expired_at, paid_at, type_payment, payment_method_name, utm_source, utm_medium, utm_campaign, created_at, updated_at)
 SELECT gen_random_uuid(), d.invno,
   (SELECT id FROM campaigns WHERE slug=d.cslug),
-  d.amt, 0, d.amt, true, 'Terbayar', d.anon, d.donor, d.phone, d.email,
+  d.amt, d.amt, true, 'Terbayar', d.anon, d.donor, d.phone, d.email,
   now() + interval '1 day', now() - (d.days_ago || ' days')::interval,
   'Flip', d.method, d.utm_s, d.utm_m, d.utm_c,
   now() - (d.days_ago || ' days')::interval, now()
@@ -107,6 +107,38 @@ SELECT gen_random_uuid(), i.id, i.campaign_id, i.donor_name, i.subtotal, i.creat
 FROM invoices i
 WHERE i.invoice_number LIKE 'INV-SEED%'
   AND NOT EXISTS (SELECT 1 FROM donations dn WHERE dn.invoice_id = i.id);
+
+-- ============================================================
+-- ARTICLES (Berita) — 6 rows: 5 Published (staggered dates) + 1 Draft
+-- Drives: admin Berita list/grid, public /berita hero slider + list, detail page.
+-- ============================================================
+INSERT INTO articles (id, user_id, category_id, title, slug, excerpt, content, image, status, published_at, created_at, updated_at)
+SELECT gen_random_uuid(), current_setting('seed.admin_id')::uuid,
+  (SELECT id FROM categories WHERE slug=a.cat),
+  a.title, a.slug, a.excerpt, a.content, '', a.status,
+  CASE WHEN a.status = 'Published' THEN now() - (a.days_ago || ' days')::interval END,
+  now() - (a.days_ago || ' days')::interval, now()
+FROM (VALUES
+  ('air-bersih', 'Sumur Bor Lengkong Mulai Mengalir, 380 Keluarga Kini Punya Air Bersih', 'sumur-bor-lengkong-mengalir',
+   'Setelah 3 minggu pengeboran, sumur bor di Desa Lengkong resmi beroperasi.',
+   '<h2>Air Akhirnya Mengalir</h2><p>Alhamdulillah, sumur bor sedalam 120 meter di Desa Lengkong, NTT resmi beroperasi. Sebanyak 380 keluarga kini tidak perlu lagi berjalan 4 km untuk mengambil air.</p><p>Terima kasih kepada seluruh donatur yang telah berpartisipasi.</p>', 'Published', 1),
+  ('medis', 'Operasi Jantung Aira Berjalan Lancar', 'operasi-jantung-aira-lancar',
+   'Tim dokter menyatakan operasi berhasil, Aira kini dalam masa pemulihan.',
+   '<h2>Kabar Gembira dari Ruang Operasi</h2><p>Operasi jantung Aira (4 tahun) berlangsung selama 6 jam dan berjalan lancar. Dokter memperkirakan Aira dapat pulang dalam 2 minggu.</p>', 'Published', 3),
+  ('ramadan', 'Laporan Penyaluran Buka Puasa 5.000 Yatim', 'laporan-bukber-5000-yatim',
+   'Rekap distribusi paket buka puasa di 12 titik Jabodetabek.',
+   '<h2>Laporan Penyaluran</h2><p>Sebanyak 5.000 paket buka puasa telah disalurkan ke 12 panti asuhan di Jabodetabek selama 10 hari terakhir Ramadan.</p><ul><li>Jakarta Timur: 1.200 paket</li><li>Bekasi: 900 paket</li><li>Depok: 800 paket</li><li>Tangerang: 1.100 paket</li><li>Bogor: 1.000 paket</li></ul>', 'Published', 7),
+  ('pendidikan', 'Renovasi Madrasah Al-Hikmah Memasuki Tahap Atap', 'renovasi-madrasah-tahap-atap',
+   'Progres renovasi sudah 60%, target selesai sebelum tahun ajaran baru.',
+   '<h2>Progres 60%</h2><p>Pemasangan rangka atap baja ringan telah dimulai. Tiga ruang kelas ditargetkan siap digunakan sebelum tahun ajaran baru.</p>', 'Published', 12),
+  ('bencana', 'Tim Relawan NIATBAIK Salurkan Bantuan ke Pengungsi Banjir Demak', 'relawan-bantuan-banjir-demak',
+   'Sembako, selimut, dan obat-obatan untuk 1.200 pengungsi.',
+   '<h2>Solidaritas untuk Demak</h2><p>Tim relawan menyalurkan 1.200 paket sembako, 800 selimut, dan obat-obatan ke 4 posko pengungsian di Kabupaten Demak.</p>', 'Published', 20),
+  ('wakaf', 'Draft: Rencana Distribusi Wakaf Quran Tahap 2', 'draft-wakaf-quran-tahap-2',
+   'Catatan internal untuk distribusi tahap berikutnya.',
+   '<p>Draft belum dipublikasikan. Berisi rencana distribusi ke 15 pesantren di Jawa Barat.</p>', 'Draft', 0)
+) AS a(cat, title, slug, excerpt, content, status, days_ago)
+ON CONFLICT (slug) DO NOTHING;
 
 -- ============================================================
 -- NOTIFICATIONS (broadcast, user_id NULL)
@@ -145,6 +177,7 @@ SELECT 'categories' AS tbl, COUNT(*) FROM categories
 UNION ALL SELECT 'campaigns', COUNT(*) FROM campaigns
 UNION ALL SELECT 'invoices (seed)', COUNT(*) FROM invoices WHERE invoice_number LIKE 'INV-SEED%'
 UNION ALL SELECT 'donations (seed)', COUNT(*) FROM donations WHERE invoice_id IN (SELECT id FROM invoices WHERE invoice_number LIKE 'INV-SEED%')
+UNION ALL SELECT 'articles', COUNT(*) FROM articles
 UNION ALL SELECT 'notifications', COUNT(*) FROM notifications;
 
 -- ============================================================
@@ -154,6 +187,7 @@ UNION ALL SELECT 'notifications', COUNT(*) FROM notifications;
 -- DELETE FROM donations WHERE invoice_id IN (SELECT id FROM invoices WHERE invoice_number LIKE 'INV-SEED%');
 -- DELETE FROM invoices WHERE invoice_number LIKE 'INV-SEED%';
 -- DELETE FROM campaign_updates WHERE campaign_id IN (SELECT id FROM campaigns WHERE slug IN ('sumur-bersih-lengkong-ntt','operasi-jantung-aira','bukber-5000-yatim','renovasi-madrasah-alhikmah','bantuan-banjir-demak','wakaf-quran-pesantren','modal-usaha-janda','beasiswa-1000-dhuafa'));
+-- DELETE FROM articles WHERE slug IN ('sumur-bor-lengkong-mengalir','operasi-jantung-aira-lancar','laporan-bukber-5000-yatim','renovasi-madrasah-tahap-atap','relawan-bantuan-banjir-demak','draft-wakaf-quran-tahap-2');
 -- DELETE FROM campaigns WHERE slug IN ('sumur-bersih-lengkong-ntt','operasi-jantung-aira','bukber-5000-yatim','renovasi-madrasah-alhikmah','bantuan-banjir-demak','wakaf-quran-pesantren','modal-usaha-janda','beasiswa-1000-dhuafa');
 -- DELETE FROM notifications WHERE title IN ('Donasi baru Rp500.000','Campaign "Operasi Aira" capai 90%','Donasi baru Rp1.000.000','Fundraiser baru bergabung','Pembayaran Flip terverifikasi otomatis');
 -- UPDATE settings SET total_money = COALESCE((SELECT SUM(subtotal) FROM invoices WHERE is_paid = true), 0);

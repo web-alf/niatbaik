@@ -240,7 +240,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
   return (
     <header className="sticky top-0 z-20 h-16 bg-white/85 backdrop-blur border-b border-line">
       <div className="h-full px-4 lg:px-6 flex items-center gap-3">
-        <button onClick={onMenu} className="lg:hidden h-9 w-9 rounded-lg hover:bg-bg2 flex items-center justify-center text-mute">
+        <button onClick={onMenu} aria-label="Buka menu" className="lg:hidden h-9 w-9 rounded-lg hover:bg-bg2 flex items-center justify-center text-mute">
           <Icon name="menu" size={20} />
         </button>
         <div className="flex-1 max-w-xl hidden md:block" ref={wrapRef}>

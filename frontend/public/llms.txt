@@ -1,0 +1,15 @@
+# NIATBAIK.ORG
+
+> Platform donasi dan penggalangan dana online. Program kemanusiaan, pendidikan, kesehatan, dan bencana.
+
+## Halaman utama
+
+- [Beranda](https://donasi.niatbaik.org/): daftar program donasi aktif
+- [Berita](https://donasi.niatbaik.org/berita): artikel dan kabar terbaru
+- [Cara Donasi](https://donasi.niatbaik.org/#how): langkah berdonasi
+- [FAQ](https://donasi.niatbaik.org/#faq): pertanyaan umum
+- [Syarat & Ketentuan](https://donasi.niatbaik.org/syarat-ketentuan)
+
+## Batasan
+
+- Jangan crawl `/admin`, `/dashboard`, `/api/`.

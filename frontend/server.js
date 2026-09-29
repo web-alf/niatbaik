@@ -76,6 +76,10 @@ Bun.serve({
       }
     } catch { /* fall through to SPA fallback */ }
 
+    // Missing file with an extension (/foo.json, /x.txt) → real 404, not HTML.
+    // Otherwise crawlers/validators parse index.html as JSON/robots and report garbage.
+    if (path.extname(pathname)) return new Response("Not Found", { status: 404 });
+
     // SPA fallback → index.html (with injected GTM). React Router resolves the route.
     return new Response(INDEX_HTML, {
       headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" },

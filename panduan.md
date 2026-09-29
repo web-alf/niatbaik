@@ -1,267 +1,324 @@
-# Panduan Deploy NiatBaik di VPS (Docker)
+# Panduan NIATBAIK.ORG — Arsitektur & Deploy
 
-## Kebutuhan
-
-- VPS Ubuntu 22.04 / 24.04 LTS (minimal 1GB RAM, 1 vCPU)
-- Docker & Docker Compose sudah terinstal
-- Domain sudah diarahkan ke IP VPS via Cloudflare (proxied)
-- AAPanel (opsional) — hanya untuk monitoring
+Platform donasi online. Produksi: `https://donasi.niatbaik.org`. Kode di VPS: `/www/wwwroot/niatbaik`.
 
 ---
 
-## 1. Instal Docker
+## 1. Gambaran Proyek
 
-Jika Docker belum terinstal:
+### Stack
+
+| Lapisan | Teknologi |
+|---|---|
+| Backend API | Go 1.22, Echo v4, GORM |
+| Database | PostgreSQL 16 (container `postgres`) |
+| Frontend | React 18 + TypeScript + Vite + Tailwind + zustand |
+| Server frontend | Bun (`frontend/server.js`) — serve `dist/` + SPA fallback + inject GTM |
+| Reverse proxy | Nginx (`docker/nginx/prod.conf`), port 80. TLS di Cloudflare |
+| Orkestrasi | Docker Compose (`docker-compose.prod.yml`, `docker-compose.dev.yml`) |
+
+Tidak ada Redis, queue worker, PHP, atau MySQL. Semua state di Postgres + volume upload.
+
+### Alur request
+
+```
+Browser → Cloudflare (TLS) → nginx:80
+  /api/*        → api:8080   (Go)
+  /api/webhooks → api:8080   (tanpa rate limit, tanpa CSRF)
+  /uploads/*    → api:8080   (file upload, Cache-Control immutable)
+  /             → frontend:3000 (Bun, index.html + GTM)
+  /assets/*     → frontend:3000 (JS/CSS hash, cache 1 tahun)
+```
+
+### Struktur repo
+
+```
+niatbaik/
+├── backend/                 Go API
+│   ├── cmd/server/main.go   entry point: load config → migrate → seed → router
+│   ├── internal/
+│   │   ├── config/          env → struct. Validate() tolak secret lemah di production
+│   │   ├── database/        postgres.go (koneksi), migrate.go (AutoMigrate), seed.go
+│   │   ├── model/           tabel GORM: user, campaign, donation, invoice, article, setting, …
+│   │   ├── repository/      query DB
+│   │   ├── service/         logika bisnis: payment, moota, flip, xendit, ipaymu, duitku, mailer, tracking
+│   │   ├── handler/         HTTP handler per domain
+│   │   ├── middleware/      jwt, role, ratelimit, cors, security, revision
+│   │   ├── dto/             request/response struct + validasi
+│   │   └── router/router.go semua route + grup role
+│   ├── pkg/                 util: hash, jwt, mailer, upload, slug, pagination, realtime
+│   ├── Dockerfile           multi-stage, binary statis
+│   └── Makefile             dev / build / test / test-docker
+├── frontend/
+│   ├── src/
+│   │   ├── router.tsx       semua route + guard RequireRole
+│   │   ├── pages/public/    landing, campaign detail, berita, invoice
+│   │   ├── pages/admin/     dashboard, campaigns, articles, members, settings, …
+│   │   ├── pages/auth/      login, register, reset
+│   │   ├── lib/nav.ts       menu sidebar per role + ROLE_META
+│   │   ├── store/           zustand
+│   │   └── types/api.ts     tipe API + Role
+│   ├── public/              robots.txt, llms.txt, trust/
+│   ├── server.js            Bun static server
+│   └── Dockerfile
+├── docker/nginx/prod.conf   vhost produksi
+├── docker-compose.prod.yml  api, frontend, postgres, nginx
+├── docker-compose.dev.yml   dev dengan hot reload
+├── deploy.sh                deploy penuh (down → build → up). Jarang dipakai
+├── redeploy.sh              deploy update. PAKAI INI
+├── dev.sh                   helper dev lokal
+└── panduan.md               file ini
+```
+
+### Role & hak akses
+
+| Role | Akses |
+|---|---|
+| `admin` | Semua. Users, settings, gateway, withdrawal, trash |
+| `cs` | Campaign, kategori, artikel, invoice (ubah status/note), fundraiser |
+| `advertiser` | Campaign (pixel/tracking), invoice read-only, analytics, data studio |
+| `writer` | Artikel/berita saja |
+| `fundraiser` | Dashboard sendiri, campaign miliknya, earnings, withdrawal |
+| `user` | Donatur biasa (login opsional) |
+
+Grup middleware di `router.go`: `RequireAdmin`, `RequireCS` (admin+cs), `RequireStaff` (admin+cs+advertiser), `RequireEditorial` (admin+cs+writer), `RequireAdvertiser` (admin+advertiser). Frontend cermin di `router.tsx` + `nav.ts`. Kolom `users.role` adalah string — tambah role baru tidak perlu migrasi.
+
+### Database
+
+- Skema dibuat oleh `AutoMigrate` saat API start. Tidak ada file migrasi manual. Non-destruktif: tambah kolom/tabel, tidak pernah drop data.
+- Seed idempoten. Admin pertama dibuat hanya jika belum ada user admin, dan di production hanya jika `SEED_ADMIN_PASSWORD` di-set. Akun demo CS/advertiser dilewati di production.
+- Setting gateway (Moota, Flip, Xendit, iPaymu, Duitku, SMTP, Cekat AI, pixel) disimpan di tabel `settings`, diedit via halaman Settings. Env hanya untuk secret bootstrap.
+
+### Pembayaran
+
+Donasi → invoice → gateway (dipilih di Settings) → webhook `POST /api/webhooks/<gateway>` → tabel `processed_webhooks` (idempoten) → invoice paid → notifikasi + tracking pixel (GA/FB/TikTok server-side).
+
+---
+
+## 2. Setup VPS Pertama Kali
+
+### Kebutuhan
+
+- Ubuntu 22.04/24.04, min 1 GB RAM (2 GB disarankan; build Vite butuh memori)
+- Domain di Cloudflare, proxied, SSL mode **Full**
+- DNS: `A  donasi  <IP VPS>  Proxied`
+
+### Instal Docker
 
 ```bash
 curl -fsSL https://get.docker.com | sh
-systemctl enable docker
-systemctl start docker
-```
-
-Verifikasi:
-
-```bash
-docker --version
+systemctl enable --now docker
 docker compose version
 ```
 
----
-
-## 2. Instal AAPanel (Opsional — Monitoring Only)
+### Clone
 
 ```bash
-wget -O install.sh https://www.aapanel.com/script/install_7.0_en.sh && bash install.sh aapanel
-```
-
-Setelah instal:
-- Buka AAPanel di browser
-- **App Store** → instal **Docker Manager** plugin
-- Plugin ini akan menampilkan container Docker yang berjalan
-
-> **Catatan**: Jangan instal Nginx/PHP/MySQL/Redis di AAPanel — semua sudah di Docker.
-
----
-
-## 3. Clone Repository
-
-```bash
-mkdir -p /www/wwwroot
-cd /www/wwwroot
-
-git clone https://USERNAME:TOKEN@github.com/anrdart/niatbaik.git niatbaik
+mkdir -p /www/wwwroot && cd /www/wwwroot
+git clone git@github.com:web-alf/niatbaik.git niatbaik
 cd niatbaik
 ```
 
-> **Tips SSH Key**: Generate di VPS:
-> ```bash
-> ssh-keygen -t ed25519 -C "deploy@vps"
-> cat ~/.ssh/id_ed25519.pub
-> ```
-> Tambahkan public key di GitHub → Settings → SSH Keys.
-> Lalu clone pakai: `git clone git@github.com:anrdart/niatbaik.git niatbaik`
+SSH key: `ssh-keygen -t ed25519 -C deploy@vps`, tambah `~/.ssh/id_ed25519.pub` ke GitHub → Settings → SSH keys.
 
----
+### Environment
 
-## 4. Konfigurasi Environment
+File: `.env.production` di root repo (gitignored, dibaca oleh service `api` dan `postgres`).
 
 ```bash
-cp src/.env.production src/.env
-nano src/.env
+cp backend/.env.example .env.production
+nano .env.production
 ```
 
-Yang **wajib diganti**:
+Wajib diisi:
 
 ```env
-APP_URL=https://niatbaik.com
+APP_ENV=production
+APP_PORT=8080
 
-DB_DATABASE=niatbaik
-DB_USERNAME=niatbaik
-DB_PASSWORD=GANTI_PASSWORD_DB
+DB_HOST=postgres
+DB_PORT=5432
+DB_USER=niatbaik
+DB_NAME=niatbaik
+DB_PASSWORD=<acak, kuat>          # juga dipakai POSTGRES_PASSWORD
+POSTGRES_PASSWORD=<sama dengan DB_PASSWORD>
+DB_SSLMODE=disable                 # Postgres internal Docker, tanpa TLS
 
-MAIL_USERNAME=emailkamu@gmail.com
-MAIL_PASSWORD=xxxx_xxxx_xxxx_xxxx
-MAIL_FROM_ADDRESS=noreply@niatbaik.com
+JWT_SECRET=<acak, ≥32 karakter>   # openssl rand -hex 32
+JWT_EXPIRY=24h
+JWT_REFRESH_EXPIRY=168h
+
+UPLOAD_DIR=/app/uploads
+MAX_UPLOAD_SIZE=10485760
+
+CORS_ORIGINS=https://donasi.niatbaik.org
+FRONTEND_BASE_URL=https://donasi.niatbaik.org
+
+SEED_ADMIN_PASSWORD=<password admin pertama>   # hapus setelah admin dibuat
 ```
 
-> **Penting**: `DB_HOST=mysql` dan `REDIS_HOST=redis` sudah benar — jangan diubah ke IP. Ini nama container Docker.
+Opsional (bisa juga diisi lewat halaman Settings): `MOOTA_API_KEY`, `MOOTA_WEBHOOK_SECRET`, `FLIP_SECRET_KEY`, `FLIP_VALIDATION_TOKEN`, `GOOGLE_ADS_CLIENT_ID`, `GOOGLE_ADS_CLIENT_SECRET`, `GOOGLE_DATA_MANAGER_REFRESH_TOKEN`.
+
+API **menolak start** di production jika `JWT_SECRET` default/<32 char atau `DB_PASSWORD=secret`.
+
+### Jalankan
+
+```bash
+./deploy.sh prod main
+```
+
+Script: cek secret → fetch + hard reset ke `origin/main` → `down` → `build` → up postgres → tunggu ready → `up -d` semua → health check `/api/health`.
+
+Cek:
+
+```bash
+docker compose -f docker-compose.prod.yml ps        # semua healthy
+docker compose -f docker-compose.prod.yml logs --tail=30 api
+```
+
+Log API harus memuat `Database migrations completed`. Akses `https://donasi.niatbaik.org`, login `admin@niatbaik.org` + `SEED_ADMIN_PASSWORD`. Setelah login, hapus `SEED_ADMIN_PASSWORD` dari `.env.production`.
 
 ---
 
-## 5. Build & Jalankan
+## 3. Deploy Update (rutin)
+
+### Di laptop
+
+```bash
+cd frontend && npx tsc --noEmit -p tsconfig.json && cd ..   # type check
+cd backend && go build ./... && go vet ./... && cd ..        # atau make test-docker
+git add -A && git commit -m "..." && git push origin main
+```
+
+### Di VPS
 
 ```bash
 cd /www/wwwroot/niatbaik
-
-docker compose --env-file src/.env -f docker-compose.prod.yml build
-docker compose --env-file src/.env -f docker-compose.prod.yml up -d
+./redeploy.sh main
 ```
 
-Cek status:
+`redeploy.sh`:
+1. Pastikan `DB_SSLMODE=disable` (hanya jika `DB_HOST=postgres`)
+2. `git fetch` + `checkout -B main origin/main` + `reset --hard` — **tidak perlu `git pull` manual**
+3. `docker compose build api frontend`
+4. `up -d --force-recreate --no-deps nginx api frontend` — postgres **tidak disentuh**
+5. Health check `/api/health` + cek `/uploads/` tidak balas HTML
 
-```bash
-docker compose --env-file src/.env -f docker-compose.prod.yml ps
-```
+Data aman karena:
+- DB di volume `niatbaik_postgres-data`, tidak pernah `down -v`
+- Upload di volume `niatbaik_api-uploads`, mount ke `/app/uploads` di api
+- `.env.production` gitignored, dibackup ke `.env.production.predeploy.bak` sebelum reset
+- Migrasi `AutoMigrate` hanya tambah, tidak drop
 
-Semua container harus `running` dan `healthy`.
+Kapan pakai `deploy.sh` (bukan `redeploy.sh`): perubahan di `docker-compose.prod.yml` (service/volume/port baru) atau image postgres.
 
 ---
 
-## 6. Inisialisasi Aplikasi
-
-```bash
-DC="docker compose --env-file src/.env -f docker-compose.prod.yml"
-
-# Generate app key
-$DC exec app php artisan key:generate
-
-# Jalankan migrasi database
-$DC exec app php artisan migrate --force
-
-# Link storage
-$DC exec app php artisan storage:link
-
-# Optimasi cache
-$DC exec app php artisan config:cache
-$DC exec app php artisan route:cache
-$DC exec app php artisan view:cache
-$DC exec app php artisan event:cache
-```
-
----
-
-## 7. Cloudflare DNS & SSL
-
-1. Login ke Cloudflare
-2. Tambahkan DNS record:
-
-| Type | Name | Content | Proxy |
-|------|------|---------|-------|
-| A | `donasi` | IP VPS | Proxied (orange) |
-
-3. **SSL/TLS** → pilih mode **Full**
-4. Akses `https://donasi.niatbaik.org` — harus sudah jalan
-
----
-
-## 8. Buat Admin Pertama
-
-```bash
-DC="docker compose --env-file src/.env -f docker-compose.prod.yml"
-$DC exec app php artisan tinker
-```
-
-```php
-$user = \App\Models\User::create([
-    'name' => 'Admin',
-    'email' => 'admin@niatbaik.org',
-    'password' => bcrypt('#MakinBaik2030'),
-    'role' => 'admin',
-    'email_verified_at' => now(),
-]);
-```
-
-Akses admin panel di `https://donasi.niatbaik.org/dashboard/manage`.
-
----
-
-## Deploy Update
-
-Setiap ada update kode:
+## 4. Backup
 
 ```bash
 cd /www/wwwroot/niatbaik
-bash deploy.sh
+DC="docker compose -f docker-compose.prod.yml"
+mkdir -p /root/backups
+D=$(date +%F)
+
+# Database
+$DC exec -T postgres pg_dump -U niatbaik niatbaik | gzip > /root/backups/db-$D.sql.gz
+
+# Upload gambar
+docker run --rm -v niatbaik_api-uploads:/u:ro -v /root/backups:/b alpine \
+  tar czf /b/uploads-$D.tgz -C /u .
+
+# Env
+cp .env.production /root/backups/env-$D
 ```
 
-Atau manual:
+Restore DB:
 
 ```bash
-cd /www/wwwroot/niatbaik
-DC="docker compose --env-file src/.env -f docker-compose.prod.yml"
+gunzip -c /root/backups/db-YYYY-MM-DD.sql.gz | $DC exec -T postgres psql -U niatbaik niatbaik
+```
 
-git pull origin main
-$DC build
-$DC up -d
-$DC exec app php artisan migrate --force
-$DC exec app php artisan config:cache
-$DC exec app php artisan route:cache
-$DC exec app php artisan view:cache
-$DC exec app php artisan event:cache
-$DC restart worker scheduler
+Restore upload:
+
+```bash
+docker run --rm -v niatbaik_api-uploads:/u -v /root/backups:/b alpine \
+  sh -c 'cd /u && tar xzf /b/uploads-YYYY-MM-DD.tgz'
+```
+
+Cron harian (`crontab -e`):
+
+```
+0 3 * * * cd /www/wwwroot/niatbaik && docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U niatbaik niatbaik | gzip > /root/backups/db-$(date +\%F).sql.gz
 ```
 
 ---
 
-## Perintah Berguna
+## 5. Perintah Berguna
+
+`DC="docker compose -f docker-compose.prod.yml"`
 
 | Perintah | Fungsi |
-|----------|--------|
-| `$DC ps` | Lihat status semua container |
-| `$DC logs app` | Lihat log PHP-FPM |
-| `$DC logs nginx` | Lihat log Nginx |
-| `$DC logs worker` | Lihat log queue worker |
-| `$DC logs -f app` | Follow log realtime |
-| `$DC exec app sh` | Masuk shell container app |
-| `$DC exec app php artisan tinker` | Jalankan Tinker |
-| `$DC down` | Stop semua container |
-| `$DC up -d` | Start semua container |
-| `$DC restart worker` | Restart queue worker |
-| `$DC build --no-cache` | Rebuild tanpa cache |
+|---|---|
+| `$DC ps` | Status container |
+| `$DC logs -f api` | Log API realtime |
+| `$DC logs --tail=50 nginx` | Log nginx |
+| `$DC exec postgres psql -U niatbaik` | Shell Postgres |
+| `$DC exec api sh` | Shell container API |
+| `$DC restart api` | Restart API (tanpa rebuild) |
+| `$DC up -d --force-recreate nginx` | Reload nginx conf |
+| `$DC build --no-cache api frontend` | Rebuild tanpa cache |
+| `docker system prune -a` | Bersihkan image lama (disk penuh) |
+| `curl -s localhost/api/health` | Cek API via nginx |
 
-> **Catatan**: `$DC` = `docker compose -f docker-compose.prod.yml`
+Ubah role user langsung di DB:
+
+```sql
+UPDATE users SET role='writer' WHERE email='x@y.z';
+```
 
 ---
 
-## Troubleshooting
+## 6. Troubleshooting
 
-| Masalah | Solusi |
-|---------|--------|
-| 502 Bad Gateway | `$DC logs app` — cek PHP-FPM error. `$DC ps` — pastikan `app` healthy |
-| 500 error | `$DC exec app cat storage/logs/laravel.log` — biasanya .env salah |
-| Container restart loop | `$DC logs <nama>` — cek error. Biasanya DB belum ready |
-| CSS/JS tidak muncul | `$DC build --no-cache` — rebuild frontend assets |
-| Queue tidak jalan | `$DC logs worker` — cek error |
-| Redis error | `$DC ps` — pastikan redis healthy. `$DC restart redis` |
-| Upload gagal | Cek `client_max_body_size` di `docker/nginx/default.conf` |
-| Permission denied (storage) | `$DC exec app chown -R www-data:www-data storage bootstrap/cache` |
-| Database connection refused | Pastikan `DB_HOST=mysql` di `.env` (bukan 127.0.0.1) |
-| Build error (npm) | `$DC build --no-cache` — atau cek `package-lock.json` valid |
-| Disk penuh | `docker system prune -a` — hapus image/container lama |
+| Gejala | Penyebab / solusi |
+|---|---|
+| API tidak start, log `JWT_SECRET must be…` | Secret lemah di `.env.production`. Ganti, `$DC up -d api` |
+| API `sslmode` / `SSL is not enabled` | Tambah `DB_SSLMODE=disable` di `.env.production` |
+| `password authentication failed` | `DB_PASSWORD` ≠ `POSTGRES_PASSWORD`, atau password diubah setelah volume dibuat. Samakan; jika volume baru, hapus volume atau `ALTER USER` |
+| 502 di semua path | `$DC ps` — api/frontend belum healthy. `$DC logs api` |
+| Gambar upload 404 / balas HTML | nginx pakai conf lama. `$DC up -d --force-recreate nginx` |
+| nginx `unhealthy` padahal situs jalan | Inode bind-mount conf basi. Sama: force-recreate nginx |
+| Perubahan frontend tidak muncul | Cache browser / Cloudflare. Purge cache Cloudflare; `$DC build frontend && $DC up -d frontend` |
+| Build frontend OOM (`Killed`) | RAM kurang. Tambah swap: `fallocate -l 2G /swapfile && mkswap /swapfile && swapon /swapfile` |
+| Webhook gateway tidak masuk | Cek URL webhook di dashboard gateway = `https://donasi.niatbaik.org/api/webhooks/<gateway>`. Lihat `$DC logs api \| grep webhook` |
+| Email tidak terkirim | SMTP di Settings → tombol Test Email. Gmail butuh App Password |
+| `git diff` "terminal is not fully functional" | `export TERM=xterm` atau `git --no-pager diff` |
+| Login admin lupa password | Pakai Lupa Password (butuh SMTP aktif). Tanpa SMTP: `UPDATE users SET role='user' WHERE role='admin'`, set `SEED_ADMIN_PASSWORD`, `$DC restart api` → seed buat admin baru; lalu kembalikan role lama |
 
 ---
 
-## Struktur di VPS
+## 7. Dev Lokal
 
-```
-/www/wwwroot/niatbaik/               <- root project
-├── docker/                          <- Docker config
-│   ├── Dockerfile                   <- multi-stage build
-│   ├── nginx/
-│   │   └── default.conf             <- Nginx vhost
-│   └── php/
-│       ├── php.ini                  <- PHP settings
-│       └── opcache.ini              <- OPcache settings
-├── docker-compose.prod.yml          <- production compose
-├── deploy.sh                        <- deploy script
-├── panduan.md                       <- file ini
-└── src/                             <- Laravel app
-    ├── .env                         <- konfigurasi aktif
-    ├── .env.production              <- template
-    └── ...
-```
-
-## Docker Volumes
-
-| Volume | Isi | Persist |
-|--------|-----|---------|
-| `mysql-data` | Database MySQL | Ya |
-| `redis-data` | Redis data | Ya |
-| `app-storage` | Laravel storage (uploads, logs, cache) | Ya |
-| `app-public` | Static files (CSS/JS compiled) | Ya (rebuild saat deploy) |
-
-Untuk backup database:
 ```bash
-DC="docker compose --env-file src/.env -f docker-compose.prod.yml"
-$DC exec mysql mysqldump -u root -p"$DB_PASSWORD" niatbaik > backup.sql
+./dev.sh            # up: api :8080, frontend :3000 (hot reload), postgres :5432
+./dev.sh logs:api
+./dev.sh db         # psql
+./dev.sh db:reset   # hapus data dev
+./dev.sh clean      # hapus volume dev
 ```
+
+Akun dev (seed, hanya `APP_ENV≠production`): `admin@niatbaik.org` / `admin123`, plus demo CS/advertiser.
+
+Tanpa Docker: `cd backend && make dev` (butuh Postgres lokal + `.env`), `cd frontend && npm run dev`.
+
+---
+
+## 8. Docker Volumes
+
+| Volume | Isi | Hilang jika |
+|---|---|---|
+| `niatbaik_postgres-data` | Seluruh database | `docker compose down -v` atau `docker volume rm` — **jangan** |
+| `niatbaik_api-uploads` | Gambar campaign, artikel, logo | sama |
+
+`redeploy.sh` dan `deploy.sh` tidak pernah menghapus volume.

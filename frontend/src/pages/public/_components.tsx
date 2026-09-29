@@ -263,7 +263,7 @@ export function Navbar({ onNav, onHome }: any) {
               points at /login (ponytail: add a real /register route + link when signup ships). */}
           <a href="/login" className="hidden lg:inline-flex px-3 py-2 rounded-lg text-sm font-semibold text-ink/80 hover:bg-bg2 hover:text-ink">Masuk</a>
           <PrimaryBtn size="sm" className="hidden lg:inline-flex" onClick={() => (window.location.href = '/register-fundraiser')}>Daftar</PrimaryBtn>
-          <button onClick={() => setOpen(!open)} className="lg:hidden h-9 w-9 rounded-lg hover:bg-bg2 flex items-center justify-center"><Icon name="menu" size={20}/></button>
+          <button onClick={() => setOpen(!open)} aria-label="Buka menu" aria-expanded={open} className="lg:hidden h-9 w-9 rounded-lg hover:bg-bg2 flex items-center justify-center"><Icon name="menu" size={20}/></button>
         </div>
       </div>
       {/* Mobile drawer: slides in from the RIGHT. Kept mounted so the CSS
@@ -274,9 +274,10 @@ export function Navbar({ onNav, onHome }: any) {
       {createPortal(<>
       <div className={`lg:hidden fixed inset-0 z-[90] bg-ink/40 transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setOpen(false)} aria-hidden="true"/>
-      <aside className={`lg:hidden fixed top-0 right-0 z-[100] h-full w-72 max-w-[85vw] bg-white shadow-pop flex flex-col
+      {/* <div> not <aside>: aside has implicit role=complementary, which conflicts with role=dialog. */}
+      <div className={`lg:hidden fixed top-0 right-0 z-[100] h-full w-72 max-w-[85vw] bg-white shadow-pop flex flex-col
         transition-transform duration-300 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}
-        role="dialog" aria-label="Menu">
+        role="dialog" aria-modal="true" aria-label="Menu" aria-hidden={!open}>
         <div className="h-16 px-4 flex items-center justify-between border-b border-line">
           {navLogo ? <img src={mediaUrl(navLogo)} alt="NIATBAIK.ORG" className="h-7"/> : <Logo size={28}/>}
           <button onClick={() => setOpen(false)} aria-label="Tutup menu" className="h-9 w-9 rounded-lg hover:bg-bg2 flex items-center justify-center">
@@ -297,7 +298,7 @@ export function Navbar({ onNav, onHome }: any) {
         <div className="p-4 border-t border-line">
           <PrimaryBtn size="md" className="w-full justify-center" onClick={() => (window.location.href = '/login')}>Daftar</PrimaryBtn>
         </div>
-      </aside>
+      </div>
       </>, document.body)}
     </header>
   );
@@ -474,8 +475,10 @@ function HeroCampaignSlider({ onNav }: any) {
                 copy on top stays fully uncropped. */}
             {hasThumbImage(c) ? (
               <>
-                <img src={mediaUrl(campaignImage(c))} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-70"/>
-                <img src={mediaUrl(campaignImage(c))} alt={c.title} className="relative w-full h-full object-contain"/>
+                {/* Same URL twice = one network fetch. First visible slide is the LCP element:
+                    eager + fetchpriority=high; the rest lazy so they don't compete for bandwidth. */}
+                <img src={mediaUrl(campaignImage(c))} alt="" aria-hidden="true" decoding="async" loading={i === physIdx ? 'eager' : 'lazy'} className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-70"/>
+                <img src={mediaUrl(campaignImage(c))} alt={c.title} decoding="async" loading={i === physIdx ? 'eager' : 'lazy'} {...(i === physIdx ? { fetchpriority: 'high' } : {})} className="relative w-full h-full object-contain"/>
               </>
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-white/85" style={thumbStyle(c)}><Icon name={c.icon} size={56} strokeWidth={1.2}/></div>

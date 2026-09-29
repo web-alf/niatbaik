@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { mapCampaign } from '@/lib/mappers';
 import { Icon } from '@/components';
 import { useDataStore } from '@/store/data';
-import { Navbar, Footer, SocialPopup, CampaignPage, getCampaigns } from './_components';
+import { Footer, SocialPopup, CampaignPage, getCampaigns } from './_components';
 
 export default function CampaignDetailPage() {
   const { slug } = useParams();
@@ -42,17 +42,8 @@ export default function CampaignDetailPage() {
     return () => { alive = false; };
   }, [id]);
 
-  // Same navbar as the landing page (consistent header across the public site). The logo /
-  // 'home' action + section links return to the landing route via onBack; the Donasi button
-  // routes through onNav('campaign') like everywhere else.
-  // Desktop-only global header. On mobile the campaign page shows its own compact
-  // sub-bar with a "Kembali ke beranda" back button, so the global Navbar is hidden to
-  // give the campaign content the full small screen (per feedback).
-  const Header = (
-    <div className="hidden lg:block">
-      <Navbar onNav={(name: any) => { if (name === 'home') onBack(); }} onHome={onBack}/>
-    </div>
-  );
+  // No global header/menu on the campaign page: keep focus on donating (per feedback).
+  const Header = null;
 
   if (state === 'loading') {
     // Skeleton mirrors the real campaign-detail layout (cover + story on the left, the

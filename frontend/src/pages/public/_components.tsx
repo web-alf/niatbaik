@@ -1326,28 +1326,13 @@ export function CampaignPage({ c: listItem, onNav }: any) {
 
   return (
     <>
-      {/* Sub-bar under the shared navbar: breadcrumb back (left) + share (top-right). The
-          main home navigation lives in the Navbar above; this keeps the campaign-scoped
-          "kembali" + the Bagikan button close to the content. */}
-      {/* backdrop-blur makes this section a stacking context even when lg:static, which
-          trapped the share dropdown's z-20 under the lg:sticky donation card. Keep the
-          section positioned with a z above the content column on desktop instead. */}
-      <section className="bg-white/90 backdrop-blur border-b border-line sticky top-0 z-30 lg:relative lg:z-40 lg:bg-bg2">
-        <div className="max-w-7xl mx-auto px-3 lg:px-6 py-1.5 lg:py-3 flex items-center justify-between gap-2 lg:gap-3">
-          <button onClick={() => onNav('home')} className="inline-flex items-center gap-1 lg:gap-1.5 text-xs lg:text-sm font-semibold text-mute hover:text-ink min-w-0">
-            <Icon name="chevronL" size={14} className="shrink-0 lg:hidden"/>
-            <Icon name="chevronL" size={16} className="shrink-0 hidden lg:inline"/>
-            <span className="truncate">{c.title}</span>
-          </button>
-          <ShareCampaign c={c} slug={slug}/>
-        </div>
-      </section>
-
+      {/* ponytail: title + Bagikan sub-bar removed per feedback. ShareCampaign kept
+          (unused) for easy restore: <ShareCampaign c={c} slug={slug}/>. */}
       {view === 'content' ? (
         <section className="bg-bg2">
-          <div className="max-w-7xl mx-auto px-4 lg:px-6 pt-0 pb-6 lg:pb-10 grid lg:grid-cols-5 gap-6">
-            {/* Left main */}
-            <div className="lg:col-span-3">
+          {/* Single centered column (sidebar removed). */}
+          <div className="max-w-3xl mx-auto px-4 lg:px-6 pt-0 pb-6 lg:pb-10">
+            <div>
               {/* Full image, no crop: real photo uses its natural aspect ratio (w-full
                   h-auto + object-contain) instead of a fixed aspect-ratio bg-cover box,
                   so nothing is cut off on either mobile or desktop. Only the no-image
@@ -1379,28 +1364,19 @@ export function CampaignPage({ c: listItem, onNav }: any) {
                 <h1 className="mt-1 text-xl lg:text-3xl font-extrabold leading-snug lg:leading-tight text-ink">{c.title}</h1>
               </div>
 
-              {/* Mobile-only top CTA: the full progress+donate card is in the sidebar,
-                  which on phones stacks BELOW the whole story. This compact block puts a
-                  donate button + progress within reach right under the title so donors
-                  don't have to scroll past the entire story to act. */}
-              <div className="lg:hidden mt-4 rounded-2xl bg-white border border-line shadow-card p-4">
-                <div className="flex items-end justify-between gap-3">
-                  <div>
-                    <div className="text-[11px] font-bold uppercase tracking-wider text-mute">Donasi terkumpul</div>
-                    <div className="mt-0.5 text-2xl font-extrabold text-brand-600 leading-none">{fmtIDR(c.raised)}</div>
-                    <div className="text-xs text-mute mt-0.5">dari target <b>{fmtIDR(c.target)}</b></div>
-                  </div>
-                  <div className="text-right text-xs">
-                    <div className="font-extrabold text-emerald-600 text-base leading-none">{pctLabel(c.raised, c.target)}</div>
-                    <div className="text-mute mt-0.5 inline-flex items-center gap-1">
-                      {hasDeadline(c) ? `${c.daysLeft} hari lagi` : <><Icon name="infinity" size={12}/> Tanpa batas</>}
-                    </div>
-                  </div>
-                </div>
-                <Progress value={c.raised} max={c.target} className="h-2 mt-3"/>
+              {/* Single donate card under the title (all breakpoints): only the amount
+                  raised + the donate button, per feedback. The old sidebar card (donors,
+                  days left, %, trust badges) was removed. */}
+              <div className="mt-4 rounded-2xl bg-white border border-line shadow-card p-4 lg:p-5">
+                <div className="text-[11px] lg:text-xs font-bold uppercase tracking-wider text-mute">Donasi terkumpul</div>
+                <div className="mt-0.5 text-2xl lg:text-3xl font-extrabold text-brand-600 leading-none">{fmtIDR(c.raised)}</div>
+                <div className="text-xs lg:text-sm text-mute mt-1">dari target <b>{fmtIDR(c.target)}</b></div>
                 <PrimaryBtn size="lg" className="w-full mt-3" onClick={() => setView('form')}>
                   <Icon name="heart" size={18}/> {ctaLabel}
                 </PrimaryBtn>
+              </div>
+              <div className="hidden lg:block mt-2 text-center text-xs text-mute">
+                Butuh bantuan? <a href={csHelpHref} target="_blank" rel="noopener noreferrer" className="font-bold text-brand-600 hover:underline">Hubungi CS via WhatsApp</a>
               </div>
 
               <div className="mt-5 rounded-2xl bg-white border border-line p-5 lg:p-6">
@@ -1434,41 +1410,6 @@ export function CampaignPage({ c: listItem, onNav }: any) {
               </div>
             </div>
 
-            {/* Right progress + CTA */}
-            <div className="lg:col-span-2">
-              <div className="lg:sticky lg:top-20">
-                <div className="rounded-2xl bg-white border border-line shadow-card p-5">
-                  <div className="text-xs font-bold uppercase tracking-wider text-mute">Donasi terkumpul</div>
-                  <div className="mt-1 text-3xl font-extrabold text-brand-600">{fmtIDR(c.raised)}</div>
-                  <div className="text-sm text-mute">dari target <b>{fmtIDR(c.target)}</b></div>
-                  <Progress value={c.raised} max={c.target} className="h-2.5 mt-3"/>
-                  <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
-                    <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Donatur</div><div className="font-extrabold text-ink">{fmtNum(c.donors)}</div></div>
-                    <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Sisa hari</div><div className="font-extrabold text-rose-600">{hasDeadline(c) ? c.daysLeft : <Icon name="infinity" size={16} className="inline"/>}</div></div>
-                    <div className="p-2 rounded-lg bg-bg2"><div className="text-mute">Tercapai</div><div className="font-extrabold text-emerald-600">{pctLabel(c.raised, c.target)}</div></div>
-                  </div>
-
-                  <div className="mt-5 pt-5 border-t border-line">
-                    <PrimaryBtn size="lg" className="w-full" onClick={() => setView('form')}>
-                      <Icon name="heart" size={18}/> {ctaLabel}
-                    </PrimaryBtn>
-                    <div className="mt-2 text-center text-[11px] text-mute">
-                      <Icon name="shield" size={12} className="inline mr-1 text-emerald-600"/> Pembayaran aman melalui QRIS, VA, dan e-wallet
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-line flex items-center justify-around text-[10px] font-bold text-mute">
-                    <span className="inline-flex items-center gap-1"><Icon name="shield" size={12} className="text-emerald-600"/>SSL Aman</span>
-                    <span className="inline-flex items-center gap-1"><Icon name="check"  size={12} className="text-emerald-600"/>Terverifikasi</span>
-                    <span className="inline-flex items-center gap-1"><Icon name="heart"  size={12} className="text-rose-500"/>Donasi Aman</span>
-                  </div>
-                </div>
-
-                <div className="hidden lg:block mt-3 text-center text-xs text-mute">
-                  Butuh bantuan? <a href={csHelpHref} target="_blank" rel="noopener noreferrer" className="font-bold text-brand-600 hover:underline cursor-pointer">Hubungi CS via WhatsApp</a>
-                </div>
-              </div>
-            </div>
           </div>
         </section>
       ) : (
@@ -2022,10 +1963,6 @@ export function DonationForm({ c, presets, amount, setAmount, donor, setDonor, a
 
   return (
     <div className="rounded-2xl bg-white border border-line shadow-card p-5 lg:p-6">
-      <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm font-semibold text-mute hover:text-ink mb-4">
-        <Icon name="chevronL" size={16}/> Kembali ke campaign
-      </button>
-
       <div className="flex items-center gap-3 pb-4 border-b border-line">
         <div className="h-12 w-12 rounded-xl overflow-hidden shrink-0" style={thumbStyle(c)}>
           {!hasThumbImage(c) && <div className="w-full h-full flex items-center justify-center text-white/85"><Icon name={c.icon} size={24} strokeWidth={1.5}/></div>}

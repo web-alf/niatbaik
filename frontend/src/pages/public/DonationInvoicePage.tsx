@@ -77,9 +77,6 @@ export default function DonationInvoicePage() {
   const Header = (
     <header className="sticky top-0 z-30 bg-white/85 backdrop-blur border-b border-line">
       <div className="max-w-7xl mx-auto px-4 lg:px-6 h-16 flex items-center gap-4">
-        <button onClick={onBack} className="inline-flex items-center gap-2 text-sm font-bold text-ink">
-          <Icon name="chevronL" size={16}/> Kembali ke beranda
-        </button>
         <div className="flex-1"/>
         <button onClick={toggleDark} aria-label="Toggle dark mode"
           className="h-9 w-9 rounded-lg border border-line bg-white hover:bg-bg2 flex items-center justify-center text-ink">

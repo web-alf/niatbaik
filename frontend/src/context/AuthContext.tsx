@@ -79,6 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const onExpired = () => {
       setUser(null);
       clearPersistedData(); // don't leave cached admin PII for the next user on this browser
+      // A stale token on a PUBLIC page (landing, /c/:slug, invoice…) makes the mount-time
+      // me() 401 — that must not kick a visitor to /login. Only redirect from admin routes.
+      const p = window.location.pathname;
+      const isPublic = p === '/' || /^\/(berita|c|donations|syarat-ketentuan|kebijakan-privasi|disklaimer|login|forgot-password|reset-password|register-fundraiser|verify-fundraiser-email)(\/|$)/.test(p);
+      if (isPublic) return;
       useUiStore.getState().showToast('Sesi berakhir. Silakan masuk kembali.');
       navRef.current('/login');
     };

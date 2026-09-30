@@ -462,26 +462,20 @@ function HeroCampaignSlider({ onNav }: any) {
   return (
     <div className="w-full">
       <div ref={trackRef} onScroll={onTrackScroll}
-        className="flex gap-0 sm:gap-2 overflow-x-auto snap-x snap-mandatory no-scrollbar px-[6%] sm:px-[8%]">
+        className="flex items-center gap-0 sm:gap-2 overflow-x-auto snap-x snap-mandatory no-scrollbar px-[6%] sm:px-[8%]">
         {loopSlides.map((c: any, i: number) => (
           <button key={c.id + '-' + i} ref={(el) => { slideRefs.current[i] = el; }} onClick={() => onNav('campaign', c)}
-            className="relative shrink-0 w-[88%] sm:w-[84%] aspect-[4/3] sm:aspect-[16/7] rounded-2xl overflow-hidden bg-bg2 snap-center shadow-card transition-transform duration-300"
+            className="relative shrink-0 w-[88%] sm:w-[84%] rounded-2xl overflow-hidden bg-bg2 snap-center shadow-card transition-transform duration-300"
             style={{ transform: i === physIdx ? 'scale(1)' : 'scale(0.92)', opacity: i === physIdx ? 1 : 0.6 }}>
-            {/* object-contain (not bg-cover) so the full campaign photo never gets cropped —
-                but a portrait photo inside this landscape box then pillarboxes hard on the
-                sides, which reads as a big "gap" between slides. Fill that empty space with
-                a blurred cover-copy of the SAME photo (Instagram-story style) instead of flat
-                bg-bg2, so slides look edge-to-edge with no visible void; the sharp foreground
-                copy on top stays fully uncropped. */}
+            {/* No fixed aspect box: the slide is exactly as tall as the photo (w-full h-auto),
+                so nothing is cropped and there is no pillarbox gap. Slides with different
+                ratios get different heights; the track is items-center so shorter ones sit
+                vertically centered next to taller ones. */}
             {hasThumbImage(c) ? (
-              <>
-                {/* Same URL twice = one network fetch. First visible slide is the LCP element:
-                    eager + fetchpriority=high; the rest lazy so they don't compete for bandwidth. */}
-                <img src={mediaUrl(campaignImage(c))} alt="" aria-hidden="true" decoding="async" loading={i === physIdx ? 'eager' : 'lazy'} className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl opacity-70"/>
-                <img src={mediaUrl(campaignImage(c))} alt={c.title} decoding="async" loading={i === physIdx ? 'eager' : 'lazy'} {...(i === physIdx ? { fetchpriority: 'high' } : {})} className="relative w-full h-full object-contain"/>
-              </>
+              /* First visible slide is the LCP element: eager + fetchpriority=high; the rest lazy. */
+              <img src={mediaUrl(campaignImage(c))} alt={c.title} decoding="async" loading={i === physIdx ? 'eager' : 'lazy'} {...(i === physIdx ? { fetchpriority: 'high' } : {})} className="block w-full h-auto"/>
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-white/85" style={thumbStyle(c)}><Icon name={c.icon} size={56} strokeWidth={1.2}/></div>
+              <div className="aspect-[4/3] sm:aspect-[16/7] flex items-center justify-center text-white/85" style={thumbStyle(c)}><Icon name={c.icon} size={56} strokeWidth={1.2}/></div>
             )}
           </button>
         ))}

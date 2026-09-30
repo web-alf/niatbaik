@@ -84,12 +84,15 @@ function ArticleHeroSlider({ articles, onOpen }: { articles: Article[]; onOpen: 
   const active = articles[activeIdx];
   return (
     <div className="w-full">
-      <div ref={trackRef} onScroll={onTrackScroll} className="flex gap-0 sm:gap-2 overflow-x-auto snap-x snap-mandatory no-scrollbar px-[6%] sm:px-[8%]">
+      <div ref={trackRef} onScroll={onTrackScroll} className="flex items-center gap-0 sm:gap-2 overflow-x-auto snap-x snap-mandatory no-scrollbar px-[6%] sm:px-[8%]">
         {loopSlides.map((a, i) => (
           <button key={a.slug + '-' + i} ref={(el) => { slideRefs.current[i] = el; }} onClick={() => onOpen(a.slug)}
-            className="relative shrink-0 w-[88%] sm:w-[84%] aspect-[4/3] sm:aspect-[16/7] rounded-2xl overflow-hidden bg-brand-100 snap-center shadow-card transition-transform duration-300 flex items-center justify-center text-brand-600/70 bg-contain bg-no-repeat bg-center"
-            style={{ transform: i === physIdx ? 'scale(1)' : 'scale(0.92)', opacity: i === physIdx ? 1 : 0.6, backgroundImage: a.image ? `url(${mediaUrl(a.image)})` : undefined }}>
-            {!a.image && <Icon name="book" size={56} strokeWidth={1.2} />}
+            className="relative shrink-0 w-[88%] sm:w-[84%] rounded-2xl overflow-hidden bg-brand-100 snap-center shadow-card transition-transform duration-300"
+            style={{ transform: i === physIdx ? 'scale(1)' : 'scale(0.92)', opacity: i === physIdx ? 1 : 0.6 }}>
+            {/* Slide height follows the image (no fixed aspect box) → no pillarbox gap, no crop. */}
+            {a.image
+              ? <img src={mediaUrl(a.image)} alt={a.title} decoding="async" loading={i === physIdx ? 'eager' : 'lazy'} className="block w-full h-auto"/>
+              : <div className="aspect-[4/3] sm:aspect-[16/7] flex items-center justify-center text-brand-600/70"><Icon name="book" size={56} strokeWidth={1.2} /></div>}
           </button>
         ))}
       </div>

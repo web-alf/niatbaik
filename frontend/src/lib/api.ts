@@ -454,8 +454,12 @@ export const api = {
   // Falls back to the original file if the browser can't decode it (HEIC on non-Safari).
   // ponytail: single 1600px size; add srcset variants server-side if LCP still flags it.
   async uploadImage(file: File) {
+    const out = await compressImage(file);
+    // Size gate AFTER compression: a 7 MB phone photo becomes ~200 KB WebP and must
+    // pass. Only an undecodable original (e.g. HEIC on Chrome) can still trip this.
+    if (out.size > 5 * 1024 * 1024) return { success: false, message: 'Gambar terlalu besar (maks 5MB setelah kompresi). Simpan sebagai JPG/PNG lalu coba lagi.' };
     const formData = new FormData();
-    formData.append('image', await compressImage(file));
+    formData.append('image', out);
     const headers: Record<string, string> = {};
     if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
     const res = await fetch(API_BASE + '/uploads/image', { method: 'POST', headers, body: formData });

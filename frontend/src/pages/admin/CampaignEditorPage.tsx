@@ -1120,11 +1120,6 @@ function ThumbUploader({ thumb, icon, onChange }: any) {
       e.target.value = '';
       return;
     }
-    if (f.size > 5 * 1024 * 1024) {
-      setUploadError('Ukuran file melebihi 5MB. Kompres gambar terlebih dahulu.');
-      e.target.value = '';
-      return;
-    }
     setUploading(true);
     try {
       const res = await api.uploadImage(f);
@@ -1265,9 +1260,11 @@ export function RichEditor({ value, onChange }: any) {
     insertHTML('<div class="my-3" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden"><iframe src="' + embedUrl + '" style="position:absolute;top:0;left:0;width:100%;height:100%" frameborder="0" allowfullscreen></iframe></div>');
     setVideoOpen(false); setVideoUrl('');
   };
-  const handleImgUpload = async (e: any) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
+  // uploadAndInsert is the ONE path for images entering the editor (toolbar button,
+  // paste, drop) — api.uploadImage compresses to WebP, so no raw/base64 image ever lands
+  // in stored content.
+  const uploadAndInsert = async (f: File | undefined | null) => {
+    if (!f || !f.type.startsWith('image/')) return;
     try {
       const res = await api.uploadImage(f);
       const url = res?.data?.url || res?.url;
@@ -1277,7 +1274,33 @@ export function RichEditor({ value, onChange }: any) {
       if (url) insertHTML('<img src="' + mediaUrl(url) + '" style="border-radius:8px;max-width:100%;height:auto;display:block;margin:8px 0"/>');
       else alert('Upload gambar gagal. Coba lagi.');
     } catch { alert('Upload gambar gagal. Periksa koneksi.'); }
+  };
+  const handleImgUpload = async (e: any) => {
+    await uploadAndInsert(e.target.files?.[0]);
     e.target.value = '';
+  };
+  // Pasted/dropped image files would otherwise be inlined by the browser as a base64
+  // data: URL (multi-MB in the DB, never compressed). Intercept and upload instead.
+  const imageFiles = (items: DataTransferItemList | FileList | null | undefined): File[] => {
+    const out: File[] = [];
+    if (!items) return out;
+    for (const it of Array.from(items as any) as any[]) {
+      const f: File | null = it instanceof File ? it : (it.kind === 'file' ? it.getAsFile() : null);
+      if (f && f.type.startsWith('image/')) out.push(f);
+    }
+    return out;
+  };
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const files = imageFiles(e.clipboardData?.items);
+    if (!files.length) return;
+    e.preventDefault();
+    files.forEach(uploadAndInsert);
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    const files = imageFiles(e.dataTransfer?.files);
+    if (!files.length) return;
+    e.preventDefault();
+    files.forEach(uploadAndInsert);
   };
   const colors = ['#2E4191','#38B6FF','#16A34A','#DC2626','#F59E0B','#7C3AED','#1E293B','#64748B'];
 
@@ -1369,6 +1392,8 @@ export function RichEditor({ value, onChange }: any) {
         onKeyUp={saveSel}
         onMouseUp={saveSel}
         onBlur={saveSel}
+        onPaste={handlePaste}
+        onDrop={handleDrop}
         className="nb-rte min-h-[260px] max-h-[420px] overflow-y-auto p-4 text-sm text-ink/90 leading-relaxed focus:outline-none max-w-none"
       />
 

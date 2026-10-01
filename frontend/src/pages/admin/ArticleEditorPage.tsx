@@ -51,7 +51,6 @@ export default function ArticleEditorPage() {
     const f = e.target.files?.[0];
     if (!f) return;
     if (f.type && !f.type.startsWith('image/')) { showToast('File harus berupa gambar'); e.target.value = ''; return; }
-    if (f.size > 5 * 1024 * 1024) { showToast('Ukuran file melebihi 5MB'); e.target.value = ''; return; }
     setUploading(true);
     try {
       const res = await api.uploadImage(f);

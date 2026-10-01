@@ -22,6 +22,26 @@ export function mediaUrl(ref: unknown): string {
 
 let authToken: string | null = localStorage.getItem('nb_token') || null;
 
+// compressImage downscales to MAX_EDGE and re-encodes as WebP q=0.82 via canvas.
+// GIF (animation) and SVG are passed through untouched. Returns the ORIGINAL file
+// whenever decoding fails or the result isn't smaller — never makes things worse.
+const IMG_MAX_EDGE = 1600;
+export async function compressImage(file: File): Promise<File> {
+  if (!/^image\/(jpeg|png|webp|bmp|heic|heif|avif|tiff)$/i.test(file.type)) return file;
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, IMG_MAX_EDGE / Math.max(bmp.width, bmp.height));
+    const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d')!.drawImage(bmp, 0, 0, w, h);
+    bmp.close();
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/webp', 0.82));
+    if (!blob || blob.type !== 'image/webp' || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.webp', { type: 'image/webp' });
+  } catch { return file; }
+}
+
 function sanitizeText(s: unknown): unknown {
   if (typeof s !== 'string') return s;
   return s.replace(/[<>]/g, (c) => (c === '<' ? '&lt;' : '&gt;'));
@@ -88,6 +108,9 @@ export function sanitizeHTML(html: unknown): unknown {
           el.removeAttribute(attr.name);
         }
       }
+
+      // Editor-inserted images carry no alt; mark decorative (a11y: image-alt rule).
+      if (tag === 'IMG' && !el.hasAttribute('alt')) el.setAttribute('alt', '');
 
       walk(el);
     }
@@ -425,10 +448,14 @@ export const api = {
   updatePaymentMethod(id: string | number, data: unknown) { return this.put('/admin/payment-methods/' + id, data); },
   deletePaymentMethod(id: string | number) { return this.del('/admin/payment-methods/' + id); },
 
-  // Upload
+  // Upload. Images are downscaled (max 1600px) + re-encoded as WebP in the browser
+  // before the POST — native canvas, no deps. Server has no WebP encoder (Go stdlib
+  // decodes only), so this is the one place every upload path funnels through.
+  // Falls back to the original file if the browser can't decode it (HEIC on non-Safari).
+  // ponytail: single 1600px size; add srcset variants server-side if LCP still flags it.
   async uploadImage(file: File) {
     const formData = new FormData();
-    formData.append('image', file);
+    formData.append('image', await compressImage(file));
     const headers: Record<string, string> = {};
     if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
     const res = await fetch(API_BASE + '/uploads/image', { method: 'POST', headers, body: formData });

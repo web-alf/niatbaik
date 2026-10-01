@@ -56,6 +56,16 @@ function fireGads(id: unknown, label: unknown, val: number, eventId?: string): b
   return true;
 }
 
+// deferIdle runs pixel injection AFTER the browser is idle (or 3s max) so 300+ KiB of
+// fbevents/ttq/gtag never competes with LCP/FCP. fireConversion/track already guard on
+// window.fbq etc., and the earliest user action (form open) is well past 3s.
+// ponytail: timeout 3000 ceiling; raise/lower if Lighthouse LCP vs. PageView loss shifts.
+function deferIdle(fn: () => void) {
+  if (typeof window === 'undefined') return;
+  if ('requestIdleCallback' in window) (window as any).requestIdleCallback(fn, { timeout: 3000 });
+  else setTimeout(fn, 1500);
+}
+
 // Seed with the STATIC GTM container injected by index.html (<head>) so neither
 // initPixels nor initCampaignPixels re-injects it (double gtm.js → duplicate tags).
 try {
@@ -105,18 +115,20 @@ function loadGtagTarget(id: string) {
 export function initPixels(s: Settings | null | undefined) {
   if (!s) return;
   const groups = parseTrackers((s as any).tracking_config, s as any);
-  groups.gtm.forEach(loadGtm);
-  groups.meta.forEach(loadMeta);
-  groups.ga4.forEach(loadGtagTarget);
-  groups.googleAds.forEach((g) => loadGtagTarget(g.id));
-  groups.tiktok.forEach(loadTiktok);
   _globalGads = groups.googleAds.slice();
+  deferIdle(() => {
+    groups.gtm.forEach(loadGtm);
+    groups.meta.forEach(loadMeta);
+    groups.ga4.forEach(loadGtagTarget);
+    groups.googleAds.forEach((g) => loadGtagTarget(g.id));
+    groups.tiktok.forEach(loadTiktok);
+  });
 }
 
 // initCampaignPixels injects the campaign's OWN tracking scripts ADDITIVELY.
 export function initCampaignPixels(c: Campaign | null | undefined, domainSettings?: any) {
   if (!c) return;
-  try {
+  deferIdle(() => { try {
     // Domain-level trackers scoped to THIS campaign (scope=campaigns matching c.slug).
     // scope=global was already injected by initPixels; scope=off is never injected.
     const slug = (c.slug || c.id || '') + '';
@@ -149,7 +161,7 @@ export function initCampaignPixels(c: Campaign | null | undefined, domainSetting
     const cfg = parseConversion(c.conversion_config);
     const adsId = cfg.gads && cfg.gads.enabled && awId(cfg.gads.conversion_id);
     if (adsId) loadGtagTarget(adsId);
-  } catch { /* pixel init must never break the page */ }
+  } catch { /* pixel init must never break the page */ } });
 }
 
 // parseConversion safely parses campaign.conversion_config into {meta,tiktok,gads}.

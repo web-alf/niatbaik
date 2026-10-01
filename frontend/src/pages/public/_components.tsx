@@ -1333,7 +1333,7 @@ export function CampaignPage({ c: listItem, onNav }: any) {
                   gradient placeholder keeps a fixed aspect box (nothing to crop there). */}
               <div className="relative overflow-hidden">
                 {hasThumbImage(c) ? (
-                  <img src={mediaUrl(campaignImage(c))} alt={c.title} className="w-full h-auto max-h-[70vh] object-contain bg-bg2"/>
+                  <img src={mediaUrl(campaignImage(c))} alt={c.title} fetchPriority="high" decoding="async" className="w-full h-auto max-h-[70vh] object-contain bg-bg2"/>
                 ) : (
                   <div className="aspect-[4/3] sm:aspect-[16/9] flex items-center justify-center text-white/85" style={thumbStyle(c)}>
                     <Icon name={c.icon} size={140} strokeWidth={1}/>

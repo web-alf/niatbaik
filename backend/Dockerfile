@@ -11,7 +11,8 @@ RUN go mod tidy && CGO_ENABLED=0 GOOS=linux go build -o /app/server ./cmd/server
 # Runtime stage
 FROM alpine:3.20
 
-RUN apk --no-cache add ca-certificates tzdata
+# libwebp-tools provides cwebp — used to lazily convert legacy .jpg/.png uploads to WebP.
+RUN apk --no-cache add ca-certificates tzdata libwebp-tools
 ENV TZ=Asia/Jakarta
 
 WORKDIR /app

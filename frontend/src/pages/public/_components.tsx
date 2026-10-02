@@ -1327,13 +1327,12 @@ export function CampaignPage({ c: listItem, onNav }: any) {
           {/* Single centered column (sidebar removed). */}
           <div className="max-w-3xl mx-auto px-4 lg:px-6 pt-0 pb-6 lg:pb-10">
             <div>
-              {/* Full image, no crop: real photo uses its natural aspect ratio (w-full
-                  h-auto + object-contain) instead of a fixed aspect-ratio bg-cover box,
-                  so nothing is cut off on either mobile or desktop. Only the no-image
-                  gradient placeholder keeps a fixed aspect box (nothing to crop there). */}
+              {/* Fixed 16:9 box + object-contain: space is reserved BEFORE the image
+                  loads (no CLS — this img was the 0.47 layout-shift culprit), and nothing
+                  is cropped: taller/wider photos letterbox on bg-bg2. */}
               <div className="relative overflow-hidden">
                 {hasThumbImage(c) ? (
-                  <img src={mediaUrl(campaignImage(c))} alt={c.title} fetchPriority="high" decoding="async" className="w-full h-auto max-h-[70vh] object-contain bg-bg2"/>
+                  <img src={mediaUrl(campaignImage(c))} alt={c.title} fetchPriority="high" decoding="async" className="w-full aspect-[16/9] max-h-[70vh] object-contain bg-bg2"/>
                 ) : (
                   <div className="aspect-[4/3] sm:aspect-[16/9] flex items-center justify-center text-white/85" style={thumbStyle(c)}>
                     <Icon name={c.icon} size={140} strokeWidth={1}/>

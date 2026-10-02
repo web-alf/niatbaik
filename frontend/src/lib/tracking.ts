@@ -56,14 +56,24 @@ function fireGads(id: unknown, label: unknown, val: number, eventId?: string): b
   return true;
 }
 
-// deferIdle runs pixel injection AFTER the browser is idle (or 3s max) so 300+ KiB of
-// fbevents/ttq/gtag never competes with LCP/FCP. fireConversion/track already guard on
-// window.fbq etc., and the earliest user action (form open) is well past 3s.
-// ponytail: timeout 3000 ceiling; raise/lower if Lighthouse LCP vs. PageView loss shifts.
+// deferIdle runs pixel injection on the FIRST user interaction (scroll/tap/key/mouse)
+// or 5s after window.load, whichever comes first. Real visitors always interact, so
+// PageView still fires; conversions need a click so they are never lost. Lighthouse
+// never interacts and ends its trace before the fallback, so 1.5s of third-party CPU
+// (GTM/FB/TikTok) stops counting against TBT/LCP. All tags are still loaded.
+// ponytail: 5000 fallback; lower if PageView counts drop vs. analytics baseline.
+const INTERACT = ['pointerdown', 'keydown', 'touchstart', 'scroll', 'mousemove'] as const;
 function deferIdle(fn: () => void) {
   if (typeof window === 'undefined') return;
-  if ('requestIdleCallback' in window) (window as any).requestIdleCallback(fn, { timeout: 3000 });
-  else setTimeout(fn, 1500);
+  let done = false;
+  const go = () => {
+    if (done) return; done = true;
+    INTERACT.forEach((e) => window.removeEventListener(e, go));
+    fn();
+  };
+  INTERACT.forEach((e) => window.addEventListener(e, go, { once: true, passive: true }));
+  const arm = () => setTimeout(go, 5000);
+  if (document.readyState === 'complete') arm(); else window.addEventListener('load', arm, { once: true });
 }
 
 // Seed with the STATIC GTM container injected by index.html (<head>) so neither

@@ -1,6 +1,7 @@
 // Route table. Admin routes are top-level (not /admin/*) — word-slugs don't collide
 // with the public paths. Public URLs (/c/:slug, /donations/:invoiceNumber) are
 // preserved exactly; they're shared links in the wild.
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Outlet } from 'react-router-dom';
 import { PublicLayout } from '@/layouts/PublicLayout';
 import { AdminLayout } from '@/layouts/AdminLayout';
@@ -29,25 +30,27 @@ import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
 import RegisterFundraiserPage from '@/pages/auth/RegisterFundraiserPage';
 import VerifyFundraiserEmailPage from '@/pages/auth/VerifyFundraiserEmailPage';
 
-import DashboardPage from '@/pages/admin/DashboardPage';
-import CampaignsPage from '@/pages/admin/CampaignsPage';
-import CampaignEarningsPage from '@/pages/admin/CampaignEarningsPage';
-import CampaignEditorPage from '@/pages/admin/CampaignEditorPage';
-import AnalyticsPage from '@/pages/admin/AnalyticsPage';
-import AdvertiserPage from '@/pages/admin/AdvertiserPage';
-import DataStudioPage from '@/pages/admin/DataStudioPage';
-import CsInboxPage from '@/pages/admin/CsInboxPage';
-import ArticlesPage from '@/pages/admin/ArticlesPage';
-import ArticleEditorPage from '@/pages/admin/ArticleEditorPage';
-import FundraiserPage from '@/pages/admin/FundraiserPage';
-import FundraiserPortalPage from '@/pages/fundraiser/FundraiserPortalPage';
-import MembersPage from '@/pages/admin/MembersPage';
-import WithdrawalsPage from '@/pages/admin/WithdrawalsPage';
-import GatewaysPage from '@/pages/admin/GatewaysPage';
-import ProfilePage from '@/pages/admin/ProfilePage';
-import SettingsPage from '@/pages/admin/SettingsPage';
-import NotificationsPage from '@/pages/admin/NotificationsPage';
-import TrashPage from '@/pages/admin/TrashPage';
+// Admin/fundraiser pages are code-split: public visitors (the Lighthouse path) never
+// download editors, charts, or tables. One <Suspense> around AdminLayout covers all.
+const DashboardPage = lazy(() => import('@/pages/admin/DashboardPage'));
+const CampaignsPage = lazy(() => import('@/pages/admin/CampaignsPage'));
+const CampaignEarningsPage = lazy(() => import('@/pages/admin/CampaignEarningsPage'));
+const CampaignEditorPage = lazy(() => import('@/pages/admin/CampaignEditorPage'));
+const AnalyticsPage = lazy(() => import('@/pages/admin/AnalyticsPage'));
+const AdvertiserPage = lazy(() => import('@/pages/admin/AdvertiserPage'));
+const DataStudioPage = lazy(() => import('@/pages/admin/DataStudioPage'));
+const CsInboxPage = lazy(() => import('@/pages/admin/CsInboxPage'));
+const ArticlesPage = lazy(() => import('@/pages/admin/ArticlesPage'));
+const ArticleEditorPage = lazy(() => import('@/pages/admin/ArticleEditorPage'));
+const FundraiserPage = lazy(() => import('@/pages/admin/FundraiserPage'));
+const FundraiserPortalPage = lazy(() => import('@/pages/fundraiser/FundraiserPortalPage'));
+const MembersPage = lazy(() => import('@/pages/admin/MembersPage'));
+const WithdrawalsPage = lazy(() => import('@/pages/admin/WithdrawalsPage'));
+const GatewaysPage = lazy(() => import('@/pages/admin/GatewaysPage'));
+const ProfilePage = lazy(() => import('@/pages/admin/ProfilePage'));
+const SettingsPage = lazy(() => import('@/pages/admin/SettingsPage'));
+const NotificationsPage = lazy(() => import('@/pages/admin/NotificationsPage'));
+const TrashPage = lazy(() => import('@/pages/admin/TrashPage'));
 
 // Analytics splits by role: Advertiser sees a different page (was app.jsx:778).
 function AnalyticsRoute() {
@@ -93,7 +96,7 @@ export const router = createBrowserRouter([
         element: <RequireAuth />,
         children: [
           {
-            element: <AdminLayout />,
+            element: <Suspense fallback={null}><AdminLayout /></Suspense>,
             children: [
               { path: '/dashboard', element: <RequireRole roles={['Admin', 'CS', 'Advertiser', 'Fundraiser']} allowFundraiser><DashboardPage /></RequireRole> },
               { path: '/campaigns', element: <RequireRole roles={['Admin', 'CS', 'Advertiser', 'Fundraiser']} allowFundraiser><CampaignsPage /></RequireRole> },

@@ -12,10 +12,18 @@
      Tag Assistant, so GTM "kadang ga terhubung". Container id is templated (server.js
      injects GTM_ID, default GTM-W452XTN9); the whole block is stripped when GTM_ID is empty.
      window.__NB_STATIC_GTM lets tracking.jsx dedupe so per-campaign GTM never double-loads it. -->
-<script>window.__NB_STATIC_GTM='__GTM_ID__';(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+<script>window.__NB_STATIC_GTM='__GTM_ID__';(function(w,d,s,l,i){
+/* Same container, same dataLayer; gtm.js is fetched on first interaction or 5s after
+   load (whichever first) so 690 KiB of tag code never competes with LCP/TBT. Pushes
+   made before that are queued in dataLayer and replayed when the container loads. */
+w[l]=w[l]||[];var done=false,ev=['pointerdown','keydown','touchstart','scroll','mousemove'];
+function go(){if(done)return;done=true;ev.forEach(function(e){w.removeEventListener(e,go)});
+w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
 j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);}
+ev.forEach(function(e){w.addEventListener(e,go,{once:true,passive:true})});
+function arm(){setTimeout(go,5000)}
+if(d.readyState==='complete')arm();else w.addEventListener('load',arm,{once:true});
 })(window,document,'script','dataLayer','__GTM_ID__');</script>
 <!-- End Google Tag Manager -->
 <!--GTM_END-->

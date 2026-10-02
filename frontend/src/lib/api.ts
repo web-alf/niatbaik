@@ -22,24 +22,64 @@ export function mediaUrl(ref: unknown): string {
 
 let authToken: string | null = localStorage.getItem('nb_token') || null;
 
-// compressImage downscales to MAX_EDGE and re-encodes as WebP q=0.82 via canvas.
-// GIF (animation) and SVG are passed through untouched. Returns the ORIGINAL file
-// whenever decoding fails or the result isn't smaller — never makes things worse.
+// compressImage re-encodes ANY image (jpg/png/gif/svg/bmp/heic/avif/tiff/webp) as WebP
+// ≤ IMG_MAX_BYTES via canvas: start 1600px q=.82, step quality down, then shrink 80%
+// per round until it fits. GIF loses animation, SVG is rasterised — by design (one
+// format everywhere). Returns the ORIGINAL only when the browser cannot decode it at
+// all (HEIC on Chrome); the server gate then rejects oversize.
 const IMG_MAX_EDGE = 1600;
-export async function compressImage(file: File): Promise<File> {
-  if (!/^image\/(jpeg|png|webp|bmp|heic|heif|avif|tiff)$/i.test(file.type)) return file;
+const IMG_MAX_BYTES = 100 * 1024;
+const IMG_MIN_EDGE = 320;
+
+// decodeImage tries the fast path, then <img> (needed for SVG and some odd PNGs).
+async function decodeImage(file: File): Promise<{ src: CanvasImageSource; w: number; h: number; done: () => void }> {
   try {
     const bmp = await createImageBitmap(file);
-    const scale = Math.min(1, IMG_MAX_EDGE / Math.max(bmp.width, bmp.height));
-    const w = Math.round(bmp.width * scale), h = Math.round(bmp.height * scale);
-    const canvas = document.createElement('canvas');
-    canvas.width = w; canvas.height = h;
-    canvas.getContext('2d')!.drawImage(bmp, 0, 0, w, h);
+    if (bmp.width && bmp.height) return { src: bmp, w: bmp.width, h: bmp.height, done: () => bmp.close() };
     bmp.close();
-    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/webp', 0.82));
-    if (!blob || blob.type !== 'image/webp' || blob.size >= file.size) return file;
-    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.webp', { type: 'image/webp' });
+  } catch { /* fall through */ }
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    // SVG without intrinsic size reports 0x0 — rasterise at a sane square.
+    const w = img.naturalWidth || 512, h = img.naturalHeight || 512;
+    return { src: img, w, h, done: () => URL.revokeObjectURL(url) };
+  } catch (e) { URL.revokeObjectURL(url); throw e; }
+}
+
+export async function compressImage(file: File): Promise<File> {
+  if (!file.type.startsWith('image/')) return file;
+  let dec: Awaited<ReturnType<typeof decodeImage>>;
+  try { dec = await decodeImage(file); } catch { return file; }
+  try {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    let edge = Math.min(IMG_MAX_EDGE, Math.max(dec.w, dec.h));
+    let best: Blob | null = null;
+    while (edge >= IMG_MIN_EDGE) {
+      const scale = edge / Math.max(dec.w, dec.h);
+      canvas.width = Math.max(1, Math.round(dec.w * scale));
+      canvas.height = Math.max(1, Math.round(dec.h * scale));
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(dec.src, 0, 0, canvas.width, canvas.height);
+      for (let q = 0.82; q >= 0.4; q -= 0.12) {
+        const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/webp', q));
+        if (!blob || blob.type !== 'image/webp') return file; // no WebP encoder
+        if (!best || blob.size < best.size) best = blob;
+        if (blob.size <= IMG_MAX_BYTES) return toWebpFile(blob, file.name);
+      }
+      edge = Math.round(edge * 0.8);
+    }
+    // ponytail: couldn't reach 100 KB even at 320px/q.4 (rare: dense noise). Ship the
+    // smallest attempt; the server 5 MB gate still protects storage.
+    return best ? toWebpFile(best, file.name) : file;
   } catch { return file; }
+  finally { dec.done(); }
+}
+function toWebpFile(blob: Blob, name: string) {
+  return new File([blob], name.replace(/\.[^.]+$/, '') + '.webp', { type: 'image/webp' });
 }
 
 function sanitizeText(s: unknown): unknown {

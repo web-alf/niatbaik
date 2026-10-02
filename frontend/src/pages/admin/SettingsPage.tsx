@@ -278,7 +278,6 @@ function ThemesPanel({ settings, onSave }: any) {
   const handleLogoUpload = async () => {
     const f = logoRef.current?.files?.[0];
     if (!f) return;
-    if (f.size > 1024 * 1024) { showToast('File terlalu besar (max 1MB)'); return; }
     try {
       const res = await api.uploadImage(f);
       const url = res?.data?.url || res?.url;
@@ -310,7 +309,7 @@ function ThemesPanel({ settings, onSave }: any) {
               {logoSrc
                 ? <img src={mediaUrl(logoSrc)} alt="logo" className="mx-auto h-12"/>
                 : <div className="mx-auto h-12 flex items-center justify-center text-mute text-xs">Belum ada logo</div>}
-              <input ref={logoRef} type="file" accept="image/png,image/svg+xml" className="hidden" onChange={handleLogoUpload}/>
+              <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload}/>
               <div className="mt-3 flex items-center justify-center gap-2">
                 <Btn size="sm" variant="outline" tone="ink" icon="upload" onClick={() => logoRef.current?.click()}>Upload Logo</Btn>
                 {logoSrc && (

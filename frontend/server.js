@@ -44,11 +44,44 @@ function indexHtml() {
 }
 const INDEX_HTML = indexHtml();
 
+// LCP hint for /c/:slug. A CSR SPA only learns the hero URL after JS + API (~900 ms
+// "resource load delay"). Ask the API for the campaign here, inject
+// <link rel=preload as=image> into <head>, and the browser starts the hero fetch from
+// byte 0. Soft-fails to plain HTML on any error/timeout; cached 60 s per slug.
+// ponytail: in-memory Map cache (one process); fine until multiple frontend replicas.
+const API_URL = (process.env.API_URL || "http://api:8080").replace(/\/$/, "");
+const heroCache = new Map(); // slug -> { href, at }
+async function heroHref(slug) {
+  if (!/^[\w-]{1,200}$/.test(slug)) return "";
+  const hit = heroCache.get(slug);
+  if (hit && Date.now() - hit.at < 60_000) return hit.href;
+  let href = "";
+  try {
+    const res = await fetch(`${API_URL}/api/campaigns/${slug}`, { signal: AbortSignal.timeout(400) });
+    const img = res.ok ? (await res.json())?.data?.image : "";
+    const name = typeof img === "string" ? img.replace(/^\/?uploads\//, "") : "";
+    if (/^[\w.-]+$/.test(name)) href = "/uploads/" + name;
+  } catch { /* soft-fail */ }
+  heroCache.set(slug, { href, at: Date.now() });
+  return href;
+}
+function withHero(href) {
+  if (!href) return INDEX_HTML;
+  return INDEX_HTML.replace("<head>", `<head><link rel="preload" as="image" href="${href}" fetchpriority="high">`);
+}
+
 Bun.serve({
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url);
     const pathname = url.pathname;
+
+    const camp = pathname.match(/^\/c\/([^/]+)\/?$/);
+    if (camp) {
+      return new Response(withHero(await heroHref(decodeURIComponent(camp[1]))), {
+        headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" },
+      });
+    }
 
     if (pathname === "/" || pathname === "/index.html") {
       return new Response(INDEX_HTML, {

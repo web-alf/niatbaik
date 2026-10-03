@@ -1122,8 +1122,9 @@ export function CampaignPage({ c: listItem, onNav }: any) {
     setDetail(null); // reset when switching campaigns so stale detail isn't shown
     (async () => {
       try {
-        const res = await api.campaign(slug);
-        const d = res && res.data;
+        // Reuse the detail CampaignDetailPage already fetched (deep link); only hit
+        // the API when we came from the landing list (summary fields only).
+        const d = listItem.__full || (await api.campaign(slug))?.data;
         if (!cancelled && d) {
           // Normalize the detail payload onto the shape the page already uses.
           setDetail({
@@ -1327,12 +1328,14 @@ export function CampaignPage({ c: listItem, onNav }: any) {
           {/* Single centered column (sidebar removed). */}
           <div className="max-w-3xl mx-auto px-4 lg:px-6 pt-0 pb-6 lg:pb-10">
             <div>
-              {/* Fixed 16:9 box + object-contain: space is reserved BEFORE the image
-                  loads (no CLS — this img was the 0.47 layout-shift culprit), and nothing
-                  is cropped: taller/wider photos letterbox on bg-bg2. */}
+              {/* Fixed 16:9 box: space is reserved BEFORE the image loads (no CLS — this
+                  img was the 0.47 layout-shift culprit). object-cover fills the box, so
+                  no grey letterbox bars; photos wider/taller than 16:9 lose a little at
+                  the edges. ponytail: to go crop-free again use `h-auto object-contain`
+                  (brings CLS back) or store cover width/height on upload. */}
               <div className="relative overflow-hidden">
                 {hasThumbImage(c) ? (
-                  <img src={mediaUrl(campaignImage(c))} alt={c.title} fetchPriority="high" decoding="async" className="w-full aspect-[16/9] max-h-[70vh] object-contain bg-bg2"/>
+                  <img src={mediaUrl(campaignImage(c))} alt={c.title} fetchPriority="high" decoding="async" className="w-full aspect-[16/9] max-h-[70vh] object-cover bg-bg2"/>
                 ) : (
                   <div className="aspect-[4/3] sm:aspect-[16/9] flex items-center justify-center text-white/85" style={thumbStyle(c)}>
                     <Icon name={c.icon} size={140} strokeWidth={1}/>

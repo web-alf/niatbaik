@@ -32,7 +32,9 @@ export default function CampaignDetailPage() {
       api.campaign(id)
         .then((r: any) => {
           if (!alive) return;
-          if (r && r.data) { setResolved(mapCampaign(r.data)); setState('ok'); }
+          // __full: hand the raw detail to CampaignPage so it skips its own
+          // api.campaign(slug) — deep links were fetching the same campaign twice.
+          if (r && r.data) { setResolved({ ...mapCampaign(r.data), __full: r.data }); setState('ok'); }
           else setState('notfound');
         })
         .catch(() => { if (alive) setState('notfound'); });

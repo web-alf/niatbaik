@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Icon } from '@/components';
 import { api, mediaUrl, sanitizeHTML, normalizeRichTextColors } from '@/lib/api';
-import { Navbar, Footer, SocialPopup } from './_components';
+import { Navbar, SocialPopup } from './_components';
 import { fmtArticleDate } from './ArticleListPage';
 
 type Article = {
@@ -104,7 +104,6 @@ export default function ArticleDetailPage() {
         )}
       </main>
       <SocialPopup />
-      <Footer />
     </div>
   );
 }

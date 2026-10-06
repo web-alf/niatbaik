@@ -7,7 +7,7 @@ import { mapCampaign } from '@/lib/mappers';
 import { NBTracking } from '@/lib/tracking';
 import { useDataStore } from '@/store/data';
 import { Icon, Logo } from '@/components';
-import { InvoiceConfirmation, Footer, MobileBottomNav, getKontakHref, usePublicDark } from './_components';
+import { InvoiceConfirmation, MobileBottomNav, getKontakHref, usePublicDark } from './_components';
 
 export default function DonationInvoicePage() {
   const { invoiceNumber } = useParams();
@@ -111,7 +111,6 @@ export default function DonationInvoicePage() {
             <Icon name="home" size={16}/> Kembali ke beranda
           </button>
         </main>
-        <Footer/>
       </div>
     );
   }
@@ -128,7 +127,6 @@ export default function DonationInvoicePage() {
             <Icon name="home" size={16}/> Kembali ke beranda
           </button>
         </main>
-        <Footer/>
       </div>
     );
   }
@@ -148,7 +146,6 @@ export default function DonationInvoicePage() {
           onReset={onBack}
         />
       </main>
-      <Footer/>
       {/* No Donasi FAB here: this donor just paid — the nav is for getting home / asking
           CS for help. Section tabs route home first, then scroll. */}
       <MobileBottomNav

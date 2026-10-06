@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon, SearchInput, Select } from '@/components';
 import { api, mediaUrl } from '@/lib/api';
-import { Navbar, Footer, SocialPopup } from './_components';
+import { Navbar, SocialPopup } from './_components';
 
 type Article = {
   id: string; slug: string; title: string; excerpt?: string; image?: string;
@@ -186,7 +186,6 @@ export default function ArticleListPage() {
         </section>
       </main>
       <SocialPopup />
-      <Footer />
     </div>
   );
 }

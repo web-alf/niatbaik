@@ -793,16 +793,16 @@ export function FinalCTA({ onNav }: any) {
   const sub = cms.sub || 'Mulai donasi sekarang dan jadilah bagian dari kebaikan yang nyata.';
   const buttonLabel = cms.buttonLabel || 'Donasi Sekarang';
   return (
-    <section className="py-14 lg:py-20 bg-bg2">
-      <div className="max-w-5xl mx-auto px-4 lg:px-6">
-        <div className="relative rounded-3xl bg-brand-600 p-8 lg:p-12 text-white overflow-hidden">
-          <div className="relative grid lg:grid-cols-3 gap-6 items-center">
+    <section className="py-8 lg:py-12 bg-bg2">
+      <div className="max-w-4xl mx-auto px-4 lg:px-6">
+        <div className="relative rounded-2xl bg-brand-600 p-6 lg:p-8 text-white overflow-hidden">
+          <div className="relative grid lg:grid-cols-3 gap-4 items-center">
             <div className="lg:col-span-2">
-              <h3 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold leading-tight">{headline}</h3>
-              <p className="mt-3 text-white/85">{sub}</p>
+              <h3 className="text-xl sm:text-2xl font-extrabold leading-tight">{headline}</h3>
+              <p className="mt-2 text-sm text-white/85">{sub}</p>
             </div>
-            <button onClick={() => onNav('campaign', getFirstCampaign())} className="w-full lg:w-auto inline-flex items-center justify-center gap-2 px-7 py-4 rounded-xl text-base font-extrabold bg-white text-brand-600 hover:scale-[1.02] transition-transform shadow-pop">
-              <Icon name="heart" size={20}/> {buttonLabel}
+            <button onClick={() => onNav('campaign', getFirstCampaign())} className="w-full lg:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-extrabold bg-white text-brand-600 hover:scale-[1.02] transition-transform shadow-pop">
+              <Icon name="heart" size={18}/> {buttonLabel}
             </button>
           </div>
         </div>
@@ -1439,7 +1439,6 @@ export function CampaignPage({ c: listItem, onNav }: any) {
           donation card; the compensating bottom padding was reduced accordingly. The
           mobile bottom nav carries the same contextual action via its center FAB. */}
 
-      <Footer/>
       {/* Bottom nav only on the content view: during the form/invoice the submit button
           is the single action and a fixed bar would collide with the mobile keyboard. */}
       {view === 'content' && (

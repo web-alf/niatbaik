@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { mapCampaign } from '@/lib/mappers';
 import { Icon } from '@/components';
 import { useDataStore } from '@/store/data';
-import { Footer, SocialPopup, CampaignPage, getCampaigns } from './_components';
+import { SocialPopup, CampaignPage, getCampaigns } from './_components';
 
 export default function CampaignDetailPage() {
   const { slug } = useParams();
@@ -101,7 +101,6 @@ export default function CampaignDetailPage() {
             <Icon name="home" size={16}/> Kembali ke beranda
           </button>
         </main>
-        <Footer/>
       </div>
     );
   }

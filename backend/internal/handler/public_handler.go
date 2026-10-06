@@ -174,6 +174,7 @@ func (h *PublicHandler) GetPublicSettings(c echo.Context) error {
 	publicSettings := map[string]interface{}{
 		"site_name":         settings.SiteName,
 		"logo":              settings.Logo,
+		"favicon":           settings.Favicon,
 		"primary_color":     settings.PrimaryColor,
 		"secondary_color":   settings.SecondaryColor,
 		"theme_color":       settings.ThemeColor,

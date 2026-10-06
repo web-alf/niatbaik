@@ -8,7 +8,7 @@
 // would silently stop updating on the next poll.
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { api } from '@/lib/api';
+import { api, mediaUrl } from '@/lib/api';
 import { mapCampaign, mapInvoice, mapFundraiser, applyThemeColor, setPaymentStatusRef } from '@/lib/mappers';
 import { NBTracking } from '@/lib/tracking';
 import type {
@@ -128,6 +128,13 @@ export const useDataStore = create<DataState & DataActions>()(persist((set, get)
       patch.publicSettings = pubSettingsRes.data;
       if (pubSettingsRes.data.primary_color || pubSettingsRes.data.secondary_color) {
         applyThemeColor(pubSettingsRes.data.primary_color, pubSettingsRes.data.secondary_color);
+      }
+      // Tab icon: admin-uploaded favicon, else the logo. No bundled favicon.ico exists.
+      const icon = pubSettingsRes.data.favicon || pubSettingsRes.data.logo;
+      if (icon && typeof document !== 'undefined') {
+        let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+        if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+        link.href = mediaUrl(icon);
       }
       // Tracking: capture UTM from the landing URL + inject configured pixels. Both
       // are safe no-ops when nothing is configured and must never break data load.

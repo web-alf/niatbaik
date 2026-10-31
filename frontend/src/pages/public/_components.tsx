@@ -2812,7 +2812,9 @@ function CampaignStory({ c }: any) {
 }
 
 function CampaignUpdates({ updates }: any) {
-  const items = Array.isArray(updates) ? updates : [];
+  // Newest first; admin can backdate, so sort by created_at not insertion order.
+  const items = (Array.isArray(updates) ? [...updates] : [])
+    .sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   if (!items.length) {
     return <div className="text-sm text-mute italic py-2">Belum ada update untuk campaign ini.</div>;
   }

@@ -106,9 +106,13 @@ func (r *CampaignRepo) FindAllLegacy(params pagination.PaginationParams, status,
 	return campaigns, total, err
 }
 
+// updatesNewestFirst orders the preloaded Updates timeline (public detail page) by
+// created_at desc — admins can backdate updates, so insertion order isn't enough.
+func updatesNewestFirst(db *gorm.DB) *gorm.DB { return db.Order("created_at DESC") }
+
 func (r *CampaignRepo) FindBySlug(slug string) (*model.Campaign, error) {
 	var c model.Campaign
-	err := r.db.Preload("Category").Preload("User").Preload("Updates").
+	err := r.db.Preload("Category").Preload("User").Preload("Updates", updatesNewestFirst).
 		Where("slug = ?", slug).First(&c).Error
 	if err != nil {
 		return nil, err
@@ -122,7 +126,7 @@ func (r *CampaignRepo) FindBySlug(slug string) (*model.Campaign, error) {
 func (r *CampaignRepo) FindBySlugOrID(key string) (*model.Campaign, error) {
 	var c model.Campaign
 	// Fundraisers (+their User) feed the public "Fundraiser" section on the detail page.
-	q := r.db.Preload("Category").Preload("User").Preload("Updates").Preload("Fundraisers.User")
+	q := r.db.Preload("Category").Preload("User").Preload("Updates", updatesNewestFirst).Preload("Fundraisers.User")
 	if id, err := uuid.Parse(key); err == nil {
 		err = q.Where("id = ? OR slug = ?", id, key).First(&c).Error
 		if err != nil {
@@ -138,7 +142,7 @@ func (r *CampaignRepo) FindBySlugOrID(key string) (*model.Campaign, error) {
 
 func (r *CampaignRepo) FindByID(id uuid.UUID) (*model.Campaign, error) {
 	var c model.Campaign
-	err := r.db.Preload("Category").Preload("User").Preload("Updates").Preload("Funds").
+	err := r.db.Preload("Category").Preload("User").Preload("Updates", updatesNewestFirst).Preload("Funds").
 		First(&c, "id = ?", id).Error
 	if err != nil {
 		return nil, err

@@ -2822,20 +2822,29 @@ function CampaignUpdates({ updates }: any) {
     try { return new Date(s).toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' }); }
     catch { return ''; }
   };
+  // Collapsed card: image + title + date. Body (rich HTML) lives inside a native
+  // <details> so it expands on tap without JS state; keyboard/screen-reader friendly.
   return (
     <div className="space-y-4">
       {items.map((u: any, i: number) => (
-        <div key={i} className="flex gap-3">
-          <div className="h-9 w-9 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0"><Icon name="pin" size={16}/></div>
-          <div className="min-w-0 flex-1">
-            <div className="text-xs text-mute">{fmtDate(u.created_at)}</div>
-            <div className="font-bold text-ink">{u.title}</div>
-            {u.image && <img src={mediaUrl(u.image)} alt={u.title} loading="lazy" className="mt-2 w-full rounded-xl border border-line object-cover"/>}
-            {/* Body is rich HTML from the admin RichEditor (same sanitize+prose as story). */}
-            <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-ink/85 mt-1"
-              dangerouslySetInnerHTML={{ __html: normalizeRichTextColors(sanitizeHTML(u.body || '') as string) }}/>
-          </div>
-        </div>
+        <details key={i} className="group rounded-xl border border-line bg-white overflow-hidden">
+          <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            {u.image && <img src={mediaUrl(u.image)} alt={u.title} loading="lazy" className="w-full aspect-[16/9] object-cover"/>}
+            <div className="flex items-start gap-3 p-4">
+              <div className="h-9 w-9 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0"><Icon name="pin" size={16}/></div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs text-mute">{fmtDate(u.created_at)}</div>
+                <div className="font-bold text-ink">{u.title}</div>
+                <div className="mt-1 text-xs font-semibold text-brand-600 group-open:hidden">Baca selengkapnya</div>
+                <div className="mt-1 text-xs font-semibold text-brand-600 hidden group-open:block">Tutup</div>
+              </div>
+              <Icon name="chevronD" size={16} className="shrink-0 text-mute transition-transform group-open:rotate-180"/>
+            </div>
+          </summary>
+          {/* Body is rich HTML from the admin RichEditor (same sanitize+prose as story). */}
+          <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-ink/85 px-4 pb-4"
+            dangerouslySetInnerHTML={{ __html: normalizeRichTextColors(sanitizeHTML(u.body || '') as string) }}/>
+        </details>
       ))}
     </div>
   );

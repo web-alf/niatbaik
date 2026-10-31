@@ -48,40 +48,33 @@ export default function CampaignDetailPage() {
   const Header = null;
 
   if (state === 'loading') {
-    // Skeleton mirrors the real campaign-detail layout (cover + story on the left, the
-    // donation card on the right) so the page doesn't visually jump when content lands.
+    // Skeleton mirrors the CURRENT CampaignPage layout exactly (single max-w-3xl column:
+    // 16:9 cover → label+title → donate card → story card). The old sidebar-layout
+    // skeleton (sub-bar + 5-col grid) was the main CLS source (~1.0) on /c/:slug.
     const Bar = ({ className = '' }: any) => <div className={`rounded bg-slate-200 animate-pulse ${className}`}/>;
     return (
       <div className="min-h-screen flex flex-col bg-white">
         {Header}
-        <section className="bg-bg2 border-b border-line">
-          <div className="max-w-7xl mx-auto px-4 lg:px-6 py-3 flex items-center justify-between">
-            <Bar className="h-5 w-36"/><Bar className="h-9 w-24 rounded-lg"/>
-          </div>
-        </section>
         <main className="flex-1 bg-bg2">
-          <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 lg:py-10 grid lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-3 space-y-5">
-              <Bar className="aspect-[16/9] w-full rounded-2xl"/>
-              <div className="rounded-2xl bg-white border border-line p-5 lg:p-6 space-y-4">
-                <div className="flex items-center gap-3 border-b border-line pb-4">
-                  <div className="h-10 w-10 rounded-full bg-slate-200 animate-pulse"/>
-                  <div className="flex-1 space-y-2"><Bar className="h-4 w-40"/><Bar className="h-3 w-24"/></div>
-                </div>
-                <Bar className="h-4 w-full"/><Bar className="h-4 w-11/12"/><Bar className="h-4 w-10/12"/>
-                <Bar className="h-4 w-full"/><Bar className="h-4 w-9/12"/>
-              </div>
+          <div className="max-w-3xl mx-auto px-4 lg:px-6 pt-0 pb-6 lg:pb-10">
+            <Bar className="aspect-[16/9] w-full rounded-none"/>
+            <div className="mt-3 lg:mt-4 space-y-2">
+              <Bar className="h-3 w-44"/>
+              <Bar className="h-7 lg:h-9 w-11/12"/>
             </div>
-            <div className="lg:col-span-2">
-              <div className="rounded-2xl bg-white border border-line p-5 lg:p-6 space-y-4 lg:sticky lg:top-20">
-                <Bar className="h-7 w-2/3"/>
-                <Bar className="h-2.5 w-full rounded-full"/>
-                <div className="flex justify-between"><Bar className="h-4 w-24"/><Bar className="h-4 w-20"/></div>
-                <div className="grid grid-cols-3 gap-2 pt-2">
-                  <Bar className="h-11 rounded-lg"/><Bar className="h-11 rounded-lg"/><Bar className="h-11 rounded-lg"/>
-                </div>
-                <Bar className="h-12 w-full rounded-xl"/>
+            <div className="mt-4 rounded-2xl bg-white border border-line p-4 lg:p-5 space-y-2">
+              <Bar className="h-3 w-28"/>
+              <Bar className="h-8 w-48"/>
+              <Bar className="h-4 w-40"/>
+              <Bar className="h-12 w-full rounded-xl !mt-3"/>
+            </div>
+            <div className="mt-5 rounded-2xl bg-white border border-line p-5 lg:p-6 space-y-4">
+              <div className="flex items-center gap-3 border-b border-line pb-4">
+                <div className="h-10 w-10 rounded-full bg-slate-200 animate-pulse"/>
+                <div className="flex-1 space-y-2"><Bar className="h-4 w-40"/><Bar className="h-3 w-24"/></div>
               </div>
+              <Bar className="h-4 w-full"/><Bar className="h-4 w-11/12"/><Bar className="h-4 w-10/12"/>
+              <Bar className="h-4 w-full"/><Bar className="h-4 w-9/12"/>
             </div>
           </div>
         </main>

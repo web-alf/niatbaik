@@ -2,7 +2,9 @@ package handler
 
 import (
 	"net/http"
+	"path"
 	"strings"
+	"time"
 
 	"github.com/anrdart/niatbaik-api/internal/dto/response"
 	"github.com/anrdart/niatbaik-api/internal/middleware"
@@ -26,6 +28,22 @@ type campaignUpdateInput struct {
 	Title string `json:"title"`
 	Body  string `json:"body"`
 	Image string `json:"image"`
+	// CreatedAt lets admin backdate an update (RFC3339 or YYYY-MM-DD). Empty = now.
+	CreatedAt string `json:"created_at"`
+}
+
+// parseUpdateDate accepts RFC3339 (datetime-local + tz) or a bare date; zero on empty/invalid.
+func parseUpdateDate(s string) time.Time {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return time.Time{}
+	}
+	for _, layout := range []string{time.RFC3339, "2006-01-02T15:04", "2006-01-02"} {
+		if t, err := time.ParseInLocation(layout, s, time.Local); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
 }
 
 func (h *CampaignUpdateHandler) List(c echo.Context) error {
@@ -65,13 +83,30 @@ func (h *CampaignUpdateHandler) Create(c echo.Context) error {
 	if req.Body == "" {
 		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("isi update wajib diisi"))
 	}
+	if len(req.Body) > 200_000 {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("isi update terlalu panjang"))
+	}
+	if req.CreatedAt != "" && parseUpdateDate(req.CreatedAt).IsZero() {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("format tanggal tidak valid"))
+	}
+
+	// Image is a bare upload filename served from /uploads/<name>; strip any path/URL.
+	img := strings.TrimSpace(req.Image)
+	if img != "" && !strings.Contains(img, "://") {
+		img = path.Base(path.Clean("/" + img))
+	} else {
+		img = ""
+	}
 
 	u := model.CampaignUpdate{
 		CampaignID: campaignID,
 		UserID:     claims.UserID,
 		Title:      req.Title,
 		Body:       req.Body,
-		Image:      req.Image,
+		Image:      img,
+	}
+	if t := parseUpdateDate(req.CreatedAt); !t.IsZero() {
+		u.CreatedAt = t // gorm keeps a non-zero CreatedAt on insert
 	}
 	if err := h.repo.Create(&u); err != nil {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))

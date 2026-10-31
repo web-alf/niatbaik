@@ -9,6 +9,7 @@ import {
   Card, PageHeader, Tabs, Btn, Icon, SearchInput, Select, DateRangePill,
   Progress, StatusBadge, Badge, Modal, CampaignThumb,
 } from '@/components';
+import { RichEditor } from './CampaignEditorPage';
 
 // Campaign share helpers. The public campaign page lives at <origin>/c/<slug>.
 // Prefer the human slug; fall back to id; return '' when neither exists so callers
@@ -218,30 +219,60 @@ export default function CampaignsPage() {
 // Post an info-update to a campaign's timeline (backs the "Add Info Update" row action).
 function AddUpdateModal({ campaign, onClose, onSaved }: any) {
   const showToast = useUiStore((s) => s.showToast);
+  const askConfirm = useUiStore((s) => s.askConfirm);
   const [title, setTitle] = useState('');
+  // body is rich HTML (same RichEditor as campaign story → pasted paragraphs keep style).
   const [body, setBody] = useState('');
+  const [image, setImage] = useState('');       // bare upload filename
+  const [uploading, setUploading] = useState(false);
+  // datetime-local value; empty = server now.
+  const [when, setWhen] = useState(() => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16));
   const [saving, setSaving] = useState(false);
   const [existing, setExisting] = useState<any[]>([]);
 
-  useEffect(() => {
-    api.campaignUpdates(campaign.id).then((r: any) => setExisting(Array.isArray(r?.data) ? r.data : [])).catch(() => {});
-  }, [campaign.id]);
+  const reload = () => api.campaignUpdates(campaign.id).then((r: any) => setExisting(Array.isArray(r?.data) ? r.data : [])).catch(() => {});
+  useEffect(() => { reload(); }, [campaign.id]);
+
+  const onPickImage = async (e: any) => {
+    const f: File | undefined = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    setUploading(true);
+    try {
+      const res: any = await api.uploadImage(f); // compressImage → WebP ≤1600px
+      const name = res?.data?.filename || res?.data?.url?.split('/').pop();
+      if (name) setImage(name); else showToast(res?.message || 'Upload gambar gagal');
+    } catch { showToast('Upload gambar gagal'); }
+    finally { setUploading(false); }
+  };
 
   const save = async () => {
-    if (!title.trim() || !body.trim()) { showToast('Judul dan isi update wajib diisi'); return; }
+    const plain = body.replace(/<[^>]+>/g, '').trim();
+    if (!title.trim() || !plain) { showToast('Judul dan isi update wajib diisi'); return; }
     setSaving(true);
     try {
-      await api.createCampaignUpdate(campaign.id, { title: title.trim(), body: body.trim() });
+      // Same portability rewrite as campaign story: absolute dev media → relative /uploads/.
+      const html = body.split('http://localhost:8080/uploads/').join('/uploads/');
+      await api.createCampaignUpdate(campaign.id, {
+        title: title.trim(), body: html, image,
+        created_at: when ? new Date(when).toISOString() : '',
+      });
       showToast('Update campaign ditambahkan');
       onSaved && onSaved();
     } catch (e: any) { showToast(e?.message || 'Gagal menambah update'); }
     finally { setSaving(false); }
   };
 
+  const remove = async (u: any) => {
+    if (!(await askConfirm({ title: 'Hapus update', message: `Hapus update "${u.title}"?`, confirmLabel: 'Ya, hapus', tone: 'bad', icon: 'trash' }))) return;
+    try { await api.deleteCampaignUpdate(campaign.id, u.id); showToast('Update dihapus'); reload(); }
+    catch (e: any) { showToast(e?.message || 'Gagal menghapus'); }
+  };
+
   return (
     <Modal open onClose={onClose} title={`Info Update — ${campaign.title}`} footer={<>
       <Btn variant="outline" tone="ink" onClick={onClose}>Batal</Btn>
-      <Btn tone="brand" icon={saving ? 'refresh' : 'plus'} onClick={save} disabled={saving}>{saving ? 'Menyimpan…' : 'Tambah Update'}</Btn>
+      <Btn tone="brand" icon={saving ? 'refresh' : 'plus'} onClick={save} disabled={saving || uploading}>{saving ? 'Menyimpan…' : 'Tambah Update'}</Btn>
     </>}>
       <div className="space-y-3">
         <div>
@@ -249,15 +280,33 @@ function AddUpdateModal({ campaign, onClose, onSaved }: any) {
           <input className="field w-full mt-1" value={title} onChange={e => setTitle(e.target.value)} placeholder="mis. Tim sudah tiba di lokasi" maxLength={255}/>
         </div>
         <div>
+          <label className="text-xs font-semibold text-mute">Tanggal update</label>
+          <input type="datetime-local" className="field w-full mt-1" value={when} onChange={e => setWhen(e.target.value)}/>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-mute">Gambar (opsional, otomatis dikompres)</label>
+          <div className="mt-1 flex items-center gap-3">
+            {image && <img src={mediaUrl(image)} alt="" className="h-16 w-24 rounded-lg object-cover border border-line"/>}
+            <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line text-xs font-semibold text-ink cursor-pointer hover:bg-bg2">
+              <Icon name="upload" size={14}/> {uploading ? 'Mengunggah…' : image ? 'Ganti gambar' : 'Pilih gambar'}
+              <input type="file" accept="image/*" className="hidden" onChange={onPickImage} disabled={uploading}/>
+            </label>
+            {image && <button type="button" onClick={() => setImage('')} className="text-xs text-rose-600 font-semibold">Hapus</button>}
+          </div>
+        </div>
+        <div>
           <label className="text-xs font-semibold text-mute">Isi update</label>
-          <textarea className="field w-full mt-1" rows={4} value={body} onChange={e => setBody(e.target.value)} placeholder="Ceritakan progres terbaru campaign ini…"/>
+          <RichEditor value={body} onChange={setBody}/>
         </div>
         {existing.length > 0 && (
           <div className="pt-2 border-t border-line">
             <div className="text-xs font-semibold text-mute mb-1">{existing.length} update sebelumnya</div>
             <div className="space-y-1 max-h-32 overflow-auto">
               {existing.map((u: any) => (
-                <div key={u.id} className="text-xs text-ink/80"><b>{u.title}</b> · {u.created_at ? new Date(u.created_at).toLocaleDateString('id-ID') : ''}</div>
+                <div key={u.id} className="flex items-center justify-between gap-2 text-xs text-ink/80">
+                  <span className="truncate"><b>{u.title}</b> · {u.created_at ? new Date(u.created_at).toLocaleDateString('id-ID') : ''}</span>
+                  <button type="button" onClick={() => remove(u)} title="Hapus" className="text-rose-600 hover:text-rose-700 shrink-0"><Icon name="trash" size={13}/></button>
+                </div>
               ))}
             </div>
           </div>

@@ -277,7 +277,11 @@ export function Navbar({ onNav, onHome }: any) {
       {/* <div> not <aside>: aside has implicit role=complementary, which conflicts with role=dialog. */}
       <div className={`lg:hidden fixed top-0 right-0 z-[100] h-full w-72 max-w-[85vw] bg-white shadow-pop flex flex-col
         transition-transform duration-300 ease-out ${open ? 'translate-x-0' : 'translate-x-full'}`}
-        role="dialog" aria-modal="true" aria-label="Menu" aria-hidden={!open}>
+        role="dialog" aria-modal="true" aria-label="Menu"
+        // inert (not aria-hidden): removes the closed drawer from the a11y tree AND
+        // makes its links unfocusable — aria-hidden alone fails "hidden element
+        // contains focusable elements". Spread+cast: React 18 types lack `inert`.
+        {...({ inert: open ? undefined : '' } as any)}>
         <div className="h-16 px-4 flex items-center justify-between border-b border-line">
           {navLogo ? <img src={mediaUrl(navLogo)} alt="NIATBAIK.ORG" className="h-7"/> : <Logo size={28}/>}
           <button onClick={() => setOpen(false)} aria-label="Tutup menu" className="h-9 w-9 rounded-lg hover:bg-bg2 flex items-center justify-center">
@@ -1336,7 +1340,10 @@ export function CampaignPage({ c: listItem, onNav }: any) {
                   if CLS reappears on slow networks. */}
               <div className="relative overflow-hidden">
                 {hasThumbImage(c) ? (
-                  <img src={mediaUrl(campaignImage(c))} alt={c.title} fetchPriority="high" decoding="async" className="w-full h-auto max-h-[70vh] object-contain bg-bg2"/>
+                  <img src={mediaUrl(campaignImage(c))} alt={c.title} fetchPriority="high" decoding="async" className="w-full h-auto max-h-[70vh] object-contain bg-bg2"
+                    // `auto 16/9`: reserve a 16:9 box until the file arrives, then use the
+                    // intrinsic ratio — so a cold-cache load doesn't collapse to 0px then grow.
+                    style={{ aspectRatio: 'auto 16 / 9' }}/>
                 ) : (
                   <div className="aspect-[4/3] sm:aspect-[16/9] flex items-center justify-center text-white/85" style={thumbStyle(c)}>
                     <Icon name={c.icon} size={140} strokeWidth={1}/>
@@ -2818,10 +2825,13 @@ function CampaignUpdates({ updates }: any) {
       {items.map((u: any, i: number) => (
         <div key={i} className="flex gap-3">
           <div className="h-9 w-9 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center shrink-0"><Icon name="pin" size={16}/></div>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="text-xs text-mute">{fmtDate(u.created_at)}</div>
             <div className="font-bold text-ink">{u.title}</div>
-            <div className="text-sm text-ink/85 mt-0.5 leading-relaxed">{u.body}</div>
+            {u.image && <img src={mediaUrl(u.image)} alt={u.title} loading="lazy" className="mt-2 w-full rounded-xl border border-line object-cover"/>}
+            {/* Body is rich HTML from the admin RichEditor (same sanitize+prose as story). */}
+            <div className="prose prose-slate dark:prose-invert prose-sm max-w-none text-ink/85 mt-1"
+              dangerouslySetInnerHTML={{ __html: normalizeRichTextColors(sanitizeHTML(u.body || '') as string) }}/>
           </div>
         </div>
       ))}

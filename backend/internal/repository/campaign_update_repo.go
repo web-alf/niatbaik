@@ -4,6 +4,7 @@ import (
 	"github.com/anrdart/niatbaik-api/internal/model"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type CampaignUpdateRepo struct {
@@ -37,8 +38,10 @@ func (r *CampaignUpdateRepo) FindByCampaign(campaignID, id uuid.UUID) (*model.Ca
 	return &u, nil
 }
 
+// Update persists edited columns only; associations (Campaign/User) are never
+// written back from the zero-valued structs on the model.
 func (r *CampaignUpdateRepo) Update(u *model.CampaignUpdate) error {
-	return r.db.Save(u).Error
+	return r.db.Omit(clause.Associations).Save(u).Error
 }
 
 func (r *CampaignUpdateRepo) Delete(id uuid.UUID) error {

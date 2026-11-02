@@ -238,10 +238,14 @@ function AddUpdateModal({ campaign, onClose, onSaved }: any) {
   const [existing, setExisting] = useState<any[]>([]);
   // Non-null while editing an existing update; the form then saves via PUT instead of POST.
   const [editing, setEditing] = useState<any>(null);
+  // RichEditor is a contentEditable that only reads `value` on mount, so bump this key
+  // whenever the form is (re)filled to force a fresh editor with the right content.
+  const [editorKey, setEditorKey] = useState(0);
 
-  const resetForm = () => { setEditing(null); setTitle(''); setBody(''); setImage(''); setWhen(toLocalInput()); };
+  const resetForm = () => { setEditing(null); setTitle(''); setBody(''); setImage(''); setWhen(toLocalInput()); setEditorKey(k => k + 1); };
   const startEdit = (u: any) => {
     setEditing(u);
+    setEditorKey(k => k + 1);
     setTitle(u.title || '');
     setBody(u.body || '');
     setImage(u.image || '');
@@ -335,7 +339,7 @@ function AddUpdateModal({ campaign, onClose, onSaved }: any) {
         </div>
         <div>
           <label className="text-xs font-semibold text-mute">Isi update</label>
-          <RichEditor value={body} onChange={setBody}/>
+          <RichEditor key={editorKey} value={body} onChange={setBody}/>
         </div>
         {existing.length > 0 && (
           <div className="pt-2 border-t border-line">

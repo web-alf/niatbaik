@@ -216,7 +216,14 @@ export default function CampaignsPage() {
   );
 }
 
-// Post an info-update to a campaign's timeline (backs the "Add Info Update" row action).
+// ISO/date string → <input type="datetime-local"> value in the browser's local tz.
+function toLocalInput(iso?: string) {
+  const d = iso ? new Date(iso) : new Date();
+  if (isNaN(d.getTime())) return '';
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+}
+
+// Post or edit an info-update on a campaign's timeline (backs the "Add Info Update" row action).
 function AddUpdateModal({ campaign, onClose, onSaved }: any) {
   const showToast = useUiStore((s) => s.showToast);
   const askConfirm = useUiStore((s) => s.askConfirm);
@@ -226,9 +233,20 @@ function AddUpdateModal({ campaign, onClose, onSaved }: any) {
   const [image, setImage] = useState('');       // bare upload filename
   const [uploading, setUploading] = useState(false);
   // datetime-local value; empty = server now.
-  const [when, setWhen] = useState(() => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+  const [when, setWhen] = useState(() => toLocalInput());
   const [saving, setSaving] = useState(false);
   const [existing, setExisting] = useState<any[]>([]);
+  // Non-null while editing an existing update; the form then saves via PUT instead of POST.
+  const [editing, setEditing] = useState<any>(null);
+
+  const resetForm = () => { setEditing(null); setTitle(''); setBody(''); setImage(''); setWhen(toLocalInput()); };
+  const startEdit = (u: any) => {
+    setEditing(u);
+    setTitle(u.title || '');
+    setBody(u.body || '');
+    setImage(u.image || '');
+    setWhen(toLocalInput(u.created_at));
+  };
 
   const reload = () => api.campaignUpdates(campaign.id).then((r: any) => setExisting(Array.isArray(r?.data) ? r.data : [])).catch(() => {});
   useEffect(() => { reload(); }, [campaign.id]);
@@ -253,28 +271,49 @@ function AddUpdateModal({ campaign, onClose, onSaved }: any) {
     try {
       // Same portability rewrite as campaign story: absolute dev media → relative /uploads/.
       const html = body.split('http://localhost:8080/uploads/').join('/uploads/');
-      await api.createCampaignUpdate(campaign.id, {
+      const payload = {
         title: title.trim(), body: html, image,
         created_at: when ? new Date(when).toISOString() : '',
-      });
-      showToast('Update campaign ditambahkan');
-      onSaved && onSaved();
-    } catch (e: any) { showToast(e?.message || 'Gagal menambah update'); }
+      };
+      if (editing) {
+        await api.updateCampaignUpdate(campaign.id, editing.id, payload);
+        showToast('Update campaign disimpan');
+        resetForm();
+        reload();
+      } else {
+        await api.createCampaignUpdate(campaign.id, payload);
+        showToast('Update campaign ditambahkan');
+        onSaved && onSaved();
+      }
+    } catch (e: any) { showToast(e?.message || (editing ? 'Gagal menyimpan update' : 'Gagal menambah update')); }
     finally { setSaving(false); }
   };
 
   const remove = async (u: any) => {
     if (!(await askConfirm({ title: 'Hapus update', message: `Hapus update "${u.title}"?`, confirmLabel: 'Ya, hapus', tone: 'bad', icon: 'trash' }))) return;
-    try { await api.deleteCampaignUpdate(campaign.id, u.id); showToast('Update dihapus'); reload(); }
+    try {
+      await api.deleteCampaignUpdate(campaign.id, u.id);
+      showToast('Update dihapus');
+      if (editing?.id === u.id) resetForm();
+      reload();
+    }
     catch (e: any) { showToast(e?.message || 'Gagal menghapus'); }
   };
 
   return (
     <Modal open onClose={onClose} title={`Info Update — ${campaign.title}`} footer={<>
-      <Btn variant="outline" tone="ink" onClick={onClose}>Batal</Btn>
-      <Btn tone="brand" icon={saving ? 'refresh' : 'plus'} onClick={save} disabled={saving || uploading}>{saving ? 'Menyimpan…' : 'Tambah Update'}</Btn>
+      <Btn variant="outline" tone="ink" onClick={onClose}>Tutup</Btn>
+      {editing && <Btn variant="outline" tone="ink" onClick={resetForm} disabled={saving}>Batal Edit</Btn>}
+      <Btn tone="brand" icon={saving ? 'refresh' : editing ? 'check' : 'plus'} onClick={save} disabled={saving || uploading}>
+        {saving ? 'Menyimpan…' : editing ? 'Simpan Perubahan' : 'Tambah Update'}
+      </Btn>
     </>}>
       <div className="space-y-3">
+        {editing && (
+          <div className="flex items-center gap-2 text-xs font-semibold text-brand bg-brand/5 border border-brand/20 rounded-lg px-3 py-2">
+            <Icon name="edit" size={14}/> Mengedit update: <span className="truncate">{editing.title}</span>
+          </div>
+        )}
         <div>
           <label className="text-xs font-semibold text-mute">Judul</label>
           <input className="field w-full mt-1" value={title} onChange={e => setTitle(e.target.value)} placeholder="mis. Tim sudah tiba di lokasi" maxLength={255}/>
@@ -303,9 +342,12 @@ function AddUpdateModal({ campaign, onClose, onSaved }: any) {
             <div className="text-xs font-semibold text-mute mb-1">{existing.length} update sebelumnya</div>
             <div className="space-y-1 max-h-32 overflow-auto">
               {existing.map((u: any) => (
-                <div key={u.id} className="flex items-center justify-between gap-2 text-xs text-ink/80">
+                <div key={u.id} className={`flex items-center justify-between gap-2 text-xs text-ink/80 rounded px-1 ${editing?.id === u.id ? 'bg-brand/10' : ''}`}>
                   <span className="truncate"><b>{u.title}</b> · {u.created_at ? new Date(u.created_at).toLocaleDateString('id-ID') : ''}</span>
-                  <button type="button" onClick={() => remove(u)} title="Hapus" className="text-rose-600 hover:text-rose-700 shrink-0"><Icon name="trash" size={13}/></button>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <button type="button" onClick={() => startEdit(u)} title="Edit" className="text-ink/60 hover:text-brand"><Icon name="edit" size={13}/></button>
+                    <button type="button" onClick={() => remove(u)} title="Hapus" className="text-rose-600 hover:text-rose-700"><Icon name="trash" size={13}/></button>
+                  </span>
                 </div>
               ))}
             </div>

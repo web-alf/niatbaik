@@ -392,6 +392,7 @@ export const api = {
   // Per-campaign info updates (detail-page timeline)
   campaignUpdates(id: string | number) { return this.get<any[]>('/admin/campaigns/' + id + '/updates'); },
   createCampaignUpdate(id: string | number, data: unknown) { return this.post<any>('/admin/campaigns/' + id + '/updates', data); },
+  updateCampaignUpdate(id: string | number, updateId: string | number, data: unknown) { return this.put<any>('/admin/campaigns/' + id + '/updates/' + updateId, data); },
   deleteCampaignUpdate(id: string | number, updateId: string | number) { return this.del('/admin/campaigns/' + id + '/updates/' + updateId); },
 
   // Users

@@ -46,6 +46,41 @@ func parseUpdateDate(s string) time.Time {
 	return time.Time{}
 }
 
+// bindUpdateInput binds + validates the shared create/edit payload. Returns the
+// normalised input, the bare image filename, and a user-facing error message ("" = ok).
+func bindUpdateInput(c echo.Context) (campaignUpdateInput, string, string) {
+	var req campaignUpdateInput
+	if err := c.Bind(&req); err != nil {
+		return req, "", "invalid request body"
+	}
+	req.Title = strings.TrimSpace(req.Title)
+	req.Body = strings.TrimSpace(req.Body)
+	if req.Title == "" {
+		return req, "", "judul update wajib diisi"
+	}
+	if len(req.Title) > 255 {
+		return req, "", "judul maksimal 255 karakter"
+	}
+	if req.Body == "" {
+		return req, "", "isi update wajib diisi"
+	}
+	if len(req.Body) > 200_000 {
+		return req, "", "isi update terlalu panjang"
+	}
+	if req.CreatedAt != "" && parseUpdateDate(req.CreatedAt).IsZero() {
+		return req, "", "format tanggal tidak valid"
+	}
+
+	// Image is a bare upload filename served from /uploads/<name>; strip any path/URL.
+	img := strings.TrimSpace(req.Image)
+	if img != "" && !strings.Contains(img, "://") {
+		img = path.Base(path.Clean("/" + img))
+	} else {
+		img = ""
+	}
+	return req, img, ""
+}
+
 func (h *CampaignUpdateHandler) List(c echo.Context) error {
 	campaignID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -68,34 +103,9 @@ func (h *CampaignUpdateHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid campaign id"))
 	}
 
-	var req campaignUpdateInput
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid request body"))
-	}
-	req.Title = strings.TrimSpace(req.Title)
-	req.Body = strings.TrimSpace(req.Body)
-	if req.Title == "" {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("judul update wajib diisi"))
-	}
-	if len(req.Title) > 255 {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("judul maksimal 255 karakter"))
-	}
-	if req.Body == "" {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("isi update wajib diisi"))
-	}
-	if len(req.Body) > 200_000 {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("isi update terlalu panjang"))
-	}
-	if req.CreatedAt != "" && parseUpdateDate(req.CreatedAt).IsZero() {
-		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse("format tanggal tidak valid"))
-	}
-
-	// Image is a bare upload filename served from /uploads/<name>; strip any path/URL.
-	img := strings.TrimSpace(req.Image)
-	if img != "" && !strings.Contains(img, "://") {
-		img = path.Base(path.Clean("/" + img))
-	} else {
-		img = ""
+	req, img, msg := bindUpdateInput(c)
+	if msg != "" {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(msg))
 	}
 
 	u := model.CampaignUpdate{
@@ -112,6 +122,39 @@ func (h *CampaignUpdateHandler) Create(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))
 	}
 	return c.JSON(http.StatusCreated, response.SuccessResponse(u, "update created"))
+}
+
+// Update edits an existing info-update (title/body/image/date). Scoped to the campaign
+// in the URL so an update id cannot be edited via another campaign.
+func (h *CampaignUpdateHandler) Update(c echo.Context) error {
+	campaignID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid campaign id"))
+	}
+	id, err := uuid.Parse(c.Param("updateId"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse("invalid update id"))
+	}
+	u, err := h.repo.FindByCampaign(campaignID, id)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, response.ErrorResponse("update tidak ditemukan"))
+	}
+
+	req, img, msg := bindUpdateInput(c)
+	if msg != "" {
+		return c.JSON(http.StatusUnprocessableEntity, response.ErrorResponse(msg))
+	}
+
+	u.Title = req.Title
+	u.Body = req.Body
+	u.Image = img
+	if t := parseUpdateDate(req.CreatedAt); !t.IsZero() {
+		u.CreatedAt = t
+	}
+	if err := h.repo.Update(u); err != nil {
+		return c.JSON(http.StatusBadRequest, response.ErrorResponse(err.Error()))
+	}
+	return c.JSON(http.StatusOK, response.SuccessResponse(u, "update saved"))
 }
 
 func (h *CampaignUpdateHandler) Delete(c echo.Context) error {

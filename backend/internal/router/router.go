@@ -227,6 +227,7 @@ func Setup(e *echo.Echo, db *gorm.DB, cfg *config.Config) *service.GoogleAdsWork
 	campaignUpdateHandler := handler.NewCampaignUpdateHandler(campaignUpdateRepo)
 	staff.GET("/admin/campaigns/:id/updates", campaignUpdateHandler.List)
 	staff.POST("/admin/campaigns/:id/updates", campaignUpdateHandler.Create)
+	staff.PUT("/admin/campaigns/:id/updates/:updateId", campaignUpdateHandler.Update)
 	staff.DELETE("/admin/campaigns/:id/updates/:updateId", campaignUpdateHandler.Delete)
 
 	// News/articles ("Berita") — editorial content: admin + cs + writer. Writer is a

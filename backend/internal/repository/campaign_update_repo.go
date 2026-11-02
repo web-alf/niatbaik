@@ -27,6 +27,20 @@ func (r *CampaignUpdateRepo) Create(u *model.CampaignUpdate) error {
 	return r.db.Create(u).Error
 }
 
+// FindByCampaign fetches one update scoped to its campaign so an admin cannot edit an
+// update through a different campaign's URL.
+func (r *CampaignUpdateRepo) FindByCampaign(campaignID, id uuid.UUID) (*model.CampaignUpdate, error) {
+	var u model.CampaignUpdate
+	if err := r.db.Where("campaign_id = ? AND id = ?", campaignID, id).First(&u).Error; err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+func (r *CampaignUpdateRepo) Update(u *model.CampaignUpdate) error {
+	return r.db.Save(u).Error
+}
+
 func (r *CampaignUpdateRepo) Delete(id uuid.UUID) error {
 	return r.db.Delete(&model.CampaignUpdate{}, "id = ?", id).Error
 }
